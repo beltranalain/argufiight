@@ -1,0 +1,7 @@
+{
+  "buildCommand": "node scripts/regenerate-prisma.js && next build",
+  "installCommand": "npm install && node scripts/regenerate-prisma.js",
+  "framework": "nextjs",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./"
+}
+

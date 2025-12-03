@@ -4,9 +4,9 @@
   "description": "AI-judged debate platform with horizontal UI",
   "private": true,
   "scripts": {
-    "postinstall": "prisma generate",
+    "postinstall": "node scripts/regenerate-prisma.js",
     "dev": "next dev --webpack",
-    "build": "prisma generate && next build",
+    "build": "node scripts/regenerate-prisma.js && next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
