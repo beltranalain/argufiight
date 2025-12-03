@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation'
 import { RichTextContent } from '@/components/legal/RichTextContent'
 import { PublicFooter } from '@/components/homepage/PublicFooter'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Privacy Policy - Honorable AI',
   description: 'Privacy Policy for Honorable AI - AI-Judged Debate Platform',
