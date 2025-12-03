@@ -183,7 +183,14 @@ export async function POST(request: NextRequest) {
     })
 
     // Create session
-    await createSession(user.id)
+    try {
+      await createSession(user.id)
+    } catch (sessionError) {
+      console.error('Session creation error:', sessionError)
+      // If session creation fails, delete the user we just created to avoid orphaned accounts
+      await prisma.user.delete({ where: { id: user.id } })
+      throw new Error(`Failed to create session: ${sessionError instanceof Error ? sessionError.message : String(sessionError)}`)
+    }
 
     // Return user (without password)
     const { passwordHash: _, ...userWithoutPassword } = user
