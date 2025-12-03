@@ -86,7 +86,9 @@ export default function SignupPage() {
           // Don't redirect, show success message
           return
         }
-        throw new Error(data.error || 'Failed to create account')
+        // Show detailed error if available
+        const errorMsg = data.details ? `${data.error}: ${data.details}` : (data.error || 'Failed to create account')
+        throw new Error(errorMsg)
       }
 
       router.push('/')

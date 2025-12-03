@@ -195,10 +195,17 @@ export async function POST(request: NextRequest) {
     console.error('Signup error:', error)
     console.error('Error details:', error instanceof Error ? error.message : String(error))
     console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace')
+    
+    // Return error details for debugging (always show in production for now to diagnose)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : 'No stack trace'
+    
     return NextResponse.json(
       { 
         error: 'Internal server error',
-        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+        details: errorMessage,
+        // Only include stack in development
+        stack: process.env.NODE_ENV === 'development' ? errorStack : undefined
       },
       { status: 500 }
     )
