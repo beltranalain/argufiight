@@ -1,13 +1,14 @@
-// This is your Prisma schema file for local development
-// Using SQLite for simplicity
+// This is your Prisma schema file
+// Using PostgreSQL for production (Vercel Postgres)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // User/Profile model for local authentication
