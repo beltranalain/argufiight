@@ -1,6 +1,6 @@
 {
   "name": "honorable.ai",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-judged debate platform with horizontal UI",
   "private": true,
   "scripts": {
