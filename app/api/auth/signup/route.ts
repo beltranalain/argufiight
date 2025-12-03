@@ -88,11 +88,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Check user limit
-    const userLimitSetting = await prisma.adminSetting.findUnique({
-      where: { key: 'user_limit' },
-    })
-
-    const userLimit = userLimitSetting ? parseInt(userLimitSetting.value) : 0
+    let userLimit = 0
+    try {
+      const userLimitSetting = await prisma.adminSetting.findUnique({
+        where: { key: 'user_limit' },
+      })
+      userLimit = userLimitSetting ? parseInt(userLimitSetting.value) : 0
+    } catch (error) {
+      // AdminSetting table might not exist yet, default to unlimited
+      console.log('AdminSetting table not found, defaulting to unlimited users')
+      userLimit = 0
+    }
 
     if (userLimit > 0) {
       // Count active users (not banned)
@@ -187,8 +193,13 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
   } catch (error) {
     console.error('Signup error:', error)
+    console.error('Error details:', error instanceof Error ? error.message : String(error))
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace')
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+      },
       { status: 500 }
     )
   }
