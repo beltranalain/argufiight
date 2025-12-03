@@ -1,0 +1,71 @@
+import { SignJWT } from 'jose'
+import { cookies } from 'next/headers'
+import { prisma } from '@/lib/db/prisma'
+
+const secretKey = process.env.AUTH_SECRET || 'your-secret-key-change-in-production'
+const encodedKey = new TextEncoder().encode(secretKey)
+
+/**
+ * Create a new session and store it in the database
+ * Uses a session token in the cookie that references the database session
+ * NOTE: This must be called from Node.js runtime (API routes), not Edge runtime
+ * This function uses Node.js crypto which is not available in Edge runtime
+ */
+export async function createSession(userId: string) {
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+  
+  // Generate a unique session token using crypto (Node.js only)
+  // This function is only called from API routes which run in Node.js runtime
+  // We use require() here instead of import to avoid Edge runtime evaluation
+  const crypto = require('crypto')
+  const sessionToken = crypto.randomBytes(32).toString('hex')
+  
+  // Create JWT with session token (not userId directly)
+  const sessionJWT = await new SignJWT({ sessionToken })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(expiresAt)
+    .sign(encodedKey)
+
+  // Store session in database
+  await prisma.session.create({
+    data: {
+      userId,
+      token: sessionToken,
+      expiresAt,
+    },
+  })
+
+  const cookieStore = await cookies()
+  cookieStore.set('session', sessionJWT, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    expires: expiresAt,
+    path: '/',
+  })
+
+  return sessionJWT
+}
+
+// Re-export verifySessionWithDb as verifySession for API routes (Node.js runtime)
+// This allows API routes to import from one place
+export { verifySessionWithDb as verifySession, deleteSession, getSession } from './session-verify'
+
+/**
+ * Get all active sessions for a user (for multi-session support)
+ */
+export async function getUserSessions(userId: string) {
+  return prisma.session.findMany({
+    where: {
+      userId,
+      expiresAt: {
+        gt: new Date(),
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  })
+}
+

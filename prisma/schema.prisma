@@ -1,0 +1,1013 @@
+// This is your Prisma schema file for local development
+// Using SQLite for simplicity
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User/Profile model for local authentication
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  username     String  @unique
+  passwordHash String  @map("password_hash")
+  avatarUrl    String? @map("avatar_url")
+  bio          String?
+
+  // Stats
+  eloRating    Int @default(1200) @map("elo_rating")
+  debatesWon   Int @default(0) @map("debates_won")
+  debatesLost  Int @default(0) @map("debates_lost")
+  debatesTied  Int @default(0) @map("debates_tied")
+  totalDebates Int @default(0) @map("total_debates")
+
+  // Permissions
+  isAdmin  Boolean @default(false) @map("is_admin")
+  isBanned Boolean @default(false) @map("is_banned")
+
+  // Employee fields (only for employees)
+  employeeRole String? @map("employee_role") // e.g., "Admin", "Moderator", "Support"
+  accessLevel  String? @map("access_level") // e.g., "full", "moderation", "support"
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Moderation
+  strikes      Int       @default(0)
+  bannedUntil  DateTime? @map("banned_until")
+  banReason    String?   @map("ban_reason")
+  rankedBanned Boolean   @default(false) @map("ranked_banned")
+
+  // Relations
+  sessions          Session[]
+  challengerDebates Debate[]        @relation("Challenger")
+  opponentDebates   Debate[]        @relation("Opponent")
+  statements        Statement[]
+  notifications     Notification[]
+  chatMessages      ChatMessage[]
+  reports           Report[]
+  predictions       Prediction[]
+  apiUsage          ApiUsage[]
+  debateLikes       DebateLike[]
+  debateSaves       DebateSave[]
+  debateShares      DebateShare[]
+  debateComments    DebateComment[]
+  following         Follow[]        @relation("Follower")
+  followers         Follow[]        @relation("Following")
+  createdModels     ModelVersion[]  @relation("ModelCreator")
+
+  @@index([email])
+  @@index([username])
+  @@index([eloRating])
+  @@map("users")
+}
+
+// Session model for authentication
+model Session {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
+}
+
+// ============================================
+// DEBATES
+// ============================================
+
+model Debate {
+  id          String         @id @default(uuid())
+  topic       String
+  description String?
+  category    DebateCategory
+
+  // Participants
+  challengerId String @map("challenger_id")
+  challenger   User   @relation("Challenger", fields: [challengerId], references: [id], onDelete: Cascade)
+
+  opponentId String? @map("opponent_id")
+  opponent   User?   @relation("Opponent", fields: [opponentId], references: [id], onDelete: SetNull)
+
+  // Direct Challenge System
+  challengeType  String  @default("OPEN") @map("challenge_type") // OPEN, DIRECT, GROUP
+  invitedUserIds String? @map("invited_user_ids") // JSON array of user IDs for direct/group challenges
+  invitedBy      String? @map("invited_by") // User ID who sent the direct challenge
+
+  // Positions
+  challengerPosition DebatePosition @map("challenger_position")
+  opponentPosition   DebatePosition @map("opponent_position")
+
+  // Configuration
+  totalRounds   Int     @default(5) @map("total_rounds")
+  currentRound  Int     @default(1) @map("current_round")
+  roundDuration Int     @default(86400000) @map("round_duration") // milliseconds (24h default)
+  speedMode     Boolean @default(false) @map("speed_mode")
+
+  // Status
+  status DebateStatus @default(WAITING)
+
+  // Verdict
+  winnerId       String?   @map("winner_id")
+  verdictReached Boolean   @default(false) @map("verdict_reached")
+  verdictDate    DateTime? @map("verdict_date")
+
+  // Appeal System
+  appealedAt            DateTime?     @map("appealed_at")
+  appealStatus          AppealStatus? @map("appeal_status")
+  appealCount           Int           @default(0) @map("appeal_count")
+  appealedBy            String?       @map("appealed_by") // User ID who appealed
+  originalWinnerId      String?       @map("original_winner_id") // Store original winner before appeal
+  appealReason          String?       @map("appeal_reason") // User's explanation for why they're appealing
+  appealedStatements    String?       @map("appealed_statements") // JSON array of statement IDs being appealed
+  appealRejectionReason String?       @map("appeal_rejection_reason") // AI-generated reason when appeal doesn't change verdict
+
+  // Rematch System
+  rematchRequestedBy    String?       @map("rematch_requested_by") // User ID who requested rematch
+  rematchRequestedAt    DateTime?     @map("rematch_requested_at")
+  rematchStatus         RematchStatus? @map("rematch_status")
+  originalDebateId      String?       @map("original_debate_id") // Reference to the original debate if this is a rematch
+  rematchDebateId       String?       @map("rematch_debate_id") // Reference to the rematch debate if one was created
+
+  // Metadata
+  spectatorCount Int     @default(0) @map("spectator_count")
+  viewCount      Int     @default(0) @map("view_count")
+  featured       Boolean @default(false)
+
+  // Relations
+  images DebateImage[]
+
+  // ELO changes
+  challengerEloChange Int? @map("challenger_elo_change")
+  opponentEloChange   Int? @map("opponent_elo_change")
+
+  // Timestamps
+  startedAt DateTime? @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Round deadlines
+  roundDeadline DateTime? @map("round_deadline")
+
+  // Relations
+  statements        Statement[]
+  verdicts          Verdict[]
+  chatMessages      ChatMessage[]
+  notifications     Notification[]
+  reports           Report[]
+  predictions       Prediction[]
+  apiUsage          ApiUsage[]
+  likes             DebateLike[]
+  saves             DebateSave[]
+  shares            DebateShare[]
+  comments          DebateComment[]
+  appealPredictions AppealPrediction[]
+  tags              DebateTag[]
+
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+  @@index([challengerId])
+  @@index([opponentId])
+  @@map("debates")
+}
+
+enum DebateCategory {
+  SPORTS
+  POLITICS
+  TECH
+  ENTERTAINMENT
+  SCIENCE
+  MUSIC
+  OTHER
+}
+
+enum DebatePosition {
+  FOR
+  AGAINST
+}
+
+enum DebateStatus {
+  WAITING // Waiting for opponent
+  ACTIVE // Debate in progress
+  COMPLETED // Debate finished, awaiting verdict
+  VERDICT_READY // AI judges decided
+  APPEALED // Verdict appealed, awaiting re-verdict
+  CANCELLED // Cancelled before completion
+}
+
+enum AppealStatus {
+  PENDING // Appeal submitted, awaiting new verdict
+  PROCESSING // New verdict being generated
+  RESOLVED // Appeal resolved with new verdict
+  DENIED // Appeal denied (if we add validation)
+}
+
+enum RematchStatus {
+  PENDING // Rematch requested, awaiting response
+  ACCEPTED // Rematch accepted, debate created
+  DECLINED // Rematch declined
+}
+
+// ============================================
+// STATEMENTS (Arguments)
+// ============================================
+
+model Statement {
+  id       String @id @default(uuid())
+  debateId String @map("debate_id")
+  debate   Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+
+  authorId String @map("author_id")
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  round   Int
+  content String
+
+  // Moderation
+  flagged       Boolean   @default(false)
+  flaggedReason String?   @map("flagged_reason")
+  moderatedAt   DateTime? @map("moderated_at")
+
+  // AI Moderation
+  aiModerated   Boolean   @default(false) @map("ai_moderated")
+  aiAction      String?   @map("ai_action") // APPROVE, REMOVE, ESCALATE
+  aiConfidence  Int?      @map("ai_confidence") // 0-100
+  aiReasoning   String?   @map("ai_reasoning")
+  aiSeverity    String?   @map("ai_severity") // LOW, MEDIUM, HIGH, CRITICAL
+  aiModeratedAt DateTime? @map("ai_moderated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([debateId, authorId, round])
+  @@index([debateId])
+  @@index([authorId])
+  @@map("statements")
+}
+
+// ============================================
+// DEBATE IMAGES
+// ============================================
+
+model DebateImage {
+  id        String   @id @default(uuid())
+  debateId  String   @map("debate_id")
+  debate    Debate   @relation(fields: [debateId], references: [id], onDelete: Cascade)
+
+  url       String   // Image URL or path
+  alt       String?  // Alt text for accessibility
+  caption   String?  // Optional caption/description
+  order     Int      @default(0) // Display order
+
+  // Metadata
+  width     Int?
+  height    Int?
+  fileSize  Int?     @map("file_size")
+  mimeType  String?  @map("mime_type")
+
+  // Upload info
+  uploadedBy String?  @map("uploaded_by") // User ID
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([debateId])
+  @@index([order])
+  @@map("debate_images")
+}
+
+// ============================================
+// AI JUDGES
+// ============================================
+
+model Judge {
+  id          String @id @default(uuid())
+  name        String @unique
+  personality String
+  emoji       String
+  description String
+
+  // System prompt for this judge
+  systemPrompt String @map("system_prompt") // Store as text in SQLite
+
+  // Stats
+  debatesJudged Int @default(0) @map("debates_judged")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  verdicts Verdict[]
+
+  @@map("judges")
+}
+
+// ============================================
+// VERDICTS
+// ============================================
+
+model Verdict {
+  id       String @id @default(uuid())
+  debateId String @map("debate_id")
+  debate   Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+
+  judgeId String @map("judge_id")
+  judge   Judge  @relation(fields: [judgeId], references: [id], onDelete: Cascade)
+
+  // Decision
+  winnerId  String?         @map("winner_id")
+  decision  VerdictDecision
+  reasoning String
+
+  // Scores
+  challengerScore Int? @map("challenger_score") // 0-100
+  opponentScore   Int? @map("opponent_score") // 0-100
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([debateId, judgeId])
+  @@index([debateId])
+  @@map("verdicts")
+}
+
+enum VerdictDecision {
+  CHALLENGER_WINS
+  OPPONENT_WINS
+  TIE
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type    NotificationType
+  title   String
+  message String
+
+  // Optional debate reference
+  debateId String? @map("debate_id")
+  debate   Debate? @relation(fields: [debateId], references: [id], onDelete: Cascade)
+
+  read   Boolean   @default(false)
+  readAt DateTime? @map("read_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([read])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  DEBATE_TURN // Your turn to argue
+  DEBATE_ACCEPTED // Your challenge was accepted
+  ROUND_ENDING // Round ending soon
+  VERDICT_READY // AI judges decided
+  DEBATE_WON // You won
+  DEBATE_LOST // You lost
+  DEBATE_TIED // Debate tied
+  NEW_CHALLENGE // Someone challenged you
+  OPPONENT_SUBMITTED // Opponent submitted argument
+  DEBATE_INVITATION // Direct challenge invitation
+  DEBATE_GROUP_INVITATION // Group challenge invitation
+  REMATCH_REQUESTED // Someone requested a rematch
+  REMATCH_ACCEPTED // Rematch was accepted
+  REMATCH_DECLINED // Rematch was declined
+}
+
+// ============================================
+// CHAT
+// ============================================
+
+model ChatMessage {
+  id       String @id @default(uuid())
+  debateId String @map("debate_id")
+  debate   Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+
+  authorId String @map("author_id")
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  content String
+
+  // Moderation
+  deleted   Boolean   @default(false)
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy String?   @map("deleted_by")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([debateId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+// ============================================
+// MODERATION
+// ============================================
+
+model Report {
+  id String @id @default(uuid())
+
+  // What's being reported
+  debateId String? @map("debate_id")
+  debate   Debate? @relation(fields: [debateId], references: [id], onDelete: Cascade)
+
+  // Who reported
+  reporterId String @map("reporter_id")
+  reporter   User   @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  // Report details
+  reason      String
+  description String?
+
+  // Status
+  status     ReportStatus @default(PENDING)
+  reviewedBy String?      @map("reviewed_by")
+  reviewedAt DateTime?    @map("reviewed_at")
+  resolution String?
+
+  // AI Moderation
+  aiModerated   Boolean   @default(false) @map("ai_moderated")
+  aiAction      String?   @map("ai_action") // APPROVE, REMOVE, ESCALATE
+  aiConfidence  Int?      @map("ai_confidence") // 0-100
+  aiReasoning   String?   @map("ai_reasoning")
+  aiSeverity    String?   @map("ai_severity") // LOW, MEDIUM, HIGH, CRITICAL
+  aiModeratedAt DateTime? @map("ai_moderated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([status])
+  @@index([aiModerated])
+  @@map("reports")
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+// ============================================
+// PREDICTIONS (Spectator betting)
+// ============================================
+
+model Prediction {
+  id       String @id @default(uuid())
+  debateId String @map("debate_id")
+  debate   Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Prediction
+  predictedWinnerId String @map("predicted_winner_id")
+  confidence        Int // 1-5 stars
+
+  // Result
+  correct Boolean?
+  points  Int? // Points earned/lost
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([debateId, userId])
+  @@index([userId])
+  @@map("predictions")
+}
+
+// ============================================
+// ADMIN SETTINGS (API Keys)
+// ============================================
+
+model AdminSetting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+
+  // Encryption flag
+  encrypted Boolean @default(false)
+
+  // Metadata
+  description String?
+  category    String?
+
+  updatedBy String?  @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([category])
+  @@map("admin_settings")
+}
+
+// Waiting list for users when user limit is reached
+model WaitingList {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String   @unique
+  passwordHash String @map("password_hash") // Store hashed password for when they're approved
+  position  Int      // Position in waiting list (1 = first, 2 = second, etc.)
+  notified  Boolean  @default(false) @map("notified") // Whether they've been notified
+  approved  Boolean  @default(false) @map("approved") // Whether they've been approved to join
+  approvedAt DateTime? @map("approved_at")
+  approvedBy String? @map("approved_by") // Admin who approved them
+  
+  // Metadata
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([email])
+  @@index([position])
+  @@index([approved])
+  @@map("waiting_list")
+}
+
+// ============================================
+// API USAGE TRACKING
+// ============================================
+
+model ApiUsage {
+  id String @id @default(uuid())
+
+  // API Details
+  provider String // e.g., "deepseek", "openai", "resend"
+  endpoint String // e.g., "chat/completions"
+  model    String? // e.g., "deepseek-chat"
+
+  // Request/Response Metrics
+  promptTokens     Int? @map("prompt_tokens")
+  completionTokens Int? @map("completion_tokens")
+  totalTokens      Int? @map("total_tokens")
+
+  // Cost Calculation
+  cost            Float  @default(0) // Cost in USD
+  costPer1kTokens Float? @map("cost_per_1k_tokens") // Cost per 1k tokens
+
+  // Context
+  debateId String? @map("debate_id")
+  debate   Debate? @relation(fields: [debateId], references: [id], onDelete: SetNull)
+  userId   String? @map("user_id")
+  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Status
+  success      Boolean @default(true)
+  errorMessage String? @map("error_message")
+
+  // Metadata
+  responseTime Int?    @map("response_time") // in milliseconds
+  metadata     String? // JSON string for additional data
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([provider])
+  @@index([debateId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("api_usage")
+}
+
+// ============================================
+// SEED DEBATES (AI-generated sample debates)
+// ============================================
+
+model SeedDebate {
+  id             String         @id @default(uuid())
+  topic          String
+  category       DebateCategory
+  challengerName String         @map("challenger_name")
+  opponentName   String         @map("opponent_name")
+
+  // Pre-generated content (stored as JSON strings in SQLite)
+  statements  String // JSON string
+  verdictData String @map("verdict_data") // JSON string
+
+  featured Boolean @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([category])
+  @@map("seed_debates")
+}
+
+// ============================================
+// DEBATE INTERACTIONS & SOCIAL FEATURES
+// ============================================
+
+// Like a debate
+model DebateLike {
+  id       String @id @default(uuid())
+  debateId String @map("debate_id")
+  debate   Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([debateId, userId])
+  @@index([debateId])
+  @@index([userId])
+  @@map("debate_likes")
+}
+
+// Save/bookmark a debate
+model DebateSave {
+  id       String @id @default(uuid())
+  debateId String @map("debate_id")
+  debate   Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([debateId, userId])
+  @@index([debateId])
+  @@index([userId])
+  @@map("debate_saves")
+}
+
+// Share a debate
+model DebateShare {
+  id       String @id @default(uuid())
+  debateId String @map("debate_id")
+  debate   Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Share method (optional tracking)
+  method String? // e.g., "twitter", "facebook", "copy_link"
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([debateId])
+  @@index([userId])
+  @@map("debate_shares")
+}
+
+// Comment on a debate
+model DebateComment {
+  id       String @id @default(uuid())
+  debateId String @map("debate_id")
+  debate   Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  content String
+
+  // Optional: Reply to another comment
+  parentId String?         @map("parent_id")
+  parent   DebateComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  DebateComment[] @relation("CommentReplies")
+
+  // Moderation
+  deleted   Boolean   @default(false)
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy String?   @map("deleted_by")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([debateId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([createdAt])
+  @@map("debate_comments")
+}
+
+// Follow another user
+model Follow {
+  id          String @id @default(uuid())
+  followerId  String @map("follower_id")
+  follower    User   @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String @map("following_id")
+  following   User   @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+// ============================================
+// TAGS
+// ============================================
+
+model Tag {
+  id         String      @id @default(uuid())
+  name       String      @unique
+  color      String      @default("#00aaff")
+  usageCount Int         @default(0) @map("usage_count")
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  debateTags DebateTag[]
+
+  @@index([name])
+  @@index([usageCount])
+  @@map("tags")
+}
+
+model DebateTag {
+  id        String   @id @default(uuid())
+  debateId  String   @map("debate_id")
+  tagId     String   @map("tag_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  debate Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([debateId, tagId])
+  @@index([debateId])
+  @@index([tagId])
+  @@map("debate_tags")
+}
+
+// ============================================
+// LLM MODEL MANAGEMENT
+// ============================================
+
+// Model versions for tracking different LLM models
+model ModelVersion {
+  id          String  @id @default(uuid())
+  name        String // e.g., "Appeal Predictor v1.0"
+  version     String // e.g., "1.0.0"
+  description String?
+  modelType   String  @map("model_type") // e.g., "appeal_predictor", "verdict_judge"
+
+  // Configuration
+  config String? // JSON string for model configuration (hyperparameters, etc.)
+
+  // Status
+  isActive  Boolean @default(false) @map("is_active")
+  isDefault Boolean @default(false) @map("is_default")
+
+  // Metadata
+  createdBy String?  @map("created_by")
+  creator   User?    @relation("ModelCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  metrics           ModelMetric[]
+  abTestsA          ABTest[]           @relation("ABTestModelA")
+  abTestsB          ABTest[]           @relation("ABTestModelB")
+  appealPredictions AppealPrediction[]
+
+  @@unique([name, version])
+  @@index([modelType])
+  @@index([isActive])
+  @@map("model_versions")
+}
+
+// ============================================
+// CATEGORIES
+// ============================================
+
+model Category {
+  id          String  @id @default(uuid())
+  name        String  @unique // e.g., "SPORTS", "TECH"
+  label       String // Display name e.g., "Sports", "Tech"
+  description String?
+  color       String? // Hex color for UI
+  icon        String? // Icon/emoji
+  isActive    Boolean @default(true) @map("is_active")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("categories")
+}
+
+// Performance metrics for model versions
+model ModelMetric {
+  id             String       @id @default(uuid())
+  modelVersionId String       @map("model_version_id")
+  modelVersion   ModelVersion @relation(fields: [modelVersionId], references: [id], onDelete: Cascade)
+
+  // Metrics
+  metricType  String @map("metric_type") // e.g., "accuracy", "precision", "recall", "f1_score"
+  metricValue Float  @map("metric_value")
+
+  // Context
+  dataset String? // e.g., "training", "validation", "test"
+  period  String? // e.g., "daily", "weekly", "monthly"
+
+  // Metadata
+  recordedAt DateTime @default(now()) @map("recorded_at")
+  notes      String?
+
+  @@index([modelVersionId])
+  @@index([metricType])
+  @@index([recordedAt])
+  @@map("model_metrics")
+}
+
+// A/B Testing for model comparison
+model ABTest {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+
+  // Models being tested
+  modelVersionAId String       @map("model_version_a_id")
+  modelVersionA   ModelVersion @relation("ABTestModelA", fields: [modelVersionAId], references: [id], onDelete: Cascade)
+
+  modelVersionBId String       @map("model_version_b_id")
+  modelVersionB   ModelVersion @relation("ABTestModelB", fields: [modelVersionBId], references: [id], onDelete: Cascade)
+
+  // Configuration
+  trafficSplit Int       @default(50) @map("traffic_split") // Percentage for model A (0-100)
+  startDate    DateTime  @map("start_date")
+  endDate      DateTime? @map("end_date")
+
+  // Status
+  status   String  @default("draft") // draft, active, completed, cancelled
+  isActive Boolean @default(false) @map("is_active")
+
+  // Results
+  modelAScore Float?  @map("model_a_score")
+  modelBScore Float?  @map("model_b_score")
+  winner      String? // "A", "B", or "tie"
+
+  // Metadata
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([isActive])
+  @@index([startDate])
+  @@map("ab_tests")
+}
+
+// Appeal success prediction tracking
+model AppealPrediction {
+  id       String @id @default(uuid())
+  debateId String @map("debate_id")
+  debate   Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+
+  // Model used
+  modelVersionId String?       @map("model_version_id")
+  modelVersion   ModelVersion? @relation(fields: [modelVersionId], references: [id], onDelete: SetNull)
+
+  // Prediction
+  predictedSuccess Boolean @map("predicted_success") // Will the appeal succeed?
+  confidence       Float // 0.0 to 1.0
+  reasoning        String? // Model's reasoning
+
+  // Actual result
+  actualSuccess Boolean? @map("actual_success") // Did appeal actually succeed?
+
+  // Metadata
+  predictedAt DateTime  @default(now()) @map("predicted_at")
+  resolvedAt  DateTime? @map("resolved_at")
+
+  @@unique([debateId])
+  @@index([modelVersionId])
+  @@index([predictedSuccess])
+  @@index([actualSuccess])
+  @@map("appeal_predictions")
+}
+
+// ============================================
+// HOMEPAGE CONTENT MANAGEMENT
+// ============================================
+
+// Homepage sections (Hero, Features, How It Works, etc.)
+model HomepageSection {
+  id        String  @id @default(uuid())
+  key       String  @unique // e.g., "hero", "features", "how-it-works"
+  title     String? // Section title
+  content   String? // Rich text content (HTML or markdown)
+  order     Int     @default(0) // Display order
+  isVisible Boolean @default(true) @map("is_visible")
+
+  // SEO
+  metaTitle       String? @map("meta_title")
+  metaDescription String? @map("meta_description")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  images  HomepageImage[]
+  buttons HomepageButton[]
+
+  @@index([key])
+  @@index([order])
+  @@index([isVisible])
+  @@map("homepage_sections")
+}
+
+// Images for homepage sections
+model HomepageImage {
+  id        String          @id @default(uuid())
+  sectionId String          @map("section_id")
+  section   HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  url     String // Image URL or path
+  alt     String? // Alt text
+  caption String? // Image caption
+  linkUrl String? @map("link_url") // Optional link URL for clickable images (e.g., App Store/Google Play links)
+  order   Int     @default(0) // Display order within section
+
+  // Metadata
+  width    Int?
+  height   Int?
+  fileSize Int?    @map("file_size")
+  mimeType String? @map("mime_type")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sectionId])
+  @@index([order])
+  @@map("homepage_images")
+}
+
+// Buttons/CTAs for homepage sections
+model HomepageButton {
+  id        String          @id @default(uuid())
+  sectionId String          @map("section_id")
+  section   HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  text    String // Button text
+  url     String? // Link URL (e.g., "/signup", "/login")
+  variant String  @default("primary") // Button style
+  order   Int     @default(0) // Display order
+
+  isVisible Boolean @default(true) @map("is_visible")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([sectionId])
+  @@index([order])
+  @@map("homepage_buttons")
+}
+
+// Media library for all uploaded images
+model MediaLibrary {
+  id       String  @id @default(uuid())
+  url      String  @unique // File path or URL
+  filename String // Original filename
+  alt      String? // Alt text
+  caption  String? // Caption
+
+  // File metadata
+  width    Int?
+  height   Int?
+  fileSize Int    @map("file_size")
+  mimeType String @map("mime_type")
+
+  // Usage tracking
+  usedIn String? @map("used_in") // e.g., "homepage:hero", "homepage:features"
+
+  // Upload metadata
+  uploadedBy String?  @map("uploaded_by") // User ID
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  @@index([usedIn])
+  @@index([uploadedBy])
+  @@index([uploadedAt])
+  @@map("media_library")
+}
+
+// Legal pages (Terms of Service, Privacy Policy, etc.)
+model LegalPage {
+  id        String  @id @default(uuid())
+  slug      String  @unique // e.g., "terms", "privacy"
+  title     String  // Page title
+  content   String  // Rich text content (HTML)
+  isVisible Boolean @default(true) @map("is_visible")
+
+  // SEO
+  metaTitle       String? @map("meta_title")
+  metaDescription String? @map("meta_description")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([slug])
+  @@index([isVisible])
+  @@map("legal_pages")
+}
