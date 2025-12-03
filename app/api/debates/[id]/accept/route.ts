@@ -29,7 +29,7 @@ export async function POST(
 
     // Check if user is suspended
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: userId || undefined },
       select: { id: true, bannedUntil: true, username: true },
     })
 

@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
 
     // Check if challenger is suspended
     const challenger = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: userId || undefined },
       select: { id: true, bannedUntil: true, username: true },
     })
 
