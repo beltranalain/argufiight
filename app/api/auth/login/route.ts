@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
       debates_lost: userWithoutPassword.debatesLost,
       debates_tied: userWithoutPassword.debatesTied,
       total_debates: userWithoutPassword.totalDebates,
+      isAdmin: userWithoutPassword.isAdmin, // Include isAdmin for web app
     }
 
     return NextResponse.json({

@@ -42,13 +42,15 @@ export default function LoginPage() {
         throw new Error('Login failed: No user data received')
       }
 
-      // Redirect admins to admin dashboard, others to home
-      if (data.user?.isAdmin) {
-        router.push('/admin')
-      } else {
-        router.push('/')
-      }
-      router.refresh()
+      // Wait a moment for session cookie to be set, then redirect
+      // Use window.location to ensure a full page reload so session is detected
+      setTimeout(() => {
+        if (data.user?.isAdmin) {
+          window.location.href = '/admin'
+        } else {
+          window.location.href = '/'
+        }
+      }, 100)
     } catch (err: any) {
       console.error('Login error:', err)
       setError(err.message || 'Invalid email or password')
