@@ -268,7 +268,7 @@ export function ChallengesPanel() {
                       <p className="text-text-primary font-semibold mb-2">{challenge.topic}</p>
                       
                       {/* Display images if available */}
-                      {challenge.images && challenge.images.length > 0 && (
+                      {challenge.images && Array.isArray(challenge.images) && challenge.images.length > 0 && (
                         <div className="mb-3">
                           <div className={`grid gap-2 ${
                             challenge.images.length === 1 ? 'grid-cols-1' :
@@ -278,11 +278,15 @@ export function ChallengesPanel() {
                             'grid-cols-2'
                           }`}>
                             {challenge.images.slice(0, 4).map((image: any) => (
-                              <div key={image.id} className="relative aspect-square rounded overflow-hidden border border-bg-secondary bg-bg-secondary">
+                              <div key={image.id || image.url} className="relative aspect-square rounded overflow-hidden border border-bg-secondary bg-bg-secondary">
                                 <img
                                   src={image.url}
                                   alt={image.alt || challenge.topic}
                                   className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    console.error('Failed to load debate image:', image.url)
+                                    e.currentTarget.style.display = 'none'
+                                  }}
                                 />
                               </div>
                             ))}
@@ -388,7 +392,7 @@ export function ChallengesPanel() {
                       <p className="text-text-primary font-semibold mb-2">{challenge.topic}</p>
                       
                       {/* Display images if available */}
-                      {challenge.images && challenge.images.length > 0 && (
+                      {challenge.images && Array.isArray(challenge.images) && challenge.images.length > 0 && (
                         <div className="mb-3">
                           <div className={`grid gap-2 ${
                             challenge.images.length === 1 ? 'grid-cols-1' :
@@ -398,11 +402,15 @@ export function ChallengesPanel() {
                             'grid-cols-2'
                           }`}>
                             {challenge.images.slice(0, 4).map((image: any) => (
-                              <div key={image.id} className="relative aspect-square rounded overflow-hidden border border-bg-secondary bg-bg-secondary">
+                              <div key={image.id || image.url} className="relative aspect-square rounded overflow-hidden border border-bg-secondary bg-bg-secondary">
                                 <img
                                   src={image.url}
                                   alt={image.alt || challenge.topic}
                                   className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    console.error('Failed to load debate image:', image.url)
+                                    e.currentTarget.style.display = 'none'
+                                  }}
                                 />
                               </div>
                             ))}
