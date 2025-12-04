@@ -2,17 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
+import { put } from '@vercel/blob'
 import { randomBytes } from 'crypto'
 
-// Force Node.js runtime for file operations
-export const runtime = 'nodejs'
-
-// For now, we'll store avatars in the public/uploads/avatars directory
-// In production, you'd want to use a service like Uploadthing, Cloudinary, or S3
-
-const AVATAR_DIR = join(process.cwd(), 'public', 'uploads', 'avatars')
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
 // POST /api/profile/avatar - Upload profile picture
@@ -51,36 +43,49 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create uploads directory if it doesn't exist
-    try {
-      await mkdir(AVATAR_DIR, { recursive: true })
-    } catch (error) {
-      // Directory might already exist, that's fine
-    }
+    // Convert file to buffer
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
 
     // Generate unique filename
     const fileExtension = file.name.split('.').pop() || 'jpg'
-    const crypto = require('crypto')
-    const filename = `${userId}-${crypto.randomBytes(16).toString('hex')}.${fileExtension}`
-    const filepath = join(AVATAR_DIR, filename)
+    const filename = `avatars/${userId}-${randomBytes(16).toString('hex')}.${fileExtension}`
 
-    // Convert file to buffer and save
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    await writeFile(filepath, buffer)
+    let avatarUrl: string
+
+    // Try to upload to Vercel Blob Storage
+    try {
+      const blob = await put(filename, buffer, {
+        access: 'public',
+        contentType: file.type,
+      })
+      avatarUrl = blob.url
+    } catch (blobError: any) {
+      console.error('Failed to upload to Blob Storage:', blobError)
+      
+      // Fallback to base64 data URL if Blob Storage is not configured
+      if (file.size > 1 * 1024 * 1024) { // 1MB limit for base64
+        return NextResponse.json(
+          { error: 'File too large for fallback storage. Please configure BLOB_READ_WRITE_TOKEN in Vercel.' },
+          { status: 500 }
+        )
+      }
+      
+      const base64 = buffer.toString('base64')
+      avatarUrl = `data:${file.type};base64,${base64}`
+    }
 
     // Save avatar URL to database
-    const avatarUrl = `/uploads/avatars/${filename}`
     await prisma.user.update({
       where: { id: userId },
       data: { avatarUrl },
     })
 
     return NextResponse.json({ avatarUrl })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to upload avatar:', error)
     return NextResponse.json(
-      { error: 'Failed to upload avatar' },
+      { error: 'Failed to upload avatar', details: error.message },
       { status: 500 }
     )
   }
