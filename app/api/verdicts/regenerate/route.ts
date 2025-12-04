@@ -399,34 +399,46 @@ export async function POST(request: NextRequest) {
     const originalWinnerId = debate.originalWinnerId
     const verdictFlipped = originalWinnerId !== finalWinnerId
 
-    // Generate rejection reason if appeal didn't change verdict
-    // Also generate approval summary if verdict flipped
+    // Generate rejection/approval reason (use fallback immediately, generate AI reason in background)
+    // This prevents timeout - we return immediately with fallback, then update with AI-generated reason
     let appealRejectionReason: string | null = null
-    if (!verdictFlipped && debate.appealReason) {
-      try {
-        appealRejectionReason = await generateAppealRejectionReason(
-          debate,
-          newVerdicts,
-          debate.appealReason
-        )
-      } catch (error) {
-        console.error('Failed to generate appeal rejection reason:', error)
-        // Use a fallback reason if AI generation fails
-        appealRejectionReason = 'After review by different judges, the original verdict was upheld. The new judges reached the same conclusion based on the arguments presented.'
+    
+    if (!verdictFlipped) {
+      // Appeal denied - use fallback immediately
+      appealRejectionReason = 'After review by different judges, the original verdict was upheld. The new judges reached the same conclusion based on the arguments presented.'
+      
+      // Optionally generate AI reason in background (don't wait)
+      if (debate.appealReason) {
+        generateAppealRejectionReason(debate, newVerdicts, debate.appealReason)
+          .then(reason => {
+            // Update with AI-generated reason if successful
+            prisma.debate.update({
+              where: { id: debateId },
+              data: { appealRejectionReason: reason },
+            }).catch(err => console.error('Failed to update appeal reason:', err))
+          })
+          .catch(error => {
+            console.error('Failed to generate appeal rejection reason:', error)
+            // Keep fallback reason
+          })
       }
     } else if (verdictFlipped && debate.appealReason) {
-      // Generate approval summary when verdict flips
-      try {
-        appealRejectionReason = await generateAppealApprovalReason(
-          debate,
-          newVerdicts,
-          debate.appealReason
-        )
-      } catch (error) {
-        console.error('Failed to generate appeal approval reason:', error)
-        // Use a fallback reason if AI generation fails
-        appealRejectionReason = 'After review by different judges, the original verdict has been overturned. The new judges determined that your appeal arguments were valid, and the outcome has been changed accordingly.'
-      }
+      // Appeal approved - use fallback immediately
+      appealRejectionReason = 'After review by different judges, the original verdict has been overturned. The new judges determined that your appeal arguments were valid, and the outcome has been changed accordingly.'
+      
+      // Optionally generate AI reason in background (don't wait)
+      generateAppealApprovalReason(debate, newVerdicts, debate.appealReason)
+        .then(reason => {
+          // Update with AI-generated reason if successful
+          prisma.debate.update({
+            where: { id: debateId },
+            data: { appealRejectionReason: reason },
+          }).catch(err => console.error('Failed to update appeal reason:', err))
+        })
+        .catch(error => {
+          console.error('Failed to generate appeal approval reason:', error)
+          // Keep fallback reason
+        })
     }
 
     let challengerEloChange = 0
