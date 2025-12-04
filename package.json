@@ -7,6 +7,7 @@
     "postinstall": "node scripts/regenerate-prisma.js",
     "dev": "next dev --webpack",
     "build": "node scripts/regenerate-prisma.js && next build",
+    "setup-db": "node scripts/setup-database.js",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
