@@ -4,36 +4,46 @@
  * This script clears any cached Prisma client and regenerates it
  */
 
-const { execSync } = require('child_process')
-const { existsSync, rmSync } = require('fs')
-const { join } = require('path')
-const path = require('path')
+import { execSync } from 'child_process'
+import { existsSync, rmSync } from 'fs'
+import { join, resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
 
-const rootDir = path.resolve(__dirname, '..')
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const path = { resolve, join }
+
+const rootDir = resolve(__dirname, '..')
 
 console.log('🔄 Force regenerating Prisma Client for PostgreSQL...')
 
-// Verify DATABASE_URL is set
+// Verify DATABASE_URL is set (only during build, not during local install)
 const databaseUrl = process.env.DATABASE_URL
-if (!databaseUrl) {
+const isBuildTime = process.env.NODE_ENV === 'production' || process.env.CI || process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
+
+if (isBuildTime && !databaseUrl) {
   console.error('❌ ERROR: DATABASE_URL environment variable is not set!')
-  console.error('   Please set DATABASE_URL in your Vercel environment variables.')
+  console.error('   Please set DATABASE_URL in your deployment environment variables.')
   process.exit(1)
 }
 
-// Check if it's PostgreSQL (not SQLite)
-if (databaseUrl.startsWith('file:') || databaseUrl.includes('.db')) {
-  console.error('❌ ERROR: DATABASE_URL appears to be SQLite, but schema requires PostgreSQL!')
-  console.error('   DATABASE_URL should start with "postgres://" or "postgresql://"')
-  process.exit(1)
-}
+if (databaseUrl) {
+  // Check if it's PostgreSQL (not SQLite)
+  if (databaseUrl.startsWith('file:') || databaseUrl.includes('.db')) {
+    console.error('❌ ERROR: DATABASE_URL appears to be SQLite, but schema requires PostgreSQL!')
+    console.error('   DATABASE_URL should start with "postgres://" or "postgresql://"')
+    process.exit(1)
+  }
 
-if (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://')) {
-  console.warn('⚠️  WARNING: DATABASE_URL does not start with postgres:// or postgresql://')
-  console.warn('   Current value starts with:', databaseUrl.substring(0, 20) + '...')
-}
+  if (!databaseUrl.startsWith('postgres://') && !databaseUrl.startsWith('postgresql://')) {
+    console.warn('⚠️  WARNING: DATABASE_URL does not start with postgres:// or postgresql://')
+    console.warn('   Current value starts with:', databaseUrl.substring(0, 20) + '...')
+  }
 
-console.log('  → DATABASE_URL is set (PostgreSQL connection)')
+  console.log('  → DATABASE_URL is set (PostgreSQL connection)')
+} else {
+  console.log('  → DATABASE_URL not set (local development - will use schema defaults)')
+}
 
 // Clear Prisma cache directories
 const cachePaths = [
