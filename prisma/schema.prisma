@@ -2,7 +2,7 @@
 // Using PostgreSQL for production (Vercel Postgres)
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   // For Vercel: use rhel-openssl-3.0.x
   // For local dev: native will be added by regenerate script if needed
   binaryTargets = ["rhel-openssl-3.0.x"]
@@ -65,6 +65,11 @@ model User {
   following         Follow[]        @relation("Follower")
   followers         Follow[]        @relation("Following")
   createdModels     ModelVersion[]  @relation("ModelCreator")
+
+  // Tournament relations
+  createdTournaments       Tournament[]            @relation("TournamentCreator")
+  tournamentParticipations TournamentParticipant[] @relation("TournamentParticipant")
+  tournamentSubscription   TournamentSubscription?
 
   @@index([email])
   @@index([username])
@@ -137,11 +142,11 @@ model Debate {
   appealRejectionReason String?       @map("appeal_rejection_reason") // AI-generated reason when appeal doesn't change verdict
 
   // Rematch System
-  rematchRequestedBy    String?       @map("rematch_requested_by") // User ID who requested rematch
-  rematchRequestedAt    DateTime?     @map("rematch_requested_at")
-  rematchStatus         RematchStatus? @map("rematch_status")
-  originalDebateId      String?       @map("original_debate_id") // Reference to the original debate if this is a rematch
-  rematchDebateId       String?       @map("rematch_debate_id") // Reference to the rematch debate if one was created
+  rematchRequestedBy String?        @map("rematch_requested_by") // User ID who requested rematch
+  rematchRequestedAt DateTime?      @map("rematch_requested_at")
+  rematchStatus      RematchStatus? @map("rematch_status")
+  originalDebateId   String?        @map("original_debate_id") // Reference to the original debate if this is a rematch
+  rematchDebateId    String?        @map("rematch_debate_id") // Reference to the rematch debate if one was created
 
   // Metadata
   spectatorCount Int     @default(0) @map("spectator_count")
@@ -178,6 +183,7 @@ model Debate {
   comments          DebateComment[]
   appealPredictions AppealPrediction[]
   tags              DebateTag[]
+  tournamentMatch   TournamentMatch?   @relation("TournamentDebate")
 
   @@index([status])
   @@index([category])
@@ -266,20 +272,20 @@ model Statement {
 // ============================================
 
 model DebateImage {
-  id        String   @id @default(uuid())
-  debateId  String   @map("debate_id")
-  debate    Debate   @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  id       String @id @default(uuid())
+  debateId String @map("debate_id")
+  debate   Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
 
-  url       String   // Image URL or path
-  alt       String?  // Alt text for accessibility
-  caption   String?  // Optional caption/description
-  order     Int      @default(0) // Display order
+  url     String // Image URL or path
+  alt     String? // Alt text for accessibility
+  caption String? // Optional caption/description
+  order   Int     @default(0) // Display order
 
   // Metadata
-  width     Int?
-  height    Int?
-  fileSize  Int?     @map("file_size")
-  mimeType  String?  @map("mime_type")
+  width    Int?
+  height   Int?
+  fileSize Int?    @map("file_size")
+  mimeType String? @map("mime_type")
 
   // Upload info
   uploadedBy String?  @map("uploaded_by") // User ID
@@ -312,7 +318,8 @@ model Judge {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  verdicts Verdict[]
+  verdicts    Verdict[]
+  tournaments Tournament[]
 
   @@map("judges")
 }
@@ -522,16 +529,16 @@ model AdminSetting {
 
 // Waiting list for users when user limit is reached
 model WaitingList {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  username  String   @unique
-  passwordHash String @map("password_hash") // Store hashed password for when they're approved
-  position  Int      // Position in waiting list (1 = first, 2 = second, etc.)
-  notified  Boolean  @default(false) @map("notified") // Whether they've been notified
-  approved  Boolean  @default(false) @map("approved") // Whether they've been approved to join
-  approvedAt DateTime? @map("approved_at")
-  approvedBy String? @map("approved_by") // Admin who approved them
-  
+  id           String    @id @default(uuid())
+  email        String    @unique
+  username     String    @unique
+  passwordHash String    @map("password_hash") // Store hashed password for when they're approved
+  position     Int // Position in waiting list (1 = first, 2 = second, etc.)
+  notified     Boolean   @default(false) @map("notified") // Whether they've been notified
+  approved     Boolean   @default(false) @map("approved") // Whether they've been approved to join
+  approvedAt   DateTime? @map("approved_at")
+  approvedBy   String?   @map("approved_by") // Admin who approved them
+
   // Metadata
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -714,11 +721,11 @@ model Follow {
 // ============================================
 
 model Tag {
-  id         String      @id @default(uuid())
-  name       String      @unique
-  color      String      @default("#00aaff")
-  usageCount Int         @default(0) @map("usage_count")
-  createdAt  DateTime    @default(now()) @map("created_at")
+  id         String   @id @default(uuid())
+  name       String   @unique
+  color      String   @default("#00aaff")
+  usageCount Int      @default(0) @map("usage_count")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   debateTags DebateTag[]
 
@@ -999,8 +1006,8 @@ model MediaLibrary {
 model LegalPage {
   id        String  @id @default(uuid())
   slug      String  @unique // e.g., "terms", "privacy"
-  title     String  // Page title
-  content   String  // Rich text content (HTML)
+  title     String // Page title
+  content   String // Rich text content (HTML)
   isVisible Boolean @default(true) @map("is_visible")
 
   // SEO
@@ -1014,4 +1021,186 @@ model LegalPage {
   @@index([slug])
   @@index([isVisible])
   @@map("legal_pages")
+}
+
+// ============================================
+// TOURNAMENTS
+// ============================================
+
+enum TournamentStatus {
+  UPCOMING
+  REGISTRATION_OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ReseedMethod {
+  ELO_BASED
+  TOURNAMENT_WINS
+  RANDOM
+}
+
+enum ParticipantStatus {
+  REGISTERED
+  ACTIVE
+  ELIMINATED
+  DISQUALIFIED
+}
+
+enum RoundStatus {
+  UPCOMING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum MatchStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  FORFEITED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PAST_DUE
+}
+
+model Tournament {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  creatorId   String  @map("creator_id")
+  creator     User    @relation("TournamentCreator", fields: [creatorId], references: [id])
+
+  // Settings
+  maxParticipants Int              @default(16) @map("max_participants")
+  currentRound    Int              @default(1) @map("current_round")
+  totalRounds     Int              @map("total_rounds")
+  status          TournamentStatus @default(UPCOMING)
+
+  // Requirements
+  minElo  Int?    @map("min_elo")
+  judgeId String? @map("judge_id")
+  judge   Judge?  @relation(fields: [judgeId], references: [id])
+
+  // Timing
+  startDate     DateTime  @map("start_date")
+  endDate       DateTime? @map("end_date")
+  roundDuration Int       @map("round_duration") // Hours per round
+
+  // Reseeding
+  reseedAfterRound Boolean      @default(true) @map("reseed_after_round")
+  reseedMethod     ReseedMethod @default(ELO_BASED) @map("reseed_method")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  participants TournamentParticipant[]
+  matches      TournamentMatch[]
+  rounds       TournamentRound[]
+
+  @@index([creatorId])
+  @@index([status])
+  @@map("tournaments")
+}
+
+model TournamentParticipant {
+  id           String     @id @default(uuid())
+  tournamentId String     @map("tournament_id")
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId       String     @map("user_id")
+  user         User       @relation("TournamentParticipant", fields: [userId], references: [id])
+
+  // Tournament-specific stats
+  seed        Int?
+  currentSeed Int? @map("current_seed")
+  wins        Int  @default(0)
+  losses      Int  @default(0)
+  eloAtStart  Int  @map("elo_at_start")
+
+  // Status
+  status       ParticipantStatus @default(REGISTERED)
+  eliminatedAt DateTime?         @map("eliminated_at")
+
+  registeredAt DateTime @default(now()) @map("registered_at")
+
+  matches1   TournamentMatch[] @relation("Participant1")
+  matches2   TournamentMatch[] @relation("Participant2")
+  wonMatches TournamentMatch[] @relation("MatchWinner")
+
+  @@unique([tournamentId, userId])
+  @@index([tournamentId])
+  @@index([userId])
+  @@map("tournament_participants")
+}
+
+model TournamentRound {
+  id           String     @id @default(uuid())
+  tournamentId String     @map("tournament_id")
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  roundNumber Int         @map("round_number")
+  status      RoundStatus @default(UPCOMING)
+  startDate   DateTime?   @map("start_date")
+  endDate     DateTime?   @map("end_date")
+
+  matches TournamentMatch[]
+
+  @@unique([tournamentId, roundNumber])
+  @@index([tournamentId])
+  @@map("tournament_rounds")
+}
+
+model TournamentMatch {
+  id           String          @id @default(uuid())
+  tournamentId String          @map("tournament_id")
+  tournament   Tournament      @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  roundId      String          @map("round_id")
+  round        TournamentRound @relation(fields: [roundId], references: [id])
+
+  participant1Id String                @map("participant1_id")
+  participant1   TournamentParticipant @relation("Participant1", fields: [participant1Id], references: [id])
+  participant2Id String                @map("participant2_id")
+  participant2   TournamentParticipant @relation("Participant2", fields: [participant2Id], references: [id])
+
+  // Link to actual debate
+  debateId String? @unique @map("debate_id")
+  debate   Debate? @relation("TournamentDebate", fields: [debateId], references: [id])
+
+  // Match result
+  winnerId String?                @map("winner_id")
+  winner   TournamentParticipant? @relation("MatchWinner", fields: [winnerId], references: [id])
+  status   MatchStatus            @default(SCHEDULED)
+
+  scheduledAt DateTime? @map("scheduled_at")
+  completedAt DateTime? @map("completed_at")
+
+  @@index([tournamentId])
+  @@index([roundId])
+  @@index([debateId])
+  @@map("tournament_matches")
+}
+
+model TournamentSubscription {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  stripeSubscriptionId String? @unique @map("stripe_subscription_id")
+  stripeCustomerId     String? @map("stripe_customer_id")
+
+  status             SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart DateTime           @map("current_period_start")
+  currentPeriodEnd   DateTime           @map("current_period_end")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  cancelledAt DateTime? @map("cancelled_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("tournament_subscriptions")
 }
