@@ -12,6 +12,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { StaggerContainer } from '@/components/ui/StaggerContainer'
 import { StaggerItem } from '@/components/ui/StaggerItem'
 import { cardHover, cardTap } from '@/lib/animations'
+import { useToast } from '@/components/ui/Toast'
 
 interface Debate {
   id: string
@@ -41,15 +42,57 @@ interface Stats {
 }
 
 export default function AdminDashboard() {
+  const { showToast } = useToast()
   const [stats, setStats] = useState<Stats | null>(null)
   const [recentDebates, setRecentDebates] = useState<Debate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedDebateId, setSelectedDebateId] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [tournamentsEnabled, setTournamentsEnabled] = useState(false)
 
   useEffect(() => {
     fetchData()
+    fetchTournamentStatus()
   }, [])
+
+  const fetchTournamentStatus = async () => {
+    try {
+      const response = await fetch('/api/admin/settings')
+      if (response.ok) {
+        const data = await response.json()
+        setTournamentsEnabled(data.TOURNAMENTS_ENABLED === 'true')
+      }
+    } catch (error) {
+      console.error('Failed to fetch tournament status:', error)
+    }
+  }
+
+  const toggleTournaments = async () => {
+    try {
+      const response = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          TOURNAMENTS_ENABLED: (!tournamentsEnabled).toString(),
+        }),
+      })
+
+      if (response.ok) {
+        setTournamentsEnabled(!tournamentsEnabled)
+        showToast({
+          type: 'success',
+          title: 'Tournaments Updated',
+          description: `Tournaments feature ${!tournamentsEnabled ? 'enabled' : 'disabled'}`,
+        })
+      }
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to update tournaments feature',
+      })
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -66,7 +109,11 @@ export default function AdminDashboard() {
 
       if (debatesRes.ok) {
         const debatesData = await debatesRes.json()
-        setRecentDebates(debatesData)
+        // Handle both array and object response formats
+        const debates = Array.isArray(debatesData) 
+          ? debatesData 
+          : (debatesData?.debates || debatesData?.data || [])
+        setRecentDebates(Array.isArray(debates) ? debates : [])
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
@@ -120,8 +167,32 @@ export default function AdminDashboard() {
   return (
     <>
       <div>
-      <h1 className="text-4xl font-bold text-white mb-2">Admin Dashboard</h1>
-      <p className="text-text-secondary mb-8">Platform overview and management</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-4xl font-bold text-white mb-2">Admin Dashboard</h1>
+          <p className="text-text-secondary">Platform overview and management</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 px-4 py-2 bg-bg-tertiary rounded-lg border border-bg-tertiary">
+            <span className="text-white font-medium text-sm">Tournaments:</span>
+            <button
+              onClick={toggleTournaments}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                tournamentsEnabled ? 'bg-electric-blue' : 'bg-gray-600'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  tournamentsEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className={`text-sm font-medium ${tournamentsEnabled ? 'text-electric-blue' : 'text-text-secondary'}`}>
+              {tournamentsEnabled ? 'ON' : 'OFF'}
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* Stats Grid */}
       <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

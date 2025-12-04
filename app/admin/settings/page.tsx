@@ -12,6 +12,9 @@ export default function AdminSettingsPage() {
   const [resendKey, setResendKey] = useState('')
   const [googleAnalyticsKey, setGoogleAnalyticsKey] = useState('')
   const [googleAnalyticsPropertyId, setGoogleAnalyticsPropertyId] = useState('')
+  const [stripePublishableKey, setStripePublishableKey] = useState('')
+  const [stripeSecretKey, setStripeSecretKey] = useState('')
+  const [tournamentsEnabled, setTournamentsEnabled] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isFetching, setIsFetching] = useState(true)
   const [isTesting, setIsTesting] = useState(false)
@@ -32,6 +35,9 @@ export default function AdminSettingsPage() {
         setResendKey(data.RESEND_API_KEY || '')
         setGoogleAnalyticsKey(data.GOOGLE_ANALYTICS_API_KEY || '')
         setGoogleAnalyticsPropertyId(data.GOOGLE_ANALYTICS_PROPERTY_ID || '')
+        setStripePublishableKey(data.STRIPE_PUBLISHABLE_KEY || '')
+        setStripeSecretKey(data.STRIPE_SECRET_KEY || '')
+        setTournamentsEnabled(data.TOURNAMENTS_ENABLED === 'true')
       }
     } catch (error) {
       console.error('Failed to fetch settings:', error)
@@ -52,6 +58,9 @@ export default function AdminSettingsPage() {
           RESEND_API_KEY: resendKey,
           GOOGLE_ANALYTICS_API_KEY: googleAnalyticsKey,
           GOOGLE_ANALYTICS_PROPERTY_ID: googleAnalyticsPropertyId,
+          STRIPE_PUBLISHABLE_KEY: stripePublishableKey,
+          STRIPE_SECRET_KEY: stripeSecretKey,
+          TOURNAMENTS_ENABLED: tournamentsEnabled.toString(),
         }),
       })
 
@@ -340,6 +349,59 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
+            {/* Stripe Payment Keys */}
+            <div className="space-y-4 pt-4 border-t border-bg-tertiary">
+              <h3 className="text-lg font-semibold text-white mb-4">Stripe Payment Configuration</h3>
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Stripe Publishable Key
+                </label>
+                <input
+                  type="text"
+                  value={stripePublishableKey}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStripePublishableKey(e.target.value)}
+                  placeholder="pk_test_..."
+                  className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                />
+                <p className="text-xs text-text-secondary mt-1">Public key for client-side Stripe integration</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Stripe Secret Key
+                </label>
+                <input
+                  type="password"
+                  value={stripeSecretKey}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStripeSecretKey(e.target.value)}
+                  placeholder="sk_test_..."
+                  className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                />
+                <p className="text-xs text-text-secondary mt-1">Secret key for server-side Stripe operations (stored encrypted)</p>
+              </div>
+              <div className="p-3 bg-electric-blue/10 border border-electric-blue/30 rounded-lg">
+                <p className="text-sm text-electric-blue mb-2">
+                  <strong>Important:</strong> Processing fees will be passed to users
+                </p>
+                <p className="text-xs text-text-secondary">
+                  When charging $1/month for tournaments, Stripe processing fees (~$0.32 + 2.9%) will be added to the user's charge.
+                  This ensures Argu Fight receives the full $1.00. Users will pay approximately $1.35/month.
+                </p>
+              </div>
+              <div className="p-3 bg-text-muted/10 border border-text-muted/30 rounded-lg">
+                <p className="text-sm text-text-secondary">
+                  <strong>Get your Stripe keys:</strong> Visit{' '}
+                  <a
+                    href="https://dashboard.stripe.com/apikeys"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-electric-blue"
+                  >
+                    dashboard.stripe.com/apikeys
+                  </a>
+                </p>
+              </div>
+            </div>
+
             {/* Save Button */}
             <div className="flex justify-end pt-4">
               <Button
@@ -385,6 +447,28 @@ export default function AdminSettingsPage() {
               <label className="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" className="sr-only peer" defaultChecked />
                 <div className="w-11 h-6 bg-bg-secondary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-electric-blue"></div>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg">
+              <div>
+                <p className="font-semibold text-white">Tournaments Feature</p>
+                <p className="text-sm text-text-secondary">
+                  Enable tournament creation and participation
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={tournamentsEnabled}
+                  onChange={(e) => setTournamentsEnabled(e.target.checked)}
+                />
+                <div className={`w-11 h-6 rounded-full peer transition-colors ${
+                  tournamentsEnabled ? 'bg-electric-blue' : 'bg-bg-secondary'
+                } peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                  tournamentsEnabled ? 'after:translate-x-5' : 'after:translate-x-0'
+                }`}></div>
               </label>
             </div>
           </CardBody>
