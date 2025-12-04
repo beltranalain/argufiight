@@ -4,6 +4,29 @@
  * Run: npx tsx scripts/seed-all.ts
  */
 
+// Load environment variables from .env.local
+import { config } from 'dotenv'
+import { resolve } from 'path'
+
+// Load .env.local file (highest priority)
+const envLocal = config({ path: resolve(process.cwd(), '.env.local') })
+
+// Also try .env as fallback
+const env = config({ path: resolve(process.cwd(), '.env') })
+
+// Debug: Check if DATABASE_URL is loaded
+if (!process.env.DATABASE_URL) {
+  console.error('❌ ERROR: DATABASE_URL is not set!')
+  console.error('   Make sure you have a .env.local file with DATABASE_URL')
+  console.error('   Or run: vercel env pull .env.local')
+  process.exit(1)
+}
+
+// Debug: Show database connection (masked)
+const dbUrl = process.env.DATABASE_URL
+const maskedUrl = dbUrl ? dbUrl.replace(/:[^:@]+@/, ':****@') : 'not set'
+console.log('📊 Database URL:', maskedUrl.substring(0, 50) + '...')
+
 import { prisma } from '../lib/db/prisma'
 import { JUDGE_PERSONALITIES } from '../lib/ai/judges'
 
