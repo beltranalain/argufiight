@@ -18,11 +18,13 @@ const nextConfig = {
   },
   
   // Fix for Prisma engine binary on Vercel
+  // Don't bundle Prisma - let it use the engine from node_modules
+  serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
+  
   webpack: (config, { isServer }) => {
     if (isServer) {
-      // Copy Prisma engine binaries to output directory for Vercel
+      // Don't externalize Prisma - we need it bundled with the engine
       config.externals = config.externals || []
-      // Don't externalize Prisma - we need the engine
       config.externals = config.externals.filter(
         (external) => typeof external !== 'string' || !external.includes('@prisma')
       )
@@ -41,6 +43,8 @@ const nextConfig = {
     '*': [
       './node_modules/.prisma/client/**/*',
       './node_modules/@prisma/client/**/*',
+      './node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+      './node_modules/.prisma/client/query_engine-rhel-openssl-3.0.x',
     ],
   },
   

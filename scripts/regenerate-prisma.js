@@ -92,6 +92,7 @@ for (const cachePath of cachePaths) {
 // Regenerate Prisma Client
 console.log('  → Regenerating Prisma Client with PostgreSQL provider...')
 try {
+  // Force generate with explicit binary targets
   execSync('npx prisma generate', {
     cwd: rootDir,
     stdio: 'inherit',
@@ -99,10 +100,22 @@ try {
       ...process.env,
       // Ensure DATABASE_URL is available
       DATABASE_URL: databaseUrl,
+      // Force binary target generation
+      PRISMA_CLI_BINARY_TARGETS: 'native,rhel-openssl-3.0.x',
     },
   })
-  console.log('✅ Prisma Client regenerated successfully!')
-  console.log('  → Client is now configured for PostgreSQL')
+  
+  // Verify the RHEL binary was generated
+  const rhelBinaryPath = join(rootDir, 'node_modules', '.prisma', 'client', 'libquery_engine-rhel-openssl-3.0.x.so.node')
+  if (existsSync(rhelBinaryPath)) {
+    console.log('✅ Prisma Client regenerated successfully!')
+    console.log('  → Client is now configured for PostgreSQL')
+    console.log('  → RHEL binary found:', rhelBinaryPath)
+  } else {
+    console.warn('⚠️  WARNING: RHEL binary not found after generation')
+    console.warn('  → Expected path:', rhelBinaryPath)
+    console.warn('  → This might cause issues on Vercel')
+  }
 } catch (error) {
   console.error('❌ Failed to regenerate Prisma Client:', error.message)
   process.exit(1)
