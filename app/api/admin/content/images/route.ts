@@ -69,27 +69,45 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Add to section
-    const section = await prisma.homepageSection.findUnique({
-      where: { id: sectionId },
-      include: { images: true },
+    // Add to section (only if sectionId is provided)
+    let image = null
+    if (sectionId) {
+      const section = await prisma.homepageSection.findUnique({
+        where: { id: sectionId },
+        include: { images: true },
+      })
+
+      if (!section) {
+        return NextResponse.json(
+          { error: 'Section not found' },
+          { status: 404 }
+        )
+      }
+
+      const maxOrder = section.images?.length || 0
+
+      image = await prisma.homepageImage.create({
+        data: {
+          sectionId,
+          url: imageUrl,
+          order: maxOrder,
+        },
+      })
+    }
+
+    return NextResponse.json({ 
+      image, 
+      media,
+      success: true 
     })
-
-    const maxOrder = section?.images.length || 0
-
-    const image = await prisma.homepageImage.create({
-      data: {
-        sectionId,
-        url: imageUrl,
-        order: maxOrder,
-      },
-    })
-
-    return NextResponse.json({ image, media })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to upload image:', error)
+    const errorMessage = error.message || 'Failed to upload image'
     return NextResponse.json(
-      { error: 'Failed to upload image' },
+      { 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     )
   }

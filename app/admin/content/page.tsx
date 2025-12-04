@@ -52,13 +52,21 @@ export default function ContentManagerPage() {
 
   const fetchSections = async () => {
     try {
+      setIsLoading(true)
       const response = await fetch('/api/admin/content/sections')
       if (response.ok) {
         const data = await response.json()
-        setSections(data.sections || [])
+        // Ensure sections is always an array
+        const sections = Array.isArray(data.sections) 
+          ? data.sections 
+          : (Array.isArray(data) ? data : [])
+        setSections(sections)
+      } else {
+        setSections([])
       }
     } catch (error) {
       console.error('Failed to fetch sections:', error)
+      setSections([])
     } finally {
       setIsLoading(false)
     }
@@ -157,7 +165,9 @@ export default function ContentManagerPage() {
     )
   }
 
-  const sortedSections = [...sections].sort((a, b) => a.order - b.order)
+  const sortedSections = Array.isArray(sections) 
+    ? [...sections].sort((a, b) => a.order - b.order)
+    : []
 
   return (
     <div>
@@ -185,7 +195,7 @@ export default function ContentManagerPage() {
 
         {/* Sections List */}
         <div className="space-y-4">
-          {sortedSections.map((section) => (
+          {(sortedSections || []).map((section) => (
             <SectionCard
               key={section.id}
               section={section}
@@ -510,7 +520,7 @@ function SectionImagesManager({
     <div>
       <label className="block text-sm font-medium text-white mb-2">Section Images</label>
       <div className="space-y-4">
-        {images.map((image) => (
+        {(images || []).map((image) => (
           <div key={image.id} className="flex items-center gap-4 p-4 bg-bg-tertiary rounded-lg">
             <div className="relative w-24 h-24 rounded overflow-hidden">
               <Image src={image.url} alt={image.alt || ''} fill className="object-cover" />
