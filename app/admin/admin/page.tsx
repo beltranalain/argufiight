@@ -214,6 +214,13 @@ export default function AdminDashboard() {
           <p className="text-text-secondary">Platform overview and management</p>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            onClick={handleSeedDatabase}
+            disabled={isSeeding}
+            className="px-4 py-2 bg-cyber-green text-black font-medium rounded-lg hover:bg-cyber-green/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isSeeding ? 'Seeding...' : '🌱 Seed Database'}
+          </button>
           <div className="flex items-center gap-3 px-4 py-2 bg-bg-tertiary rounded-lg border border-bg-tertiary">
             <span className="text-white font-medium text-sm">Tournaments:</span>
             <button
