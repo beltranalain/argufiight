@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     console.log('Fetching pending rematch requests for winner:', userId)
 
     // Fetch debates where user is the winner and there's a pending rematch request
-    const rematchDebates = await prisma.$queryRawUnsafe<Array<{
+    const rematchDebates = await prisma.$queryRaw<Array<{
       id: string
       topic: string
       description: string | null
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       rematch_status: string | null
       rematch_debate_id: string | null
       created_at: Date
-    }>>(`
+    }>>`
       SELECT 
         d.id,
         d.topic,
@@ -53,10 +53,10 @@ export async function GET(request: NextRequest) {
         d.rematch_debate_id,
         d.created_at
       FROM debates d
-      WHERE d.winner_id = ?
+      WHERE d.winner_id = ${userId}
         AND d.rematch_status = 'PENDING'
-        AND d.rematch_requested_by != ?
-    `, userId, userId)
+        AND d.rematch_requested_by != ${userId}
+    `
 
     console.log('Found pending rematch requests:', rematchDebates.length)
 

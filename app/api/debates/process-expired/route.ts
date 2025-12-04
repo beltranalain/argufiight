@@ -39,25 +39,25 @@ export async function POST(request: NextRequest) {
     // Also handle edge case: debates that were accepted (have opponent_id) but are still WAITING
     // This shouldn't happen, but if it does, mark them as CANCELLED too
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    const expiredWaitingDebates = await prisma.$queryRawUnsafe<Array<{ id: string }>>(`
+    const expiredWaitingDebates = await prisma.$queryRaw<Array<{ id: string }>>`
       SELECT id
       FROM debates
       WHERE status = 'WAITING'
         AND (
-          datetime(created_at) <= datetime(?)
+          created_at <= ${sevenDaysAgo}
           OR opponent_id IS NOT NULL
         )
-    `, sevenDaysAgo.toISOString())
+    `
 
     console.log(`Found ${expiredWaitingDebates.length} WAITING debates that expired (older than 7 days)`)
 
     for (const debate of expiredWaitingDebates) {
       try {
-        await prisma.$executeRawUnsafe(`
+        await prisma.$executeRaw`
           UPDATE debates
-          SET status = ?, ended_at = ?
-          WHERE id = ?
-        `, 'CANCELLED', now.toISOString(), debate.id)
+          SET status = ${'CANCELLED'}, ended_at = ${now}
+          WHERE id = ${debate.id}
+        `
 
         console.log(`Cancelled expired WAITING debate: ${debate.id}`)
       } catch (error) {
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find all active debates with expired deadlines using raw SQL
-    const expiredDebatesRaw = await prisma.$queryRawUnsafe<Array<{
+    const expiredDebatesRaw = await prisma.$queryRaw<Array<{
       id: string
       topic: string
       status: string
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       round_deadline: string | null
       challenger_id: string
       opponent_id: string | null
-    }>>(`
+    }>>`
       SELECT 
         id,
         topic,
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       FROM debates
       WHERE status = 'ACTIVE'
         AND round_deadline IS NOT NULL
-        AND datetime(round_deadline) <= datetime(?)
+        AND round_deadline <= ${now}
         AND (
           current_round > 1 
           OR EXISTS (
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
             AND round = debates.current_round
           )
         )
-    `, now.toISOString())
+    `
 
     // Fetch statements for each debate
     const expiredDebates = await Promise.all(
@@ -286,19 +286,10 @@ async function handleMissingSubmission(
   // Notify non-submitter about the penalty
   if (nonSubmitterId) {
     try {
-      await prisma.$executeRawUnsafe(`
+      await prisma.$executeRaw`
         INSERT INTO notifications (id, user_id, type, title, message, debate_id, created_at, read)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-        crypto.randomUUID(),
-        nonSubmitterId,
-        'DEBATE_LOST',
-        'Round Time Expired',
-        `You missed the deadline for Round ${debate.currentRound} in "${debate.topic}". Your opponent's argument was accepted.`,
-        debate.id,
-        now.toISOString(),
-        0
-      )
+        VALUES (${crypto.randomUUID()}, ${nonSubmitterId}, ${'DEBATE_LOST'}, ${'Round Time Expired'}, ${`You missed the deadline for Round ${debate.currentRound} in "${debate.topic}". Your opponent's argument was accepted.`}, ${debate.id}, ${now}, ${false})
+      `
     } catch (error) {
       console.error('Failed to create notification:', error)
     }
@@ -307,11 +298,11 @@ async function handleMissingSubmission(
     // Advance round or end debate
     if (debate.currentRound >= debate.totalRounds) {
       // Final round - end debate
-      await prisma.$executeRawUnsafe(`
+      await prisma.$executeRaw`
         UPDATE debates
-        SET status = ?, ended_at = ?, round_deadline = NULL
-        WHERE id = ?
-      `, 'COMPLETED', now.toISOString(), debate.id)
+        SET status = ${'COMPLETED'}, ended_at = ${now}, round_deadline = NULL
+        WHERE id = ${debate.id}
+      `
 
       // Trigger verdict generation
       fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/verdicts/generate`, {
@@ -324,11 +315,11 @@ async function handleMissingSubmission(
     } else {
       // Advance to next round
       const newDeadline = new Date(now.getTime() + debate.roundDuration)
-      await prisma.$executeRawUnsafe(`
+      await prisma.$executeRaw`
         UPDATE debates
-        SET current_round = ?, round_deadline = ?
-        WHERE id = ?
-      `, debate.currentRound + 1, newDeadline.toISOString(), debate.id)
+        SET current_round = ${debate.currentRound + 1}, round_deadline = ${newDeadline}
+        WHERE id = ${debate.id}
+      `
     }
 }
 
@@ -369,33 +360,15 @@ async function handleBothMissing(debate: any, now: Date) {
 
   try {
     await Promise.all([
-      prisma.$executeRawUnsafe(`
+      prisma.$executeRaw`
         INSERT INTO notifications (id, user_id, type, title, message, debate_id, created_at, read)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (${crypto.randomUUID()}, ${debate.challengerId}, ${'DEBATE_TIED'}, ${'Round Time Expired'}, ${notificationMessage}, ${debate.id}, ${now}, ${false})
       `,
-        crypto.randomUUID(),
-        debate.challengerId,
-        'DEBATE_TIED',
-        'Round Time Expired',
-        notificationMessage,
-        debate.id,
-        now.toISOString(),
-        0
-      ),
       debate.opponentId
-        ? prisma.$executeRawUnsafe(`
+        ? prisma.$executeRaw`
             INSERT INTO notifications (id, user_id, type, title, message, debate_id, created_at, read)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `,
-            crypto.randomUUID(),
-            debate.opponentId,
-            'DEBATE_TIED',
-            'Round Time Expired',
-            notificationMessage,
-            debate.id,
-            now.toISOString(),
-            0
-          )
+            VALUES (${crypto.randomUUID()}, ${debate.opponentId}, ${'DEBATE_TIED'}, ${'Round Time Expired'}, ${notificationMessage}, ${debate.id}, ${now}, ${false})
+          `
         : Promise.resolve(),
     ])
   } catch (error) {
