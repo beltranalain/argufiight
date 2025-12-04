@@ -91,8 +91,11 @@ export default function SignupPage() {
         throw new Error(errorMsg)
       }
 
-      router.push('/')
-      router.refresh()
+      // Wait a moment for session cookie to be set, then redirect
+      // Use window.location to ensure a full page reload so session is detected
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 100)
     } catch (err: any) {
       setError(err.message || 'Failed to create account')
     } finally {
