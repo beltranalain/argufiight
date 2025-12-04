@@ -1,8 +1,32 @@
 # Production Feature Testing Script
 # Tests all features to verify offline vs online functionality
 
-$baseUrl = "https://honorable-ai.vercel.app"
+# Enable TLS 1.2 for PowerShell
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+# Try both domain and Vercel URL
+$baseUrls = @("https://argufight.com", "https://honorable-ai.vercel.app")
+$baseUrl = $null
 $results = @()
+
+# Test which URL works
+foreach ($url in $baseUrls) {
+    try {
+        $testResponse = Invoke-WebRequest -Uri "$url/api/health" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        if ($testResponse.StatusCode -eq 200 -or $testResponse.StatusCode -eq 404) {
+            $baseUrl = $url
+            Write-Host "✅ Using URL: $baseUrl" -ForegroundColor Green
+            break
+        }
+    } catch {
+        Write-Host "⚠️  $url not accessible: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
+if (-not $baseUrl) {
+    Write-Host "❌ Neither URL is accessible. Please check deployment." -ForegroundColor Red
+    exit 1
+}
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Production Feature Verification Test" -ForegroundColor Cyan
