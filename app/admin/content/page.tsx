@@ -303,6 +303,12 @@ function EditSectionModal({
   onMediaUpload: () => void
   onSectionsUpdate: () => Promise<void>
 }) {
+  // Ensure section always has images and buttons arrays
+  const safeSection = {
+    ...initialSection,
+    images: initialSection.images || [],
+    buttons: initialSection.buttons || [],
+  }
   const [section, setSection] = useState(safeSection)
   const { showToast } = useToast()
   const [title, setTitle] = useState(initialSection.title || '')
