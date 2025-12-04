@@ -303,7 +303,7 @@ function EditSectionModal({
   onMediaUpload: () => void
   onSectionsUpdate: () => Promise<void>
 }) {
-  const [section, setSection] = useState(initialSection)
+  const [section, setSection] = useState(safeSection)
   const { showToast } = useToast()
   const [title, setTitle] = useState(initialSection.title || '')
   const [content, setContent] = useState(initialSection.content || '')
@@ -314,7 +314,12 @@ function EditSectionModal({
 
   // Update local state when section prop changes
   useEffect(() => {
-    setSection(initialSection)
+    const safe = {
+      ...initialSection,
+      images: initialSection.images || [],
+      buttons: initialSection.buttons || [],
+    }
+    setSection(safe)
     setTitle(initialSection.title || '')
     setContent(initialSection.content || '')
     setMetaTitle(initialSection.metaTitle || '')
@@ -407,18 +412,27 @@ function EditSectionModal({
         {/* Section Images */}
         <SectionImagesManager
           sectionId={section.id}
-          images={section.images}
+          images={section.images || []}
           mediaLibrary={mediaLibrary}
           onUpdate={async () => {
             await onMediaUpload()
             // Refresh the section data
-            const response = await fetch('/api/admin/content/sections')
-            if (response.ok) {
-              const data = await response.json()
-              const updatedSection = data.sections?.find((s: HomepageSection) => s.id === section.id)
-              if (updatedSection) {
-                setSection(updatedSection)
+            try {
+              const response = await fetch('/api/admin/content/sections')
+              if (response.ok) {
+                const data = await response.json()
+                const sections = Array.isArray(data.sections) ? data.sections : []
+                const updatedSection = sections.find((s: HomepageSection) => s.id === section.id)
+                if (updatedSection) {
+                  setSection({
+                    ...updatedSection,
+                    images: updatedSection.images || [],
+                    buttons: updatedSection.buttons || [],
+                  })
+                }
               }
+            } catch (error) {
+              console.error('Failed to refresh section:', error)
             }
             await onSectionsUpdate()
           }}
@@ -453,7 +467,7 @@ function SectionImagesManager({
   sectionId: string
   images: HomepageSection['images']
   mediaLibrary: any[]
-  onUpdate: () => void
+  onUpdate: () => Promise<void>
 }) {
   const { showToast } = useToast()
   const [isUploading, setIsUploading] = useState(false)
@@ -503,7 +517,7 @@ function SectionImagesManager({
         title: 'Image Uploaded',
         description: 'Image added to section successfully',
       })
-      onUpdate()
+      await onUpdate()
     } catch (error: any) {
       console.error('Image upload error:', error)
       showToast({

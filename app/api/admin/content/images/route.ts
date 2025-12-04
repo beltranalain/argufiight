@@ -69,30 +69,33 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Add to section (only if sectionId is provided)
+    // Add to section (only if sectionId is provided and valid)
     let image = null
-    if (sectionId) {
-      const section = await prisma.homepageSection.findUnique({
-        where: { id: sectionId },
-        include: { images: true },
-      })
+    if (sectionId && sectionId.trim() !== '') {
+      try {
+        const section = await prisma.homepageSection.findUnique({
+          where: { id: sectionId },
+          include: { images: true },
+        })
 
-      if (!section) {
-        return NextResponse.json(
-          { error: 'Section not found' },
-          { status: 404 }
-        )
+        if (!section) {
+          // Don't fail the upload, just don't add to section
+          console.warn(`Section ${sectionId} not found, image saved to media library only`)
+        } else {
+          const maxOrder = section.images?.length || 0
+
+          image = await prisma.homepageImage.create({
+            data: {
+              sectionId,
+              url: imageUrl,
+              order: maxOrder,
+            },
+          })
+        }
+      } catch (sectionError) {
+        // Don't fail the upload if section creation fails
+        console.error('Failed to add image to section:', sectionError)
       }
-
-      const maxOrder = section.images?.length || 0
-
-      image = await prisma.homepageImage.create({
-        data: {
-          sectionId,
-          url: imageUrl,
-          order: maxOrder,
-        },
-      })
     }
 
     return NextResponse.json({ 
