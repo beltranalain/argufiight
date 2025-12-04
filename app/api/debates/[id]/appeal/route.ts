@@ -172,13 +172,41 @@ export async function POST(
     })
 
     // Trigger new verdict generation asynchronously
-    // We'll call the regenerate endpoint
-    fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/verdicts/regenerate`, {
+    // Use absolute URL for Vercel - prioritize NEXT_PUBLIC_APP_URL
+    let baseUrl = 'http://localhost:3000'
+    if (process.env.NEXT_PUBLIC_APP_URL) {
+      baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    } else if (process.env.VERCEL_URL) {
+      baseUrl = `https://${process.env.VERCEL_URL}`
+    }
+    
+    fetch(`${baseUrl}/api/verdicts/regenerate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ debateId }),
-    }).catch(error => {
-      console.error('Failed to trigger verdict regeneration:', error)
+    })
+    .then(async (response) => {
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('❌ Failed to trigger verdict regeneration:', {
+          debateId,
+          status: response.status,
+          error: errorData.error || 'Unknown error',
+          details: errorData.details,
+          url: `${baseUrl}/api/verdicts/regenerate`
+        })
+      } else {
+        const result = await response.json().catch(() => ({}))
+        console.log('✅ Verdict regeneration triggered successfully for appeal:', debateId, result)
+      }
+    })
+    .catch(error => {
+      console.error('❌ Error triggering verdict regeneration:', {
+        debateId,
+        error: error.message,
+        stack: error.stack,
+        url: `${baseUrl}/api/verdicts/regenerate`
+      })
     })
 
     return NextResponse.json({

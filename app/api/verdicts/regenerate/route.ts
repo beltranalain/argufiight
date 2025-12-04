@@ -320,15 +320,18 @@ export async function POST(request: NextRequest) {
       })),
     }
 
-    // Generate verdicts from new judges
-    const newVerdicts = []
-    for (const judge of selectedJudges) {
+    // Generate verdicts from new judges in parallel (faster)
+    console.log(`[Appeal Regenerate] Generating ${selectedJudges.length} new verdicts in parallel for debate ${debateId}`)
+    
+    const verdictPromises = selectedJudges.map(async (judge) => {
       try {
+        console.log(`[Appeal Regenerate] Starting verdict for judge: ${judge.name} (${judge.id})`)
         const verdictResult = await generateVerdict(
           judge.systemPrompt,
           debateContext,
           { userId: debate.challengerId, debateId }
         )
+        console.log(`[Appeal Regenerate] ✅ Generated verdict from ${judge.name}:`, verdictResult.winner)
 
         // Determine winner from verdict
         let winnerId: string | null = null
@@ -351,11 +354,20 @@ export async function POST(request: NextRequest) {
           },
         })
 
-        newVerdicts.push(verdict)
-      } catch (error) {
-        console.error(`Failed to generate verdict from judge ${judge.name}:`, error)
+        return verdict
+      } catch (error: any) {
+        console.error(`[Appeal Regenerate] ❌ Failed to generate verdict from judge ${judge.name}:`, {
+          judgeId: judge.id,
+          error: error.message,
+          stack: error.stack
+        })
+        return null
       }
-    }
+    })
+
+    // Wait for all verdicts to complete (in parallel)
+    const verdictResults = await Promise.all(verdictPromises)
+    const newVerdicts = verdictResults.filter((v): v is NonNullable<typeof v> => v !== null)
 
     if (newVerdicts.length === 0) {
       // If all verdicts failed, set status to DENIED
