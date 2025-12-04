@@ -23,17 +23,29 @@ export function ProfilePanel() {
   const fetchRecentDebates = async () => {
     try {
       setIsLoadingDebates(true)
-      // Fetch user's completed or verdict-ready debates
-      const response = await fetch(`/api/debates?userId=${user?.id}&status=COMPLETED,VERDICT_READY`)
+      // Fetch user's recent debates (all statuses except WAITING)
+      // This includes ACTIVE, COMPLETED, VERDICT_READY, APPEALED, etc.
+      const response = await fetch(`/api/debates?userId=${user?.id}`)
       if (response.ok) {
         const debates = await response.json()
-        // Ensure debates is an array before calling slice
+        // Ensure debates is an array before filtering and slicing
         if (Array.isArray(debates)) {
-          setRecentDebates(debates.slice(0, 3))
+          // Filter out WAITING debates and get most recent 3
+          const filtered = debates
+            .filter((d: any) => d.status !== 'WAITING')
+            .sort((a: any, b: any) => {
+              // Sort by createdAt descending (most recent first)
+              const dateA = new Date(a.createdAt || 0).getTime()
+              const dateB = new Date(b.createdAt || 0).getTime()
+              return dateB - dateA
+            })
+            .slice(0, 3)
+          setRecentDebates(filtered)
         } else {
           setRecentDebates([])
         }
       } else {
+        console.error('Failed to fetch recent debates:', response.status, await response.text())
         setRecentDebates([])
       }
     } catch (error) {
