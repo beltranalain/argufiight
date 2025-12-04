@@ -8,7 +8,7 @@
     "dev": "next dev --webpack",
     "build": "node scripts/regenerate-prisma.js && next build",
     "setup-db": "node scripts/setup-database.js",
-    "start": "next start",
+    "start": "node scripts/setup-database.js && next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "seed": "tsx prisma/seed.ts",
