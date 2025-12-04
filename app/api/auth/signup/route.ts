@@ -203,16 +203,35 @@ export async function POST(request: NextRequest) {
     console.error('Error details:', error instanceof Error ? error.message : String(error))
     console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace')
     
-    // Return error details for debugging (always show in production for now to diagnose)
+    // Check for common issues
     const errorMessage = error instanceof Error ? error.message : String(error)
-    const errorStack = error instanceof Error ? error.stack : 'No stack trace'
+    
+    // Provide helpful error messages for common issues
+    let userFriendlyError = 'Internal server error'
+    let errorDetails = errorMessage
+    
+    if (errorMessage.includes('Can\'t reach database server') || 
+        errorMessage.includes('P1001') ||
+        errorMessage.includes('connection')) {
+      userFriendlyError = 'Database connection failed'
+      errorDetails = 'Please check DATABASE_URL environment variable'
+    } else if (errorMessage.includes('does not exist') || 
+               errorMessage.includes('relation') ||
+               errorMessage.includes('P2021')) {
+      userFriendlyError = 'Database table not found'
+      errorDetails = 'Please run database migrations: npx prisma migrate deploy'
+    } else if (errorMessage.includes('AUTH_SECRET') || 
+               errorMessage.includes('secret')) {
+      userFriendlyError = 'Authentication configuration error'
+      errorDetails = 'Please check AUTH_SECRET environment variable'
+    }
     
     return NextResponse.json(
       { 
-        error: 'Internal server error',
-        details: errorMessage,
+        error: userFriendlyError,
+        details: process.env.NODE_ENV === 'production' ? errorDetails : errorMessage,
         // Only include stack in development
-        stack: process.env.NODE_ENV === 'development' ? errorStack : undefined
+        stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
       },
       { status: 500 }
     )
