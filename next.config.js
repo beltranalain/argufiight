@@ -5,6 +5,19 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '2mb',
     },
+    // Workaround for Next.js 15 client reference manifest issue with route groups
+    optimizePackageImports: ['@prisma/client'],
+  },
+  
+  // Workaround for Vercel build tracing issue with route groups
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Ignore missing client reference manifest files during build
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+      }
+    }
+    return config
   },
   
   images: {

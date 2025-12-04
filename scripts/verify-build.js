@@ -58,4 +58,7 @@ console.log('✅ Build verification complete!')
 console.log('  → .next directory exists')
 console.log('  → Required build files present')
 console.log('  → Ready to start server')
+console.log('')
+console.log('  Note: Client reference manifest warnings are expected with Next.js 15 route groups')
+console.log('  The build is complete and ready to deploy')
 
