@@ -6,7 +6,7 @@
   "scripts": {
     "postinstall": "node scripts/regenerate-prisma.js",
     "dev": "next dev --webpack",
-    "build": "rm -rf .next && node scripts/regenerate-prisma.js && next build",
+    "build": "node scripts/clean-build.js && node scripts/regenerate-prisma.js && next build",
     "setup-db": "node scripts/setup-database.js",
     "start": "node scripts/setup-database.js && next start",
     "lint": "next lint",
