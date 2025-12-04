@@ -1,15 +1,14 @@
 import { redirect } from 'next/navigation'
-import { verifySession } from '@/lib/auth/session'
-import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { PublicHomepage } from '@/components/homepage/PublicHomepage'
 import { DashboardHomePage } from '@/components/dashboard/DashboardHomePage'
 
 export default async function RootPage() {
-  const session = await verifySession()
-  const userId = getUserIdFromSession(session)
+  // Use verifySessionWithDb to get full session with userId
+  const session = await verifySessionWithDb()
 
   // If logged in, show dashboard
-  if (userId) {
+  if (session?.userId) {
     return <DashboardHomePage />
   }
 
