@@ -122,6 +122,46 @@ export default function JudgesPage() {
     }
   }
 
+  const handleSeedDatabase = async () => {
+    if (!confirm('This will seed the database with initial data (Categories, Judges, Homepage Sections, Legal Pages). Continue?')) {
+      return
+    }
+
+    setIsSeeding(true)
+    try {
+      const response = await fetch('/api/admin/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Database Seeded',
+          description: `Seeded ${data.results.categories} categories, ${data.results.judges} judges, ${data.results.homepageSections} sections, and ${data.results.legalPages} legal pages.`,
+        })
+        // Refresh judges list
+        fetchJudges()
+      } else {
+        showToast({
+          type: 'error',
+          title: 'Seed Failed',
+          description: data.error || 'Failed to seed database',
+        })
+      }
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to seed database',
+      })
+    } finally {
+      setIsSeeding(false)
+    }
+  }
+
   const handleAddJudge = async () => {
     if (!formData.name || !formData.personality || !formData.description || !formData.systemPrompt) {
       showToast({
