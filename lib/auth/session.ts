@@ -37,12 +37,15 @@ export async function createSession(userId: string) {
   })
 
   const cookieStore = await cookies()
+  // In production (Vercel), always use secure cookies for HTTPS
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1'
   cookieStore.set('session', sessionJWT, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction, // Use secure cookies in production (HTTPS required)
     sameSite: 'lax',
     expires: expiresAt,
     path: '/',
+    // Don't set domain - let browser use current domain
   })
 
   return sessionJWT
