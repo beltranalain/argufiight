@@ -115,8 +115,21 @@ export async function POST(
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ debateId: id }),
-        }).catch((error) => {
-          console.error('Failed to trigger verdict generation:', error)
+        })
+        .then(async (response) => {
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            console.error('Failed to trigger verdict generation:', {
+              status: response.status,
+              error: errorData.error || 'Unknown error',
+              details: errorData.details
+            })
+          } else {
+            console.log('Verdict generation triggered successfully for debate:', id)
+          }
+        })
+        .catch((error) => {
+          console.error('Error triggering verdict generation:', error)
         })
       } else {
         // Advance to next round

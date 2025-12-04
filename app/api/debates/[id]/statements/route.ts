@@ -175,27 +175,35 @@ export async function POST(
     let updatedDebate = debate;
     if (challengerStatement && opponentStatement) {
       if (statementRound >= debate.totalRounds) {
-        // Debate is complete
+        // Debate is complete - set to COMPLETED first (verdict generation will change to VERDICT_READY)
         updatedDebate = await prisma.debate.update({
           where: { id },
           data: {
-            status: 'VERDICT_READY',
+            status: 'COMPLETED',
             endedAt: new Date(),
           },
         });
 
         // Trigger verdict generation
         try {
-          await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/verdicts/generate`, {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/verdicts/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ debateId: id }),
-          }).catch((err) => {
-            console.error('Failed to trigger verdict generation:', err);
-            // Continue even if verdict generation fails
-          });
+          })
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}))
+            console.error('Failed to trigger verdict generation:', {
+              status: response.status,
+              error: errorData.error || 'Unknown error',
+              details: errorData.details
+            })
+          } else {
+            console.log('Verdict generation triggered successfully for debate:', id)
+          }
         } catch (error) {
-          console.error('Error triggering verdict generation:', error);
+          console.error('Error triggering verdict generation:', error)
         }
 
         // Notify participants and watchers

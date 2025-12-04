@@ -55,11 +55,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (debate.status !== 'COMPLETED') {
+    // Accept both COMPLETED and VERDICT_READY statuses
+    // COMPLETED = debate finished, verdicts not yet generated
+    // VERDICT_READY = verdicts already generated
+    if (debate.status !== 'COMPLETED' && debate.status !== 'VERDICT_READY') {
       return NextResponse.json(
-        { error: 'Debate is not completed' },
+        { error: `Debate is not completed (current status: ${debate.status})` },
         { status: 400 }
       )
+    }
+    
+    // If already VERDICT_READY, check if verdicts exist
+    if (debate.status === 'VERDICT_READY') {
+      const existingVerdicts = await prisma.verdict.count({
+        where: { debateId },
+      })
+      if (existingVerdicts > 0) {
+        return NextResponse.json(
+          { error: 'Verdicts already generated for this debate' },
+          { status: 400 }
+        )
+      }
     }
 
     if (!debate.opponent) {
@@ -69,27 +85,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if verdicts already exist
-    const existingVerdicts = await prisma.verdict.count({
-      where: { debateId },
-    })
+    // Check if verdicts already exist (only if status is COMPLETED)
+    if (debate.status === 'COMPLETED') {
+      const existingVerdicts = await prisma.verdict.count({
+        where: { debateId },
+      })
 
-    if (existingVerdicts > 0) {
-      return NextResponse.json(
-        { error: 'Verdicts already generated for this debate' },
-        { status: 400 }
-      )
+      if (existingVerdicts > 0) {
+        return NextResponse.json(
+          { error: 'Verdicts already generated for this debate' },
+          { status: 400 }
+        )
+      }
     }
 
     // Get 3 random judges
-    const allJudges = await prisma.judge.findMany()
+    const allJudges = await prisma.judge.findMany({
+      where: {
+        isActive: true, // Only use active judges
+      },
+    })
     
     if (allJudges.length === 0) {
+      console.error('No active judges found in database')
       return NextResponse.json(
-        { error: 'No judges available. Please seed the database with judges.' },
+        { error: 'No judges available. Please seed the database with judges using: npm run seed:all' },
         { status: 500 }
       )
     }
+    
+    console.log(`Found ${allJudges.length} active judges, selecting 3 for debate ${debateId}`)
 
     const selectedJudges = allJudges
       .sort(() => Math.random() - 0.5)
@@ -112,14 +137,33 @@ export async function POST(request: NextRequest) {
       })),
     }
 
+    // Check if DeepSeek API key is configured
+    try {
+      const { getDeepSeekKey } = await import('@/lib/ai/deepseek')
+      await getDeepSeekKey() // This will throw if not configured
+    } catch (error: any) {
+      console.error('DeepSeek API key not configured:', error.message)
+      return NextResponse.json(
+        { 
+          error: 'AI service not configured', 
+          details: 'Please set DEEPSEEK_API_KEY in admin settings or environment variables' 
+        },
+        { status: 500 }
+      )
+    }
+
+    console.log(`Generating verdicts for debate ${debateId} with ${selectedJudges.length} judges`)
+
     // Generate verdicts from each judge
     const verdicts = await Promise.all(
       selectedJudges.map(async (judge) => {
         try {
+          console.log(`Generating verdict from judge: ${judge.name}`)
           const verdict = await generateVerdict(judge.systemPrompt, debateContext, {
             debateId,
             userId: debate.challengerId, // Track as challenger's usage
           })
+          console.log(`Successfully generated verdict from ${judge.name}:`, verdict.winner)
 
           // Map winner to user ID
           let winnerId: string | null = null
