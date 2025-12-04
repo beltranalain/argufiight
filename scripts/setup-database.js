@@ -74,6 +74,9 @@ try {
   console.log('✅ Database setup complete!')
 } catch (error) {
   console.error('❌ Failed to setup database:', error.message)
-  process.exit(1)
+  console.error('   Full error:', error)
+  // Don't exit - let the app start anyway so we can see other errors
+  console.warn('⚠️  Continuing despite database setup error...')
+  // process.exit(1) // Commented out to see if app can start
 }
 
