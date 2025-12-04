@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
           SELECT COUNT(*) as count
           FROM tournament_participants
           WHERE "tournamentId" = ${tournament.id}
-        `.catch(() => [{ count: 0n }])
+        `.catch(() => [{ count: BigInt(0) }])
 
         return {
           id: tournament.id,
