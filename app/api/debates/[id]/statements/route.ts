@@ -186,10 +186,13 @@ export async function POST(
 
         // Trigger verdict generation
         try {
-          // Use absolute URL for Vercel
-          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
-            ? `https://${process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL?.replace('https://', '').replace('http://', '')}`
-            : 'http://localhost:3000'
+          // Use absolute URL for Vercel - prioritize NEXT_PUBLIC_APP_URL
+          let baseUrl = 'http://localhost:3000'
+          if (process.env.NEXT_PUBLIC_APP_URL) {
+            baseUrl = process.env.NEXT_PUBLIC_APP_URL
+          } else if (process.env.VERCEL_URL) {
+            baseUrl = `https://${process.env.VERCEL_URL}`
+          }
           
           const response = await fetch(`${baseUrl}/api/verdicts/generate`, {
             method: 'POST',
