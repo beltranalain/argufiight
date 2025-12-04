@@ -192,13 +192,22 @@ function HomepageSectionComponent({ section, index }: { section: HomepageSection
                 isImageRight ? 'lg:order-2' : 'lg:order-1'
               }`}>
                 <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-white/20">
-                  <Image
-                    src={primaryImage.url}
-                    alt={primaryImage.alt || section.title || ''}
-                    fill
-                    className="object-cover"
-                    priority={index === 0}
-                  />
+                  {primaryImage.url.startsWith('data:') ? (
+                    <img
+                      src={primaryImage.url}
+                      alt={primaryImage.alt || section.title || ''}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={primaryImage.url}
+                      alt={primaryImage.alt || section.title || ''}
+                      fill
+                      className="object-cover"
+                      priority={index === 0}
+                      unoptimized={primaryImage.url.startsWith('data:')}
+                    />
+                  )}
                   {primaryImage.caption && (
                     <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm p-3 text-text-primary text-sm">
                       {primaryImage.caption}

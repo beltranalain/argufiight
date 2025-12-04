@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 import { put } from '@vercel/blob'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_BASE64_SIZE = 1 * 1024 * 1024 // 1MB - base64 fallback limit
 
 // POST /api/admin/content/images - Upload image for section
 export async function POST(request: NextRequest) {
@@ -47,9 +48,20 @@ export async function POST(request: NextRequest) {
         contentType: file.type,
       })
       imageUrl = blob.url
-    } catch (blobError) {
-      // Fallback: Store as base64 data URL (not ideal but works)
-      console.warn('Vercel Blob Storage not available, using base64 fallback:', blobError)
+    } catch (blobError: any) {
+      // Only use base64 fallback for small images
+      if (file.size > MAX_BASE64_SIZE) {
+        return NextResponse.json(
+          { 
+            error: 'Vercel Blob Storage is not configured. Please set BLOB_READ_WRITE_TOKEN in your environment variables. Images larger than 1MB require Blob Storage.',
+            details: blobError?.message
+          },
+          { status: 500 }
+        )
+      }
+      
+      // Fallback: Store as base64 data URL (only for small images)
+      console.warn('Vercel Blob Storage not available, using base64 fallback for small image:', blobError)
       const base64 = buffer.toString('base64')
       imageUrl = `data:${file.type};base64,${base64}`
     }

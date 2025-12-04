@@ -537,7 +537,15 @@ function SectionImagesManager({
         {(images || []).map((image) => (
           <div key={image.id} className="flex items-center gap-4 p-4 bg-bg-tertiary rounded-lg">
             <div className="relative w-24 h-24 rounded overflow-hidden">
-              <Image src={image.url} alt={image.alt || ''} fill className="object-cover" />
+              {image.url.startsWith('data:') ? (
+                <img
+                  src={image.url}
+                  alt={image.alt || ''}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <Image src={image.url} alt={image.alt || ''} fill className="object-cover" />
+              )}
             </div>
             <div className="flex-1 space-y-2">
               <input
@@ -877,7 +885,15 @@ function MediaLibraryModal({
         <div className="grid grid-cols-3 gap-4 max-h-96 overflow-y-auto">
           {media.map((item) => (
             <div key={item.id} className="relative aspect-square rounded-lg overflow-hidden">
-              <Image src={item.url} alt={item.alt || ''} fill className="object-cover" />
+              {item.url.startsWith('data:') ? (
+                <img
+                  src={item.url}
+                  alt={item.alt || ''}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <Image src={item.url} alt={item.alt || ''} fill className="object-cover" />
+              )}
             </div>
           ))}
         </div>
