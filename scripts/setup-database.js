@@ -49,6 +49,14 @@ if (!databaseUrl) {
 }
 
 console.log('  → DATABASE_URL is set')
+
+// DIRECT_URL is required by Prisma schema but Railway might not provide it
+// Set it to DATABASE_URL if not provided
+const directUrl = process.env.DIRECT_URL || databaseUrl
+if (!process.env.DIRECT_URL) {
+  console.log('  → DIRECT_URL not set, using DATABASE_URL')
+}
+
 console.log('  → Pushing database schema...')
 
 try {
@@ -58,6 +66,7 @@ try {
     env: {
       ...process.env,
       DATABASE_URL: databaseUrl,
+      DIRECT_URL: directUrl, // Ensure DIRECT_URL is set
     },
   })
   console.log('✅ Database setup complete!')
