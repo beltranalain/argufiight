@@ -244,8 +244,7 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
       if (images.length > 0) {
         setUploadingImages(true)
         try {
-          for (let i = 0; i < images.length; i++) {
-            const imageData = images[i]
+          const uploadPromises = images.map(async (imageData, i) => {
             const formData = new FormData()
             formData.append('image', imageData.file)
             formData.append('debateId', debate.id)
@@ -259,11 +258,25 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
             })
 
             if (!imageResponse.ok) {
-              console.error('Failed to upload image:', await imageResponse.text())
+              const errorText = await imageResponse.text()
+              console.error(`Failed to upload image ${i + 1}:`, errorText)
+              throw new Error(`Image ${i + 1} upload failed: ${errorText}`)
             }
-          }
-        } catch (error) {
+
+            const result = await imageResponse.json()
+            console.log(`✅ Image ${i + 1} uploaded successfully:`, result.image?.url || result.url)
+            return result
+          })
+
+          await Promise.all(uploadPromises)
+          console.log(`✅ All ${images.length} images uploaded successfully`)
+        } catch (error: any) {
           console.error('Error uploading images:', error)
+          showToast({
+            title: 'Images Upload Warning',
+            description: error.message || 'Some images may not have uploaded. You can add them later.',
+            type: 'warning',
+          })
           // Don't fail the whole operation if images fail
         } finally {
           setUploadingImages(false)

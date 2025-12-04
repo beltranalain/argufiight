@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { existsSync } from 'fs'
+import { put } from '@vercel/blob'
+import { randomBytes } from 'crypto'
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
 // POST /api/debates/images - Upload debate image
 export async function POST(request: NextRequest) {
@@ -49,34 +50,46 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: 'Image must be less than 10MB' },
         { status: 400 }
       )
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), 'public', 'uploads', 'debates')
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true })
-    }
+    // Convert file to buffer
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
 
     // Generate unique filename
     const timestamp = Date.now()
-    const randomStr = Math.random().toString(36).substring(2, 15)
+    const randomStr = randomBytes(16).toString('hex')
     const extension = file.name.split('.').pop() || 'jpg'
-    const filename = `${timestamp}-${randomStr}.${extension}`
-    const filepath = join(uploadsDir, filename)
+    const filename = `debates/${debateId || 'temp'}/${timestamp}-${randomStr}.${extension}`
 
-    // Save file
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    await writeFile(filepath, buffer)
+    let url: string
 
-    // Get image dimensions (basic check)
-    // In production, you'd use a proper image library like sharp
-    const url = `/uploads/debates/${filename}`
+    // Try to upload to Vercel Blob Storage
+    try {
+      const blob = await put(filename, buffer, {
+        access: 'public',
+        contentType: file.type,
+      })
+      url = blob.url
+    } catch (blobError: any) {
+      console.error('Failed to upload to Blob Storage:', blobError)
+      
+      // Fallback to base64 data URL if Blob Storage is not configured
+      if (file.size > 1 * 1024 * 1024) { // 1MB limit for base64
+        return NextResponse.json(
+          { error: 'File too large for fallback storage. Please configure BLOB_READ_WRITE_TOKEN in Vercel.' },
+          { status: 500 }
+        )
+      }
+      
+      const base64 = buffer.toString('base64')
+      url = `data:${file.type};base64,${base64}`
+    }
 
     // If debateId is provided, create the DebateImage record
     if (debateId) {
@@ -105,10 +118,10 @@ export async function POST(request: NextRequest) {
       fileSize: file.size,
       mimeType: file.type,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to upload debate image:', error)
     return NextResponse.json(
-      { error: 'Failed to upload image' },
+      { error: 'Failed to upload image', details: error.message },
       { status: 500 }
     )
   }
