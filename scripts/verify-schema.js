@@ -18,18 +18,23 @@ console.log('🔍 Verifying Prisma schema...')
 try {
   const schemaContent = readFileSync(schemaPath, 'utf-8')
   
-  // Check for SQLite provider
-  if (schemaContent.includes('provider = "sqlite"')) {
+  // Check for SQLite provider (flexible spacing)
+  if (schemaContent.includes('provider') && schemaContent.includes('sqlite')) {
     console.error('❌ ERROR: Schema is configured for SQLite!')
     console.error('   Your schema must use PostgreSQL for production.')
     console.error('   Update prisma/schema.prisma: provider = "postgresql"')
     process.exit(1)
   }
   
-  // Check for PostgreSQL provider
-  if (!schemaContent.includes('provider = "postgresql"')) {
+  // Check for PostgreSQL provider (flexible spacing)
+  const hasPostgresql = schemaContent.includes('"postgresql"') || 
+                        schemaContent.includes("'postgresql'") ||
+                        /provider\s*=\s*["']postgresql["']/.test(schemaContent)
+  
+  if (!hasPostgresql) {
     console.error('❌ ERROR: Schema provider not found or incorrect!')
     console.error('   Schema must specify: provider = "postgresql"')
+    console.error('   Found in schema:', schemaContent.match(/provider\s*=\s*["'][^"']*["']/)?.[0] || 'not found')
     process.exit(1)
   }
   
