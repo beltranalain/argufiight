@@ -59,8 +59,17 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'utfs.io',
       },
+      {
+        protocol: 'https',
+        hostname: '*.public.blob.vercel-storage.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'dvwkcztlq7v3f9uk.public.blob.vercel-storage.com',
+      },
     ],
     formats: ['image/avif', 'image/webp'],
+    unoptimized: false,
   },
   
   // Enable compression

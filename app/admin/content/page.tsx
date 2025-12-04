@@ -543,8 +543,14 @@ function SectionImagesManager({
                   alt={image.alt || ''}
                   className="w-full h-full object-cover"
                 />
+              ) : image.url.includes('blob.vercel-storage.com') ? (
+                <img
+                  src={image.url}
+                  alt={image.alt || ''}
+                  className="w-full h-full object-cover"
+                />
               ) : (
-                <Image src={image.url} alt={image.alt || ''} fill className="object-cover" />
+                <Image src={image.url} alt={image.alt || ''} fill className="object-cover" unoptimized={image.url.includes('blob.vercel-storage.com')} />
               )}
             </div>
             <div className="flex-1 space-y-2">
@@ -886,6 +892,12 @@ function MediaLibraryModal({
           {media.map((item) => (
             <div key={item.id} className="relative aspect-square rounded-lg overflow-hidden">
               {item.url.startsWith('data:') ? (
+                <img
+                  src={item.url}
+                  alt={item.alt || ''}
+                  className="w-full h-full object-cover"
+                />
+              ) : item.url.includes('blob.vercel-storage.com') ? (
                 <img
                   src={item.url}
                   alt={item.alt || ''}

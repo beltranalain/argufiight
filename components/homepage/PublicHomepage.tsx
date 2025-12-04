@@ -168,7 +168,9 @@ function HeroSection({ section }: { section: HomepageSection }) {
 }
 
 function HomepageSectionComponent({ section, index }: { section: HomepageSection; index: number }) {
-  const sectionImages = [...section.images].sort((a, b) => a.order - b.order)
+  const sectionImages = Array.isArray(section.images) 
+    ? [...section.images].sort((a, b) => a.order - b.order)
+    : []
   const sectionButtons = [...section.buttons]
     .filter(btn => btn.isVisible)
     .sort((a, b) => a.order - b.order)
@@ -205,7 +207,7 @@ function HomepageSectionComponent({ section, index }: { section: HomepageSection
                       fill
                       className="object-cover"
                       priority={index === 0}
-                      unoptimized={primaryImage.url.startsWith('data:')}
+                      unoptimized={primaryImage.url.includes('blob.vercel-storage.com') || primaryImage.url.startsWith('data:')}
                     />
                   )}
                   {primaryImage.caption && (
@@ -256,12 +258,20 @@ function HomepageSectionComponent({ section, index }: { section: HomepageSection
           <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-4">
             {sectionImages.slice(1).map((image) => (
               <div key={image.id} className="relative aspect-square rounded-xl overflow-hidden border border-white/20">
-                <Image
-                  src={image.url}
-                  alt={image.alt || ''}
-                  fill
-                  className="object-cover"
-                />
+                {image.url.includes('blob.vercel-storage.com') || image.url.startsWith('data:') ? (
+                  <img
+                    src={image.url}
+                    alt={image.alt || ''}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Image
+                    src={image.url}
+                    alt={image.alt || ''}
+                    fill
+                    className="object-cover"
+                  />
+                )}
               </div>
             ))}
           </div>
