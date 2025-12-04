@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { motion, AnimatePresence } from 'framer-motion'
 
 interface Notification {
   id: string
@@ -19,9 +18,8 @@ export function NotificationTicker() {
   const { user } = useAuth()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isPaused, setIsPaused] = useState(false)
-  const [newNotificationCount, setNewNotificationCount] = useState(0)
   const tickerRef = useRef<HTMLDivElement>(null)
-  const lastFetchRef = useRef<Date>(new Date())
+  const animationRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -31,13 +29,48 @@ export function NotificationTicker() {
 
     // Poll for new notifications every 30 seconds
     const interval = setInterval(() => {
-      fetchNotifications(true)
+      fetchNotifications()
     }, 30000)
 
     return () => clearInterval(interval)
   }, [user])
 
-  const fetchNotifications = async (isPoll = false) => {
+  useEffect(() => {
+    // Handle smooth infinite scroll animation
+    if (!tickerRef.current || notifications.length === 0) return
+
+    const container = tickerRef.current
+    const content = container.querySelector('.ticker-content') as HTMLElement
+    if (!content) return
+
+    let scrollPosition = 0
+    const scrollSpeed = 0.5 // pixels per frame
+
+    const animate = () => {
+      if (!isPaused && content) {
+        scrollPosition += scrollSpeed
+        const contentWidth = content.scrollWidth / 2 // Divide by 2 because we duplicate content
+        
+        if (scrollPosition >= contentWidth) {
+          scrollPosition = 0
+        }
+        
+        content.style.transform = `translateX(-${scrollPosition}px)`
+      }
+      
+      animationRef.current = requestAnimationFrame(animate)
+    }
+
+    animationRef.current = requestAnimationFrame(animate)
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+      }
+    }
+  }, [notifications, isPaused])
+
+  const fetchNotifications = async () => {
     if (!user) return
 
     try {
@@ -45,21 +78,7 @@ export function NotificationTicker() {
       if (response.ok) {
         const data = await response.json()
         const fetchedNotifications = Array.isArray(data) ? data : (data.notifications || [])
-        
-        if (isPoll) {
-          // Check for new notifications
-          const newCount = fetchedNotifications.filter(
-            (n: Notification) => !n.read && new Date(n.createdAt) > lastFetchRef.current
-          ).length
-          if (newCount > 0) {
-            setNewNotificationCount(newCount)
-            // Reset after 5 seconds
-            setTimeout(() => setNewNotificationCount(0), 5000)
-          }
-        }
-        
         setNotifications(fetchedNotifications)
-        lastFetchRef.current = new Date()
       }
     } catch (error) {
       console.error('Failed to fetch notifications:', error)
@@ -67,50 +86,27 @@ export function NotificationTicker() {
   }
 
   const getNotificationColor = (notification: Notification): string => {
-    if (!notification.read && newNotificationCount > 0) {
-      // New/unread notifications get bright colors
+    if (!notification.read) {
       switch (notification.type) {
         case 'YOUR_TURN':
         case 'DEBATE_TURN':
-          return 'bg-neon-orange text-black border-neon-orange'
+          return 'bg-gradient-to-r from-neon-orange to-orange-600 text-black'
         case 'VERDICT_READY':
         case 'DEBATE_COMPLETE':
-          return 'bg-cyber-green text-black border-cyber-green'
+          return 'bg-gradient-to-r from-cyber-green to-green-600 text-black'
         case 'APPEAL_SUBMITTED':
         case 'APPEAL_RESOLVED':
-          return 'bg-yellow-500 text-black border-yellow-500'
+          return 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-black'
         case 'REMATCH_REQUESTED':
-          return 'bg-purple-500 text-white border-purple-500'
+          return 'bg-gradient-to-r from-purple-500 to-purple-600 text-white'
         case 'DEBATE_ACCEPTED':
         case 'NEW_CHALLENGE':
-          return 'bg-electric-blue text-black border-electric-blue'
+          return 'bg-gradient-to-r from-electric-blue to-blue-600 text-black'
         default:
-          return 'bg-electric-blue text-black border-electric-blue'
+          return 'bg-gradient-to-r from-electric-blue to-blue-600 text-black'
       }
     } else {
-      // Read notifications get muted colors
       return 'bg-bg-tertiary text-text-secondary border-bg-secondary'
-    }
-  }
-
-  const getNotificationIcon = (type: string): string => {
-    switch (type) {
-      case 'YOUR_TURN':
-      case 'DEBATE_TURN':
-        return '⚡'
-      case 'VERDICT_READY':
-      case 'DEBATE_COMPLETE':
-        return '⚖️'
-      case 'APPEAL_SUBMITTED':
-      case 'APPEAL_RESOLVED':
-        return '📢'
-      case 'REMATCH_REQUESTED':
-        return '🔄'
-      case 'DEBATE_ACCEPTED':
-      case 'NEW_CHALLENGE':
-        return '🎯'
-      default:
-        return '🔔'
     }
   }
 
@@ -118,7 +114,7 @@ export function NotificationTicker() {
     if (notification.debateId) {
       return `/debate/${notification.debateId}`
     }
-    return '/'
+    return '/dashboard'
   }
 
   if (!user || notifications.length === 0) {
@@ -136,101 +132,94 @@ export function NotificationTicker() {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 bg-bg-secondary border-t border-bg-tertiary overflow-hidden"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-bg-secondary via-bg-tertiary to-bg-secondary border-t-2 border-electric-blue/30 shadow-lg"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <div className="relative h-12 flex items-center">
-        {/* Label */}
-        <div className="absolute left-0 top-0 bottom-0 bg-electric-blue text-black px-4 flex items-center font-bold text-sm z-10 border-r border-bg-tertiary">
-          <span className="whitespace-nowrap">LIVE</span>
+      <div className="relative h-14 flex items-center overflow-hidden">
+        {/* LIVE Badge */}
+        <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-br from-electric-blue to-blue-600 text-black px-5 flex items-center font-bold text-xs tracking-wider z-10 border-r-2 border-electric-blue/50 shadow-lg">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 bg-black rounded-full animate-pulse" />
+            <span className="whitespace-nowrap uppercase">LIVE</span>
+          </div>
         </div>
 
-        {/* Scrolling notifications */}
+        {/* Scrolling notifications container */}
         <div
           ref={tickerRef}
-          className="flex-1 overflow-hidden ml-24"
+          className="flex-1 overflow-hidden ml-20"
         >
-          <motion.div
-            className="flex items-center gap-6 h-full"
-            animate={{
-              x: isPaused ? 0 : `-${50 * visibleNotifications.length}%`,
-            }}
-            transition={{
-              duration: visibleNotifications.length * 5,
-              repeat: Infinity,
-              ease: 'linear',
-              repeatType: 'loop',
-            }}
+          <div
+            className="ticker-content flex items-center gap-8 h-full"
+            style={{ width: 'max-content' }}
           >
-            {visibleNotifications.map((notification, index) => (
-              <motion.div
-                key={`${notification.id}-${index}`}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border whitespace-nowrap transition-all hover:scale-105 cursor-pointer"
-                style={{ minWidth: '300px' }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Link
-                  href={getNotificationUrl(notification)}
-                  className="flex items-center gap-2 w-full"
-                  onClick={async () => {
-                    // Mark as read
-                    if (!notification.read) {
-                      try {
-                        await fetch(`/api/notifications/${notification.id}/read`, {
-                          method: 'POST',
-                        })
-                        fetchNotifications()
-                      } catch (error) {
-                        console.error('Failed to mark notification as read:', error)
-                      }
+            {/* Original notifications */}
+            {visibleNotifications.map((notification) => (
+              <Link
+                key={notification.id}
+                href={getNotificationUrl(notification)}
+                className="flex items-center gap-3 px-5 py-2 rounded-lg border-2 transition-all hover:scale-105 hover:shadow-lg whitespace-nowrap"
+                style={{ minWidth: '350px' }}
+                onClick={async () => {
+                  if (!notification.read) {
+                    try {
+                      await fetch(`/api/notifications/${notification.id}/read`, {
+                        method: 'POST',
+                      })
+                      fetchNotifications()
+                    } catch (error) {
+                      console.error('Failed to mark notification as read:', error)
                     }
-                  }}
-                >
-                  <span className="text-lg">{getNotificationIcon(notification.type)}</span>
-                  <span className={`text-sm font-medium ${getNotificationColor(notification)} px-3 py-1 rounded border`}>
-                    {notification.title}
-                  </span>
-                  <span className="text-xs text-text-secondary truncate max-w-[200px]">
-                    {notification.message}
-                  </span>
-                  {!notification.read && (
-                    <span className="w-2 h-2 bg-neon-orange rounded-full animate-pulse" />
-                  )}
-                </Link>
-              </motion.div>
-            ))}
-            {/* Duplicate for seamless loop */}
-            {visibleNotifications.map((notification, index) => (
-              <motion.div
-                key={`${notification.id}-duplicate-${index}`}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border whitespace-nowrap transition-all hover:scale-105 cursor-pointer"
-                style={{ minWidth: '300px' }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                  }
+                }}
               >
-                <Link
-                  href={getNotificationUrl(notification)}
-                  className="flex items-center gap-2 w-full"
-                >
-                  <span className="text-lg">{getNotificationIcon(notification.type)}</span>
-                  <span className={`text-sm font-medium ${getNotificationColor(notification)} px-3 py-1 rounded border`}>
-                    {notification.title}
-                  </span>
-                  <span className="text-xs text-text-secondary truncate max-w-[200px]">
-                    {notification.message}
-                  </span>
-                  {!notification.read && (
-                    <span className="w-2 h-2 bg-neon-orange rounded-full animate-pulse" />
-                  )}
-                </Link>
-              </motion.div>
+                <div className={`flex-1 flex items-center gap-3 px-4 py-2 rounded-md border ${getNotificationColor(notification)}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-bold uppercase tracking-wide">
+                        {notification.title}
+                      </span>
+                      {!notification.read && (
+                        <span className="w-2 h-2 bg-black rounded-full animate-pulse" />
+                      )}
+                    </div>
+                    <p className="text-xs opacity-90 truncate max-w-[250px]">
+                      {notification.message}
+                    </p>
+                  </div>
+                </div>
+              </Link>
             ))}
-          </motion.div>
+            
+            {/* Duplicate for seamless infinite loop */}
+            {visibleNotifications.map((notification) => (
+              <Link
+                key={`${notification.id}-duplicate`}
+                href={getNotificationUrl(notification)}
+                className="flex items-center gap-3 px-5 py-2 rounded-lg border-2 transition-all hover:scale-105 hover:shadow-lg whitespace-nowrap"
+                style={{ minWidth: '350px' }}
+              >
+                <div className={`flex-1 flex items-center gap-3 px-4 py-2 rounded-md border ${getNotificationColor(notification)}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-bold uppercase tracking-wide">
+                        {notification.title}
+                      </span>
+                      {!notification.read && (
+                        <span className="w-2 h-2 bg-black rounded-full animate-pulse" />
+                      )}
+                    </div>
+                    <p className="text-xs opacity-90 truncate max-w-[250px]">
+                      {notification.message}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   )
 }
-
