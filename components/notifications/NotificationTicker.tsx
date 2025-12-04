@@ -86,27 +86,46 @@ export function NotificationTicker() {
   }
 
   const getNotificationColor = (notification: Notification): string => {
+    // Check if notification is about winning
+    const isWin = notification.title.toLowerCase().includes('won') || 
+                  notification.message.toLowerCase().includes('won') ||
+                  notification.type === 'VERDICT_READY' && notification.message.toLowerCase().includes('winner')
+    
+    // Check if notification is about losing
+    const isLoss = notification.title.toLowerCase().includes('lost') || 
+                   notification.message.toLowerCase().includes('lost')
+    
     if (!notification.read) {
+      // Win notifications - light green
+      if (isWin) {
+        return 'bg-green-500/20 text-green-400 border-green-500/30'
+      }
+      // Loss notifications - light red
+      if (isLoss) {
+        return 'bg-red-500/20 text-red-400 border-red-500/30'
+      }
+      
+      // Other notification types
       switch (notification.type) {
         case 'YOUR_TURN':
         case 'DEBATE_TURN':
-          return 'bg-gradient-to-r from-neon-orange to-orange-600 text-black'
+          return 'bg-orange-500/20 text-orange-400 border-orange-500/30'
         case 'VERDICT_READY':
         case 'DEBATE_COMPLETE':
-          return 'bg-gradient-to-r from-cyber-green to-green-600 text-black'
+          return 'bg-green-500/20 text-green-400 border-green-500/30'
         case 'APPEAL_SUBMITTED':
         case 'APPEAL_RESOLVED':
-          return 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-black'
+          return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
         case 'REMATCH_REQUESTED':
-          return 'bg-gradient-to-r from-purple-500 to-purple-600 text-white'
+          return 'bg-purple-500/20 text-purple-400 border-purple-500/30'
         case 'DEBATE_ACCEPTED':
         case 'NEW_CHALLENGE':
-          return 'bg-gradient-to-r from-electric-blue to-blue-600 text-black'
+          return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
         default:
-          return 'bg-gradient-to-r from-electric-blue to-blue-600 text-black'
+          return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
       }
     } else {
-      return 'bg-bg-tertiary text-text-secondary border-bg-secondary'
+      return 'bg-bg-tertiary/50 text-text-secondary border-bg-secondary/50'
     }
   }
 
@@ -132,15 +151,15 @@ export function NotificationTicker() {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-bg-secondary via-bg-tertiary to-bg-secondary border-t-2 border-electric-blue/30 shadow-lg"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-bg-secondary/95 backdrop-blur-sm border-t border-bg-tertiary"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <div className="relative h-14 flex items-center overflow-hidden">
+      <div className="relative h-10 flex items-center overflow-hidden">
         {/* LIVE Badge */}
-        <div className="absolute left-0 top-0 bottom-0 bg-gradient-to-br from-electric-blue to-blue-600 text-black px-5 flex items-center font-bold text-xs tracking-wider z-10 border-r-2 border-electric-blue/50 shadow-lg">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-black rounded-full animate-pulse" />
+        <div className="absolute left-0 top-0 bottom-0 bg-electric-blue text-black px-3 flex items-center font-bold text-[10px] tracking-wider z-10 border-r border-electric-blue/50">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 bg-black rounded-full animate-pulse" />
             <span className="whitespace-nowrap uppercase">LIVE</span>
           </div>
         </div>
@@ -148,10 +167,10 @@ export function NotificationTicker() {
         {/* Scrolling notifications container */}
         <div
           ref={tickerRef}
-          className="flex-1 overflow-hidden ml-20"
+          className="flex-1 overflow-hidden ml-16"
         >
           <div
-            className="ticker-content flex items-center gap-8 h-full"
+            className="ticker-content flex items-center gap-4 h-full"
             style={{ width: 'max-content' }}
           >
             {/* Original notifications */}
@@ -159,8 +178,8 @@ export function NotificationTicker() {
               <Link
                 key={notification.id}
                 href={getNotificationUrl(notification)}
-                className="flex items-center gap-3 px-5 py-2 rounded-lg border-2 transition-all hover:scale-105 hover:shadow-lg whitespace-nowrap"
-                style={{ minWidth: '350px' }}
+                className="flex items-center gap-2 px-3 py-1.5 rounded border transition-all hover:opacity-80 whitespace-nowrap"
+                style={{ minWidth: '280px' }}
                 onClick={async () => {
                   if (!notification.read) {
                     try {
@@ -174,20 +193,18 @@ export function NotificationTicker() {
                   }
                 }}
               >
-                <div className={`flex-1 flex items-center gap-3 px-4 py-2 rounded-md border ${getNotificationColor(notification)}`}>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-bold uppercase tracking-wide">
-                        {notification.title}
-                      </span>
-                      {!notification.read && (
-                        <span className="w-2 h-2 bg-black rounded-full animate-pulse" />
-                      )}
-                    </div>
-                    <p className="text-xs opacity-90 truncate max-w-[250px]">
-                      {notification.message}
-                    </p>
-                  </div>
+                <div className={`flex items-center gap-2 px-3 py-1 rounded border ${getNotificationColor(notification)}`}>
+                  <span className="text-xs font-semibold truncate max-w-[200px]">
+                    {notification.title}
+                  </span>
+                  <span className="text-[10px] opacity-75 truncate max-w-[150px]">
+                    {notification.message}
+                  </span>
+                  {!notification.read && (
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0" 
+                      style={{ backgroundColor: 'currentColor' }}
+                    />
+                  )}
                 </div>
               </Link>
             ))}
@@ -197,23 +214,21 @@ export function NotificationTicker() {
               <Link
                 key={`${notification.id}-duplicate`}
                 href={getNotificationUrl(notification)}
-                className="flex items-center gap-3 px-5 py-2 rounded-lg border-2 transition-all hover:scale-105 hover:shadow-lg whitespace-nowrap"
-                style={{ minWidth: '350px' }}
+                className="flex items-center gap-2 px-3 py-1.5 rounded border transition-all hover:opacity-80 whitespace-nowrap"
+                style={{ minWidth: '280px' }}
               >
-                <div className={`flex-1 flex items-center gap-3 px-4 py-2 rounded-md border ${getNotificationColor(notification)}`}>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-bold uppercase tracking-wide">
-                        {notification.title}
-                      </span>
-                      {!notification.read && (
-                        <span className="w-2 h-2 bg-black rounded-full animate-pulse" />
-                      )}
-                    </div>
-                    <p className="text-xs opacity-90 truncate max-w-[250px]">
-                      {notification.message}
-                    </p>
-                  </div>
+                <div className={`flex items-center gap-2 px-3 py-1 rounded border ${getNotificationColor(notification)}`}>
+                  <span className="text-xs font-semibold truncate max-w-[200px]">
+                    {notification.title}
+                  </span>
+                  <span className="text-[10px] opacity-75 truncate max-w-[150px]">
+                    {notification.message}
+                  </span>
+                  {!notification.read && (
+                    <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0" 
+                      style={{ backgroundColor: 'currentColor' }}
+                    />
+                  )}
                 </div>
               </Link>
             ))}
