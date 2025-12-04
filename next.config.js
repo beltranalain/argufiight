@@ -7,17 +7,37 @@ const nextConfig = {
     },
     // Workaround for Next.js 15 client reference manifest issue with route groups
     optimizePackageImports: ['@prisma/client'],
+    // Ensure Prisma engines are traced
+    outputFileTracingExcludes: {
+      '*': [
+        'node_modules/@swc/core-linux-x64-gnu',
+        'node_modules/@swc/core-linux-x64-musl',
+        'node_modules/@esbuild/linux-x64',
+      ],
+    },
   },
   
-  // Workaround for Vercel build tracing issue with route groups
+  // Fix for Prisma engine binary on Vercel
   webpack: (config, { isServer }) => {
-    if (!isServer) {
-      // Ignore missing client reference manifest files during build
+    if (isServer) {
+      // Copy Prisma engine binaries to output directory for Vercel
+      config.externals = config.externals || []
+      // Don't externalize Prisma - we need the engine
+      config.externals = config.externals.filter(
+        (external) => typeof external !== 'string' || !external.includes('@prisma')
+      )
+    } else {
+      // Client-side: ignore missing client reference manifest files during build
       config.resolve.fallback = {
         ...config.resolve.fallback,
       }
     }
     return config
+  },
+  
+  // Ensure Prisma engines are included in the build output
+  outputFileTracingIncludes: {
+    '/api/**/*': ['./node_modules/.prisma/**/*', './node_modules/@prisma/client/**/*'],
   },
   
   images: {
