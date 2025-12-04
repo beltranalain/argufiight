@@ -105,7 +105,6 @@ export function TrendingTopics({ onTopicClick }: TrendingTopicsProps) {
           <p>No trending topics yet. Be the first to start a debate!</p>
         </div>
       ) : (
-        // Horizontal Scroll
         <div className="flex gap-6 overflow-x-auto overflow-y-visible pt-2 pb-4 scrollbar-thin scrollbar-thumb-electric-blue scrollbar-track-bg-secondary mt-6">
           {topics.map((topic, index) => (
           <motion.div
