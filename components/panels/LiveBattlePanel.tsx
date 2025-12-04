@@ -29,6 +29,11 @@ interface ActiveDebate {
     caption: string | null
     order: number
   }>
+  statements?: Array<{
+    id: string
+    round: number
+    authorId: string
+  }>
 }
 
 export function LiveBattlePanel() {
@@ -47,15 +52,35 @@ export function LiveBattlePanel() {
   const fetchActiveDebate = async () => {
     try {
       setIsLoading(true)
-         const response = await fetch(`/api/debates?userId=${user?.id}&status=ACTIVE`)
-           if (response.ok) {
-             const data = await response.json()
-             // Ensure data is an array
-             const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
-             // Get the most recent active debate
-             const active = debates.find((d: any) => d.status === 'ACTIVE')
-             setActiveDebate(active || null)
-           }
+      const response = await fetch(`/api/debates?userId=${user?.id}&status=ACTIVE`)
+      if (response.ok) {
+        const data = await response.json()
+        // Ensure data is an array
+        const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
+        // Get the most recent active debate
+        const active = debates.find((d: any) => d.status === 'ACTIVE')
+        
+        // If we found an active debate, fetch full details including statements
+        if (active) {
+          const detailResponse = await fetch(`/api/debates/${active.id}`)
+          if (detailResponse.ok) {
+            const fullDebate = await detailResponse.json()
+            setActiveDebate({
+              ...active,
+              images: fullDebate.images || [],
+              statements: fullDebate.statements?.map((s: any) => ({
+                id: s.id,
+                round: s.round,
+                authorId: s.author.id,
+              })) || [],
+            })
+          } else {
+            setActiveDebate(active)
+          }
+        } else {
+          setActiveDebate(null)
+        }
+      }
     } catch (error) {
       console.error('Failed to fetch active debate:', error)
     } finally {
@@ -88,10 +113,36 @@ export function LiveBattlePanel() {
   }
 
   const progress = (activeDebate.currentRound / activeDebate.totalRounds) * 100
-  const isMyTurn = activeDebate.status === 'ACTIVE' && user && (
-    activeDebate.challenger.id === user.id || 
-    (activeDebate.opponent && activeDebate.opponent.id === user.id)
-  )
+  
+  // Determine if it's user's turn based on statements in current round
+  let isMyTurn = false
+  if (activeDebate.status === 'ACTIVE' && user && activeDebate.statements) {
+    const currentRoundStatements = activeDebate.statements.filter(
+      s => s.round === activeDebate.currentRound
+    )
+    const challengerSubmitted = currentRoundStatements.some(
+      s => s.authorId === activeDebate.challenger.id
+    )
+    const opponentSubmitted = activeDebate.opponent && currentRoundStatements.some(
+      s => s.authorId === activeDebate.opponent!.id
+    )
+    const userSubmitted = currentRoundStatements.some(s => s.authorId === user.id)
+    const isChallenger = user.id === activeDebate.challenger.id
+    const isOpponent = activeDebate.opponent && user.id === activeDebate.opponent.id
+    
+    // First round: challenger goes first if no statements yet
+    if (currentRoundStatements.length === 0 && isChallenger) {
+      isMyTurn = true
+    }
+    // Challenger's turn: opponent submitted but challenger hasn't
+    else if (isChallenger && opponentSubmitted && !challengerSubmitted) {
+      isMyTurn = true
+    }
+    // Opponent's turn: challenger submitted but opponent hasn't
+    else if (isOpponent && challengerSubmitted && !opponentSubmitted) {
+      isMyTurn = true
+    }
+  }
 
   return (
     <div className="space-y-4">

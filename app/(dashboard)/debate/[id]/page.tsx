@@ -310,9 +310,37 @@ export default function DebatePage() {
     (debate.opponent && debate.opponent.id === user.id)
   )
 
+  // Determine if it's user's turn and if they can submit
+  const currentRoundStatements = debate?.statements.filter(
+    s => s.round === debate.currentRound
+  ) || []
+  const challengerSubmitted = currentRoundStatements.some(
+    s => s.author.id === debate?.challenger.id
+  )
+  const opponentSubmitted = debate?.opponent && currentRoundStatements.some(
+    s => s.author.id === debate.opponent.id
+  )
+  const userSubmitted = currentRoundStatements.some(
+    s => s.author.id === user?.id
+  )
+  const isChallenger = debate && user && debate.challenger.id === user.id
+  const isOpponent = debate && user && debate.opponent && debate.opponent.id === user.id
+  const noStatementsInRound = currentRoundStatements.length === 0
+  
+  // Determine if it's user's turn
+  const isMyTurn = debate && user && debate.status === 'ACTIVE' && (
+    // First round: challenger goes first if no statements yet
+    (noStatementsInRound && isChallenger) ||
+    // Challenger's turn: opponent submitted but challenger hasn't
+    (isChallenger && opponentSubmitted && !challengerSubmitted) ||
+    // Opponent's turn: challenger submitted but opponent hasn't
+    (isOpponent && challengerSubmitted && !opponentSubmitted)
+  )
+
   const canSubmit = debate && user && isParticipant && 
     debate.status === 'ACTIVE' &&
-    !debate.statements.some(s => s.author.id === user.id && s.round === debate.currentRound)
+    !userSubmitted &&
+    isMyTurn
 
   if (isLoading) {
     return (
@@ -335,6 +363,31 @@ export default function DebatePage() {
       
       <div className="pt-16 md:pt-20 px-4 md:px-8 pb-8">
         <div className="max-w-7xl mx-auto">
+          {/* Your Turn Banner */}
+          {isMyTurn && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-neon-orange/20 to-neon-orange/10 border-2 border-neon-orange rounded-lg animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-neon-orange rounded-full animate-ping" />
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-neon-orange">It's Your Turn!</h3>
+                  <p className="text-sm text-text-secondary">
+                    Submit your argument for Round {debate.currentRound} before the deadline.
+                  </p>
+                </div>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    const submitForm = document.getElementById('submit-argument-form')
+                    submitForm?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }}
+                  className="bg-neon-orange hover:bg-neon-orange/90 text-black"
+                >
+                  Submit Now
+                </Button>
+              </div>
+            </div>
+          )}
+          
           {/* Header */}
           <div className="flex items-center gap-4 mb-6">
             <Button variant="ghost" onClick={() => router.push('/')}>
@@ -531,9 +584,15 @@ export default function DebatePage() {
 
           {/* Submit Form */}
           {canSubmit && (
-            <Card>
+            <Card id="submit-argument-form">
               <CardHeader>
-                <h2 className="text-xl font-bold text-text-primary">Submit Your Argument</h2>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-neon-orange rounded-full animate-pulse" />
+                  <h2 className="text-xl font-bold text-text-primary">Submit Your Argument</h2>
+                </div>
+                <p className="text-sm text-text-secondary mt-2">
+                  Round {debate.currentRound} of {debate.totalRounds}
+                </p>
               </CardHeader>
               <CardBody>
                 <SubmitArgumentForm

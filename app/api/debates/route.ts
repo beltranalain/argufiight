@@ -87,6 +87,13 @@ export async function GET(request: NextRequest) {
             order: 'asc',
           },
         },
+        statements: {
+          select: {
+            id: true,
+            round: true,
+            authorId: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
