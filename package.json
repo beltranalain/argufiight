@@ -4,7 +4,7 @@
   "description": "AI-judged debate platform with horizontal UI",
   "private": true,
   "scripts": {
-    "postinstall": "node scripts/regenerate-prisma.js",
+    "postinstall": "prisma generate",
     "dev": "next dev --webpack",
     "build": "node scripts/verify-schema.js && node scripts/clean-build.js && node scripts/regenerate-prisma.js && node scripts/ensure-prisma-binary.js && next build && node scripts/fix-client-manifest.js && node scripts/verify-build.js",
     "setup-db": "node scripts/setup-database.js",

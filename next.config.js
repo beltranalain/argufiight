@@ -36,12 +36,11 @@ const nextConfig = {
   
   // Ensure Prisma engines are included in the build output for ALL routes
   // This is critical - the root page uses Prisma to check sessions
+  // Use wildcard to include all Prisma files
   outputFileTracingIncludes: {
     '*': [
-      './node_modules/.prisma/client/**/*',
-      './node_modules/@prisma/client/**/*',
-      './node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
-      './node_modules/.prisma/client/query_engine-rhel-openssl-3.0.x',
+      './node_modules/.prisma/**/*',
+      './node_modules/@prisma/**/*',
     ],
   },
   
