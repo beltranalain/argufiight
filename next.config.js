@@ -7,14 +7,15 @@ const nextConfig = {
     },
     // Workaround for Next.js 15 client reference manifest issue with route groups
     optimizePackageImports: ['@prisma/client'],
-    // Ensure Prisma engines are traced
-    outputFileTracingExcludes: {
-      '*': [
-        'node_modules/@swc/core-linux-x64-gnu',
-        'node_modules/@swc/core-linux-x64-musl',
-        'node_modules/@esbuild/linux-x64',
-      ],
-    },
+  },
+  
+  // Ensure Prisma engines are traced (moved from experimental)
+  outputFileTracingExcludes: {
+    '*': [
+      'node_modules/@swc/core-linux-x64-gnu',
+      'node_modules/@swc/core-linux-x64-musl',
+      'node_modules/@esbuild/linux-x64',
+    ],
   },
   
   // Fix for Prisma engine binary on Vercel
