@@ -17,15 +17,9 @@ const rootDir = resolve(__dirname, '..')
 
 console.log('🔄 Force regenerating Prisma Client for PostgreSQL...')
 
-// Verify DATABASE_URL is set (only during build, not during local install)
+// DATABASE_URL is optional during build - Prisma can generate client from schema alone
+// It will be required at runtime, but not during build
 const databaseUrl = process.env.DATABASE_URL
-const isBuildTime = process.env.NODE_ENV === 'production' || process.env.CI || process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT
-
-if (isBuildTime && !databaseUrl) {
-  console.error('❌ ERROR: DATABASE_URL environment variable is not set!')
-  console.error('   Please set DATABASE_URL in your deployment environment variables.')
-  process.exit(1)
-}
 
 if (databaseUrl) {
   // Check if it's PostgreSQL (not SQLite)
@@ -42,7 +36,8 @@ if (databaseUrl) {
 
   console.log('  → DATABASE_URL is set (PostgreSQL connection)')
 } else {
-  console.log('  → DATABASE_URL not set (local development - will use schema defaults)')
+  console.log('  → DATABASE_URL not set (will generate Prisma client from schema only)')
+  console.log('  → Note: DATABASE_URL will be required at runtime for database connections')
 }
 
 // Clear Prisma cache directories
