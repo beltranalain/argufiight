@@ -1,29 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
+import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { put } from '@vercel/blob'
 
-const MEDIA_DIR = join(process.cwd(), 'public', 'uploads', 'media')
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
 // GET /api/admin/content/media - Get media library
 export async function GET() {
   try {
-    const session = await verifySession()
-    if (!session) {
+    const userId = await verifyAdmin()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if user is admin
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { isAdmin: true },
-    })
-
-    if (!user?.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const media = await prisma.mediaLibrary.findMany({
@@ -45,24 +32,12 @@ export async function GET() {
 // POST /api/admin/content/media - Upload to media library
 export async function POST(request: NextRequest) {
   try {
-    const session = await verifySession()
-    const userId = getUserIdFromSession(session)
-
+    const userId = await verifyAdmin()
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user is admin
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isAdmin: true },
-    })
-
-    if (!user?.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    const formData = await request.formData() as any
+    const formData = await request.formData()
     const file = formData.get('file') as File
 
     if (!file) {
@@ -77,25 +52,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File size must be less than 10MB' }, { status: 400 })
     }
 
-    // Create uploads directory
-    try {
-      await mkdir(MEDIA_DIR, { recursive: true })
-    } catch (error) {
-      // Directory might already exist
-    }
-
     // Generate unique filename
     const crypto = require('crypto')
     const fileExtension = file.name.split('.').pop() || 'jpg'
-    const filename = `${crypto.randomBytes(16).toString('hex')}.${fileExtension}`
-    const filepath = join(MEDIA_DIR, filename)
+    const filename = `media/${crypto.randomBytes(16).toString('hex')}.${fileExtension}`
 
-    // Save file
+    // Upload to Vercel Blob Storage
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await writeFile(filepath, buffer)
-
-    const imageUrl = `/uploads/media/${filename}`
+    
+    let imageUrl: string
+    try {
+      // Try Vercel Blob Storage first
+      const blob = await put(filename, buffer, {
+        access: 'public',
+        contentType: file.type,
+      })
+      imageUrl = blob.url
+    } catch (blobError) {
+      // Fallback: Store as base64 data URL (not ideal but works)
+      console.warn('Vercel Blob Storage not available, using base64 fallback:', blobError)
+      const base64 = buffer.toString('base64')
+      imageUrl = `data:${file.type};base64,${base64}`
+    }
 
     // Save to media library
     const media = await prisma.mediaLibrary.create({

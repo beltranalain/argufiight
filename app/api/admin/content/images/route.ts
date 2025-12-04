@@ -1,34 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
+import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { put } from '@vercel/blob'
 
-const IMAGE_DIR = join(process.cwd(), 'public', 'uploads', 'homepage')
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
 // POST /api/admin/content/images - Upload image for section
 export async function POST(request: NextRequest) {
   try {
-    const session = await verifySession()
-    const userId = getUserIdFromSession(session)
-
+    const userId = await verifyAdmin()
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user is admin
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isAdmin: true },
-    })
-
-    if (!user?.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    const formData = await request.formData() as any
+    const formData = await request.formData()
     const fileEntry = formData.get('image')
     const file = fileEntry instanceof File ? fileEntry : null
     const sectionId = (formData.get('sectionId') as string | null) || ''
@@ -45,25 +30,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File size must be less than 10MB' }, { status: 400 })
     }
 
-    // Create uploads directory
-    try {
-      await mkdir(IMAGE_DIR, { recursive: true })
-    } catch (error) {
-      // Directory might already exist
-    }
-
     // Generate unique filename
     const crypto = require('crypto')
     const fileExtension = file.name.split('.').pop() || 'jpg'
-    const filename = `${crypto.randomBytes(16).toString('hex')}.${fileExtension}`
-    const filepath = join(IMAGE_DIR, filename)
+    const filename = `homepage/${crypto.randomBytes(16).toString('hex')}.${fileExtension}`
 
-    // Save file
+    // Upload to Vercel Blob Storage
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await writeFile(filepath, buffer)
-
-    const imageUrl = `/uploads/homepage/${filename}`
+    
+    let imageUrl: string
+    try {
+      // Try Vercel Blob Storage first
+      const blob = await put(filename, buffer, {
+        access: 'public',
+        contentType: file.type,
+      })
+      imageUrl = blob.url
+    } catch (blobError) {
+      // Fallback: Store as base64 data URL (not ideal but works)
+      console.warn('Vercel Blob Storage not available, using base64 fallback:', blobError)
+      const base64 = buffer.toString('base64')
+      imageUrl = `data:${file.type};base64,${base64}`
+    }
 
     // Get image dimensions (simplified - you might want to use sharp or similar)
     // For now, we'll just save the URL

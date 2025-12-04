@@ -68,6 +68,7 @@
     "resend": "^6.5.2",
     "tailwind-merge": "^3.4.0",
     "typescript": "^5.9.3",
+    "@vercel/blob": "^0.25.0",
     "winston": "^3.18.3"
   },
   "devDependencies": {
