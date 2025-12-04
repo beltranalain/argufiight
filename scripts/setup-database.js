@@ -15,13 +15,13 @@ const rootDir = resolve(__dirname, '..')
 console.log('🗄️  Setting up database...')
 
 // Check if DATABASE_URL is set
-// Railway sets this automatically when database is linked, but it might be in a different format
-// Railway also provides DATABASE_PUBLIC_URL which we can use as fallback
+// Railway sets this automatically when database is linked
+// Prioritize DATABASE_URL (private, no egress fees) over DATABASE_PUBLIC_URL (public, incurs fees)
 let databaseUrl = process.env.DATABASE_URL || 
-                  process.env.DATABASE_PUBLIC_URL ||
                   process.env.POSTGRES_URL || 
                   process.env.PGDATABASE_URL ||
-                  process.env.RAILWAY_DATABASE_URL
+                  process.env.RAILWAY_DATABASE_URL ||
+                  process.env.DATABASE_PUBLIC_URL // Fallback only if private URL not available
 
 if (!databaseUrl) {
   console.warn('⚠️  WARNING: DATABASE_URL not found. Checking Railway environment...')
