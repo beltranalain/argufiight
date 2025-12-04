@@ -100,11 +100,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get 3 random judges
-    const allJudges = await prisma.judge.findMany({
-      where: {
-        isActive: true, // Only use active judges
-      },
-    })
+    const allJudges = await prisma.judge.findMany()
     
     if (allJudges.length === 0) {
       console.error('No active judges found in database')
