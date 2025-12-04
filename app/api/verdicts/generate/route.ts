@@ -154,12 +154,16 @@ export async function POST(request: NextRequest) {
     const verdicts = await Promise.all(
       selectedJudges.map(async (judge) => {
         try {
-          console.log(`Generating verdict from judge: ${judge.name}`)
+          console.log(`[Verdict Generation] Starting verdict for judge: ${judge.name} (${judge.id})`)
           const verdict = await generateVerdict(judge.systemPrompt, debateContext, {
             debateId,
             userId: debate.challengerId, // Track as challenger's usage
           })
-          console.log(`Successfully generated verdict from ${judge.name}:`, verdict.winner)
+          console.log(`[Verdict Generation] ✅ Successfully generated verdict from ${judge.name}:`, {
+            winner: verdict.winner,
+            challengerScore: verdict.challengerScore,
+            opponentScore: verdict.opponentScore
+          })
 
           // Map winner to user ID
           let winnerId: string | null = null
@@ -187,14 +191,19 @@ export async function POST(request: NextRequest) {
             challengerScore: verdict.challengerScore,
             opponentScore: verdict.opponentScore,
           }
-        } catch (error) {
-          console.error(`Failed to generate verdict for judge ${judge.name}:`, error)
+        } catch (error: any) {
+          console.error(`[Verdict Generation] ❌ Failed to generate verdict for judge ${judge.name}:`, {
+            judgeId: judge.id,
+            error: error.message,
+            stack: error.stack,
+            debateId
+          })
           // Return a default verdict if AI generation fails
           return {
             judgeId: judge.id,
             winnerId: null,
             decision: 'TIE' as const,
-            reasoning: 'Unable to generate verdict due to technical error.',
+            reasoning: `Unable to generate verdict due to technical error: ${error.message}`,
             challengerScore: 50,
             opponentScore: 50,
           }

@@ -186,7 +186,12 @@ export async function POST(
 
         // Trigger verdict generation
         try {
-          const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/verdicts/generate`, {
+          // Use absolute URL for Vercel
+          const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
+            ? `https://${process.env.VERCEL_URL || process.env.NEXT_PUBLIC_APP_URL?.replace('https://', '').replace('http://', '')}`
+            : 'http://localhost:3000'
+          
+          const response = await fetch(`${baseUrl}/api/verdicts/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ debateId: id }),
@@ -194,16 +199,23 @@ export async function POST(
           
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}))
-            console.error('Failed to trigger verdict generation:', {
+            console.error('❌ Failed to trigger verdict generation:', {
+              debateId: id,
               status: response.status,
               error: errorData.error || 'Unknown error',
-              details: errorData.details
+              details: errorData.details,
+              url: `${baseUrl}/api/verdicts/generate`
             })
           } else {
-            console.log('Verdict generation triggered successfully for debate:', id)
+            const result = await response.json().catch(() => ({}))
+            console.log('✅ Verdict generation triggered successfully for debate:', id, result)
           }
-        } catch (error) {
-          console.error('Error triggering verdict generation:', error)
+        } catch (error: any) {
+          console.error('❌ Error triggering verdict generation:', {
+            debateId: id,
+            error: error.message,
+            stack: error.stack
+          })
         }
 
         // Notify participants and watchers
