@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { cardHover, cardTap } from '@/lib/animations'
@@ -14,44 +15,6 @@ interface Topic {
   debateCount: number
 }
 
-const MOCK_TOPICS: Topic[] = [
-  {
-    id: '1',
-    title: 'Is AI Art Real Art?',
-    category: 'TECH',
-    icon: '',
-    debateCount: 234,
-  },
-  {
-    id: '2',
-    title: 'Mahomes vs Brady: Who\'s Better?',
-    category: 'SPORTS',
-    icon: '',
-    debateCount: 456,
-  },
-  {
-    id: '3',
-    title: 'Should UBI Exist?',
-    category: 'POLITICS',
-    icon: '',
-    debateCount: 189,
-  },
-  {
-    id: '4',
-    title: 'Streaming vs Theaters',
-    category: 'ENTERTAINMENT',
-    icon: '',
-    debateCount: 312,
-  },
-  {
-    id: '5',
-    title: 'Is Nuclear Energy Safe?',
-    category: 'SCIENCE',
-    icon: '',
-    debateCount: 167,
-  },
-]
-
 interface TrendingTopicsProps {
   onTopicClick?: (topic: Topic) => void
 }
@@ -59,6 +22,8 @@ interface TrendingTopicsProps {
 export function TrendingTopics({ onTopicClick }: TrendingTopicsProps) {
   const router = useRouter()
   const { showToast } = useToast()
+  const [topics, setTopics] = useState<Topic[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   const handleViewAll = () => {
     router.push('/trending')
@@ -83,6 +48,30 @@ export function TrendingTopics({ onTopicClick }: TrendingTopicsProps) {
     }
   }
 
+  // Fetch trending topics from API
+  useEffect(() => {
+    async function fetchTrendingTopics() {
+      try {
+        setIsLoading(true)
+        const response = await fetch('/api/trending-topics')
+        if (!response.ok) {
+          throw new Error('Failed to fetch trending topics')
+        }
+        const data = await response.json()
+        setTopics(data)
+      } catch (error) {
+        console.error('Error fetching trending topics:', error)
+        showToast('Failed to load trending topics', 'error')
+        // Fallback to empty array if API fails
+        setTopics([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchTrendingTopics()
+  }, [showToast])
+
   return (
     <div className="mb-8">
       {/* Header */}
@@ -96,9 +85,29 @@ export function TrendingTopics({ onTopicClick }: TrendingTopicsProps) {
         </button>
       </div>
 
-      {/* Horizontal Scroll */}
-      <div className="flex gap-6 overflow-x-auto overflow-y-visible pt-2 pb-4 scrollbar-thin scrollbar-thumb-electric-blue scrollbar-track-bg-secondary mt-6">
-        {MOCK_TOPICS.map((topic, index) => (
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="flex gap-6 overflow-x-auto pt-2 pb-4 mt-6">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="min-w-[320px] max-w-[320px] h-[200px] bg-bg-secondary border border-bg-tertiary rounded-xl p-6 animate-pulse"
+            >
+              <div className="h-6 bg-bg-tertiary rounded w-20 mb-3"></div>
+              <div className="h-6 bg-bg-tertiary rounded w-full mb-2"></div>
+              <div className="h-6 bg-bg-tertiary rounded w-3/4 mb-4"></div>
+              <div className="h-4 bg-bg-tertiary rounded w-24 mt-auto"></div>
+            </div>
+          ))}
+        </div>
+      ) : topics.length === 0 ? (
+        <div className="text-center py-12 text-text-secondary">
+          <p>No trending topics yet. Be the first to start a debate!</p>
+        </div>
+      ) : (
+        /* Horizontal Scroll */
+        <div className="flex gap-6 overflow-x-auto overflow-y-visible pt-2 pb-4 scrollbar-thin scrollbar-thumb-electric-blue scrollbar-track-bg-secondary mt-6">
+          {topics.map((topic, index) => (
           <motion.div
             key={topic.id}
             initial={{ opacity: 0, y: 20 }}
