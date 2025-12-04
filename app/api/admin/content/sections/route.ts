@@ -1,23 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
+import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
 // GET /api/admin/content/sections - Get all homepage sections
 export async function GET() {
   try {
-    const session = await verifySession()
-    if (!session) {
+    const userId = await verifyAdmin()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if user is admin
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { isAdmin: true },
-    })
-
-    if (!user?.isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const sections = await prisma.homepageSection.findMany({
