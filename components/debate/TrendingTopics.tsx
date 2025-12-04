@@ -144,6 +144,7 @@ export function TrendingTopics({ onTopicClick }: TrendingTopicsProps) {
           ))}
         </div>
       )}
+    </div>
   )
 }
 
