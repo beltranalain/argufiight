@@ -69,6 +69,18 @@ export function ChallengesPanel() {
         const responseData = await allResponse.json()
         // Ensure data is an array
         const allData = Array.isArray(responseData) ? responseData : []
+        
+        // Debug: Log images for ED Reed debate
+        const edReedDebate = allData.find((d: any) => d.id === 'e59863ee-9213-4c16-86a9-bd4c25621048')
+        if (edReedDebate) {
+          console.log('ED Reed debate in API response:', {
+            id: edReedDebate.id,
+            topic: edReedDebate.topic,
+            hasImages: edReedDebate.images !== null && edReedReedDebate.images !== undefined,
+            imagesCount: edReedDebate.images?.length || 0,
+            images: edReedDebate.images
+          })
+        }
         // Filter challenges based on type and user
         if (user) {
           const filtered = allData.filter((d: any) => {
@@ -268,7 +280,20 @@ export function ChallengesPanel() {
                       <p className="text-text-primary font-semibold mb-2">{challenge.topic}</p>
                       
                       {/* Display images if available */}
-                      {challenge.images && Array.isArray(challenge.images) && challenge.images.length > 0 && (
+                      {(() => {
+                        // Debug logging for ED Reed debate
+                        if (challenge.id === 'e59863ee-9213-4c16-86a9-bd4c25621048') {
+                          console.log('Rendering ED Reed challenge card:', {
+                            id: challenge.id,
+                            topic: challenge.topic,
+                            images: challenge.images,
+                            imagesType: typeof challenge.images,
+                            isArray: Array.isArray(challenge.images),
+                            length: challenge.images?.length || 0
+                          })
+                        }
+                        return challenge.images && Array.isArray(challenge.images) && challenge.images.length > 0
+                      })() && (
                         <div className="mb-3">
                           <div className={`grid gap-2 ${
                             challenge.images.length === 1 ? 'grid-cols-1' :
@@ -286,6 +311,11 @@ export function ChallengesPanel() {
                                   onError={(e) => {
                                     console.error('Failed to load debate image:', image.url)
                                     e.currentTarget.style.display = 'none'
+                                  }}
+                                  onLoad={() => {
+                                    if (challenge.id === 'e59863ee-9213-4c16-86a9-bd4c25621048') {
+                                      console.log('Image loaded successfully:', image.url)
+                                    }
                                   }}
                                 />
                               </div>
