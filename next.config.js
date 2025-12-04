@@ -6,6 +6,7 @@ const nextConfig = {
       bodySizeLimit: '2mb',
     },
   },
+  
   images: {
     remotePatterns: [
       {
