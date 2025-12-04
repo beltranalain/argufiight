@@ -314,12 +314,12 @@ export default function DebatePage() {
   const currentRoundStatements = debate?.statements.filter(
     s => s.round === debate.currentRound
   ) || []
-  const challengerSubmitted = currentRoundStatements.some(
-    s => s.author.id === debate?.challenger.id
+  const challengerSubmitted = debate && currentRoundStatements.some(
+    s => s.author.id === debate.challenger.id
   )
-  const opponentSubmitted = debate?.opponent && currentRoundStatements.some(
-    s => s.author.id === debate.opponent.id
-  )
+  const opponentSubmitted = debate?.opponent ? currentRoundStatements.some(
+    s => s.author.id === debate.opponent!.id
+  ) : false
   const userSubmitted = currentRoundStatements.some(
     s => s.author.id === user?.id
   )
