@@ -34,6 +34,6 @@ Write-Host "5. Select 'Use existing Build Cache' = OFF" -ForegroundColor White
 Write-Host "6. Click 'Redeploy'" -ForegroundColor White
 Write-Host ""
 Write-Host "After redeploy, test:" -ForegroundColor Cyan
-Write-Host "  - https://honorable-ai.com/api/test-db" -ForegroundColor Gray
-Write-Host "  - https://honorable-ai.com/signup" -ForegroundColor Gray
+Write-Host '  - https://honorable-ai.com/api/test-db' -ForegroundColor Gray
+Write-Host '  - https://honorable-ai.com/signup' -ForegroundColor Gray
 

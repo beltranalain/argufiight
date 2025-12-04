@@ -1,0 +1,4 @@
+# Ignore Prisma cache to force regeneration
+node_modules/.prisma
+node_modules/@prisma/client/.prisma
+
