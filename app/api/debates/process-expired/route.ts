@@ -187,12 +187,35 @@ export async function POST(request: NextRequest) {
             })
 
             // Trigger verdict generation
-            fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/verdicts/generate`, {
+            let baseUrl = 'http://localhost:3000'
+            if (process.env.NEXT_PUBLIC_APP_URL) {
+              baseUrl = process.env.NEXT_PUBLIC_APP_URL
+            } else if (process.env.VERCEL_URL) {
+              baseUrl = `https://${process.env.VERCEL_URL}`
+            }
+            
+            fetch(`${baseUrl}/api/verdicts/generate`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ debateId: debate.id }),
-            }).catch((error) => {
-              console.error('Failed to trigger verdict generation:', error)
+            })
+            .then(async (response) => {
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}))
+                console.error('❌ Failed to trigger verdict generation:', {
+                  debateId: debate.id,
+                  status: response.status,
+                  error: errorData.error || 'Unknown error'
+                })
+              } else {
+                console.log('✅ Verdict generation triggered successfully for debate:', debate.id)
+              }
+            })
+            .catch((error) => {
+              console.error('❌ Error triggering verdict generation:', {
+                debateId: debate.id,
+                error: error.message
+              })
             })
 
             results.completed++
@@ -413,12 +436,35 @@ async function handleBothMissing(debate: any, now: Date) {
     })
 
     // Trigger verdict generation (will result in a tie)
-    fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/verdicts/generate`, {
+    let baseUrl = 'http://localhost:3000'
+    if (process.env.NEXT_PUBLIC_APP_URL) {
+      baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    } else if (process.env.VERCEL_URL) {
+      baseUrl = `https://${process.env.VERCEL_URL}`
+    }
+    
+    fetch(`${baseUrl}/api/verdicts/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ debateId: debate.id }),
-    }).catch((error) => {
-      console.error('Failed to trigger verdict generation:', error)
+    })
+    .then(async (response) => {
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('❌ Failed to trigger verdict generation:', {
+          debateId: debate.id,
+          status: response.status,
+          error: errorData.error || 'Unknown error'
+        })
+      } else {
+        console.log('✅ Verdict generation triggered successfully for debate:', debate.id)
+      }
+    })
+    .catch((error) => {
+      console.error('❌ Error triggering verdict generation:', {
+        debateId: debate.id,
+        error: error.message
+      })
     })
   } else {
     // Advance to next round
