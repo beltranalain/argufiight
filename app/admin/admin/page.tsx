@@ -49,6 +49,7 @@ export default function AdminDashboard() {
   const [selectedDebateId, setSelectedDebateId] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [tournamentsEnabled, setTournamentsEnabled] = useState(false)
+  const [isSeeding, setIsSeeding] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -91,6 +92,46 @@ export default function AdminDashboard() {
         title: 'Error',
         description: 'Failed to update tournaments feature',
       })
+    }
+  }
+
+  const handleSeedDatabase = async () => {
+    if (!confirm('This will seed the database with initial data (Categories, Judges, Homepage Sections, Legal Pages). Continue?')) {
+      return
+    }
+
+    setIsSeeding(true)
+    try {
+      const response = await fetch('/api/admin/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Database Seeded',
+          description: `Seeded ${data.results.categories} categories, ${data.results.judges} judges, ${data.results.homepageSections} sections, and ${data.results.legalPages} legal pages.`,
+        })
+        // Refresh data
+        fetchData()
+      } else {
+        showToast({
+          type: 'error',
+          title: 'Seed Failed',
+          description: data.error || 'Failed to seed database',
+        })
+      }
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to seed database',
+      })
+    } finally {
+      setIsSeeding(false)
     }
   }
 
