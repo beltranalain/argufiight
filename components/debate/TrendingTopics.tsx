@@ -61,7 +61,10 @@ export function TrendingTopics({ onTopicClick }: TrendingTopicsProps) {
         setTopics(data)
       } catch (error) {
         console.error('Error fetching trending topics:', error)
-        showToast('Failed to load trending topics', 'error')
+        showToast({
+          title: 'Failed to load trending topics',
+          type: 'error',
+        })
         // Fallback to empty array if API fails
         setTopics([])
       } finally {
