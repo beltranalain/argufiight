@@ -76,7 +76,7 @@ export function ChallengesPanel() {
           console.log('ED Reed debate in API response:', {
             id: edReedDebate.id,
             topic: edReedDebate.topic,
-            hasImages: edReedDebate.images !== null && edReedReedDebate.images !== undefined,
+            hasImages: edReedDebate.images !== null && edReedDebate.images !== undefined,
             imagesCount: edReedDebate.images?.length || 0,
             images: edReedDebate.images
           })
