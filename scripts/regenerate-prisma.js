@@ -92,7 +92,11 @@ for (const cachePath of cachePaths) {
 // Regenerate Prisma Client
 console.log('  → Regenerating Prisma Client with PostgreSQL provider...')
 try {
-  // Force generate with explicit binary targets
+  // On Vercel, only use rhel-openssl-3.0.x (native doesn't work)
+  // For local dev, we can add native but it's optional
+  const isVercel = process.env.VERCEL === '1'
+  const binaryTargets = isVercel ? 'rhel-openssl-3.0.x' : 'native,rhel-openssl-3.0.x'
+  
   execSync('npx prisma generate', {
     cwd: rootDir,
     stdio: 'inherit',
@@ -100,8 +104,6 @@ try {
       ...process.env,
       // Ensure DATABASE_URL is available
       DATABASE_URL: databaseUrl,
-      // Force binary target generation
-      PRISMA_CLI_BINARY_TARGETS: 'native,rhel-openssl-3.0.x',
     },
   })
   
