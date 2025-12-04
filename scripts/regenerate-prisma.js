@@ -22,22 +22,30 @@ console.log('🔄 Force regenerating Prisma Client for PostgreSQL...')
 try {
   const schemaContent = readFileSync(schemaPath, 'utf-8')
   
-  if (schemaContent.includes('provider = "sqlite"')) {
-    console.error('❌ CRITICAL ERROR: schema.prisma still has provider = "sqlite"!')
+  // Check for SQLite (fail if found)
+  if (schemaContent.includes('provider') && schemaContent.includes('sqlite')) {
+    console.error('❌ CRITICAL ERROR: schema.prisma has provider = "sqlite"!')
     console.error('   The schema file must use provider = "postgresql"')
     console.error('   Please check prisma/schema.prisma and update it.')
     process.exit(1)
   }
   
-  if (!schemaContent.includes('provider = "postgresql"')) {
+  // Check for PostgreSQL (flexible spacing)
+  const hasPostgresql = schemaContent.includes('"postgresql"') || 
+                        schemaContent.includes("'postgresql'") ||
+                        /provider\s*=\s*["']postgresql["']/.test(schemaContent)
+  
+  if (!hasPostgresql) {
     console.error('❌ CRITICAL ERROR: schema.prisma does not have provider = "postgresql"!')
     console.error('   The schema file must specify: provider = "postgresql"')
+    console.error('   Found in schema:', schemaContent.substring(0, 500))
     process.exit(1)
   }
   
   console.log('✅ Schema file verified: PostgreSQL provider detected')
 } catch (error) {
   console.error('❌ Failed to read schema file:', error.message)
+  console.error('   Schema path:', schemaPath)
   process.exit(1)
 }
 
