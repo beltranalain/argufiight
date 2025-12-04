@@ -12,6 +12,7 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "seed": "tsx prisma/seed.ts",
+    "seed:all": "tsx scripts/seed-all.ts",
     "test:db": "tsx scripts/test-db.ts",
     "make-admin": "tsx scripts/make-admin.ts",
     "remove-admin": "tsx scripts/remove-admin.ts",
