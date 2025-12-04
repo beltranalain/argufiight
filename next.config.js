@@ -35,9 +35,13 @@ const nextConfig = {
     return config
   },
   
-  // Ensure Prisma engines are included in the build output
+  // Ensure Prisma engines are included in the build output for ALL routes
+  // This is critical - the root page uses Prisma to check sessions
   outputFileTracingIncludes: {
-    '/api/**/*': ['./node_modules/.prisma/**/*', './node_modules/@prisma/client/**/*'],
+    '*': [
+      './node_modules/.prisma/client/**/*',
+      './node_modules/@prisma/client/**/*',
+    ],
   },
   
   images: {
