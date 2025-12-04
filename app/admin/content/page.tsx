@@ -116,28 +116,35 @@ export default function ContentManagerPage() {
         body: JSON.stringify(sectionData),
       })
 
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Section Saved',
-          description: 'Homepage section updated successfully',
-        })
-        await fetchSections() // Refresh sections
-        // Re-open the modal with updated data
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Save failed' }))
+        throw new Error(errorData.error || 'Save failed')
+      }
+
+      const result = await response.json()
+      showToast({
+        type: 'success',
+        title: 'Section Saved',
+        description: 'Homepage section updated successfully',
+      })
+      await fetchSections() // Refresh sections
+      // Update selected section with fresh data
+      if (result.section) {
+        setSelectedSection(result.section)
+      } else {
+        // Fallback: fetch updated section
         const updatedSections = await fetch('/api/admin/content/sections').then(r => r.json())
         const updatedSection = updatedSections.sections?.find((s: HomepageSection) => s.id === selectedSection.id)
         if (updatedSection) {
           setSelectedSection(updatedSection)
-        } else {
-          setIsEditModalOpen(false)
-          setSelectedSection(null)
         }
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Save error:', error)
       showToast({
         type: 'error',
         title: 'Save Failed',
-        description: 'Failed to save section',
+        description: error.message || 'Failed to save section. Please try again.',
       })
     }
   }
@@ -305,16 +312,21 @@ function EditSectionModal({
     setOrder(initialSection.order)
   }, [initialSection])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true)
-    onSave({
-      title,
-      content,
-      metaTitle,
-      metaDescription,
-      order,
-    })
-    setIsSaving(false)
+    try {
+      await onSave({
+        title,
+        content,
+        metaTitle,
+        metaDescription,
+        order,
+      })
+    } catch (error) {
+      console.error('Save error:', error)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (

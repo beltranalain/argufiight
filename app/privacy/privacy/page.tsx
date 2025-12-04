@@ -7,8 +7,8 @@ import { PublicFooter } from '@/components/homepage/PublicFooter'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy - Honorable AI',
-  description: 'Privacy Policy for Honorable AI - AI-Judged Debate Platform',
+  title: 'Privacy Policy - Argu Fight',
+  description: 'Privacy Policy for Argu Fight - AI-Judged Debate Platform',
 }
 
 export default async function PrivacyPage() {

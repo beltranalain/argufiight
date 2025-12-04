@@ -49,7 +49,7 @@ export function PublicFooter() {
 
         {/* Copyright */}
         <div className="text-center text-white/60 text-sm pt-8 border-t border-white/10">
-          <p>&copy; {new Date().getFullYear()} Honorable AI. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Argu Fight. All rights reserved.</p>
         </div>
       </div>
     </footer>

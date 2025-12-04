@@ -7,8 +7,8 @@ import { PublicFooter } from '@/components/homepage/PublicFooter'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Terms of Service - Honorable AI',
-  description: 'Terms of Service for Honorable AI - AI-Judged Debate Platform',
+  title: 'Terms of Service - Argu Fight',
+  description: 'Terms of Service for Argu Fight - AI-Judged Debate Platform',
 }
 
 export default async function TermsPage() {

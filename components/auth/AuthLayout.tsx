@@ -23,7 +23,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         <div className="text-center mb-12">
           <Link href="/" className="inline-block mb-3">
             <h1 className="text-[32px] font-bold bg-gradient-to-r from-electric-blue to-neon-orange bg-clip-text text-transparent">
-              HONORABLE AI
+              ARGU FIGHT
             </h1>
           </Link>
           <p className="text-text-secondary text-sm">

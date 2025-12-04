@@ -177,7 +177,7 @@ export function DebateInteractions({ debateId }: DebateInteractionsProps) {
       // Try Web Share API first (mobile)
       if (navigator.share) {
         await navigator.share({
-          title: 'Check out this debate on Honorable AI',
+          title: 'Check out this debate on Argu Fight',
           url: shareUrl,
         })
         

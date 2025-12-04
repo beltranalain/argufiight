@@ -78,7 +78,7 @@ export function PublicHomepage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <Link href="/" className="text-2xl font-bold text-electric-blue">
-                HONORABLE AI
+                ARGU FIGHT
               </Link>
             </div>
             <div className="flex items-center gap-4">
@@ -475,7 +475,7 @@ function FooterSection({ section }: { section: HomepageSection | undefined }) {
 
         {/* Copyright */}
         <div className="text-center text-text-primary/60 text-sm pt-8 border-t border-text-primary/10">
-          <p>&copy; {new Date().getFullYear()} Honorable AI. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Argu Fight. All rights reserved.</p>
         </div>
       </div>
     </footer>

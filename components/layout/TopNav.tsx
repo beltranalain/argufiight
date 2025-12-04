@@ -60,7 +60,7 @@ export function TopNav({ currentPanel }: TopNavProps) {
         {/* Logo */}
         <Link href="/" className="flex items-center">
           <span className="text-lg md:text-xl font-bold text-electric-blue">
-            HONORABLE AI
+            ARGU FIGHT
           </span>
         </Link>
 
