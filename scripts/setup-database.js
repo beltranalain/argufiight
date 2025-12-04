@@ -16,7 +16,9 @@ console.log('🗄️  Setting up database...')
 
 // Check if DATABASE_URL is set
 // Railway sets this automatically when database is linked, but it might be in a different format
+// Railway also provides DATABASE_PUBLIC_URL which we can use as fallback
 let databaseUrl = process.env.DATABASE_URL || 
+                  process.env.DATABASE_PUBLIC_URL ||
                   process.env.POSTGRES_URL || 
                   process.env.PGDATABASE_URL ||
                   process.env.RAILWAY_DATABASE_URL
