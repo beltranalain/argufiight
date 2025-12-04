@@ -18,9 +18,6 @@ const nextConfig = {
   },
   
   // Fix for Prisma engine binary on Vercel
-  // Don't bundle Prisma - let it use the engine from node_modules
-  serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
-  
   webpack: (config, { isServer }) => {
     if (isServer) {
       // Don't externalize Prisma - we need it bundled with the engine
