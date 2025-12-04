@@ -61,6 +61,7 @@ export default function JudgesPage() {
   const [isLoadingVerdicts, setIsLoadingVerdicts] = useState<Record<string, boolean>>({})
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSeeding, setIsSeeding] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     personality: '',
@@ -203,9 +204,19 @@ export default function JudgesPage() {
             Manage AI judge personalities and view their verdicts
           </p>
         </div>
-        <Button onClick={() => setIsAddModalOpen(true)}>
-          Add Judge
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={handleSeedDatabase}
+            disabled={isSeeding}
+            variant="secondary"
+            className="bg-cyber-green text-black hover:bg-cyber-green/90 disabled:opacity-50"
+          >
+            {isSeeding ? 'Seeding...' : '🌱 Seed Database'}
+          </Button>
+          <Button onClick={() => setIsAddModalOpen(true)}>
+            Add Judge
+          </Button>
+        </div>
       </div>
 
       {/* Judge Tabs */}
