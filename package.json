@@ -6,7 +6,7 @@
   "scripts": {
     "postinstall": "node scripts/regenerate-prisma.js",
     "dev": "next dev --webpack",
-    "build": "node scripts/verify-schema.js && node scripts/clean-build.js && node scripts/regenerate-prisma.js && next build && node scripts/verify-build.js",
+    "build": "node scripts/verify-schema.js && node scripts/clean-build.js && node scripts/regenerate-prisma.js && next build && node scripts/fix-client-manifest.js && node scripts/verify-build.js",
     "setup-db": "node scripts/setup-database.js",
     "start": "node scripts/verify-build.js && node scripts/setup-database.js && next start",
     "lint": "next lint",
