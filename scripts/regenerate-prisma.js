@@ -5,7 +5,7 @@
  */
 
 import { execSync } from 'child_process'
-import { existsSync, rmSync } from 'fs'
+import { existsSync, rmSync, readFileSync } from 'fs'
 import { join, resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -14,8 +14,32 @@ const __dirname = dirname(__filename)
 const path = { resolve, join }
 
 const rootDir = resolve(__dirname, '..')
+const schemaPath = join(rootDir, 'prisma', 'schema.prisma')
 
 console.log('🔄 Force regenerating Prisma Client for PostgreSQL...')
+
+// First, verify the schema file is correct
+try {
+  const schemaContent = readFileSync(schemaPath, 'utf-8')
+  
+  if (schemaContent.includes('provider = "sqlite"')) {
+    console.error('❌ CRITICAL ERROR: schema.prisma still has provider = "sqlite"!')
+    console.error('   The schema file must use provider = "postgresql"')
+    console.error('   Please check prisma/schema.prisma and update it.')
+    process.exit(1)
+  }
+  
+  if (!schemaContent.includes('provider = "postgresql"')) {
+    console.error('❌ CRITICAL ERROR: schema.prisma does not have provider = "postgresql"!')
+    console.error('   The schema file must specify: provider = "postgresql"')
+    process.exit(1)
+  }
+  
+  console.log('✅ Schema file verified: PostgreSQL provider detected')
+} catch (error) {
+  console.error('❌ Failed to read schema file:', error.message)
+  process.exit(1)
+}
 
 // DATABASE_URL is optional during build - Prisma can generate client from schema alone
 // It will be required at runtime, but not during build
