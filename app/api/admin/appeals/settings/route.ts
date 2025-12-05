@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAdmin } from '@/lib/auth/admin'
+import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
 // GET /api/admin/appeals/settings - Get system-wide appeal settings
 export async function GET() {
   try {
-    await verifyAdmin()
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     // Get default appeal limit from settings (or use 4 as default)
     // For now, we'll store this in a simple way - could be moved to a Settings model later
@@ -26,7 +29,10 @@ export async function GET() {
 // POST /api/admin/appeals/settings - Update system-wide appeal settings
 export async function POST(request: NextRequest) {
   try {
-    await verifyAdmin()
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const body = await request.json()
     const { defaultMonthlyLimit } = body

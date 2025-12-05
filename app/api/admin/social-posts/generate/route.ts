@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAdmin } from '@/lib/auth/admin'
+import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
 // POST /api/admin/social-posts/generate - Generate AI-powered social media post
 export async function POST(request: NextRequest) {
   try {
-    await verifyAdmin()
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const body = await request.json()
     const { debateId, platform } = body

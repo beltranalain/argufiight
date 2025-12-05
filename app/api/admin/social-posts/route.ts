@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAdmin } from '@/lib/auth/admin'
+import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
 // GET /api/admin/social-posts - Get all social media posts
 export async function GET(request: NextRequest) {
   try {
-    await verifyAdmin()
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { searchParams } = new URL(request.url)
     const debateId = searchParams.get('debateId')
@@ -59,7 +62,10 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/social-posts - Create a new social media post
 export async function POST(request: NextRequest) {
   try {
-    await verifyAdmin()
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const body = await request.json()
     const { debateId, platform, content, imagePrompt, hashtags, status, scheduledAt } = body

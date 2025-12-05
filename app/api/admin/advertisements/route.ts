@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAdmin } from '@/lib/auth/admin'
+import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { put } from '@vercel/blob'
 
 // GET /api/admin/advertisements - Get all advertisements
 export async function GET(request: NextRequest) {
   try {
-    await verifyAdmin()
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
@@ -35,7 +38,10 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/advertisements - Create a new advertisement
 export async function POST(request: NextRequest) {
   try {
-    await verifyAdmin()
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const formData = await request.formData()
     const title = formData.get('title') as string

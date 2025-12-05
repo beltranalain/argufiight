@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyAdmin } from '@/lib/auth/admin'
+import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { getUserAppealLimit, adjustAppealCount, setMonthlyLimit } from '@/lib/utils/appeal-limits'
 
 // GET /api/admin/appeals - Get all appeal limits and statistics
 export async function GET(request: NextRequest) {
   try {
-    await verifyAdmin()
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
@@ -115,7 +118,10 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/appeals - Adjust appeal count or limit
 export async function POST(request: NextRequest) {
   try {
-    await verifyAdmin()
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const body = await request.json()
     const { userId, action, value } = body
