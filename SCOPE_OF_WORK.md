@@ -25,6 +25,7 @@ This document outlines 9 major feature enhancements for the Argu Fight platform,
 
 ### Category 3: Debate Features
 - [Feature 6: Private/Public Debates](#feature-6-privatepublic-debates)
+- [Feature 10: Copy-Paste Restriction](#feature-10-copy-paste-restriction)
 
 ### Category 4: User Experience & Analytics
 - [Feature 7: Saved Debates Page](#feature-7-saved-debates-page)
@@ -336,6 +337,93 @@ Allow users to create private debates with shareable links. Public debates remai
 
 ---
 
+## Feature 10: Copy-Paste Restriction
+
+### Description
+Add an option when creating debates to allow or disallow copy-paste functionality. This helps prevent cheating by copying content from external sources, but gives users the choice.
+
+### Requirements
+- Add checkbox in debate creation form: "Disable Copy-Paste"
+- Store setting in database (`allowCopyPaste` boolean, default `true`)
+- When disabled:
+  - Disable paste in argument textarea
+  - Show visual indicator (icon/tooltip)
+  - Prevent keyboard shortcuts (Ctrl+V, Cmd+V)
+  - Optional: Detect and warn about pasted content
+- Display restriction status on debate card/page
+
+### Technical Approach
+1. **Database Schema:**
+   ```prisma
+   // Add to Debate model
+   allowCopyPaste  Boolean  @default(true) @map("allow_copy_paste")
+   ```
+
+2. **Create Debate Form:**
+   - Add checkbox: "Disable copy-paste to prevent cheating"
+   - Tooltip: "When enabled, participants cannot paste text from external sources"
+   - Default: unchecked (copy-paste allowed)
+
+3. **Argument Submission Form:**
+   - Check `debate.allowCopyPaste` flag
+   - If `false`:
+     - Add `onPaste` handler to prevent default
+     - Disable paste keyboard shortcuts
+     - Show warning message: "Copy-paste is disabled for this debate"
+     - Optional: Detect typing speed anomalies (very fast = likely pasted)
+
+4. **UI Indicators:**
+   - Show lock icon on debate card if copy-paste disabled
+   - Display restriction in debate details
+   - Warning banner in argument form
+
+### Implementation Details
+
+**Frontend (React):**
+```tsx
+// In SubmitArgumentForm component
+const handlePaste = (e: React.ClipboardEvent) => {
+  if (!debate.allowCopyPaste) {
+    e.preventDefault()
+    showToast({
+      title: 'Copy-Paste Disabled',
+      description: 'This debate does not allow pasting content. Please type your argument.',
+      type: 'warning'
+    })
+  }
+}
+
+// Disable keyboard shortcuts
+useEffect(() => {
+  if (!debate.allowCopyPaste) {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }
+}, [debate.allowCopyPaste])
+```
+
+**Backend:**
+- Add `allowCopyPaste` to debate creation API
+- Include in debate response
+- Optional: Server-side validation to detect pasted content patterns
+
+### Recommendations
+- ✅ **IMPROVEMENT:** Add typing speed detection (flag suspiciously fast input)
+- ✅ **IMPROVEMENT:** Allow copy-paste for quotes (with citation requirement)
+- ✅ **IMPROVEMENT:** Show restriction in debate preview before accepting
+- ✅ **IMPROVEMENT:** Analytics: Track how many debates use this feature
+- ✅ **IMPROVEMENT:** Admin override: Admins can always paste (for moderation)
+
+### Priority: **Medium** (Anti-cheating feature)
+### Estimated Effort: **3-4 hours**
+
+---
+
 ## Feature 7: Saved Debates Page
 
 ### Description
@@ -478,24 +566,25 @@ Display individual judge scores per debate (e.g., 65/100, 35/100, 20/100) and ca
 1. ✅ Feature 7: Saved Debates Page (4-6 hours)
 2. ✅ Feature 1: Social Media Footer (4-6 hours)
 3. ✅ Feature 6: Private/Public Debates (6-8 hours)
+4. ✅ Feature 10: Copy-Paste Restriction (3-4 hours)
 
-**Total: 14-20 hours**
+**Total: 17-24 hours**
 
 ### Phase 2: Core Features (Week 2-3)
-4. ✅ Feature 9: Individual & Overall Scores (12-16 hours)
-5. ✅ Feature 8: Enhanced User Analytics (16-20 hours)
+5. ✅ Feature 9: Individual & Overall Scores (12-16 hours)
+6. ✅ Feature 8: Enhanced User Analytics (16-20 hours)
 
 **Total: 28-36 hours**
 
 ### Phase 3: Admin Tools (Week 4-5)
-6. ✅ Feature 3: Appeal System Manager (16-20 hours)
-7. ✅ Feature 2: Social Media Post Manager (12-16 hours)
+7. ✅ Feature 3: Appeal System Manager (16-20 hours)
+8. ✅ Feature 2: Social Media Post Manager (12-16 hours)
 
 **Total: 28-36 hours**
 
 ### Phase 4: Future Foundation (Week 6)
-8. ✅ Feature 4: Subscription Plan Manager (8-12 hours)
-9. ✅ Feature 5: Advertisement Manager (10-14 hours)
+9. ✅ Feature 4: Subscription Plan Manager (8-12 hours)
+10. ✅ Feature 5: Advertisement Manager (10-14 hours)
 
 **Total: 18-26 hours**
 
@@ -586,15 +675,17 @@ Display individual judge scores per debate (e.g., 65/100, 35/100, 20/100) and ca
 
 ## Questions to Resolve
 
-1. **Feature 7:** Does `SavedDebate` model exist? Where is save functionality?
+1. **Feature 7:** ✅ RESOLVED - `DebateSave` model exists, need web page
 2. **Feature 9:** How are scores currently stored in verdicts? Need to parse AI responses?
 3. **Feature 3:** What subscription tiers are planned? Pricing?
 4. **Feature 2:** Should posts auto-schedule or manual publish?
 5. **Feature 6:** Should private debates be searchable by participants only?
+6. **Feature 10:** Should copy-paste restriction apply to all rounds or just specific ones?
 
 ---
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Last Updated:** December 2025  
-**Author:** Development Team
+**Author:** Development Team  
+**Changes:** Added Feature 10 (Copy-Paste Restriction) to Phase 1
 
