@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { calculateWordCount, updateUserAnalyticsOnStatement } from '@/lib/utils/analytics'
 
 // POST /api/debates/[id]/submit - Submit argument
 export async function POST(
@@ -78,6 +79,9 @@ export async function POST(
       )
     }
 
+    // Calculate word count
+    const wordCount = calculateWordCount(content)
+    
     // Create statement
     const statement = await prisma.statement.create({
       data: {
@@ -86,6 +90,11 @@ export async function POST(
         round: debate.currentRound,
         content: content.trim(),
       },
+    })
+
+    // Update user analytics (non-blocking)
+    updateUserAnalyticsOnStatement(userId, wordCount).catch(err => {
+      console.error('Failed to update user analytics:', err)
     })
 
     // Check if both participants have submitted

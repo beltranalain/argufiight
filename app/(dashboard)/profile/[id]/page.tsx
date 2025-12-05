@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
+import { BattleHistory } from '@/components/profile/BattleHistory'
 import Link from 'next/link'
 
 interface UserProfile {
@@ -24,6 +25,10 @@ interface UserProfile {
   totalDebates: number
   totalScore: number
   totalMaxScore: number
+  totalWordCount: number
+  totalStatements: number
+  averageWordCount: number
+  averageRounds: number
   winRate: number
   createdAt: string
 }
@@ -288,8 +293,51 @@ export default function UserProfilePage() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Analytics Section */}
+                  {profile.totalStatements > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                      <div className="bg-bg-tertiary rounded-lg p-4">
+                        <p className="text-text-secondary text-sm mb-1">Total Words</p>
+                        <p className="text-2xl font-bold text-text-primary">
+                          {profile.totalWordCount?.toLocaleString() || 0}
+                        </p>
+                      </div>
+                      <div className="bg-bg-tertiary rounded-lg p-4">
+                        <p className="text-text-secondary text-sm mb-1">Avg Words</p>
+                        <p className="text-2xl font-bold text-text-primary">
+                          {Math.round(profile.averageWordCount || 0)}
+                        </p>
+                      </div>
+                      <div className="bg-bg-tertiary rounded-lg p-4">
+                        <p className="text-text-secondary text-sm mb-1">Statements</p>
+                        <p className="text-2xl font-bold text-text-primary">
+                          {profile.totalStatements || 0}
+                        </p>
+                      </div>
+                      <div className="bg-bg-tertiary rounded-lg p-4">
+                        <p className="text-text-secondary text-sm mb-1">Avg Rounds</p>
+                        <p className="text-2xl font-bold text-text-primary">
+                          {profile.averageRounds?.toFixed(1) || '0.0'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
+            </CardBody>
+          </Card>
+
+          {/* Battle History */}
+          <Card>
+            <CardHeader>
+              <h2 className="text-xl font-bold text-text-primary">Battle History</h2>
+              <p className="text-sm text-text-secondary mt-1">
+                Users you've debated with
+              </p>
+            </CardHeader>
+            <CardBody>
+              <BattleHistory userId={userId} />
             </CardBody>
           </Card>
 

@@ -130,6 +130,9 @@ export async function POST(
       );
     }
 
+    // Calculate word count
+    const wordCount = calculateWordCount(content)
+    
     // Create statement
     const statement = await prisma.statement.create({
       data: {
@@ -149,6 +152,11 @@ export async function POST(
         },
       },
     });
+
+    // Update user analytics (non-blocking)
+    updateUserAnalyticsOnStatement(session.user.id, wordCount).catch(err => {
+      console.error('Failed to update user analytics:', err)
+    })
 
     // Check if both participants have submitted for this round
     const challengerStatement = await prisma.statement.findUnique({

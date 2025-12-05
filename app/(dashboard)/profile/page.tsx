@@ -24,6 +24,10 @@ interface UserProfile {
   totalDebates: number
   totalScore: number
   totalMaxScore: number
+  totalWordCount: number
+  totalStatements: number
+  averageWordCount: number
+  averageRounds: number
   createdAt: string
 }
 

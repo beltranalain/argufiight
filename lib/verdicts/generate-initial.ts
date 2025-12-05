@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import { generateVerdict, type DebateContext } from '@/lib/ai/deepseek'
+import { updateUserAnalyticsOnDebateComplete } from '@/lib/utils/analytics'
 
 // Simplified ELO calculation
 function calculateEloChange(
@@ -355,6 +356,16 @@ export async function generateInitialVerdicts(debateId: string) {
     }
     
     await Promise.all(notifications)
+
+    // Update user analytics for average rounds (non-blocking)
+    updateUserAnalyticsOnDebateComplete(debate.challengerId, debate.totalRounds).catch(err => {
+      console.error('Failed to update challenger analytics:', err)
+    })
+    if (debate.opponentId) {
+      updateUserAnalyticsOnDebateComplete(debate.opponentId, debate.totalRounds).catch(err => {
+        console.error('Failed to update opponent analytics:', err)
+      })
+    }
 
     return {
       success: true,

@@ -33,6 +33,12 @@ model User {
   // Score System
   totalScore    Int @default(0) @map("total_score") // Sum of all scores from all debates
   totalMaxScore Int @default(0) @map("total_max_score") // Max possible (judges × 100 × debates)
+  
+  // Analytics
+  totalWordCount      Int @default(0) @map("total_word_count") // Total words across all statements
+  totalStatements     Int @default(0) @map("total_statements") // Total number of statements submitted
+  averageWordCount    Float @default(0) @map("average_word_count") // Average words per statement
+  averageRounds       Float @default(0) @map("average_rounds") // Average rounds per debate
 
   // Permissions
   isAdmin  Boolean @default(false) @map("is_admin")

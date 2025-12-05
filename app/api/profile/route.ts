@@ -104,6 +104,10 @@ export async function PUT(request: NextRequest) {
         totalDebates: true,
         totalScore: true,
         totalMaxScore: true,
+        totalWordCount: true,
+        totalStatements: true,
+        averageWordCount: true,
+        averageRounds: true,
         createdAt: true,
       },
     })
