@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
+import { TypingIndicator } from './TypingIndicator'
 
 interface ChatMessage {
   id: string
@@ -16,6 +17,12 @@ interface ChatMessage {
     avatarUrl: string | null
   }
   createdAt: string
+}
+
+interface TypingUser {
+  id: string
+  username: string
+  avatarUrl: string | null
 }
 
 interface LiveChatProps {
@@ -29,18 +36,31 @@ export function LiveChat({ debateId }: LiveChatProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const pollIntervalRef = useRef<number | null>(null)
+  const typingPollIntervalRef = useRef<number | null>(null)
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     fetchMessages()
+    fetchTypingStatus()
     
     // Poll for new messages every 3 seconds
     pollIntervalRef.current = setInterval(fetchMessages, 3000) as any as number
+    
+    // Poll for typing status every 1 second
+    typingPollIntervalRef.current = setInterval(fetchTypingStatus, 1000) as any as number
 
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current)
+      }
+      if (typingPollIntervalRef.current) {
+        clearInterval(typingPollIntervalRef.current)
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
       }
     }
   }, [debateId])
@@ -81,6 +101,47 @@ export function LiveChat({ debateId }: LiveChatProps) {
     }
   }
 
+  const fetchTypingStatus = async () => {
+    try {
+      const response = await fetch(`/api/debates/${debateId}/chat/typing`)
+      if (response.ok) {
+        const data = await response.json()
+        setTypingUsers(data.typingUsers || [])
+      }
+    } catch (error) {
+      // Silently handle errors
+    }
+  }
+
+  const setTypingStatus = async () => {
+    try {
+      await fetch(`/api/debates/${debateId}/chat/typing`, {
+        method: 'POST',
+      })
+    } catch (error) {
+      // Silently handle errors
+    }
+  }
+
+  const handleTyping = (value: string) => {
+    setMessage(value)
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+    
+    // Set typing status immediately
+    if (value.trim().length > 0) {
+      setTypingStatus()
+    }
+    
+    // Clear typing status after 2 seconds of no typing
+    typingTimeoutRef.current = setTimeout(() => {
+      // Typing status will auto-expire after 3 seconds on server
+    }, 2000)
+  }
+
   const scrollToBottom = () => {
     // Only scroll within the chat container, not the whole page
     if (messagesEndRef.current) {
@@ -118,6 +179,12 @@ export function LiveChat({ debateId }: LiveChatProps) {
       const newMessage = await response.json()
       setMessages(prev => [...prev, newMessage])
       setMessage('')
+      
+      // Clear typing timeout when message is sent
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+      
       scrollToBottom()
     } catch (error: any) {
       showToast({
@@ -175,6 +242,9 @@ export function LiveChat({ debateId }: LiveChatProps) {
             )
           })
         )}
+        {typingUsers.length > 0 && (
+          <TypingIndicator users={typingUsers} />
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -184,7 +254,7 @@ export function LiveChat({ debateId }: LiveChatProps) {
           <input
             type="text"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(e) => handleTyping(e.target.value)}
             placeholder="Type a message..."
             className="flex-1 bg-bg-tertiary border border-bg-tertiary rounded-lg px-4 py-2 text-text-primary placeholder-text-muted focus:outline-none focus:border-electric-blue"
             maxLength={1000}
