@@ -25,17 +25,9 @@ export async function GET(request: NextRequest) {
     // Use raw SQL to fetch notifications since Prisma may not recognize new notification types yet
     try {
       console.log('Fetching notifications for user:', userId, 'unreadOnly:', unreadOnly)
-      const notificationsRaw = await prisma.$queryRawUnsafe<Array<{
-        id: string
-        user_id: string
-        type: string
-        title: string
-        message: string
-        debate_id: string | null
-        read: number
-        read_at: string | null
-        created_at: Date
-      }>>(`
+      // Build query with PostgreSQL syntax ($1, $2 placeholders)
+      const query = unreadOnly
+        ? `
         SELECT 
           n.id,
           n.user_id,
@@ -47,11 +39,38 @@ export async function GET(request: NextRequest) {
           n.read_at,
           n.created_at
         FROM notifications n
-        WHERE n.user_id = ?
-          ${unreadOnly ? 'AND n.read = 0' : ''}
+        WHERE n.user_id = $1 AND n.read = 0
         ORDER BY n.created_at DESC
-        LIMIT ?
-      `, userId, limit)
+        LIMIT $2
+      `
+        : `
+        SELECT 
+          n.id,
+          n.user_id,
+          n.type,
+          n.title,
+          n.message,
+          n.debate_id,
+          n.read,
+          n.read_at,
+          n.created_at
+        FROM notifications n
+        WHERE n.user_id = $1
+        ORDER BY n.created_at DESC
+        LIMIT $2
+      `
+      
+      const notificationsRaw = await prisma.$queryRawUnsafe<Array<{
+        id: string
+        user_id: string
+        type: string
+        title: string
+        message: string
+        debate_id: string | null
+        read: number
+        read_at: string | null
+        created_at: Date
+      }>>(query, userId, limit)
 
       // Fetch debate info for notifications that have a debate_id
       const debateIds = notificationsRaw

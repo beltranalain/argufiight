@@ -159,7 +159,7 @@ export async function GET(
           original_debate_id,
           rematch_debate_id
         FROM debates
-        WHERE id = ?
+        WHERE id = $1
       `, id)
 
       if (rematchResult.length > 0) {

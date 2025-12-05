@@ -76,7 +76,7 @@ export async function POST(
           d.rematch_status,
           d.rematch_debate_id
         FROM debates d
-        WHERE d.id = ?
+        WHERE d.id = $1
       `, debateId)
 
       if (debateResult.length === 0) {
@@ -201,10 +201,10 @@ export async function POST(
       await prisma.$executeRawUnsafe(`
         UPDATE debates
         SET 
-          rematch_requested_by = ?,
-          rematch_requested_at = ?,
-          rematch_status = ?
-        WHERE id = ?
+          rematch_requested_by = $1,
+          rematch_requested_at = $2,
+          rematch_status = $3
+        WHERE id = $4
       `, userId, new Date().toISOString(), 'PENDING', debateId)
       
       console.log('Rematch requested successfully for debate:', debateId, 'by user:', userId)
@@ -221,7 +221,7 @@ export async function POST(
       try {
         await prisma.$executeRawUnsafe(`
           INSERT INTO notifications (id, user_id, type, title, message, debate_id, created_at, read)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `,
           notificationId,
           winnerId,
@@ -265,8 +265,8 @@ export async function POST(
         // Decline rematch - use raw SQL
         await prisma.$executeRawUnsafe(`
           UPDATE debates
-          SET rematch_status = ?
-          WHERE id = ?
+          SET rematch_status = $1
+          WHERE id = $2
         `, 'DECLINED', debateId)
 
         // Notify the requester - use raw SQL
@@ -275,7 +275,7 @@ export async function POST(
         
         await prisma.$executeRawUnsafe(`
           INSERT INTO notifications (id, user_id, type, title, message, debate_id, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
         `,
           declineNotificationId,
           debate.rematchRequestedBy!,
@@ -316,7 +316,7 @@ export async function POST(
           id, topic, description, category, challenger_id, challenger_position, 
           opponent_position, opponent_id, total_rounds, round_duration, speed_mode, 
           challenge_type, status, original_debate_id, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       `,
         rematchDebateId,
         debate.topic,
@@ -340,9 +340,9 @@ export async function POST(
       await prisma.$executeRawUnsafe(`
         UPDATE debates
         SET 
-          rematch_status = ?,
-          rematch_debate_id = ?
-        WHERE id = ?
+          rematch_status = $1,
+          rematch_debate_id = $2
+        WHERE id = $3
       `, 'ACCEPTED', rematchDebateId, debateId)
 
       // Notify both participants - use raw SQL

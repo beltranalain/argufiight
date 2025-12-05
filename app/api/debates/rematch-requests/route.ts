@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
         d.rematch_debate_id,
         d.created_at
       FROM debates d
-      WHERE d.rematch_requested_by = ?
+      WHERE d.rematch_requested_by = $1
         AND (d.rematch_status = 'PENDING' OR d.rematch_status = 'ACCEPTED')
     `, finalUserId)
 
