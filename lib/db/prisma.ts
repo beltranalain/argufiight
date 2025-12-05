@@ -22,9 +22,48 @@ if (databaseUrl) {
     console.warn('⚠️  WARNING: DATABASE_URL does not start with postgres:// or postgresql://')
     console.warn('   Current value starts with:', databaseUrl.substring(0, 30) + '...')
   }
+} else {
+  console.error('❌ CRITICAL: DATABASE_URL environment variable is not set!')
+  console.error('   Please set DATABASE_URL in Vercel environment variables')
 }
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient()
+// Log connection info (without sensitive data)
+if (databaseUrl) {
+  const urlObj = new URL(databaseUrl)
+  console.log('📊 Database connection:', {
+    host: urlObj.hostname,
+    port: urlObj.port,
+    database: urlObj.pathname,
+    hasDirectUrl: !!process.env.DIRECT_URL,
+  })
+}
+
+// Create Prisma Client with connection retry logic
+const createPrismaClient = () => {
+  const client = new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
+  })
+
+  // Add connection retry logic
+  client.$connect().catch((error) => {
+    console.error('❌ Failed to connect to database:', error.message)
+    console.error('   DATABASE_URL exists:', !!process.env.DATABASE_URL)
+    console.error('   DIRECT_URL exists:', !!process.env.DIRECT_URL)
+    if (process.env.DATABASE_URL) {
+      const url = new URL(process.env.DATABASE_URL)
+      console.error('   Host:', url.hostname)
+      console.error('   Port:', url.port)
+    }
+  })
+
+  return client
+}
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient()
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
-
