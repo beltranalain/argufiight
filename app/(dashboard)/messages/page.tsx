@@ -12,6 +12,8 @@ import Link from 'next/link'
 
 interface Conversation {
   id: string
+  user1Id?: string
+  user2Id?: string
   user1: { id: string; username: string; avatarUrl: string | null }
   user2: { id: string; username: string; avatarUrl: string | null }
   lastMessageAt: string | null
@@ -35,6 +37,15 @@ interface Message {
   receiver: { id: string; username: string; avatarUrl: string | null }
 }
 
+interface User {
+  id: string
+  username: string
+  avatarUrl: string | null
+  eloRating?: number
+}
+
+type ViewMode = 'conversations' | 'following' | 'new'
+
 export default function MessagesPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -45,11 +56,58 @@ export default function MessagesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('conversations')
+  const [following, setFollowing] = useState<User[]>([])
+  const [isLoadingFollowing, setIsLoadingFollowing] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<User[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchConversations()
   }, [])
+
+  useEffect(() => {
+    if (viewMode === 'following') {
+      fetchFollowing()
+    }
+  }, [viewMode])
+
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    if (!searchQuery.trim()) {
+      setSearchResults([])
+      setIsSearching(false)
+      return
+    }
+
+    setIsSearching(true)
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/users/search?q=${encodeURIComponent(searchQuery.trim())}`)
+        if (!response.ok) throw new Error('Search failed')
+        
+        const users = await response.json()
+        setSearchResults(users)
+      } catch (error) {
+        console.error('User search error:', error)
+        setSearchResults([])
+      } finally {
+        setIsSearching(false)
+      }
+    }, 300)
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [searchQuery])
 
   useEffect(() => {
     if (selectedConversation) {
@@ -149,6 +207,23 @@ export default function MessagesPage() {
     }
   }
 
+  const fetchFollowing = async () => {
+    if (!user?.id) return
+    
+    setIsLoadingFollowing(true)
+    try {
+      const response = await fetch(`/api/users/following?userId=${user.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setFollowing(data || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch following:', error)
+    } finally {
+      setIsLoadingFollowing(false)
+    }
+  }
+
   const handleStartConversation = async (otherUserId: string) => {
     try {
       const response = await fetch('/api/messages/conversations', {
@@ -159,18 +234,33 @@ export default function MessagesPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setSelectedConversation({
+        const newConversation = {
           ...data.conversation,
           otherUser: data.conversation.user1Id === user?.id 
             ? data.conversation.user2 
             : data.conversation.user1,
           unreadCount: 0,
           messages: [],
-        })
+        }
+        setSelectedConversation(newConversation)
+        setViewMode('conversations')
         fetchConversations()
+        showToast({
+          type: 'success',
+          title: 'Conversation started',
+          description: `You can now message ${newConversation.otherUser.username}`,
+        })
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to start conversation')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to start conversation:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to start conversation',
+      })
     }
   }
 
@@ -191,55 +281,237 @@ export default function MessagesPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-12rem)]">
-          {/* Conversations List */}
+          {/* Left Sidebar */}
           <Card className="lg:col-span-1 overflow-hidden flex flex-col">
+            {/* Tabs */}
+            <div className="border-b border-bg-tertiary flex">
+              <button
+                onClick={() => setViewMode('conversations')}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                  viewMode === 'conversations'
+                    ? 'bg-bg-secondary text-white border-b-2 border-electric-blue'
+                    : 'text-text-secondary hover:text-white hover:bg-bg-secondary'
+                }`}
+              >
+                Conversations
+              </button>
+              <button
+                onClick={() => setViewMode('following')}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                  viewMode === 'following'
+                    ? 'bg-bg-secondary text-white border-b-2 border-electric-blue'
+                    : 'text-text-secondary hover:text-white hover:bg-bg-secondary'
+                }`}
+              >
+                Following
+              </button>
+              <button
+                onClick={() => setViewMode('new')}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                  viewMode === 'new'
+                    ? 'bg-bg-secondary text-white border-b-2 border-electric-blue'
+                    : 'text-text-secondary hover:text-white hover:bg-bg-secondary'
+                }`}
+              >
+                New Message
+              </button>
+            </div>
+
             <CardBody className="flex-1 overflow-y-auto p-0">
-              {conversations.length === 0 ? (
-                <div className="p-4 text-center text-text-secondary">
-                  <p>No conversations yet</p>
-                  <p className="text-sm mt-2">Start a conversation from a user's profile</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-bg-tertiary">
-                  {conversations.map((conv) => (
-                    <button
-                      key={conv.id}
-                      onClick={() => setSelectedConversation(conv)}
-                      className={`w-full p-4 text-left hover:bg-bg-secondary transition-colors ${
-                        selectedConversation?.id === conv.id ? 'bg-bg-secondary' : ''
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Avatar
-                          src={conv.otherUser.avatarUrl}
-                          username={conv.otherUser.username}
-                          size="md"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="font-semibold text-white truncate">
-                              {conv.otherUser.username}
-                            </p>
-                            {conv.unreadCount > 0 && (
-                              <span className="bg-electric-blue text-black text-xs font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
-                                {conv.unreadCount}
-                              </span>
-                            )}
+              {/* Conversations View */}
+              {viewMode === 'conversations' && (
+                <>
+                  {conversations.length === 0 ? (
+                    <div className="p-4 text-center text-text-secondary">
+                      <p>No conversations yet</p>
+                      <p className="text-sm mt-2">Start a conversation from Following or New Message</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-bg-tertiary">
+                      {conversations.map((conv) => (
+                        <button
+                          key={conv.id}
+                          onClick={() => setSelectedConversation(conv)}
+                          className={`w-full p-4 text-left hover:bg-bg-secondary transition-colors ${
+                            selectedConversation?.id === conv.id ? 'bg-bg-secondary' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar
+                              src={conv.otherUser.avatarUrl}
+                              username={conv.otherUser.username}
+                              size="md"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="font-semibold text-white truncate">
+                                  {conv.otherUser.username}
+                                </p>
+                                {conv.unreadCount > 0 && (
+                                  <span className="bg-electric-blue text-black text-xs font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
+                                    {conv.unreadCount}
+                                  </span>
+                                )}
+                              </div>
+                              {conv.messages.length > 0 && (
+                                <p className="text-sm text-text-secondary truncate">
+                                  {conv.messages[0].content}
+                                </p>
+                              )}
+                              {conv.lastMessageAt && (
+                                <p className="text-xs text-text-muted mt-1">
+                                  {new Date(conv.lastMessageAt).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          {conv.messages.length > 0 && (
-                            <p className="text-sm text-text-secondary truncate">
-                              {conv.messages[0].content}
-                            </p>
-                          )}
-                          {conv.lastMessageAt && (
-                            <p className="text-xs text-text-muted mt-1">
-                              {new Date(conv.lastMessageAt).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Following View */}
+              {viewMode === 'following' && (
+                <>
+                  {isLoadingFollowing ? (
+                    <div className="p-4 flex items-center justify-center">
+                      <LoadingSpinner />
+                    </div>
+                  ) : following.length === 0 ? (
+                    <div className="p-4 text-center text-text-secondary">
+                      <p>You're not following anyone yet</p>
+                      <p className="text-sm mt-2">Follow users from their profiles to message them</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-bg-tertiary">
+                      {following.map((user) => {
+                        // Check if conversation already exists
+                        const existingConv = conversations.find(
+                          conv => conv.otherUser.id === user.id
+                        )
+                        return (
+                          <div
+                            key={user.id}
+                            className="p-4 hover:bg-bg-secondary transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Avatar
+                                src={user.avatarUrl}
+                                username={user.username}
+                                size="md"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-white truncate">
+                                  {user.username}
+                                </p>
+                                {user.eloRating !== undefined && (
+                                  <p className="text-sm text-text-secondary">
+                                    ELO: {user.eloRating}
+                                  </p>
+                                )}
+                              </div>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                  if (existingConv) {
+                                    setSelectedConversation(existingConv)
+                                    setViewMode('conversations')
+                                  } else {
+                                    handleStartConversation(user.id)
+                                  }
+                                }}
+                              >
+                                {existingConv ? 'Open' : 'Message'}
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* New Message View */}
+              {viewMode === 'new' && (
+                <div className="p-4">
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search for users..."
+                    className="mb-4"
+                  />
+                  {isSearching ? (
+                    <div className="flex items-center justify-center py-8">
+                      <LoadingSpinner />
+                    </div>
+                  ) : searchResults.length === 0 && searchQuery.trim() ? (
+                    <div className="text-center text-text-secondary py-8">
+                      <p>No users found</p>
+                    </div>
+                  ) : searchResults.length > 0 ? (
+                    <div className="space-y-2">
+                      {searchResults.map((user) => {
+                        // Check if conversation already exists
+                        const existingConv = conversations.find(
+                          conv => conv.otherUser.id === user.id
+                        )
+                        // Check if user is already in following list
+                        const isFollowing = following.some(f => f.id === user.id)
+                        return (
+                          <div
+                            key={user.id}
+                            className="p-3 rounded-lg bg-bg-secondary hover:bg-bg-tertiary transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Avatar
+                                src={user.avatarUrl}
+                                username={user.username}
+                                size="md"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold text-white truncate">
+                                    {user.username}
+                                  </p>
+                                  {isFollowing && (
+                                    <span className="text-xs text-electric-blue">Following</span>
+                                  )}
+                                </div>
+                                {user.eloRating !== undefined && (
+                                  <p className="text-sm text-text-secondary">
+                                    ELO: {user.eloRating}
+                                  </p>
+                                )}
+                              </div>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                  if (existingConv) {
+                                    setSelectedConversation(existingConv)
+                                    setViewMode('conversations')
+                                  } else {
+                                    handleStartConversation(user.id)
+                                  }
+                                }}
+                              >
+                                {existingConv ? 'Open' : 'Message'}
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center text-text-secondary py-8">
+                      <p>Search for users to start a conversation</p>
+                      <p className="text-sm mt-2">Type at least 2 characters</p>
+                    </div>
+                  )}
                 </div>
               )}
             </CardBody>
