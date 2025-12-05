@@ -9,5 +9,11 @@
     "app/**/*.tsx": {
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/process-stuck-appeals",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }
