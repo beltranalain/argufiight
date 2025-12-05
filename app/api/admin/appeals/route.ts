@@ -118,8 +118,8 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/appeals - Adjust appeal count or limit
 export async function POST(request: NextRequest) {
   try {
-    const userId = await verifyAdmin()
-    if (!userId) {
+    const adminUserId = await verifyAdmin()
+    if (!adminUserId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
