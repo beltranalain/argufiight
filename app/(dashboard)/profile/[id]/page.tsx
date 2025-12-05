@@ -238,21 +238,32 @@ export default function UserProfilePage() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="flex flex-col items-end gap-2">
-                        <Badge variant="default" className="text-lg px-4 py-2 bg-electric-blue text-black">
-                          ELO {profile.eloRating}
-                        </Badge>
-                        {profile.totalMaxScore > 0 ? (
-                          <Badge variant="default" className="text-lg px-4 py-2 bg-cyber-green text-black">
-                            Score: {profile.totalScore.toLocaleString()}/{profile.totalMaxScore.toLocaleString()} ({Math.round((profile.totalScore / profile.totalMaxScore) * 100)}%)
-                          </Badge>
-                        ) : (
-                          <Badge variant="default" className="text-lg px-4 py-2 bg-bg-tertiary text-text-secondary">
-                            Score: N/A
-                          </Badge>
-                        )}
+                  </div>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="bg-electric-blue/20 border border-electric-blue/30 rounded-lg px-6 py-4 min-w-[160px]">
+                      <p className="text-xs text-text-secondary mb-1">ELO Rating</p>
+                      <p className="text-3xl font-bold text-electric-blue">{profile.eloRating}</p>
+                      <p className="text-xs text-text-muted mt-1">Current rating</p>
+                    </div>
+                    {profile.totalMaxScore > 0 ? (
+                      <div className="bg-cyber-green/20 border border-cyber-green/30 rounded-lg px-6 py-4 min-w-[160px]">
+                        <p className="text-xs text-text-secondary mb-1">Overall Score</p>
+                        <p className="text-3xl font-bold text-cyber-green">
+                          {profile.totalScore.toLocaleString()}/{profile.totalMaxScore.toLocaleString()}
+                        </p>
+                        <p className="text-xs text-text-muted mt-1">
+                          {Math.round((profile.totalScore / profile.totalMaxScore) * 100)}% average
+                        </p>
                       </div>
+                    ) : (
+                      <div className="bg-bg-tertiary border border-bg-secondary rounded-lg px-6 py-4 min-w-[160px]">
+                        <p className="text-xs text-text-secondary mb-1">Overall Score</p>
+                        <p className="text-3xl font-bold text-text-secondary">N/A</p>
+                        <p className="text-xs text-text-muted mt-1">No completed debates yet</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
                       {currentUser && currentUser.id !== userId && (
                         <Button
                           variant={isFollowing ? 'secondary' : 'primary'}

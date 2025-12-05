@@ -48,6 +48,14 @@ export function TopNav({ currentPanel }: TopNavProps) {
       onClick: () => window.location.href = '/debates/saved',
     },
     {
+      label: 'Direct Messages',
+      onClick: () => window.location.href = '/messages',
+    },
+    {
+      label: 'Support',
+      onClick: () => window.location.href = '/support',
+    },
+    {
       label: 'Settings',
       onClick: () => window.location.href = '/settings',
     },

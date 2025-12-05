@@ -263,12 +263,13 @@ export default function ProfilePage() {
 
                   {/* ELO and Overall Score - Prominent Display */}
                   <div className="flex items-center gap-4 mb-6">
-                    <div className="bg-electric-blue/20 border border-electric-blue/30 rounded-lg px-6 py-4">
+                    <div className="flex-1 bg-electric-blue/20 border border-electric-blue/30 rounded-lg px-6 py-4">
                       <p className="text-xs text-text-secondary mb-1">ELO Rating</p>
                       <p className="text-3xl font-bold text-electric-blue">{profile.eloRating || 1200}</p>
+                      <p className="text-xs text-text-muted mt-1">Current rating</p>
                     </div>
                     {profile.totalMaxScore > 0 ? (
-                      <div className="bg-cyber-green/20 border border-cyber-green/30 rounded-lg px-6 py-4">
+                      <div className="flex-1 bg-cyber-green/20 border border-cyber-green/30 rounded-lg px-6 py-4">
                         <p className="text-xs text-text-secondary mb-1">Overall Score</p>
                         <p className="text-3xl font-bold text-cyber-green">
                           {profile.totalScore.toLocaleString()}/{profile.totalMaxScore.toLocaleString()}
@@ -278,7 +279,7 @@ export default function ProfilePage() {
                         </p>
                       </div>
                     ) : (
-                      <div className="bg-bg-tertiary border border-bg-secondary rounded-lg px-6 py-4">
+                      <div className="flex-1 bg-bg-tertiary border border-bg-secondary rounded-lg px-6 py-4">
                         <p className="text-xs text-text-secondary mb-1">Overall Score</p>
                         <p className="text-3xl font-bold text-text-secondary">N/A</p>
                         <p className="text-xs text-text-muted mt-1">No completed debates yet</p>

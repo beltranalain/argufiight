@@ -29,16 +29,16 @@ model User {
   debatesLost  Int @default(0) @map("debates_lost")
   debatesTied  Int @default(0) @map("debates_tied")
   totalDebates Int @default(0) @map("total_debates")
-  
+
   // Score System
   totalScore    Int @default(0) @map("total_score") // Sum of all scores from all debates
   totalMaxScore Int @default(0) @map("total_max_score") // Max possible (judges × 100 × debates)
-  
+
   // Analytics
-  totalWordCount      Int @default(0) @map("total_word_count") // Total words across all statements
-  totalStatements     Int @default(0) @map("total_statements") // Total number of statements submitted
-  averageWordCount    Float @default(0) @map("average_word_count") // Average words per statement
-  averageRounds       Float @default(0) @map("average_rounds") // Average rounds per debate
+  totalWordCount   Int   @default(0) @map("total_word_count") // Total words across all statements
+  totalStatements  Int   @default(0) @map("total_statements") // Total number of statements submitted
+  averageWordCount Float @default(0) @map("average_word_count") // Average words per statement
+  averageRounds    Float @default(0) @map("average_rounds") // Average rounds per debate
 
   // Permissions
   isAdmin  Boolean @default(false) @map("is_admin")
@@ -80,15 +80,25 @@ model User {
   createdTournaments       Tournament[]            @relation("TournamentCreator")
   tournamentParticipations TournamentParticipant[] @relation("TournamentParticipant")
   tournamentSubscription   TournamentSubscription?
-  
+
   // Appeal limits
-  appealLimit              AppealLimit?
-  appealSubscriptions      AppealSubscription[]
+  appealLimit         AppealLimit?
+  appealSubscriptions AppealSubscription[]
+
+  // Support tickets
+  supportTickets       SupportTicket[]
+  supportTicketReplies SupportTicketReply[]
+  assignedTickets      SupportTicket[]      @relation("AssignedTickets")
+
+  // Direct messages
+  sentMessages         DirectMessage[] @relation("MessageSender")
+  receivedMessages     DirectMessage[] @relation("MessageReceiver")
+  conversationsAsUser1 Conversation[]  @relation("User1")
+  conversationsAsUser2 Conversation[]  @relation("User2")
 
   @@index([email])
   @@index([username])
   @@index([eloRating])
-
   @@map("users")
 }
 
@@ -97,33 +107,33 @@ model User {
 // ============================================
 
 model AppealLimit {
-  id              String   @id @default(uuid())
-  userId          String   @unique @map("user_id")
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  monthlyLimit    Int      @default(4) @map("monthly_limit")
-  currentCount    Int      @default(0) @map("current_count")
-  resetDate       DateTime @default(now()) @map("reset_date")
-  subscriptionTier String? @map("subscription_tier") // FREE, PREMIUM, PRO
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlyLimit     Int      @default(4) @map("monthly_limit")
+  currentCount     Int      @default(0) @map("current_count")
+  resetDate        DateTime @default(now()) @map("reset_date")
+  subscriptionTier String?  @map("subscription_tier") // FREE, PREMIUM, PRO
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@index([userId])
   @@map("appeal_limits")
 }
 
 model AppealSubscription {
-  id              String   @id @default(uuid())
-  userId          String   @map("user_id")
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planName        String   @map("plan_name") // e.g., "Premium Appeals"
-  appealsIncluded Int      @map("appeals_included")
-  price           Decimal  @db.Decimal(10, 2)
-  status          String   // ACTIVE, CANCELLED, EXPIRED
-  startDate       DateTime @default(now()) @map("start_date")
-  endDate         DateTime? @map("end_date")
-  stripeSubscriptionId String? @unique @map("stripe_subscription_id")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                   String    @id @default(uuid())
+  userId               String    @map("user_id")
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planName             String    @map("plan_name") // e.g., "Premium Appeals"
+  appealsIncluded      Int       @map("appeals_included")
+  price                Decimal   @db.Decimal(10, 2)
+  status               String // ACTIVE, CANCELLED, EXPIRED
+  startDate            DateTime  @default(now()) @map("start_date")
+  endDate              DateTime? @map("end_date")
+  stripeSubscriptionId String?   @unique @map("stripe_subscription_id")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
   @@index([userId])
   @@index([status])
@@ -135,21 +145,21 @@ model AppealSubscription {
 // ============================================
 
 model SubscriptionPlan {
-  id                String   @id @default(uuid())
-  name              String   // "Free", "Premium", "Pro"
-  description       String?  @db.Text
-  price             Decimal  @db.Decimal(10, 2)
-  billingCycle      String   // MONTHLY, YEARLY
-  features          String   @db.Text // JSON array of features
-  appealLimit       Int?     @map("appeal_limit")
-  debateLimit       Int?     @map("debate_limit")
-  prioritySupport   Boolean  @default(false) @map("priority_support")
-  customBadge       String?  @map("custom_badge")
-  stripePriceId     String?  @unique @map("stripe_price_id")
-  stripeProductId   String?  @map("stripe_product_id")
-  isActive          Boolean  @default(false) @map("is_active") // Don't activate yet
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid())
+  name            String // "Free", "Premium", "Pro"
+  description     String?  @db.Text
+  price           Decimal  @db.Decimal(10, 2)
+  billingCycle    String // MONTHLY, YEARLY
+  features        String   @db.Text // JSON array of features
+  appealLimit     Int?     @map("appeal_limit")
+  debateLimit     Int?     @map("debate_limit")
+  prioritySupport Boolean  @default(false) @map("priority_support")
+  customBadge     String?  @map("custom_badge")
+  stripePriceId   String?  @unique @map("stripe_price_id")
+  stripeProductId String?  @map("stripe_product_id")
+  isActive        Boolean  @default(false) @map("is_active") // Don't activate yet
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@index([isActive])
   @@index([billingCycle])
@@ -161,19 +171,19 @@ model SubscriptionPlan {
 // ============================================
 
 model Advertisement {
-  id            String   @id @default(uuid())
-  title         String
-  type          String   // BANNER, SPONSORED_DEBATE, IN_FEED
-  creativeUrl   String   @map("creative_url")
-  targetUrl     String   @map("target_url")
-  status        String   @default("DRAFT") // DRAFT, ACTIVE, PAUSED
-  startDate     DateTime? @map("start_date")
-  endDate       DateTime? @map("end_date")
-  impressions   Int      @default(0)
-  clicks        Int      @default(0)
-  category      String?  // Target specific category
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id          String    @id @default(uuid())
+  title       String
+  type        String // BANNER, SPONSORED_DEBATE, IN_FEED
+  creativeUrl String    @map("creative_url")
+  targetUrl   String    @map("target_url")
+  status      String    @default("DRAFT") // DRAFT, ACTIVE, PAUSED
+  startDate   DateTime? @map("start_date")
+  endDate     DateTime? @map("end_date")
+  impressions Int       @default(0)
+  clicks      Int       @default(0)
+  category    String? // Target specific category
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   @@index([status])
   @@index([type])
@@ -186,17 +196,17 @@ model Advertisement {
 // ============================================
 
 model SocialMediaPost {
-  id            String   @id @default(uuid())
-  debateId      String   @map("debate_id")
-  debate        Debate   @relation(fields: [debateId], references: [id], onDelete: Cascade)
-  platform      String   // INSTAGRAM, LINKEDIN, TWITTER
-  content       String   @db.Text
-  imagePrompt   String?  @db.Text @map("image_prompt")
-  hashtags      String?
-  status        String   @default("DRAFT") // DRAFT, APPROVED, PUBLISHED
-  scheduledAt   DateTime? @map("scheduled_at")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id          String    @id @default(uuid())
+  debateId    String    @map("debate_id")
+  debate      Debate    @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  platform    String // INSTAGRAM, LINKEDIN, TWITTER
+  content     String    @db.Text
+  imagePrompt String?   @map("image_prompt") @db.Text
+  hashtags    String?
+  status      String    @default("DRAFT") // DRAFT, APPROVED, PUBLISHED
+  scheduledAt DateTime? @map("scheduled_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   @@index([debateId])
   @@index([platform])
@@ -280,10 +290,10 @@ model Debate {
   viewCount      Int     @default(0) @map("view_count")
   featured       Boolean @default(false)
   allowCopyPaste Boolean @default(true) @map("allow_copy_paste") // Allow copy-paste in arguments
-  
+
   // Privacy
-  isPrivate      Boolean @default(false) @map("is_private") // Private debates require share token
-  shareToken     String? @unique @map("share_token") // Unique token for sharing private debates
+  isPrivate  Boolean @default(false) @map("is_private") // Private debates require share token
+  shareToken String? @unique @map("share_token") // Unique token for sharing private debates
 
   // Relations
   images DebateImage[]
@@ -1158,11 +1168,11 @@ model LegalPage {
 
 // Social media links for footer
 model SocialMediaLink {
-  id        String  @id @default(uuid())
-  platform  String  @unique // FACEBOOK, TWITTER, INSTAGRAM, LINKEDIN, YOUTUBE, TIKTOK
-  url       String
-  order     Int     @default(0)
-  isActive  Boolean @default(true) @map("is_active")
+  id       String  @id @default(uuid())
+  platform String  @unique // FACEBOOK, TWITTER, INSTAGRAM, LINKEDIN, YOUTUBE, TIKTOK
+  url      String
+  order    Int     @default(0)
+  isActive Boolean @default(true) @map("is_active")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1353,4 +1363,131 @@ model TournamentSubscription {
   @@index([userId])
   @@index([status])
   @@map("tournament_subscriptions")
+}
+
+// ============================================
+// SUPPORT TICKETS
+// ============================================
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model SupportTicket {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  subject     String
+  description String
+  category    String? // e.g., "Technical", "Billing", "Feature Request", "Bug Report"
+
+  status   SupportTicketStatus   @default(OPEN)
+  priority SupportTicketPriority @default(MEDIUM)
+
+  // Admin assignment
+  assignedToId String? @map("assigned_to_id")
+  assignedTo   User?   @relation("AssignedTickets", fields: [assignedToId], references: [id])
+
+  // Replies
+  replies SupportTicketReply[]
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  resolvedAt DateTime? @map("resolved_at")
+  closedAt   DateTime? @map("closed_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([assignedToId])
+  @@index([createdAt])
+  @@map("support_tickets")
+}
+
+model SupportTicketReply {
+  id       String        @id @default(uuid())
+  ticketId String        @map("ticket_id")
+  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId String @map("author_id")
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  content    String
+  isInternal Boolean @default(false) @map("is_internal") // Internal notes visible only to admins
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ticketId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("support_ticket_replies")
+}
+
+// ============================================
+// DIRECT MESSAGES
+// ============================================
+
+model Conversation {
+  id      String @id @default(uuid())
+  user1Id String @map("user1_id")
+  user1   User   @relation("User1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2Id String @map("user2_id")
+  user2   User   @relation("User2", fields: [user2Id], references: [id], onDelete: Cascade)
+
+  // Last message info for sorting
+  lastMessageId String?   @map("last_message_id")
+  lastMessageAt DateTime? @map("last_message_at")
+
+  // Read status
+  user1LastReadAt DateTime? @map("user1_last_read_at")
+  user2LastReadAt DateTime? @map("user2_last_read_at")
+
+  messages DirectMessage[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([user1Id, user2Id])
+  @@index([user1Id])
+  @@index([user2Id])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model DirectMessage {
+  id             String       @id @default(uuid())
+  conversationId String       @map("conversation_id")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId String @map("sender_id")
+  sender   User   @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  receiverId String @map("receiver_id")
+  receiver   User   @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  content String
+  isRead  Boolean   @default(false) @map("is_read")
+  readAt  DateTime? @map("read_at")
+
+  // Deletion (soft delete - user can delete their own messages)
+  deletedBySender   Boolean @default(false) @map("deleted_by_sender")
+  deletedByReceiver Boolean @default(false) @map("deleted_by_receiver")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+  @@map("direct_messages")
 }
