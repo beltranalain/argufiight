@@ -600,6 +600,7 @@ export default function DebatePage() {
                   debateId={debate.id}
                   currentRound={debate.currentRound}
                   totalRounds={debate.totalRounds}
+                  allowCopyPaste={debate.allowCopyPaste}
                   onSuccess={fetchDebate}
                 />
               </CardBody>
