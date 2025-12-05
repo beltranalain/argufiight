@@ -125,15 +125,18 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         topic: true,
+        createdAt: true,
         endedAt: true,
         challenger: {
           select: {
+            id: true,
             username: true,
             eloRating: true,
           },
         },
         opponent: {
           select: {
+            id: true,
             username: true,
             eloRating: true,
           },
@@ -190,15 +193,18 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         topic: true,
+        createdAt: true,
         endedAt: true,
         winnerId: true,
         challenger: {
           select: {
+            id: true,
             username: true,
           },
         },
         opponent: {
           select: {
+            id: true,
             username: true,
           },
         },
