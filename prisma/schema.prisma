@@ -131,6 +131,57 @@ model AppealSubscription {
 }
 
 // ============================================
+// SUBSCRIPTION PLANS
+// ============================================
+
+model SubscriptionPlan {
+  id                String   @id @default(uuid())
+  name              String   // "Free", "Premium", "Pro"
+  description       String?  @db.Text
+  price             Decimal  @db.Decimal(10, 2)
+  billingCycle      String   // MONTHLY, YEARLY
+  features          String   @db.Text // JSON array of features
+  appealLimit       Int?     @map("appeal_limit")
+  debateLimit       Int?     @map("debate_limit")
+  prioritySupport   Boolean  @default(false) @map("priority_support")
+  customBadge       String?  @map("custom_badge")
+  stripePriceId     String?  @unique @map("stripe_price_id")
+  stripeProductId   String?  @map("stripe_product_id")
+  isActive          Boolean  @default(false) @map("is_active") // Don't activate yet
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@index([billingCycle])
+  @@map("subscription_plans")
+}
+
+// ============================================
+// ADVERTISEMENTS
+// ============================================
+
+model Advertisement {
+  id            String   @id @default(uuid())
+  title         String
+  type          String   // BANNER, SPONSORED_DEBATE, IN_FEED
+  creativeUrl   String   @map("creative_url")
+  targetUrl     String   @map("target_url")
+  status        String   @default("DRAFT") // DRAFT, ACTIVE, PAUSED
+  startDate     DateTime? @map("start_date")
+  endDate       DateTime? @map("end_date")
+  impressions   Int      @default(0)
+  clicks        Int      @default(0)
+  category      String?  // Target specific category
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([type])
+  @@index([category])
+  @@map("advertisements")
+}
+
+// ============================================
 // SOCIAL MEDIA POSTS
 // ============================================
 
