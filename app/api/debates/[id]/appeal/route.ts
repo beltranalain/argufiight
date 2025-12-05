@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { canUserAppeal, incrementAppealCount } from '@/lib/utils/appeal-limits'
 
 // POST /api/debates/[id]/appeal - Submit an appeal for a verdict
 export async function POST(
@@ -113,6 +114,20 @@ export async function POST(
       return NextResponse.json(
         { error: 'This debate has already been appealed' },
         { status: 400 }
+      )
+    }
+
+    // Check appeal limit
+    const appealCheck = await canUserAppeal(userId)
+    if (!appealCheck.canAppeal) {
+      return NextResponse.json(
+        { 
+          error: 'Appeal limit reached',
+          message: `You have used all ${appealCheck.limit} of your monthly appeals. Your limit will reset on the 1st of next month.`,
+          remaining: appealCheck.remaining,
+          limit: appealCheck.limit,
+        },
+        { status: 403 }
       )
     }
 

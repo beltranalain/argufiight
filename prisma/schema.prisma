@@ -84,7 +84,48 @@ model User {
   @@index([email])
   @@index([username])
   @@index([eloRating])
+  // Appeal limits
+  appealLimits AppealLimit[]
+
   @@map("users")
+}
+
+// ============================================
+// APPEAL LIMITS & SUBSCRIPTIONS
+// ============================================
+
+model AppealLimit {
+  id              String   @id @default(uuid())
+  userId          String   @unique @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlyLimit    Int      @default(4) @map("monthly_limit")
+  currentCount    Int      @default(0) @map("current_count")
+  resetDate       DateTime @default(now()) @map("reset_date")
+  subscriptionTier String? @map("subscription_tier") // FREE, PREMIUM, PRO
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("appeal_limits")
+}
+
+model AppealSubscription {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planName        String   @map("plan_name") // e.g., "Premium Appeals"
+  appealsIncluded Int      @map("appeals_included")
+  price           Decimal  @db.Decimal(10, 2)
+  status          String   // ACTIVE, CANCELLED, EXPIRED
+  startDate       DateTime @default(now()) @map("start_date")
+  endDate         DateTime? @map("end_date")
+  stripeSubscriptionId String? @unique @map("stripe_subscription_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("appeal_subscriptions")
 }
 
 // Session model for authentication
