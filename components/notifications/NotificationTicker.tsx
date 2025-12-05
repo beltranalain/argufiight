@@ -35,6 +35,12 @@ export function NotificationTicker() {
   useEffect(() => {
     if (!contentRef.current || notifications.length === 0) return
 
+    const visibleNotifications = notifications.filter(
+      n => !n.read || new Date(n.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+    ).slice(0, 10)
+
+    if (visibleNotifications.length === 0) return
+
     const content = contentRef.current
     let animationId: number
     let position = 0
@@ -44,12 +50,15 @@ export function NotificationTicker() {
       if (!isPaused && content) {
         position += speed
         
-        // Get the width of one set of notifications (before duplication)
-        const itemWidth = content.children[0]?.getBoundingClientRect().width || 0
+        // Calculate width of one set of notifications
         const gap = 16 // gap-4 = 16px
-        const singleSetWidth = Array.from(content.children)
-          .slice(0, visibleNotifications.length)
-          .reduce((sum, child) => sum + (child.getBoundingClientRect().width || 0) + gap, 0)
+        let singleSetWidth = 0
+        for (let i = 0; i < visibleNotifications.length; i++) {
+          const child = content.children[i] as HTMLElement
+          if (child) {
+            singleSetWidth += child.getBoundingClientRect().width + gap
+          }
+        }
         
         // Reset when we've scrolled one full set
         if (position >= singleSetWidth) {
