@@ -23,7 +23,13 @@ export async function GET(request: NextRequest) {
           { user2Id: userId },
         ],
       },
-      include: {
+      select: {
+        id: true,
+        user1Id: true,
+        user2Id: true,
+        lastMessageAt: true,
+        user1LastReadAt: true,
+        user2LastReadAt: true,
         user1: {
           select: {
             id: true,
@@ -42,6 +48,11 @@ export async function GET(request: NextRequest) {
           take: 1,
           orderBy: {
             createdAt: 'desc',
+          },
+          select: {
+            id: true,
+            content: true,
+            createdAt: true,
           },
         },
       },
@@ -95,16 +106,37 @@ export async function POST(request: NextRequest) {
 
     const userId = getUserIdFromSession(session)
     if (!userId) {
+      console.error('POST /api/messages/conversations: No userId from session')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
     const { otherUserId } = body
 
-    if (!otherUserId || otherUserId === userId) {
+    if (!otherUserId) {
       return NextResponse.json(
-        { error: 'Invalid user ID' },
+        { error: 'otherUserId is required' },
         { status: 400 }
+      )
+    }
+
+    if (otherUserId === userId) {
+      return NextResponse.json(
+        { error: 'Cannot create conversation with yourself' },
+        { status: 400 }
+      )
+    }
+
+    // Verify other user exists
+    const otherUser = await prisma.user.findUnique({
+      where: { id: otherUserId },
+      select: { id: true },
+    })
+
+    if (!otherUser) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
       )
     }
 
@@ -143,34 +175,89 @@ export async function POST(request: NextRequest) {
       ? [userId, otherUserId]
       : [otherUserId, userId]
 
-    const conversation = await prisma.conversation.create({
-      data: {
-        user1Id,
-        user2Id,
-      },
-      include: {
-        user1: {
-          select: {
-            id: true,
-            username: true,
-            avatarUrl: true,
+    try {
+      const conversation = await prisma.conversation.create({
+        data: {
+          user1Id,
+          user2Id,
+        },
+        select: {
+          id: true,
+          user1Id: true,
+          user2Id: true,
+          lastMessageAt: true,
+          user1LastReadAt: true,
+          user2LastReadAt: true,
+          user1: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+            },
+          },
+          user2: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+            },
           },
         },
-        user2: {
-          select: {
-            id: true,
-            username: true,
-            avatarUrl: true,
-          },
-        },
-      },
-    })
+      })
 
-    return NextResponse.json({ conversation }, { status: 201 })
-  } catch (error) {
+      return NextResponse.json({ conversation }, { status: 201 })
+    } catch (createError: any) {
+      // If conversation already exists (race condition), fetch it
+      if (createError?.code === 'P2002' || createError?.message?.includes('Unique constraint')) {
+        const existing = await prisma.conversation.findFirst({
+          where: {
+            OR: [
+              { user1Id: userId, user2Id: otherUserId },
+              { user1Id: otherUserId, user2Id: userId },
+            ],
+          },
+          select: {
+            id: true,
+            user1Id: true,
+            user2Id: true,
+            lastMessageAt: true,
+            user1LastReadAt: true,
+            user2LastReadAt: true,
+            user1: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+              },
+            },
+            user2: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        })
+
+        if (existing) {
+          return NextResponse.json({ conversation: existing })
+        }
+      }
+      throw createError
+    }
+  } catch (error: any) {
     console.error('Failed to create conversation:', error)
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+    })
     return NextResponse.json(
-      { error: 'Failed to create conversation' },
+      { 
+        error: 'Failed to create conversation',
+        details: error?.message || 'Unknown error',
+      },
       { status: 500 }
     )
   }
