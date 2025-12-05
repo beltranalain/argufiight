@@ -193,19 +193,19 @@ function HomepageSectionComponent({ section, index }: { section: HomepageSection
               <div className={`relative ${
                 isImageRight ? 'lg:order-2' : 'lg:order-1'
               }`}>
-                <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-white/20">
+                <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-white/20 bg-bg-tertiary flex items-center justify-center">
                   {primaryImage.url.startsWith('data:') ? (
                     <img
                       src={primaryImage.url}
                       alt={primaryImage.alt || section.title || ''}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                     />
                   ) : (
                     <Image
                       src={primaryImage.url}
                       alt={primaryImage.alt || section.title || ''}
                       fill
-                      className="object-cover"
+                      className="object-contain"
                       priority={index === 0}
                       unoptimized={primaryImage.url.includes('blob.vercel-storage.com') || primaryImage.url.startsWith('data:')}
                     />
@@ -257,19 +257,19 @@ function HomepageSectionComponent({ section, index }: { section: HomepageSection
         {sectionImages.length > 1 && (
           <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-4">
             {sectionImages.slice(1).map((image) => (
-              <div key={image.id} className="relative aspect-square rounded-xl overflow-hidden border border-white/20">
+              <div key={image.id} className="relative aspect-square rounded-xl overflow-hidden border border-white/20 bg-bg-tertiary flex items-center justify-center">
                 {image.url.includes('blob.vercel-storage.com') || image.url.startsWith('data:') ? (
                   <img
                     src={image.url}
                     alt={image.alt || ''}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 ) : (
                   <Image
                     src={image.url}
                     alt={image.alt || ''}
                     fill
-                    className="object-cover"
+                    className="object-contain"
                   />
                 )}
               </div>
@@ -328,9 +328,8 @@ function AppDownloadSection({ section }: { section: HomepageSection }) {
           )}
           {section.content && (
             <div
-              className="text-base md:text-lg text-text-primary/90 mb-10 prose prose-invert max-w-none prose-p:text-text-primary/90 prose-p:my-4 prose-ul:my-4 prose-ol:my-4 prose-li:my-2"
+              className="text-base md:text-lg text-text-primary/90 mb-10 prose prose-invert max-w-none prose-p:text-text-primary/90"
               dangerouslySetInnerHTML={{ __html: section.content }}
-              style={{ whiteSpace: 'pre-wrap' }}
             />
           )}
           
