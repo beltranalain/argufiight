@@ -36,6 +36,14 @@ interface HomepageSection {
   }>
 }
 
+interface SocialMediaLink {
+  id: string
+  platform: string
+  url: string
+  order: number
+  isActive: boolean
+}
+
 export default function ContentManagerPage() {
   const { showToast } = useToast()
   const [sections, setSections] = useState<HomepageSection[]>([])
@@ -44,10 +52,13 @@ export default function ContentManagerPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
   const [mediaLibrary, setMediaLibrary] = useState<any[]>([])
+  const [socialLinks, setSocialLinks] = useState<SocialMediaLink[]>([])
+  const [isLoadingSocial, setIsLoadingSocial] = useState(true)
 
   useEffect(() => {
     fetchSections()
     fetchMediaLibrary()
+    fetchSocialLinks()
   }, [])
 
   const fetchSections = async () => {
@@ -81,6 +92,71 @@ export default function ContentManagerPage() {
       }
     } catch (error) {
       console.error('Failed to fetch media library:', error)
+    }
+  }
+
+  const fetchSocialLinks = async () => {
+    try {
+      setIsLoadingSocial(true)
+      const response = await fetch('/api/admin/content/social-media')
+      if (response.ok) {
+        const data = await response.json()
+        setSocialLinks(data.links || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch social media links:', error)
+    } finally {
+      setIsLoadingSocial(false)
+    }
+  }
+
+  const handleSaveSocialLink = async (platform: string, url: string, order: number) => {
+    try {
+      const response = await fetch('/api/admin/content/social-media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, url, order, isActive: true }),
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Social Link Saved',
+          description: `${platform} link updated successfully`,
+        })
+        fetchSocialLinks()
+      } else {
+        throw new Error('Failed to save')
+      }
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Save Failed',
+        description: 'Failed to save social media link',
+      })
+    }
+  }
+
+  const handleDeleteSocialLink = async (platform: string) => {
+    try {
+      const response = await fetch(`/api/admin/content/social-media?platform=${platform}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Link Deleted',
+          description: `${platform} link removed`,
+        })
+        fetchSocialLinks()
+      }
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Delete Failed',
+        description: 'Failed to delete social media link',
+      })
     }
   }
 
@@ -228,6 +304,28 @@ export default function ContentManagerPage() {
             onUpload={fetchMediaLibrary}
           />
         )}
+
+        {/* Social Media Links Section */}
+        <div className="mt-12 pt-8 border-t border-bg-tertiary">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-2">Social Media Links</h2>
+              <p className="text-text-secondary">Manage social media links displayed in the footer</p>
+            </div>
+          </div>
+
+          {isLoadingSocial ? (
+            <div className="flex items-center justify-center py-8">
+              <LoadingSpinner size="sm" />
+            </div>
+          ) : (
+            <SocialMediaLinksManager
+              links={socialLinks}
+              onSave={handleSaveSocialLink}
+              onDelete={handleDeleteSocialLink}
+            />
+          )}
+        </div>
     </div>
   )
 }
