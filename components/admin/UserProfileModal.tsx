@@ -60,9 +60,16 @@ export function UserProfileModal({ isOpen, onClose, userId }: UserProfileModalPr
           setProfile(data)
         }
       } else {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        console.error('Failed to fetch user profile:', errorData.error || 'Request failed')
-        setProfile(null)
+        // If user not found (404), close the modal
+        if (response.status === 404) {
+          console.log('User not found, closing modal')
+          onClose()
+          setProfile(null)
+        } else {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+          console.error('Failed to fetch user profile:', errorData.error || 'Request failed')
+          setProfile(null)
+        }
       }
     } catch (error) {
       console.error('Failed to fetch user profile:', error)

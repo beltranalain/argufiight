@@ -115,6 +115,11 @@ export default function AdminUsersPage() {
             title: 'User Deleted',
             description: 'User has been permanently deleted',
           })
+          // Close profile modal if viewing the deleted user
+          if (selectedUserId === actionUserId) {
+            setIsProfileModalOpen(false)
+            setSelectedUserId(null)
+          }
           fetchUsers()
           fetchUserLimitInfo()
         } else {
