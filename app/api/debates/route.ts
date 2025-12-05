@@ -59,6 +59,12 @@ export async function GET(request: NextRequest) {
         createdAt: true,
         challengeType: true,
         invitedUserIds: true,
+        currentRound: true,
+        totalRounds: true,
+        roundDeadline: true,
+        spectatorCount: true,
+        challengerPosition: true,
+        opponentPosition: true,
         challenger: {
           select: {
             id: true,
