@@ -140,10 +140,8 @@ export async function GET(request: NextRequest) {
         },
         challengerEloChange: true,
         opponentEloChange: true,
+        winnerId: true,
         verdicts: {
-          where: {
-            isFinal: true,
-          },
           select: {
             winnerId: true,
           },
@@ -157,10 +155,10 @@ export async function GET(request: NextRequest) {
     })
 
     for (const debate of recentCompleted) {
-      if (debate.verdicts.length === 0) continue
       if (!debate.challenger || !debate.opponent) continue
+      if (!debate.winnerId) continue // Skip if no winner determined
       
-      const winnerId = debate.verdicts[0].winnerId
+      const winnerId = debate.winnerId
       const challengerElo = debate.challenger.eloRating - (debate.challengerEloChange || 0)
       const opponentElo = debate.opponent.eloRating - (debate.opponentEloChange || 0)
       const eloDiff = Math.abs(challengerElo - opponentElo)
@@ -193,11 +191,13 @@ export async function GET(request: NextRequest) {
         endedAt: {
           gte: oneHourAgo,
         },
+        winnerId: { not: null },
       },
       select: {
         id: true,
         topic: true,
         endedAt: true,
+        winnerId: true,
         challenger: {
           select: {
             username: true,
@@ -208,15 +208,6 @@ export async function GET(request: NextRequest) {
             username: true,
           },
         },
-        verdicts: {
-          where: {
-            isFinal: true,
-          },
-          select: {
-            winnerId: true,
-          },
-          take: 1,
-        },
       },
       orderBy: {
         endedAt: 'desc',
@@ -225,10 +216,10 @@ export async function GET(request: NextRequest) {
     })
 
     for (const debate of newVerdicts) {
-      if (debate.verdicts.length === 0) continue
       if (!debate.challenger || !debate.opponent) continue
+      if (!debate.winnerId) continue // Skip if no winner determined
       
-      const winnerId = debate.verdicts[0].winnerId
+      const winnerId = debate.winnerId
       const winner = winnerId === debate.challenger.id ? debate.challenger : debate.opponent
       
       updates.push({
@@ -282,15 +273,7 @@ export async function GET(request: NextRequest) {
         challengerId: true,
         opponentId: true,
         endedAt: true,
-        verdicts: {
-          where: {
-            isFinal: true,
-          },
-          select: {
-            winnerId: true,
-          },
-          take: 1,
-        },
+        winnerId: true,
       },
       orderBy: {
         endedAt: 'desc',
@@ -300,9 +283,9 @@ export async function GET(request: NextRequest) {
     // Group debates by user and calculate streaks
     const userDebates = new Map<string, typeof allRecentDebates>()
     for (const debate of allRecentDebates) {
-      if (debate.verdicts.length === 0) continue
+      if (!debate.winnerId) continue
       
-      const winnerId = debate.verdicts[0].winnerId
+      const winnerId = debate.winnerId
       if (userIds.includes(winnerId)) {
         if (!userDebates.has(winnerId)) {
           userDebates.set(winnerId, [])
@@ -323,7 +306,7 @@ export async function GET(request: NextRequest) {
 
       let streakCount = 0
       for (const debate of userRecentDebates) {
-        if (debate.verdicts.length > 0 && debate.verdicts[0].winnerId === user.id) {
+        if (debate.winnerId === user.id) {
           streakCount++
         } else {
           break
