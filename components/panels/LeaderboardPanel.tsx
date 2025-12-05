@@ -142,8 +142,8 @@ export function LeaderboardPanel() {
                       <div className="flex items-center gap-2">
                         <span>{entry.totalDebates} debates</span>
                         <span>•</span>
-                        <span className="text-cyber-green">{entry.wins}W</span>
-                        <span className="text-neon-orange">{entry.losses}L</span>
+                        <span className="text-cyber-green">{entry.debatesWon}W</span>
+                        <span className="text-neon-orange">{entry.debatesLost}L</span>
                         <span>•</span>
                         <span>{entry.winRate}% win rate</span>
                       </div>
