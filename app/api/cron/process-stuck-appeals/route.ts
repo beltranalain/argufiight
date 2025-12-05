@@ -11,14 +11,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Find all stuck appeals (PENDING status for more than 1 minute)
-    const oneMinuteAgo = new Date(Date.now() - 60 * 1000)
+    // Find all stuck appeals (PENDING status for more than 5 minutes)
+    // This gives the automatic trigger time to work, but catches any that fail
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
     const stuckAppeals = await prisma.debate.findMany({
       where: {
         status: 'APPEALED',
         appealStatus: 'PENDING',
         appealedAt: {
-          lte: oneMinuteAgo, // Appeals older than 1 minute
+          lte: fiveMinutesAgo, // Appeals older than 5 minutes
         },
       },
       select: {

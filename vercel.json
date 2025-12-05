@@ -13,7 +13,7 @@
   "crons": [
     {
       "path": "/api/cron/process-stuck-appeals",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 2 * * *"
     }
   ]
 }
