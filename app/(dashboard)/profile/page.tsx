@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
+import { BattleHistory } from '@/components/profile/BattleHistory'
 
 interface UserProfile {
   id: string
@@ -319,6 +320,21 @@ export default function ProfilePage() {
               </div>
             </CardBody>
           </Card>
+
+          {/* Battle History */}
+          {user && (
+            <Card>
+              <CardHeader>
+                <h2 className="text-xl font-bold text-text-primary">Battle History</h2>
+                <p className="text-sm text-text-secondary mt-1">
+                  Users you've debated with
+                </p>
+              </CardHeader>
+              <CardBody>
+                <BattleHistory userId={user.id} />
+              </CardBody>
+            </Card>
+          )}
 
           {/* Edit Profile */}
           <Card>
