@@ -281,10 +281,40 @@ export default function ProfilePage() {
                   </div>
                   
                   {/* Win Rate */}
-                  <div className="bg-bg-tertiary rounded-lg p-3">
+                  <div className="bg-bg-tertiary rounded-lg p-3 mb-6">
                     <p className="text-xs text-text-secondary mb-1">Win Rate</p>
                     <p className="text-xl font-bold text-cyber-green">{winRate}%</p>
                   </div>
+
+                  {/* Analytics Section */}
+                  {profile.totalStatements > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      <div className="bg-bg-tertiary rounded-lg p-3">
+                        <p className="text-xs text-text-secondary mb-1">Total Words</p>
+                        <p className="text-xl font-bold text-text-primary">
+                          {profile.totalWordCount?.toLocaleString() || 0}
+                        </p>
+                      </div>
+                      <div className="bg-bg-tertiary rounded-lg p-3">
+                        <p className="text-xs text-text-secondary mb-1">Avg Words/Statement</p>
+                        <p className="text-xl font-bold text-text-primary">
+                          {Math.round(profile.averageWordCount || 0)}
+                        </p>
+                      </div>
+                      <div className="bg-bg-tertiary rounded-lg p-3">
+                        <p className="text-xs text-text-secondary mb-1">Total Statements</p>
+                        <p className="text-xl font-bold text-text-primary">
+                          {profile.totalStatements || 0}
+                        </p>
+                      </div>
+                      <div className="bg-bg-tertiary rounded-lg p-3">
+                        <p className="text-xs text-text-secondary mb-1">Avg Rounds</p>
+                        <p className="text-xl font-bold text-text-primary">
+                          {profile.averageRounds?.toFixed(1) || '0.0'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardBody>
