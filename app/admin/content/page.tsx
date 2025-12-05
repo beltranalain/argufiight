@@ -212,18 +212,23 @@ export default function ContentManagerPage() {
         title: 'Section Saved',
         description: 'Homepage section updated successfully',
       })
-      await fetchSections() // Refresh sections
-      // Update selected section with fresh data
-      if (result.section) {
-        setSelectedSection(result.section)
-      } else {
-        // Fallback: fetch updated section
-        const updatedSections = await fetch('/api/admin/content/sections').then(r => r.json())
-        const updatedSection = updatedSections.sections?.find((s: HomepageSection) => s.id === selectedSection.id)
-        if (updatedSection) {
-          setSelectedSection(updatedSection)
-        }
+      
+      // Fetch updated section data to refresh the modal
+      await fetchSections()
+      const updatedSections = await fetch('/api/admin/content/sections').then(r => r.json())
+      const updatedSection = (updatedSections.sections || updatedSections || []).find(
+        (s: HomepageSection) => s.id === selectedSection.id
+      )
+      
+      if (updatedSection) {
+        // Update selected section with fresh data including images and buttons
+        setSelectedSection({
+          ...updatedSection,
+          images: updatedSection.images || [],
+          buttons: updatedSection.buttons || [],
+        })
       }
+      // Keep modal open - don't close it
     } catch (error: any) {
       console.error('Save error:', error)
       showToast({
@@ -262,7 +267,8 @@ export default function ContentManagerPage() {
             </Button>
             <Button
               onClick={() => {
-                window.open('/', '_blank')
+                // Open public homepage in a new tab
+                window.open('/home', '_blank')
               }}
             >
               Preview Homepage
@@ -306,8 +312,20 @@ export default function ContentManagerPage() {
           />
         )}
 
-        {/* Social Media Links Section */}
+        {/* SEO Note */}
         <div className="mt-12 pt-8 border-t border-bg-tertiary">
+          <div className="bg-bg-tertiary rounded-lg p-4 mb-6">
+            <h3 className="text-lg font-semibold text-white mb-2">SEO Management</h3>
+            <p className="text-text-secondary text-sm">
+              Each section has <strong>Meta Title</strong> and <strong>Meta Description</strong> fields for SEO. 
+              The <strong>Hero</strong> section's meta fields are used for the homepage's primary SEO tags. 
+              Edit any section and use the Meta Title and Meta Description fields to optimize SEO.
+            </p>
+          </div>
+        </div>
+
+        {/* Social Media Links Section */}
+        <div className="mt-6 pt-8 border-t border-bg-tertiary">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold text-white mb-2">Social Media Links</h2>
@@ -995,7 +1013,7 @@ function MediaLibraryModal({
 
         <div className="grid grid-cols-3 gap-4 max-h-96 overflow-y-auto">
           {media.map((item) => (
-            <div key={item.id} className="relative aspect-square rounded-lg overflow-hidden">
+            <div key={item.id} className="relative aspect-square rounded-lg overflow-hidden group">
               {item.url.startsWith('data:') ? (
                 <img
                   src={item.url}
@@ -1011,6 +1029,41 @@ function MediaLibraryModal({
               ) : (
                 <Image src={item.url} alt={item.alt || ''} fill className="object-cover" />
               )}
+              {/* Delete button overlay */}
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={async () => {
+                    if (!confirm('Are you sure you want to delete this image?')) return
+                    
+                    try {
+                      const response = await fetch(`/api/admin/content/media/${item.id}`, {
+                        method: 'DELETE',
+                      })
+
+                      if (response.ok) {
+                        showToast({
+                          type: 'success',
+                          title: 'Image Deleted',
+                          description: 'Image removed from media library',
+                        })
+                        onUpload()
+                      } else {
+                        throw new Error('Delete failed')
+                      }
+                    } catch (error) {
+                      showToast({
+                        type: 'error',
+                        title: 'Delete Failed',
+                        description: 'Failed to delete image',
+                      })
+                    }
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
             </div>
           ))}
         </div>
