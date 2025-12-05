@@ -43,11 +43,6 @@ export async function POST(request: NextRequest) {
             avatarUrl: true,
           },
         },
-        category: {
-          select: {
-            name: true,
-          },
-        },
         statements: {
           take: 2,
           orderBy: { createdAt: 'asc' },
@@ -86,7 +81,7 @@ export async function POST(request: NextRequest) {
 - Focus on the debate topic and participants
 
 Debate Topic: ${debate.topic}
-Category: ${debate.category?.name || 'General'}
+Category: ${debate.category || 'General'}
 Challenger: ${debate.challenger.username}
 Opponent: ${debate.opponent?.username || 'TBD'}`,
 
@@ -99,7 +94,7 @@ Opponent: ${debate.opponent?.username || 'TBD'}`,
 - Professional language
 
 Debate Topic: ${debate.topic}
-Category: ${debate.category?.name || 'General'}
+Category: ${debate.category || 'General'}
 Challenger: ${debate.challenger.username}
 Opponent: ${debate.opponent?.username || 'TBD'}`,
 
@@ -111,7 +106,7 @@ Opponent: ${debate.opponent?.username || 'TBD'}`,
 - Focus on the key debate point
 
 Debate Topic: ${debate.topic}
-Category: ${debate.category?.name || 'General'}
+Category: ${debate.category || 'General'}
 Challenger: ${debate.challenger.username}
 Opponent: ${debate.opponent?.username || 'TBD'}`,
     }
@@ -159,7 +154,7 @@ Opponent: ${debate.opponent?.username || 'TBD'}`,
     const extractedHashtags = generatedContent.match(hashtagRegex)?.join(' ') || ''
 
     // Generate Sora image prompt
-    const imagePrompt = `A dynamic, engaging visual representation of a debate about "${debate.topic}" in the ${debate.category?.name || 'general'} category. Two debaters facing off, with visual elements representing their arguments. Modern, clean design suitable for social media.`
+    const imagePrompt = `A dynamic, engaging visual representation of a debate about "${debate.topic}" in the ${debate.category || 'general'} category. Two debaters facing off, with visual elements representing their arguments. Modern, clean design suitable for social media.`
 
     // Generate image prompt using AI
     const imagePromptResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -177,7 +172,7 @@ Opponent: ${debate.opponent?.username || 'TBD'}`,
           },
           {
             role: 'user',
-            content: `Create a detailed Sora image generation prompt for a debate about: "${debate.topic}" in the ${debate.category?.name || 'general'} category. Make it visually engaging and suitable for social media.`,
+            content: `Create a detailed Sora image generation prompt for a debate about: "${debate.topic}" in the ${debate.category || 'general'} category. Make it visually engaging and suitable for social media.`,
           },
         ],
         temperature: 0.7,

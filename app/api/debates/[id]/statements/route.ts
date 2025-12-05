@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getSession } from '@/lib/auth/session';
 import { notifyDebateWatchers, notifyDebateParticipants, createDebateNotification } from '@/lib/notifications/debateNotifications';
+import { calculateWordCount, updateUserAnalyticsOnStatement } from '@/lib/utils/analytics';
 import crypto from 'crypto';
 
 // GET /api/debates/[id]/statements - Get all statements for a debate
