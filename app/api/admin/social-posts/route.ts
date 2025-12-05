@@ -77,21 +77,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // For general platform posts (no debateId), we'll skip saving to database
-    // The main use case is copy/paste, so saving is optional
-    if (!debateId) {
-      return NextResponse.json({
-        success: true,
-        message: 'Post generated successfully. Use copy buttons to copy content.',
-        post: {
-          topic: topic || 'General Platform Post',
-          platform,
-          content,
-          imagePrompt,
-          hashtags,
-        },
-      })
-    }
+    // For general platform posts (no debateId), we'll save them with a null debateId
+    // This allows saving general posts to the library for later use
 
     if (!['INSTAGRAM', 'LINKEDIN', 'TWITTER'].includes(platform)) {
       return NextResponse.json(
@@ -102,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     const post = await prisma.socialMediaPost.create({
       data: {
-        debateId,
+        debateId: debateId || null, // Allow null for general posts
         platform,
         content: content.trim(),
         imagePrompt: imagePrompt?.trim() || null,

@@ -197,8 +197,8 @@ model Advertisement {
 
 model SocialMediaPost {
   id          String    @id @default(uuid())
-  debateId    String    @map("debate_id")
-  debate      Debate    @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  debateId    String?   @map("debate_id")
+  debate      Debate?   @relation(fields: [debateId], references: [id], onDelete: Cascade)
   platform    String // INSTAGRAM, LINKEDIN, TWITTER
   content     String    @db.Text
   imagePrompt String?   @map("image_prompt") @db.Text

@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/Badge'
 
 interface SocialMediaPost {
   id: string
-  debateId: string
+  debateId: string | null
   platform: string
   content: string
   imagePrompt: string | null
@@ -31,7 +31,7 @@ interface SocialMediaPost {
     opponent: {
       username: string
     } | null
-  }
+  } | null
 }
 
 export default function SocialPostsPage() {
@@ -148,24 +148,16 @@ export default function SocialPostsPage() {
 
       const responseData = await response.json()
       
-      if (responseData.success && !responseData.post.debateId) {
-        // General post - just show success, don't try to save to DB
-        showToast({
-          type: 'success',
-          title: 'Post Generated',
-          description: 'Use the copy buttons to copy content to your social media accounts!',
-        })
-      } else {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Post saved successfully!',
-        })
-        setGeneratedContent('')
-        setGeneratedImagePrompt('')
-        setGeneratedHashtags('')
-        fetchPosts()
-      }
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: 'Post saved successfully!',
+      })
+      setGeneratedContent('')
+      setGeneratedImagePrompt('')
+      setGeneratedHashtags('')
+      setPostTopic('')
+      fetchPosts()
     } catch (error: any) {
       showToast({
         type: 'error',
@@ -181,6 +173,46 @@ export default function SocialPostsPage() {
       type: 'success',
       title: 'Copied!',
       description: `${type} copied to clipboard`,
+    })
+  }
+
+  const handlePostToSocial = (platform: string, content: string, hashtags?: string | null) => {
+    const fullContent = hashtags ? `${content}\n\n${hashtags}` : content
+    const encodedContent = encodeURIComponent(fullContent)
+    
+    let url = ''
+    switch (platform) {
+      case 'TWITTER':
+      case 'X':
+        url = `https://twitter.com/intent/tweet?text=${encodedContent}`
+        break
+      case 'LINKEDIN':
+        url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.origin)}&summary=${encodedContent}`
+        break
+      case 'INSTAGRAM':
+        // Instagram doesn't support URL parameters, so we'll copy to clipboard and open Instagram
+        navigator.clipboard.writeText(fullContent)
+        showToast({
+          type: 'success',
+          title: 'Content Copied!',
+          description: 'Content copied to clipboard. Open Instagram and paste it manually.',
+        })
+        window.open('https://www.instagram.com/', '_blank')
+        return
+      default:
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: 'Unsupported platform',
+        })
+        return
+    }
+    
+    window.open(url, '_blank')
+    showToast({
+      type: 'success',
+      title: 'Opening Platform',
+      description: `Opening ${platform} with pre-filled content`,
     })
   }
 
@@ -319,12 +351,18 @@ export default function SocialPostsPage() {
                     />
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <Button variant="secondary" onClick={handleSave}>
-                      Save to Library (Optional)
+                      Save to Library
+                    </Button>
+                    <Button 
+                      variant="primary" 
+                      onClick={() => handlePostToSocial(selectedPlatform, generatedContent, generatedHashtags)}
+                    >
+                      Post to {selectedPlatform === 'TWITTER' ? 'Twitter/X' : selectedPlatform}
                     </Button>
                     <p className="text-xs text-text-muted">
-                      💡 Tip: Use the Copy buttons above to copy content directly to your social media accounts
+                      💡 Tip: "Post to..." opens the platform with pre-filled content. For Instagram, content will be copied to clipboard.
                     </p>
                   </div>
                 </div>
@@ -353,7 +391,8 @@ export default function SocialPostsPage() {
                   posts
                     .filter(post =>
                       post.content.toLowerCase().includes(postSearch.toLowerCase()) ||
-                      (post.debate?.topic && post.debate.topic.toLowerCase().includes(postSearch.toLowerCase()))
+                      (post.debate?.topic && post.debate.topic.toLowerCase().includes(postSearch.toLowerCase())) ||
+                      post.platform.toLowerCase().includes(postSearch.toLowerCase())
                     )
                     .map((post) => (
                       <div
@@ -366,7 +405,7 @@ export default function SocialPostsPage() {
                               <Badge variant="default">{post.platform}</Badge>
                               <Badge className={getStatusColor(post.status)}>{post.status}</Badge>
                             </div>
-                            {post.debate && (
+                            {post.debate ? (
                               <>
                                 <p className="text-sm text-text-secondary">
                                   Debate: {post.debate.topic}
@@ -375,15 +414,28 @@ export default function SocialPostsPage() {
                                   {post.debate.challenger.username} vs {post.debate.opponent?.username || 'TBD'}
                                 </p>
                               </>
+                            ) : (
+                              <p className="text-sm text-text-secondary">
+                                General Platform Post
+                              </p>
                             )}
                           </div>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleCopy(post.content, 'Post Content')}
-                          >
-                            Copy
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleCopy(post.content, 'Post Content')}
+                            >
+                              Copy
+                            </Button>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handlePostToSocial(post.platform, post.content, post.hashtags)}
+                            >
+                              Post to {post.platform === 'TWITTER' ? 'Twitter/X' : post.platform}
+                            </Button>
+                          </div>
                         </div>
                         <p className="text-text-primary mb-2 whitespace-pre-wrap">{post.content}</p>
                         {post.hashtags && (
