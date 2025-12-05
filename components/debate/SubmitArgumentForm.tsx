@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
+import { VoiceToTextButton } from './VoiceToTextButton'
 
 interface SubmitArgumentFormProps {
   debateId: string
@@ -75,13 +76,26 @@ export function SubmitArgumentForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-semibold text-text-primary mb-2">
-          Round {currentRound} of {totalRounds} - Your Argument
-        </label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-sm font-semibold text-text-primary">
+            Round {currentRound} of {totalRounds} - Your Argument
+          </label>
+          <VoiceToTextButton
+            onTranscript={(text) => {
+              // Append transcribed text to existing content
+              setContent((prev) => {
+                const newContent = prev ? `${prev} ${text}` : text
+                return newContent
+              })
+            }}
+            disabled={isSubmitting}
+            className="text-xs"
+          />
+        </div>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Write your argument here... (minimum 50 characters)"
+          placeholder="Write your argument here... (minimum 50 characters) or use voice input"
           className="w-full px-4 py-3 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary placeholder-text-muted focus:outline-none focus:border-electric-blue transition-colors resize-none min-h-[200px]"
           rows={8}
           maxLength={5000}
