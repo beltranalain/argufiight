@@ -140,15 +140,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if conversation already exists
-    const existing = await prisma.conversation.findFirst({
+    // Always put smaller ID first for consistency (matches unique constraint)
+    const [user1Id, user2Id] = userId < otherUserId 
+      ? [userId, otherUserId]
+      : [otherUserId, userId]
+
+    // Check if conversation already exists (using sorted IDs)
+    const existing = await prisma.conversation.findUnique({
       where: {
-        OR: [
-          { user1Id: userId, user2Id: otherUserId },
-          { user1Id: otherUserId, user2Id: userId },
-        ],
+        user1Id_user2Id: {
+          user1Id,
+          user2Id,
+        },
       },
-      include: {
+      select: {
+        id: true,
+        user1Id: true,
+        user2Id: true,
+        lastMessageAt: true,
+        user1LastReadAt: true,
+        user2LastReadAt: true,
         user1: {
           select: {
             id: true,
@@ -170,11 +181,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ conversation: existing })
     }
 
-    // Create new conversation (always put smaller ID first for consistency)
-    const [user1Id, user2Id] = userId < otherUserId 
-      ? [userId, otherUserId]
-      : [otherUserId, userId]
-
+    // Create new conversation
     try {
       const conversation = await prisma.conversation.create({
         data: {
@@ -209,12 +216,12 @@ export async function POST(request: NextRequest) {
     } catch (createError: any) {
       // If conversation already exists (race condition), fetch it
       if (createError?.code === 'P2002' || createError?.message?.includes('Unique constraint')) {
-        const existing = await prisma.conversation.findFirst({
+        const existing = await prisma.conversation.findUnique({
           where: {
-            OR: [
-              { user1Id: userId, user2Id: otherUserId },
-              { user1Id: otherUserId, user2Id: userId },
-            ],
+            user1Id_user2Id: {
+              user1Id,
+              user2Id,
+            },
           },
           select: {
             id: true,
@@ -252,11 +259,21 @@ export async function POST(request: NextRequest) {
       message: error?.message,
       code: error?.code,
       meta: error?.meta,
+      stack: error?.stack,
     })
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to create conversation'
+    if (error?.code === 'P2002') {
+      errorMessage = 'Conversation already exists'
+    } else if (error?.message) {
+      errorMessage = error.message
+    }
+    
     return NextResponse.json(
       { 
-        error: 'Failed to create conversation',
-        details: error?.message || 'Unknown error',
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined,
       },
       { status: 500 }
     )

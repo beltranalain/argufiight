@@ -11,6 +11,7 @@ interface HomepageSection {
   content: string | null
   order: number
   isVisible: boolean
+  contactEmail: string | null
   images: Array<{
     id: string
     url: string
