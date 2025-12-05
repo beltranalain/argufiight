@@ -6,7 +6,7 @@ import { getUserIdFromSession } from '@/lib/auth/session-utils'
 // GET /api/messages/conversations/[id]/messages - Get messages in a conversation
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession()
@@ -19,9 +19,11 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     // Verify user is part of the conversation
     const conversation = await prisma.conversation.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!conversation) {
@@ -34,7 +36,7 @@ export async function GET(
 
     const messages = await prisma.directMessage.findMany({
       where: {
-        conversationId: params.id,
+        conversationId: id,
         OR: [
           { deletedBySender: false, senderId: userId },
           { deletedByReceiver: false, receiverId: userId },
@@ -64,7 +66,7 @@ export async function GET(
     // Mark messages as read
     await prisma.directMessage.updateMany({
       where: {
-        conversationId: params.id,
+        conversationId: id,
         receiverId: userId,
         isRead: false,
       },
@@ -77,12 +79,12 @@ export async function GET(
     // Update last read timestamp
     if (conversation.user1Id === userId) {
       await prisma.conversation.update({
-        where: { id: params.id },
+        where: { id },
         data: { user1LastReadAt: new Date() },
       })
     } else {
       await prisma.conversation.update({
-        where: { id: params.id },
+        where: { id },
         data: { user2LastReadAt: new Date() },
       })
     }
@@ -100,7 +102,7 @@ export async function GET(
 // POST /api/messages/conversations/[id]/messages - Send a message
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession()
@@ -113,6 +115,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const body = await request.json()
     const { content } = body
 
@@ -125,7 +128,7 @@ export async function POST(
 
     // Verify user is part of the conversation
     const conversation = await prisma.conversation.findUnique({
-      where: { id: params.id },
+      where: { id },
     })
 
     if (!conversation) {
@@ -143,7 +146,7 @@ export async function POST(
     // Create message
     const message = await prisma.directMessage.create({
       data: {
-        conversationId: params.id,
+        conversationId: id,
         senderId: userId,
         receiverId,
         content: content.trim(),
@@ -168,7 +171,7 @@ export async function POST(
 
     // Update conversation's last message
     await prisma.conversation.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         lastMessageId: message.id,
         lastMessageAt: message.createdAt,

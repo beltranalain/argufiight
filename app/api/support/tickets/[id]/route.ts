@@ -6,7 +6,7 @@ import { getUserIdFromSession } from '@/lib/auth/session-utils'
 // GET /api/support/tickets/[id] - Get a specific support ticket
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession()
@@ -19,8 +19,10 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
+
     const ticket = await prisma.supportTicket.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         user: {
           select: {
@@ -84,7 +86,7 @@ export async function GET(
 // PATCH /api/support/tickets/[id] - Update ticket status
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession()
@@ -106,6 +108,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const { id } = await params
     const body = await request.json()
     const { status, assignedToId, priority } = body
 
@@ -122,7 +125,7 @@ export async function PATCH(
     }
 
     const ticket = await prisma.supportTicket.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         user: {

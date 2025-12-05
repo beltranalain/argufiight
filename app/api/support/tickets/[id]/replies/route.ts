@@ -6,7 +6,7 @@ import { getUserIdFromSession } from '@/lib/auth/session-utils'
 // POST /api/support/tickets/[id]/replies - Add a reply to a support ticket
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession()
@@ -19,6 +19,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const body = await request.json()
     const { content, isInternal } = body
 
@@ -31,7 +32,7 @@ export async function POST(
 
     // Check if ticket exists and user has access
     const ticket = await prisma.supportTicket.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: {
         userId: true,
         status: true,
@@ -63,7 +64,7 @@ export async function POST(
     // Create reply
     const reply = await prisma.supportTicketReply.create({
       data: {
-        ticketId: params.id,
+        ticketId: id,
         authorId: userId,
         content,
         isInternal: isInternal || false,
@@ -83,7 +84,7 @@ export async function POST(
     // Update ticket status if user replied (not admin)
     if (!user?.isAdmin && ticket.status === 'RESOLVED') {
       await prisma.supportTicket.update({
-        where: { id: params.id },
+        where: { id },
         data: { status: 'OPEN' },
       })
     }
