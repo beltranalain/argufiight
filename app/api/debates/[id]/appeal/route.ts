@@ -171,8 +171,11 @@ export async function POST(
       },
     })
 
-    // Trigger new verdict generation asynchronously
-    // Use absolute URL for Vercel - prioritize NEXT_PUBLIC_APP_URL
+    // Trigger new verdict generation automatically
+    // Use fetch with proper error handling to ensure it executes
+    console.log(`[Appeal] Triggering automatic verdict regeneration for debate ${debateId}`)
+    
+    // Determine base URL - prioritize NEXT_PUBLIC_APP_URL for reliability
     let baseUrl = 'http://localhost:3000'
     if (process.env.NEXT_PUBLIC_APP_URL) {
       baseUrl = process.env.NEXT_PUBLIC_APP_URL
@@ -182,64 +185,51 @@ export async function POST(
     
     const regenerateUrl = `${baseUrl}/api/verdicts/regenerate`
     
-    console.log(`[Appeal] Triggering verdict regeneration for debate ${debateId} via ${regenerateUrl}`)
-    
-    // Fire-and-forget with comprehensive error logging
-    fetch(regenerateUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ debateId }),
-      // Add timeout to prevent hanging
-      signal: AbortSignal.timeout(30000), // 30 second timeout
-    })
-    .then(async (response) => {
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('❌ [Appeal] Failed to trigger verdict regeneration:', {
-          debateId,
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData.error || 'Unknown error',
-          details: errorData.details,
-          url: regenerateUrl,
-          timestamp: new Date().toISOString(),
+    // Execute fetch in an async IIFE to ensure it runs and is properly awaited
+    // This prevents the promise from being lost
+    ;(async () => {
+      try {
+        console.log(`[Appeal] Calling ${regenerateUrl} for debate ${debateId}`)
+        
+        const response = await fetch(regenerateUrl, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ debateId }),
         })
         
-        // Update appeal status to indicate failure (but don't block the response)
-        prisma.debate.update({
-          where: { id: debateId },
-          data: {
-            appealStatus: 'PENDING', // Keep as PENDING so it can be manually retried
-          },
-        }).catch(err => console.error('Failed to update appeal status:', err))
-      } else {
-        const result = await response.json().catch(() => ({}))
-        console.log('✅ [Appeal] Verdict regeneration triggered successfully:', {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          console.error('❌ [Appeal] Failed to trigger verdict regeneration:', {
+            debateId,
+            status: response.status,
+            statusText: response.statusText,
+            error: errorData.error || 'Unknown error',
+            details: errorData.details,
+            url: regenerateUrl,
+            timestamp: new Date().toISOString(),
+          })
+        } else {
+          const result = await response.json().catch(() => ({}))
+          console.log('✅ [Appeal] Verdict regeneration triggered successfully:', {
+            debateId,
+            result,
+            url: regenerateUrl,
+            timestamp: new Date().toISOString(),
+          })
+        }
+      } catch (error: any) {
+        console.error('❌ [Appeal] Error triggering verdict regeneration:', {
           debateId,
-          result,
+          error: error.message,
+          errorName: error.name,
+          stack: error.stack,
           url: regenerateUrl,
           timestamp: new Date().toISOString(),
         })
       }
-    })
-    .catch(error => {
-      console.error('❌ [Appeal] Error triggering verdict regeneration:', {
-        debateId,
-        error: error.message,
-        errorName: error.name,
-        stack: error.stack,
-        url: regenerateUrl,
-        timestamp: new Date().toISOString(),
-      })
-      
-      // Update appeal status to indicate failure (but don't block the response)
-      prisma.debate.update({
-        where: { id: debateId },
-        data: {
-          appealStatus: 'PENDING', // Keep as PENDING so it can be manually retried
-        },
-      }).catch(err => console.error('Failed to update appeal status:', err))
-    })
+    })()
 
     return NextResponse.json({
       success: true,
