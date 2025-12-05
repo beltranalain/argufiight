@@ -98,6 +98,47 @@ body {
   border-radius: 4px;
 }
 
+/* Ensure proper spacing for homepage content */
+.prose p {
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.prose p:first-child {
+  margin-top: 0;
+}
+
+.prose p:last-child {
+  margin-bottom: 0;
+}
+
+.prose ul,
+.prose ol {
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.prose li {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+.prose h1:first-child,
+.prose h2:first-child,
+.prose h3:first-child {
+  margin-top: 0;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-neon-orange);
 }

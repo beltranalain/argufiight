@@ -328,8 +328,9 @@ function AppDownloadSection({ section }: { section: HomepageSection }) {
           )}
           {section.content && (
             <div
-              className="text-base md:text-lg text-text-primary/90 mb-10 prose prose-invert max-w-none prose-p:text-text-primary/90"
+              className="text-base md:text-lg text-text-primary/90 mb-10 prose prose-invert max-w-none prose-p:text-text-primary/90 prose-p:my-4 prose-ul:my-4 prose-ol:my-4 prose-li:my-2"
               dangerouslySetInnerHTML={{ __html: section.content }}
+              style={{ whiteSpace: 'pre-wrap' }}
             />
           )}
           
