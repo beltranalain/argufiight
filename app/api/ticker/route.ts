@@ -141,12 +141,6 @@ export async function GET(request: NextRequest) {
         challengerEloChange: true,
         opponentEloChange: true,
         winnerId: true,
-        verdicts: {
-          select: {
-            winnerId: true,
-          },
-          take: 1,
-        },
       },
       orderBy: {
         endedAt: 'desc',
