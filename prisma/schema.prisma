@@ -85,6 +85,12 @@ model User {
   appealLimit         AppealLimit?
   appealSubscriptions AppealSubscription[]
 
+  // Subscription
+  subscription        UserSubscription?
+
+  // Usage Tracking
+  usageTracking      UsageTracking[]
+
   // Support tickets
   supportTickets       SupportTicket[]
   supportTicketReplies SupportTicketReply[]
@@ -113,7 +119,6 @@ model AppealLimit {
   monthlyLimit     Int      @default(4) @map("monthly_limit")
   currentCount     Int      @default(0) @map("current_count")
   resetDate        DateTime @default(now()) @map("reset_date")
-  subscriptionTier String?  @map("subscription_tier") // FREE, PREMIUM, PRO
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
@@ -164,6 +169,113 @@ model SubscriptionPlan {
   @@index([isActive])
   @@index([billingCycle])
   @@map("subscription_plans")
+}
+
+// ============================================
+// USER SUBSCRIPTIONS
+// ============================================
+
+model UserSubscription {
+  id                    String   @id @default(uuid())
+  userId                String   @unique @map("user_id")
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Subscription Details
+  tier                  String   // FREE, PRO
+  billingCycle          String?  // MONTHLY, YEARLY (null for FREE)
+  status                String   @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED, PAST_DUE
+  currentPeriodStart    DateTime? @map("current_period_start")
+  currentPeriodEnd      DateTime? @map("current_period_end")
+  
+  // Stripe Integration
+  stripeCustomerId      String?  @unique @map("stripe_customer_id")
+  stripeSubscriptionId  String?  @unique @map("stripe_subscription_id")
+  stripePriceId        String?  @map("stripe_price_id") // For monthly/yearly
+  
+  // Promo Code
+  promoCodeId           String?  @map("promo_code_id")
+  promoCode             PromoCode? @relation(fields: [promoCodeId], references: [id])
+  
+  // Cancellation
+  cancelAtPeriodEnd     Boolean  @default(false) @map("cancel_at_period_end")
+  cancelledAt           DateTime? @map("cancelled_at")
+  
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  
+  @@index([userId])
+  @@index([status])
+  @@index([tier])
+  @@map("user_subscriptions")
+}
+
+// ============================================
+// PROMO CODES
+// ============================================
+
+model PromoCode {
+  id              String   @id @default(uuid())
+  code            String   @unique // e.g., "WELCOME50"
+  description     String?  @db.Text
+  
+  // Discount Type
+  discountType    String   // PERCENTAGE, FIXED_AMOUNT
+  discountValue   Decimal  @db.Decimal(10, 2) // 50 for 50% or 10.00 for $10 off
+  
+  // Usage Limits
+  maxUses         Int?     @map("max_uses") // null = unlimited
+  currentUses     Int      @default(0) @map("current_uses")
+  
+  // Time Limits
+  validFrom       DateTime @map("valid_from")
+  validUntil      DateTime? @map("valid_until") // null = no expiration
+  
+  // Applicability
+  applicableTo    String   @default("PRO") // FREE, PRO, BOTH
+  billingCycles   String?  @map("billing_cycles") // JSON: ["MONTHLY", "YEARLY"] or null for all
+  
+  // Status
+  isActive        Boolean  @default(true) @map("is_active")
+  
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  createdBy       String?   @map("created_by") // Admin user ID
+  
+  // Relations
+  subscriptions   UserSubscription[]
+  
+  @@index([code])
+  @@index([isActive])
+  @@index([validUntil])
+  @@map("promo_codes")
+}
+
+// ============================================
+// USAGE TRACKING
+// ============================================
+
+model UsageTracking {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Feature Usage
+  featureType     String   // APPEAL, TOURNAMENT_CREDIT, THATS_THE_ONE, SPEED_DEBATE
+  count           Int      @default(0)
+  
+  // Period Tracking
+  periodStart     DateTime @map("period_start")
+  periodEnd       DateTime @map("period_end")
+  periodType      String   @default("MONTHLY") // MONTHLY, YEARLY
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  @@unique([userId, featureType, periodStart])
+  @@index([userId])
+  @@index([featureType])
+  @@index([periodStart])
+  @@map("usage_tracking")
 }
 
 // ============================================

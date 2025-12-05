@@ -20,9 +20,11 @@ export default function AdminSettingsPage() {
   const [isTesting, setIsTesting] = useState(false)
   const [isTestingResend, setIsTestingResend] = useState(false)
   const [isTestingGoogle, setIsTestingGoogle] = useState(false)
+  const [isTestingStripe, setIsTestingStripe] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [testGoogleResult, setTestGoogleResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [testResendResult, setTestResendResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
+  const [testStripeResult, setTestStripeResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
 
   useEffect(() => {
     fetchSettings()
@@ -235,6 +237,63 @@ export default function AdminSettingsPage() {
       })
     } finally {
       setIsTestingGoogle(false)
+    }
+  }
+
+  const handleTestStripe = async () => {
+    setIsTestingStripe(true)
+    setTestStripeResult(null)
+
+    try {
+      // First save the current values
+      await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          STRIPE_PUBLISHABLE_KEY: stripePublishableKey,
+          STRIPE_SECRET_KEY: stripeSecretKey,
+        }),
+      })
+
+      const response = await fetch('/api/admin/settings/test-stripe', {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setTestStripeResult({
+          success: true,
+          message: data.message || '✅ Connection successful!',
+        })
+        showToast({
+          type: 'success',
+          title: 'Stripe Connected',
+          description: `Successfully connected to Stripe (${data.details?.mode || 'unknown'} mode)`,
+        })
+      } else {
+        setTestStripeResult({
+          success: false,
+          error: data.error || 'Connection failed',
+        })
+        showToast({
+          type: 'error',
+          title: 'Connection Failed',
+          description: data.error || 'Please check your Stripe keys',
+        })
+      }
+    } catch (error: any) {
+      setTestStripeResult({
+        success: false,
+        error: error.message || 'Failed to test connection',
+      })
+      showToast({
+        type: 'error',
+        title: 'Test Failed',
+        description: 'Could not connect to Stripe',
+      })
+    } finally {
+      setIsTestingStripe(false)
     }
   }
 
@@ -463,17 +522,41 @@ export default function AdminSettingsPage() {
                 <p className="text-xs text-text-secondary mt-1">Public key for client-side Stripe integration</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Stripe Secret Key
-                </label>
-                <input
-                  type="password"
-                  value={stripeSecretKey}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setStripeSecretKey(e.target.value)}
-                  placeholder="sk_test_..."
-                  className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
-                />
-                <p className="text-xs text-text-secondary mt-1">Secret key for server-side Stripe operations (stored encrypted)</p>
+                <div className="flex items-end gap-4">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-white mb-2">
+                      Stripe Secret Key
+                    </label>
+                    <input
+                      type="password"
+                      value={stripeSecretKey}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        setStripeSecretKey(e.target.value)
+                        setTestStripeResult(null) // Clear test result when editing
+                      }}
+                      placeholder="sk_test_..."
+                      className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                    />
+                    <p className="text-xs text-text-secondary mt-1">Secret key for server-side Stripe operations (stored encrypted)</p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={handleTestStripe}
+                    isLoading={isTestingStripe}
+                    disabled={!stripeSecretKey || !stripePublishableKey}
+                  >
+                    Test Connection
+                  </Button>
+                </div>
+                {testStripeResult && (
+                  <div className={`mt-2 p-2 rounded text-xs ${
+                    testStripeResult.success 
+                      ? 'bg-cyber-green/20 text-cyber-green border border-cyber-green/30' 
+                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                  }`}>
+                    {testStripeResult.success ? testStripeResult.message : testStripeResult.error}
+                  </div>
+                )}
               </div>
               <div className="p-3 bg-electric-blue/10 border border-electric-blue/30 rounded-lg">
                 <p className="text-sm text-electric-blue mb-2">
