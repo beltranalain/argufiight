@@ -205,6 +205,13 @@ export default function UserProfilePage() {
       <TopNav currentPanel="PROFILE" />
       <div className="pt-20 px-4 md:px-8 pb-8">
         <div className="max-w-4xl mx-auto space-y-6 pt-8">
+          {/* Profile Banner Ad */}
+          <AdDisplay
+            placement="PROFILE_BANNER"
+            userId={userId}
+            context="public-profile"
+          />
+
           {/* Profile Header */}
           <Card>
             <CardBody>

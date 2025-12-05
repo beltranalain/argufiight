@@ -1,6 +1,9 @@
 import { CreatorStatus } from '@prisma/client'
 import { getPlatformFee, getCreatorEligibility } from './config'
 
+// Re-export for client-side use
+export { getCreatorEligibility, getPlatformFee } from './config'
+
 /**
  * Calculate platform fee and creator payout based on creator status
  */

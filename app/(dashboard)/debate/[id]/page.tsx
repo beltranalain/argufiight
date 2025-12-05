@@ -18,6 +18,7 @@ import { SharePrivateDebate } from '@/components/debate/SharePrivateDebate'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
+import { AdDisplay } from '@/components/ads/AdDisplay'
 
 interface Statement {
   id: string
@@ -698,6 +699,14 @@ export default function DebatePage() {
                   />
                 </>
               )}
+              {/* Post-Debate Ad */}
+              {user && (user.id === debate.challenger.id || user.id === debate.opponent.id) && (
+                <AdDisplay
+                  placement="POST_DEBATE"
+                  userId={user.id}
+                  debateId={debate.id}
+                />
+              )}
             </>
           )}
           
@@ -784,6 +793,13 @@ export default function DebatePage() {
 
             {/* Right Sidebar - Live Chat and Comments */}
             <div className="lg:col-span-1 space-y-6">
+              {/* Debate Widget Ad */}
+              <AdDisplay
+                placement="DEBATE_WIDGET"
+                debateId={debate.id}
+                context="debate-sidebar"
+              />
+
               {/* Live Chat - Only show during active debates and if user is participant */}
               {debate.status === 'ACTIVE' && isParticipant && (
                 <Card>

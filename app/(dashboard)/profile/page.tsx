@@ -11,6 +11,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { BattleHistory } from '@/components/profile/BattleHistory'
+import { CreatorCTA } from '@/components/profile/CreatorCTA'
 
 interface UserProfile {
   id: string
@@ -207,6 +208,15 @@ export default function ProfilePage() {
       
       <div className="pt-24 px-4 md:px-8 pb-8">
         <div className="max-w-4xl mx-auto space-y-8">
+          {/* Profile Banner Ad */}
+          {profile && (
+            <AdDisplay
+              placement="PROFILE_BANNER"
+              userId={profile.id}
+              context="own-profile"
+            />
+          )}
+
           {/* Profile Header */}
           <Card>
             <CardBody>
@@ -345,6 +355,16 @@ export default function ProfilePage() {
               </div>
             </CardBody>
           </Card>
+
+          {/* Creator CTA */}
+          {profile && (
+            <CreatorCTA
+              userId={profile.id}
+              eloRating={profile.eloRating}
+              totalDebates={profile.totalDebates}
+              createdAt={new Date(profile.createdAt)}
+            />
+          )}
 
           {/* Battle History */}
           {user && (

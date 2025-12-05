@@ -1,19 +1,16 @@
 {
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "framework": "nextjs",
-  "functions": {
-    "app/**/*.ts": {
-      "maxDuration": 30
-    },
-    "app/**/*.tsx": {
-      "maxDuration": 30
-    }
-  },
   "crons": [
     {
-      "path": "/api/cron/process-stuck-appeals",
+      "path": "/api/cron/process-ad-payouts",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/check-expired-offers",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/reset-usage",
+      "schedule": "0 0 1 * *"
     }
   ]
 }
