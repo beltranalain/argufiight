@@ -176,46 +176,6 @@ export default function SocialPostsPage() {
     })
   }
 
-  const handlePostToSocial = (platform: string, content: string, hashtags?: string | null) => {
-    const fullContent = hashtags ? `${content}\n\n${hashtags}` : content
-    const encodedContent = encodeURIComponent(fullContent)
-    
-    let url = ''
-    switch (platform) {
-      case 'TWITTER':
-      case 'X':
-        url = `https://twitter.com/intent/tweet?text=${encodedContent}`
-        break
-      case 'LINKEDIN':
-        url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.origin)}&summary=${encodedContent}`
-        break
-      case 'INSTAGRAM':
-        // Instagram doesn't support URL parameters, so we'll copy to clipboard and open Instagram
-        navigator.clipboard.writeText(fullContent)
-        showToast({
-          type: 'success',
-          title: 'Content Copied!',
-          description: 'Content copied to clipboard. Open Instagram and paste it manually.',
-        })
-        window.open('https://www.instagram.com/', '_blank')
-        return
-      default:
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: 'Unsupported platform',
-        })
-        return
-    }
-    
-    window.open(url, '_blank')
-    showToast({
-      type: 'success',
-      title: 'Opening Platform',
-      description: `Opening ${platform} with pre-filled content`,
-    })
-  }
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'PUBLISHED':
@@ -351,18 +311,12 @@ export default function SocialPostsPage() {
                     />
                   </div>
 
-                  <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-3">
                     <Button variant="secondary" onClick={handleSave}>
                       Save to Library
                     </Button>
-                    <Button 
-                      variant="primary" 
-                      onClick={() => handlePostToSocial(selectedPlatform, generatedContent, generatedHashtags)}
-                    >
-                      Post to {selectedPlatform === 'TWITTER' ? 'Twitter/X' : selectedPlatform}
-                    </Button>
                     <p className="text-xs text-text-muted">
-                      💡 Tip: "Post to..." opens the platform with pre-filled content. For Instagram, content will be copied to clipboard.
+                      💡 Tip: Use the Copy buttons above to copy content directly to your social media accounts
                     </p>
                   </div>
                 </div>
@@ -420,22 +374,13 @@ export default function SocialPostsPage() {
                               </p>
                             )}
                           </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => handleCopy(post.content, 'Post Content')}
-                            >
-                              Copy
-                            </Button>
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={() => handlePostToSocial(post.platform, post.content, post.hashtags)}
-                            >
-                              Post to {post.platform === 'TWITTER' ? 'Twitter/X' : post.platform}
-                            </Button>
-                          </div>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleCopy(post.content, 'Post Content')}
+                          >
+                            Copy
+                          </Button>
                         </div>
                         <p className="text-text-primary mb-2 whitespace-pre-wrap">{post.content}</p>
                         {post.hashtags && (
