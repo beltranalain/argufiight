@@ -176,8 +176,8 @@ export default function AdminSettingsPage() {
         title: 'Test Failed',
         description: 'Could not connect to Resend API',
       })
-      } finally {
-        setIsTestingResend(false)
+    } finally {
+      setIsTestingResend(false)
       }
     }
 
@@ -367,18 +367,27 @@ export default function AdminSettingsPage() {
 
             {/* Google Analytics */}
             <div className="space-y-4">
+              <div className="p-4 bg-text-muted/10 border border-text-muted/30 rounded-lg">
+                <p className="text-sm text-text-secondary mb-2">
+                  <strong>Note:</strong> This is for <strong>API integration</strong> to display Google Analytics data in your admin dashboard. 
+                  If you just want to track visitors, you can skip this and add the tracking code to your website HTML separately.
+                </p>
+                <p className="text-xs text-text-muted mt-1">
+                  The admin Analytics page will use your database data if Google Analytics API is not configured.
+                </p>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
                   Google Analytics Property ID
                 </label>
                 <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={googleAnalyticsPropertyId}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGoogleAnalyticsPropertyId(e.target.value)}
-                    placeholder="123456789"
+                <input
+                  type="text"
+                  value={googleAnalyticsPropertyId}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGoogleAnalyticsPropertyId(e.target.value)}
+                  placeholder="123456789"
                     className="flex-1 px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
-                  />
+                />
                   <Button
                     variant="secondary"
                     onClick={handleTestGoogleAnalytics}
