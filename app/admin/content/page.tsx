@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { RichTextEditor } from '@/components/admin/RichTextEditor'
 import Image from 'next/image'
+import { SocialMediaLinksManager } from './social-media-manager'
 
 interface HomepageSection {
   id: string
