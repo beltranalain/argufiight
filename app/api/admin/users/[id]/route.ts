@@ -229,7 +229,7 @@ export async function DELETE(
     // Check if user exists
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, username: true, isAdmin: true },
+      select: { id: true, username: true, email: true, isAdmin: true },
     })
 
     if (!user) {
@@ -239,12 +239,9 @@ export async function DELETE(
       )
     }
 
-    // Prevent deleting admin users
+    // Allow deleting admin users, but show a warning in the log
     if (user.isAdmin) {
-      return NextResponse.json(
-        { error: 'Cannot delete admin users' },
-        { status: 400 }
-      )
+      console.warn(`[ADMIN] Admin user being deleted: ${user.username} (${user.email}) by admin ${userId}`)
     }
 
     // Delete user (cascade will handle related records)
