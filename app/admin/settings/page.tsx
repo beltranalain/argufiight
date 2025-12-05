@@ -19,7 +19,9 @@ export default function AdminSettingsPage() {
   const [isFetching, setIsFetching] = useState(true)
   const [isTesting, setIsTesting] = useState(false)
   const [isTestingResend, setIsTestingResend] = useState(false)
+  const [isTestingGoogle, setIsTestingGoogle] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
+  const [testGoogleResult, setTestGoogleResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [testResendResult, setTestResendResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
 
   useEffect(() => {
@@ -174,8 +176,65 @@ export default function AdminSettingsPage() {
         title: 'Test Failed',
         description: 'Could not connect to Resend API',
       })
+      } finally {
+        setIsTestingResend(false)
+      }
+    }
+
+  const handleTestGoogleAnalytics = async () => {
+    setIsTestingGoogle(true)
+    setTestGoogleResult(null)
+
+    try {
+      // First save the current values
+      await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          GOOGLE_ANALYTICS_API_KEY: googleAnalyticsKey,
+          GOOGLE_ANALYTICS_PROPERTY_ID: googleAnalyticsPropertyId,
+        }),
+      })
+
+      const response = await fetch('/api/admin/settings/test-google-analytics', {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setTestGoogleResult({
+          success: true,
+          message: data.message || '✅ Connection successful!',
+        })
+        showToast({
+          type: 'success',
+          title: 'Google Analytics Connected',
+          description: `Successfully connected to Property ${data.propertyId}`,
+        })
+      } else {
+        setTestGoogleResult({
+          success: false,
+          error: data.error || 'Connection failed',
+        })
+        showToast({
+          type: 'error',
+          title: 'Connection Failed',
+          description: data.error || 'Please check your credentials',
+        })
+      }
+    } catch (error: any) {
+      setTestGoogleResult({
+        success: false,
+        error: error.message || 'Failed to test connection',
+      })
+      showToast({
+        type: 'error',
+        title: 'Test Failed',
+        description: 'Could not connect to Google Analytics',
+      })
     } finally {
-      setIsTestingResend(false)
+      setIsTestingGoogle(false)
     }
   }
 
@@ -312,14 +371,33 @@ export default function AdminSettingsPage() {
                 <label className="block text-sm font-medium text-white mb-2">
                   Google Analytics Property ID
                 </label>
-                <input
-                  type="text"
-                  value={googleAnalyticsPropertyId}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGoogleAnalyticsPropertyId(e.target.value)}
-                  placeholder="123456789"
-                  className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={googleAnalyticsPropertyId}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGoogleAnalyticsPropertyId(e.target.value)}
+                    placeholder="123456789"
+                    className="flex-1 px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={handleTestGoogleAnalytics}
+                    isLoading={isTestingGoogle}
+                    disabled={!googleAnalyticsPropertyId || !googleAnalyticsKey}
+                  >
+                    Test Connection
+                  </Button>
+                </div>
                 <p className="text-xs text-text-secondary mt-1">GA4 Property ID (found in Admin → Property Settings)</p>
+                {testGoogleResult && (
+                  <div className={`mt-2 p-2 rounded text-xs ${
+                    testGoogleResult.success 
+                      ? 'bg-cyber-green/20 text-cyber-green border border-cyber-green/30' 
+                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                  }`}>
+                    {testGoogleResult.success ? testGoogleResult.message : testGoogleResult.error}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
@@ -327,12 +405,22 @@ export default function AdminSettingsPage() {
                 </label>
                 <textarea
                   value={googleAnalyticsKey}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setGoogleAnalyticsKey(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                    setGoogleAnalyticsKey(e.target.value)
+                    setTestGoogleResult(null) // Clear test result when editing
+                  }}
                   placeholder='{"type": "service_account", "project_id": "...", ...}'
                   rows={4}
                   className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent font-mono text-sm"
                 />
-                <p className="text-xs text-text-secondary mt-1">Service account JSON credentials from Google Cloud Console</p>
+                <p className="text-xs text-text-secondary mt-1">
+                  Service account JSON credentials from Google Cloud Console (NOT the gtag.js script)
+                </p>
+                {googleAnalyticsKey && googleAnalyticsKey.includes('gtag') && (
+                  <div className="mt-2 p-2 rounded text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                    ⚠️ Warning: It looks like you pasted the gtag.js script. You need the Service Account JSON file from Google Cloud Console, which starts with {"type": "service_account", ...}
+                  </div>
+                )}
               </div>
               <div className="p-3 bg-text-muted/10 border border-text-muted/30 rounded-lg">
                 <p className="text-sm text-text-secondary">
