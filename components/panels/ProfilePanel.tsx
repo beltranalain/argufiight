@@ -148,13 +148,20 @@ export function ProfilePanel() {
         <CardBody className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-semibold text-text-primary">Recent Debates</h4>
-            {recentDebates.length > 0 && (
-              <Link href="/debates/history">
+            <div className="flex gap-2">
+              {recentDebates.length > 0 && (
+                <Link href="/debates/history">
+                  <Button variant="ghost" className="text-xs py-1 px-2">
+                    View All
+                  </Button>
+                </Link>
+              )}
+              <Link href="/debates/saved">
                 <Button variant="ghost" className="text-xs py-1 px-2">
-                  View All
+                  Saved
                 </Button>
               </Link>
-            )}
+            </div>
           </div>
           {isLoadingDebates ? (
             <div className="flex items-center justify-center py-6">

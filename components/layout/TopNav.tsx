@@ -44,6 +44,10 @@ export function TopNav({ currentPanel }: TopNavProps) {
       onClick: () => window.location.href = '/profile',
     },
     {
+      label: 'Saved Debates',
+      onClick: () => window.location.href = '/debates/saved',
+    },
+    {
       label: 'Settings',
       onClick: () => window.location.href = '/settings',
     },
