@@ -328,7 +328,7 @@ export default function AdvertisementsPage() {
                       Edit
                     </Button>
                     <Button
-                      variant="error"
+                      variant="danger"
                       size="sm"
                       onClick={() => handleDelete(ad.id)}
                       className="flex-1"
