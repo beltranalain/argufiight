@@ -18,12 +18,11 @@ export async function GET(
 
     const { id: debateId } = await params
 
-    // Verify user is participant in the debate
+    // Verify debate exists
     const debate = await prisma.debate.findUnique({
       where: { id: debateId },
       select: {
-        challengerId: true,
-        opponentId: true,
+        id: true,
       },
     })
 
@@ -31,14 +30,7 @@ export async function GET(
       return NextResponse.json({ error: 'Debate not found' }, { status: 404 })
     }
 
-    if (debate.challengerId !== userId && debate.opponentId !== userId) {
-      return NextResponse.json(
-        { error: 'You are not a participant in this debate' },
-        { status: 403 }
-      )
-    }
-
-    // Get chat messages
+    // Get chat messages (open to all authenticated users)
     const messages = await prisma.chatMessage.findMany({
       where: { debateId },
       include: {
@@ -95,12 +87,11 @@ export async function POST(
       )
     }
 
-    // Verify user is participant in the debate
+    // Verify debate exists and check status
     const debate = await prisma.debate.findUnique({
       where: { id: debateId },
       select: {
-        challengerId: true,
-        opponentId: true,
+        id: true,
         status: true,
       },
     })
@@ -109,14 +100,7 @@ export async function POST(
       return NextResponse.json({ error: 'Debate not found' }, { status: 404 })
     }
 
-    if (debate.challengerId !== userId && debate.opponentId !== userId) {
-      return NextResponse.json(
-        { error: 'You are not a participant in this debate' },
-        { status: 403 }
-      )
-    }
-
-    // Only allow chat in active debates
+    // Only allow chat in active or completed debates (open to all authenticated users)
     if (debate.status !== 'ACTIVE' && debate.status !== 'COMPLETED' && debate.status !== 'VERDICT_READY') {
       return NextResponse.json(
         { error: 'Chat is only available for active or completed debates' },
