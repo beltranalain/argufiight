@@ -153,6 +153,10 @@ model Debate {
   viewCount      Int     @default(0) @map("view_count")
   featured       Boolean @default(false)
   allowCopyPaste Boolean @default(true) @map("allow_copy_paste") // Allow copy-paste in arguments
+  
+  // Privacy
+  isPrivate      Boolean @default(false) @map("is_private") // Private debates require share token
+  shareToken     String? @unique @map("share_token") // Unique token for sharing private debates
 
   // Relations
   images DebateImage[]

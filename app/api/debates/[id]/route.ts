@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
+import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
 // GET /api/debates/[id] - Get single debate
@@ -9,6 +10,13 @@ export async function GET(
 ) {
   try {
     const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const shareToken = searchParams.get('shareToken') // For accessing private debates
+    
+    // Get current user session for access control
+    const session = await verifySession()
+    const currentUserId = session ? getUserIdFromSession(session) : null
+    
     const debate = await prisma.debate.findUnique({
       where: { id },
       select: {
@@ -26,6 +34,8 @@ export async function GET(
         roundDeadline: true,
         speedMode: true,
         allowCopyPaste: true,
+        isPrivate: true,
+        shareToken: true,
         winnerId: true,
         verdictReached: true,
         verdictDate: true,
@@ -104,6 +114,22 @@ export async function GET(
         { error: 'Debate not found' },
         { status: 404 }
       )
+    }
+
+    // Check access for private debates
+    if (debate.isPrivate) {
+      const isParticipant = currentUserId && (
+        debate.challengerId === currentUserId || 
+        debate.opponentId === currentUserId
+      )
+      const hasValidToken = shareToken && debate.shareToken === shareToken
+      
+      if (!isParticipant && !hasValidToken) {
+        return NextResponse.json(
+          { error: 'This debate is private. A share token is required to access it.' },
+          { status: 403 }
+        )
+      }
     }
 
     // Fetch viewCount separately (Prisma client may not have this field yet)

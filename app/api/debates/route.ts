@@ -20,6 +20,11 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const category = searchParams.get('category')
     const userId = searchParams.get('userId')
+    const shareToken = searchParams.get('shareToken') // For accessing private debates
+    
+    // Get current user session for access control
+    const session = await verifySession()
+    const currentUserId = session ? getUserIdFromSession(session) : null
 
     const where: any = {}
 
@@ -45,6 +50,20 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    // Privacy filtering: Exclude private debates unless:
+    // 1. User is a participant (challenger or opponent)
+    // 2. shareToken matches
+    // 3. User is querying their own debates (userId matches currentUserId)
+    if (!shareToken && (!userId || userId !== currentUserId)) {
+      where.isPrivate = false // Only show public debates in general listings
+    } else if (shareToken) {
+      // If shareToken is provided, only return debates with matching token
+      where.shareToken = shareToken
+    } else if (userId && userId === currentUserId) {
+      // User viewing their own debates - show all (public and private)
+      // No additional filter needed
+    }
+
     const debates = await prisma.debate.findMany({
       where,
       select: {
@@ -65,6 +84,8 @@ export async function GET(request: NextRequest) {
         spectatorCount: true,
         challengerPosition: true,
         opponentPosition: true,
+        isPrivate: true,
+        shareToken: true,
         challenger: {
           select: {
             id: true,
@@ -137,6 +158,7 @@ export async function POST(request: NextRequest) {
       totalRounds, 
       speedMode,
       allowCopyPaste = true,
+      isPrivate = false,
       challengeType = 'OPEN',
       invitedUserIds = null,
     } = body
@@ -260,6 +282,13 @@ export async function POST(request: NextRequest) {
       opponentId = invitedUserIds[0]
     }
 
+    // Generate share token for private debates
+    let shareToken = null
+    if (isPrivate) {
+      // Generate a secure random token (32 characters, URL-safe)
+      shareToken = crypto.randomBytes(24).toString('base64url')
+    }
+
     // Try to create debate with Prisma first
     let debate
     try {
@@ -276,6 +305,8 @@ export async function POST(request: NextRequest) {
           roundDuration,
           speedMode: speedMode || false,
           allowCopyPaste: allowCopyPaste !== false, // Default to true
+          isPrivate: isPrivate || false,
+          shareToken,
           challengeType,
           invitedUserIds: invitedUserIds ? JSON.stringify(invitedUserIds) : null,
           invitedBy: challengeType !== 'OPEN' ? userId : null,

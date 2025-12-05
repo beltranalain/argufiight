@@ -14,6 +14,7 @@ import { RematchButton } from '@/components/debate/RematchButton'
 import { LiveChat } from '@/components/debate/LiveChat'
 import { DebateInteractions } from '@/components/debate/DebateInteractions'
 import { CommentsSection } from '@/components/debate/CommentsSection'
+import { SharePrivateDebate } from '@/components/debate/SharePrivateDebate'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
@@ -78,6 +79,8 @@ interface Debate {
   status: string
   roundDeadline: Date | string | null
   allowCopyPaste: boolean
+  isPrivate: boolean
+  shareToken: string | null
   winnerId: string | null
   verdictDate: Date | string | null
   appealedAt: Date | string | null
@@ -427,6 +430,16 @@ export default function DebatePage() {
               <div className="mt-4 pt-4 border-t border-bg-tertiary">
                 <DebateInteractions debateId={debate.id} />
               </div>
+              {/* Share Private Debate Link */}
+              {debate.isPrivate && debate.shareToken && (
+                <div className="mt-4 pt-4 border-t border-bg-tertiary">
+                  <SharePrivateDebate 
+                    debateId={debate.id}
+                    shareToken={debate.shareToken}
+                    isPrivate={debate.isPrivate}
+                  />
+                </div>
+              )}
             </CardHeader>
             <CardBody>
               {/* Debate Images */}

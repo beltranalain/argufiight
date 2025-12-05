@@ -47,6 +47,7 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
   const [totalRounds, setTotalRounds] = useState(5)
   const [speedMode, setSpeedMode] = useState(false)
   const [allowCopyPaste, setAllowCopyPaste] = useState(true)
+  const [isPrivate, setIsPrivate] = useState(false)
   const [challengeType, setChallengeType] = useState<ChallengeTypeValue>('OPEN')
   const [selectedUsers, setSelectedUsers] = useState<User[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -138,6 +139,7 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
       setTotalRounds(5)
       setSpeedMode(false)
       setAllowCopyPaste(true)
+      setIsPrivate(false)
       setChallengeType('OPEN')
       setSelectedUsers([])
       setImages([])
@@ -231,6 +233,7 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
           totalRounds,
           speedMode,
           allowCopyPaste,
+          isPrivate,
           challengeType,
           invitedUserIds: challengeType !== 'OPEN' ? selectedUsers.map(u => u.id) : null,
         }),
@@ -310,6 +313,7 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
       setTotalRounds(5)
       setSpeedMode(false)
       setAllowCopyPaste(true)
+      setIsPrivate(false)
       setChallengeType('OPEN')
       setSelectedUsers([])
       setImages([])
@@ -606,6 +610,26 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
             <p className="text-xs text-text-secondary mt-1">
               When unchecked, participants cannot paste text from external sources to prevent cheating. 
               They must type their arguments manually.
+            </p>
+          </div>
+        </div>
+
+        {/* Privacy Setting */}
+        <div className="flex items-start gap-3 p-4 bg-bg-secondary border border-bg-tertiary rounded-lg">
+          <input
+            type="checkbox"
+            id="isPrivate"
+            checked={isPrivate}
+            onChange={(e) => setIsPrivate(e.target.checked)}
+            className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-electric-blue focus:ring-electric-blue focus:ring-2 mt-0.5"
+          />
+          <div className="flex-1">
+            <label htmlFor="isPrivate" className="text-sm text-text-primary cursor-pointer">
+              <span className="font-semibold">Make Debate Private</span>
+            </label>
+            <p className="text-xs text-text-secondary mt-1">
+              Private debates are only visible to participants and those with the shareable link. 
+              They won't appear in public listings or search results.
             </p>
           </div>
         </div>
