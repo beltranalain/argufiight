@@ -184,9 +184,30 @@ export async function POST(
           },
         });
 
-        // Trigger verdict generation
-        try {
-          // Use absolute URL for Vercel - prioritize NEXT_PUBLIC_APP_URL
+        // Trigger verdict generation automatically (direct function call)
+        console.log(`[Debate Complete] Triggering automatic verdict generation for debate ${id}`)
+        
+        // Import and call the generate function directly (no network calls = more reliable)
+        import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
+          try {
+            console.log(`[Debate Complete] Starting direct verdict generation for debate ${id}`)
+            const result = await generateModule.generateInitialVerdicts(id)
+            console.log('✅ [Debate Complete] Verdict generation completed successfully:', {
+              debateId: id,
+              result,
+              timestamp: new Date().toISOString(),
+            })
+          } catch (error: any) {
+            console.error('❌ [Debate Complete] Error in direct verdict generation:', {
+              debateId: id,
+              error: error.message,
+              stack: error.stack,
+              timestamp: new Date().toISOString(),
+            })
+          }
+        }).catch((importError: any) => {
+          console.error('❌ [Debate Complete] Failed to import generate module:', importError.message)
+          // Fallback to fetch if import fails (shouldn't happen, but safety net)
           let baseUrl = 'http://localhost:3000'
           if (process.env.NEXT_PUBLIC_APP_URL) {
             baseUrl = process.env.NEXT_PUBLIC_APP_URL
@@ -194,25 +215,14 @@ export async function POST(
             baseUrl = `https://${process.env.VERCEL_URL}`
           }
           
-          const response = await fetch(`${baseUrl}/api/verdicts/generate`, {
+          fetch(`${baseUrl}/api/verdicts/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ debateId: id }),
+          }).catch((fetchError: any) => {
+            console.error('❌ [Debate Complete] Fallback fetch also failed:', fetchError.message)
           })
-          
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}))
-            console.error('❌ Failed to trigger verdict generation:', {
-              debateId: id,
-              status: response.status,
-              error: errorData.error || 'Unknown error',
-              details: errorData.details,
-              url: `${baseUrl}/api/verdicts/generate`
-            })
-          } else {
-            const result = await response.json().catch(() => ({}))
-            console.log('✅ Verdict generation triggered successfully for debate:', id, result)
-          }
+        })
         } catch (error: any) {
           console.error('❌ Error triggering verdict generation:', {
             debateId: id,

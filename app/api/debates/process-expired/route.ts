@@ -187,35 +187,19 @@ export async function POST(request: NextRequest) {
             })
 
             // Trigger verdict generation
-            let baseUrl = 'http://localhost:3000'
-            if (process.env.NEXT_PUBLIC_APP_URL) {
-              baseUrl = process.env.NEXT_PUBLIC_APP_URL
-            } else if (process.env.VERCEL_URL) {
-              baseUrl = `https://${process.env.VERCEL_URL}`
-            }
-            
-            fetch(`${baseUrl}/api/verdicts/generate`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ debateId: debate.id }),
-            })
-            .then(async (response) => {
-              if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}))
-                console.error('❌ Failed to trigger verdict generation:', {
+            // Trigger verdict generation automatically (direct function call)
+            import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
+              try {
+                await generateModule.generateInitialVerdicts(debate.id)
+                console.log('✅ [Process Expired] Verdict generation completed for debate:', debate.id)
+              } catch (error: any) {
+                console.error('❌ [Process Expired] Error generating verdicts:', {
                   debateId: debate.id,
-                  status: response.status,
-                  error: errorData.error || 'Unknown error'
+                  error: error.message
                 })
-              } else {
-                console.log('✅ Verdict generation triggered successfully for debate:', debate.id)
               }
-            })
-            .catch((error) => {
-              console.error('❌ Error triggering verdict generation:', {
-                debateId: debate.id,
-                error: error.message
-              })
+            }).catch((importError: any) => {
+              console.error('❌ [Process Expired] Failed to import generate module:', importError.message)
             })
 
             results.completed++
@@ -327,38 +311,19 @@ async function handleMissingSubmission(
         WHERE id = ${debate.id}
       `
 
-      // Trigger verdict generation
-      // Use absolute URL for Vercel - prioritize NEXT_PUBLIC_APP_URL
-      let baseUrl = 'http://localhost:3000'
-      if (process.env.NEXT_PUBLIC_APP_URL) {
-        baseUrl = process.env.NEXT_PUBLIC_APP_URL
-      } else if (process.env.VERCEL_URL) {
-        baseUrl = `https://${process.env.VERCEL_URL}`
-      }
-      
-      fetch(`${baseUrl}/api/verdicts/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ debateId: debate.id }),
-      })
-      .then(async (response) => {
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          console.error('❌ Failed to trigger verdict generation:', {
+      // Trigger verdict generation automatically (direct function call)
+      import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
+        try {
+          await generateModule.generateInitialVerdicts(debate.id)
+          console.log('✅ [Process Expired] Verdict generation completed for debate:', debate.id)
+        } catch (error: any) {
+          console.error('❌ [Process Expired] Error generating verdicts:', {
             debateId: debate.id,
-            status: response.status,
-            error: errorData.error || 'Unknown error',
-            details: errorData.details
+            error: error.message
           })
-        } else {
-          console.log('✅ Verdict generation triggered successfully for debate:', debate.id)
         }
-      })
-      .catch((error) => {
-        console.error('❌ Error triggering verdict generation:', {
-          debateId: debate.id,
-          error: error.message
-        })
+      }).catch((importError: any) => {
+        console.error('❌ [Process Expired] Failed to import generate module:', importError.message)
       })
     } else {
       // Advance to next round
@@ -437,34 +402,19 @@ async function handleBothMissing(debate: any, now: Date) {
 
     // Trigger verdict generation (will result in a tie)
     let baseUrl = 'http://localhost:3000'
-    if (process.env.NEXT_PUBLIC_APP_URL) {
-      baseUrl = process.env.NEXT_PUBLIC_APP_URL
-    } else if (process.env.VERCEL_URL) {
-      baseUrl = `https://${process.env.VERCEL_URL}`
-    }
-    
-    fetch(`${baseUrl}/api/verdicts/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ debateId: debate.id }),
-    })
-    .then(async (response) => {
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('❌ Failed to trigger verdict generation:', {
+    // Trigger verdict generation automatically (direct function call)
+    import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
+      try {
+        await generateModule.generateInitialVerdicts(debate.id)
+        console.log('✅ [Process Expired] Verdict generation completed for debate:', debate.id)
+      } catch (error: any) {
+        console.error('❌ [Process Expired] Error generating verdicts:', {
           debateId: debate.id,
-          status: response.status,
-          error: errorData.error || 'Unknown error'
+          error: error.message
         })
-      } else {
-        console.log('✅ Verdict generation triggered successfully for debate:', debate.id)
       }
-    })
-    .catch((error) => {
-      console.error('❌ Error triggering verdict generation:', {
-        debateId: debate.id,
-        error: error.message
-      })
+    }).catch((importError: any) => {
+      console.error('❌ [Process Expired] Failed to import generate module:', importError.message)
     })
   } else {
     // Advance to next round
