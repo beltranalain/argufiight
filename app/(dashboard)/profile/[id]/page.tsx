@@ -243,9 +243,13 @@ export default function UserProfilePage() {
                         <Badge variant="default" className="text-lg px-4 py-2 bg-electric-blue text-black">
                           ELO {profile.eloRating}
                         </Badge>
-                        {profile.totalMaxScore > 0 && (
-                          <Badge variant="default" className="text-sm px-3 py-1 bg-electric-blue/20 text-electric-blue">
-                            Score: {profile.totalScore.toLocaleString()}/{profile.totalMaxScore.toLocaleString()}
+                        {profile.totalMaxScore > 0 ? (
+                          <Badge variant="default" className="text-lg px-4 py-2 bg-cyber-green text-black">
+                            Score: {profile.totalScore.toLocaleString()}/{profile.totalMaxScore.toLocaleString()} ({Math.round((profile.totalScore / profile.totalMaxScore) * 100)}%)
+                          </Badge>
+                        ) : (
+                          <Badge variant="default" className="text-lg px-4 py-2 bg-bg-tertiary text-text-secondary">
+                            Score: N/A
                           </Badge>
                         )}
                       </div>
@@ -294,35 +298,40 @@ export default function UserProfilePage() {
                     </div>
                   </div>
 
-                  {/* Analytics Section */}
-                  {profile.totalStatements > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                      <div className="bg-bg-tertiary rounded-lg p-4">
+                  {/* Deep Analytics Section */}
+                  <div className="mt-8 pt-6 border-t border-bg-tertiary">
+                    <h3 className="text-lg font-bold text-text-primary mb-4">Performance Analytics</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-bg-tertiary rounded-lg p-4 border border-bg-secondary">
                         <p className="text-text-secondary text-sm mb-1">Total Words</p>
                         <p className="text-2xl font-bold text-text-primary">
                           {profile.totalWordCount?.toLocaleString() || 0}
                         </p>
+                        <p className="text-xs text-text-muted mt-1">Across all debates</p>
                       </div>
-                      <div className="bg-bg-tertiary rounded-lg p-4">
-                        <p className="text-text-secondary text-sm mb-1">Avg Words</p>
-                        <p className="text-2xl font-bold text-text-primary">
+                      <div className="bg-bg-tertiary rounded-lg p-4 border border-bg-secondary">
+                        <p className="text-text-secondary text-sm mb-1">Avg Words/Statement</p>
+                        <p className="text-2xl font-bold text-electric-blue">
                           {Math.round(profile.averageWordCount || 0)}
                         </p>
+                        <p className="text-xs text-text-muted mt-1">Per argument</p>
                       </div>
-                      <div className="bg-bg-tertiary rounded-lg p-4">
-                        <p className="text-text-secondary text-sm mb-1">Statements</p>
+                      <div className="bg-bg-tertiary rounded-lg p-4 border border-bg-secondary">
+                        <p className="text-text-secondary text-sm mb-1">Total Statements</p>
                         <p className="text-2xl font-bold text-text-primary">
-                          {profile.totalStatements || 0}
+                          {profile.totalStatements?.toLocaleString() || 0}
                         </p>
+                        <p className="text-xs text-text-muted mt-1">Arguments submitted</p>
                       </div>
-                      <div className="bg-bg-tertiary rounded-lg p-4">
-                        <p className="text-text-secondary text-sm mb-1">Avg Rounds</p>
-                        <p className="text-2xl font-bold text-text-primary">
+                      <div className="bg-bg-tertiary rounded-lg p-4 border border-bg-secondary">
+                        <p className="text-text-secondary text-sm mb-1">Avg Rounds/Debate</p>
+                        <p className="text-2xl font-bold text-cyber-green">
                           {profile.averageRounds?.toFixed(1) || '0.0'}
                         </p>
+                        <p className="text-xs text-text-muted mt-1">Per debate</p>
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </CardBody>

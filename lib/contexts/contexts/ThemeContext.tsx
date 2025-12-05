@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 
-export type Theme = 'dark' | 'light' | 'grape'
+export type Theme = 'dark' | 'light' | 'purple'
 
 interface ThemeContextType {
   theme: Theme
@@ -18,13 +18,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Apply theme immediately on mount
     const savedTheme = localStorage.getItem('theme') as Theme
-    const initialTheme = (savedTheme && ['dark', 'light', 'grape'].includes(savedTheme)) 
+    const initialTheme = (savedTheme && ['dark', 'light', 'purple'].includes(savedTheme)) 
       ? savedTheme 
       : 'dark'
     
     setThemeState(initialTheme)
     // Apply theme class immediately
-    document.documentElement.classList.remove('theme-dark', 'theme-light', 'theme-grape')
+    document.documentElement.classList.remove('theme-dark', 'theme-light', 'theme-purple')
     document.documentElement.classList.add(`theme-${initialTheme}`)
     
     setMounted(true)
@@ -34,7 +34,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!mounted) return
     
     // Remove all theme classes
-    document.documentElement.classList.remove('theme-dark', 'theme-light', 'theme-grape')
+    document.documentElement.classList.remove('theme-dark', 'theme-light', 'theme-purple')
     // Add current theme class
     document.documentElement.classList.add(`theme-${theme}`)
     

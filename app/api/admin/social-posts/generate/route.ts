@@ -11,11 +11,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { debateId, platform } = body
+    const { topic, platform } = body
 
-    if (!debateId || !platform) {
+    if (!platform) {
       return NextResponse.json(
-        { error: 'debateId and platform are required' },
+        { error: 'platform is required' },
         { status: 400 }
       )
     }
@@ -27,39 +27,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch debate details
-    const debate = await prisma.debate.findUnique({
-      where: { id: debateId },
-      include: {
-        challenger: {
-          select: {
-            username: true,
-            avatarUrl: true,
-          },
-        },
-        opponent: {
-          select: {
-            username: true,
-            avatarUrl: true,
-          },
-        },
-        statements: {
-          take: 2,
-          orderBy: { createdAt: 'asc' },
-          select: {
-            content: true,
-            authorId: true,
-          },
-        },
-      },
-    })
-
-    if (!debate) {
-      return NextResponse.json(
-        { error: 'Debate not found' },
-        { status: 404 }
-      )
-    }
+    // Use provided topic or default to general platform content
+    const postTopic = topic?.trim() || 'Argu Fight platform and community'
 
     // Check for DeepSeek API key
     const deepseekApiKey = process.env.DEEPSEEK_API_KEY
@@ -70,45 +39,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Build platform-specific prompt
+    // Build platform-specific prompt for company/platform posts
     const platformPrompts: Record<string, string> = {
-      INSTAGRAM: `Create an engaging Instagram post about this debate. Requirements:
+      INSTAGRAM: `Create an engaging Instagram post for Argu Fight, a debate platform where users engage in structured debates. Requirements:
 - Visual and engaging tone
-- Include relevant hashtags (5-10)
+- Include relevant hashtags (5-10) like #ArguFight #Debate #Discussion
 - Keep it under 2,200 characters
 - Make it shareable and attention-grabbing
 - Include emojis where appropriate
-- Focus on the debate topic and participants
+- Focus on the platform's value: structured debates, AI judges, community engagement
+- Topic/Theme: ${postTopic}
+- Include a call-to-action to join the platform`,
 
-Debate Topic: ${debate.topic}
-Category: ${debate.category || 'General'}
-Challenger: ${debate.challenger.username}
-Opponent: ${debate.opponent?.username || 'TBD'}`,
-
-      LINKEDIN: `Create a professional LinkedIn post about this debate. Requirements:
+      LINKEDIN: `Create a professional LinkedIn post for Argu Fight, a debate platform where professionals engage in structured, thought-provoking debates. Requirements:
 - Professional and thought-provoking tone
-- Include relevant hashtags (3-5)
+- Include relevant hashtags (3-5) like #ArguFight #Debate #ProfessionalDiscussion
 - Keep it under 3,000 characters
-- Focus on insights and discussion value
+- Focus on insights, professional value, and discussion quality
 - Encourage engagement and comments
-- Professional language
+- Professional language suitable for LinkedIn
+- Topic/Theme: ${postTopic}
+- Highlight the platform's features: structured format, AI-powered judging, community`,
 
-Debate Topic: ${debate.topic}
-Category: ${debate.category || 'General'}
-Challenger: ${debate.challenger.username}
-Opponent: ${debate.opponent?.username || 'TBD'}`,
-
-      TWITTER: `Create a concise Twitter/X post about this debate. Requirements:
+      TWITTER: `Create a concise Twitter/X post for Argu Fight, a debate platform. Requirements:
 - Concise and engaging (under 280 characters)
-- Include 2-3 relevant hashtags
+- Include 2-3 relevant hashtags like #ArguFight #Debate
 - Make it tweetable and shareable
 - Use trending topic language if applicable
-- Focus on the key debate point
-
-Debate Topic: ${debate.topic}
-Category: ${debate.category || 'General'}
-Challenger: ${debate.challenger.username}
-Opponent: ${debate.opponent?.username || 'TBD'}`,
+- Focus on the key value proposition
+- Topic/Theme: ${postTopic}
+- Include a brief call-to-action`,
     }
 
     const systemPrompt = platformPrompts[platform] || platformPrompts.INSTAGRAM
@@ -125,7 +85,7 @@ Opponent: ${debate.opponent?.username || 'TBD'}`,
         messages: [
           {
             role: 'system',
-            content: 'You are a social media content creator specializing in creating engaging, platform-specific posts for debate platforms.',
+            content: 'You are a social media content creator specializing in creating engaging, platform-specific posts for Argu Fight, a debate platform where users engage in structured debates with AI-powered judging. Create posts that highlight the platform\'s value, community, and features.',
           },
           {
             role: 'user',
@@ -153,8 +113,8 @@ Opponent: ${debate.opponent?.username || 'TBD'}`,
     const hashtagRegex = /#\w+/g
     const extractedHashtags = generatedContent.match(hashtagRegex)?.join(' ') || ''
 
-    // Generate Sora image prompt
-    const imagePrompt = `A dynamic, engaging visual representation of a debate about "${debate.topic}" in the ${debate.category || 'general'} category. Two debaters facing off, with visual elements representing their arguments. Modern, clean design suitable for social media.`
+    // Generate Sora image prompt for the platform/topic
+    const imagePrompt = `A dynamic, engaging visual representation for Argu Fight platform content about "${postTopic}". Modern, clean design suitable for social media, featuring debate elements, community engagement, and platform branding. Professional and eye-catching.`
 
     // Generate image prompt using AI
     const imagePromptResponse = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -168,11 +128,11 @@ Opponent: ${debate.opponent?.username || 'TBD'}`,
         messages: [
           {
             role: 'system',
-            content: 'You are an expert at creating detailed image generation prompts for Sora (video generation) and other AI image tools. Create vivid, detailed prompts that capture the essence of a debate topic.',
+            content: 'You are an expert at creating detailed image generation prompts for Sora (video generation) and other AI image tools. Create vivid, detailed prompts that capture the essence of social media content for a debate platform.',
           },
           {
             role: 'user',
-            content: `Create a detailed Sora image generation prompt for a debate about: "${debate.topic}" in the ${debate.category || 'general'} category. Make it visually engaging and suitable for social media.`,
+            content: `Create a detailed Sora image generation prompt for Argu Fight platform social media content about: "${postTopic}". Make it visually engaging, modern, and suitable for social media. Include elements that represent debate, discussion, community, and the platform's brand.`,
           },
         ],
         temperature: 0.7,
@@ -191,7 +151,7 @@ Opponent: ${debate.opponent?.username || 'TBD'}`,
       imagePrompt: aiImagePrompt.trim(),
       hashtags: extractedHashtags,
       platform,
-      debateId,
+      topic: postTopic,
     })
   } catch (error: any) {
     console.error('Failed to generate social post:', error)

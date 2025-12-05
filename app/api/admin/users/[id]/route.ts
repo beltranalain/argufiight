@@ -63,7 +63,18 @@ export async function GET(
       )
     }
 
-    return NextResponse.json(user)
+    // Calculate win rate
+    const winRate = user.totalDebates > 0
+      ? Math.round((user.debatesWon / user.totalDebates) * 100)
+      : 0
+
+    // Return user with winRate, matching the modal's expected format
+    return NextResponse.json({
+      user: {
+        ...user,
+        winRate,
+      },
+    })
   } catch (error) {
     console.error('Failed to get user:', error)
     return NextResponse.json(

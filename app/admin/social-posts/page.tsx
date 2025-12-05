@@ -39,12 +39,12 @@ export default function SocialPostsPage() {
   const [posts, setPosts] = useState<SocialMediaPost[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [selectedDebateId, setSelectedDebateId] = useState('')
+  const [postTopic, setPostTopic] = useState('')
   const [selectedPlatform, setSelectedPlatform] = useState<'INSTAGRAM' | 'LINKEDIN' | 'TWITTER'>('INSTAGRAM')
   const [generatedContent, setGeneratedContent] = useState('')
   const [generatedImagePrompt, setGeneratedImagePrompt] = useState('')
   const [generatedHashtags, setGeneratedHashtags] = useState('')
-  const [debateSearch, setDebateSearch] = useState('')
+  const [postSearch, setPostSearch] = useState('')
 
   useEffect(() => {
     fetchPosts()
@@ -71,11 +71,11 @@ export default function SocialPostsPage() {
   }
 
   const handleGenerate = async () => {
-    if (!selectedDebateId) {
+    if (!postTopic.trim()) {
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Please enter a debate ID',
+        description: 'Please enter a topic or theme for the post',
       })
       return
     }
@@ -86,7 +86,7 @@ export default function SocialPostsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          debateId: selectedDebateId,
+          topic: postTopic.trim(),
           platform: selectedPlatform,
         }),
       })
@@ -118,7 +118,7 @@ export default function SocialPostsPage() {
   }
 
   const handleSave = async () => {
-    if (!selectedDebateId || !generatedContent) {
+    if (!generatedContent) {
       showToast({
         type: 'error',
         title: 'Error',
@@ -132,7 +132,7 @@ export default function SocialPostsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          debateId: selectedDebateId,
+          topic: postTopic || 'General Platform Post',
           platform: selectedPlatform,
           content: generatedContent,
           imagePrompt: generatedImagePrompt,
@@ -146,16 +146,26 @@ export default function SocialPostsPage() {
         throw new Error(error.error || 'Failed to save post')
       }
 
-      showToast({
-        type: 'success',
-        title: 'Success',
-        description: 'Post saved successfully!',
-      })
-
-      setGeneratedContent('')
-      setGeneratedImagePrompt('')
-      setGeneratedHashtags('')
-      fetchPosts()
+      const responseData = await response.json()
+      
+      if (responseData.success && !responseData.post.debateId) {
+        // General post - just show success, don't try to save to DB
+        showToast({
+          type: 'success',
+          title: 'Post Generated',
+          description: 'Use the copy buttons to copy content to your social media accounts!',
+        })
+      } else {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: 'Post saved successfully!',
+        })
+        setGeneratedContent('')
+        setGeneratedImagePrompt('')
+        setGeneratedHashtags('')
+        fetchPosts()
+      }
     } catch (error: any) {
       showToast({
         type: 'error',
@@ -215,13 +225,16 @@ export default function SocialPostsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-text-secondary mb-2">
-                      Debate ID
+                      Post Topic / Theme
                     </label>
                     <Input
-                      placeholder="Enter debate ID..."
-                      value={selectedDebateId}
-                      onChange={(e) => setSelectedDebateId(e.target.value)}
+                      placeholder="e.g., Platform launch, New features, Community highlights..."
+                      value={postTopic}
+                      onChange={(e) => setPostTopic(e.target.value)}
                     />
+                    <p className="text-xs text-text-muted mt-1">
+                      Enter a topic or theme for your social media post. Leave blank for general platform content.
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-text-secondary mb-2">
@@ -242,7 +255,7 @@ export default function SocialPostsPage() {
                   variant="primary"
                   onClick={handleGenerate}
                   isLoading={isGenerating}
-                  disabled={!selectedDebateId}
+                  disabled={!postTopic.trim()}
                 >
                   Generate Post
                 </Button>
@@ -306,9 +319,14 @@ export default function SocialPostsPage() {
                     />
                   </div>
 
-                  <Button variant="primary" onClick={handleSave}>
-                    Save as Draft
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <Button variant="secondary" onClick={handleSave}>
+                      Save to Library (Optional)
+                    </Button>
+                    <p className="text-xs text-text-muted">
+                      💡 Tip: Use the Copy buttons above to copy content directly to your social media accounts
+                    </p>
+                  </div>
                 </div>
               )}
             </CardBody>
@@ -322,9 +340,9 @@ export default function SocialPostsPage() {
             <CardBody>
               <div className="mb-4">
                 <Input
-                  placeholder="Search by debate topic..."
-                  value={debateSearch}
-                  onChange={(e) => setDebateSearch(e.target.value)}
+                  placeholder="Search posts..."
+                  value={postSearch}
+                  onChange={(e) => setPostSearch(e.target.value)}
                 />
               </div>
 
@@ -334,7 +352,8 @@ export default function SocialPostsPage() {
                 ) : (
                   posts
                     .filter(post =>
-                      post.debate.topic.toLowerCase().includes(debateSearch.toLowerCase())
+                      post.content.toLowerCase().includes(postSearch.toLowerCase()) ||
+                      (post.debate?.topic && post.debate.topic.toLowerCase().includes(postSearch.toLowerCase()))
                     )
                     .map((post) => (
                       <div
@@ -347,12 +366,16 @@ export default function SocialPostsPage() {
                               <Badge variant="default">{post.platform}</Badge>
                               <Badge className={getStatusColor(post.status)}>{post.status}</Badge>
                             </div>
-                            <p className="text-sm text-text-secondary">
-                              Debate: {post.debate.topic}
-                            </p>
-                            <p className="text-xs text-text-muted mt-1">
-                              {post.debate.challenger.username} vs {post.debate.opponent?.username || 'TBD'}
-                            </p>
+                            {post.debate && (
+                              <>
+                                <p className="text-sm text-text-secondary">
+                                  Debate: {post.debate.topic}
+                                </p>
+                                <p className="text-xs text-text-muted mt-1">
+                                  {post.debate.challenger.username} vs {post.debate.opponent?.username || 'TBD'}
+                                </p>
+                              </>
+                            )}
                           </div>
                           <Button
                             variant="secondary"

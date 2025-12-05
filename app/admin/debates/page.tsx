@@ -158,7 +158,7 @@ export default function AdminDebatesPage() {
                             {debate.category}
                           </Badge>
                           <Badge variant="default" size="sm">
-                            {debate.status}
+                            {debate.status.replace(/_/g, ' ')}
                           </Badge>
                         </div>
                         <h3 className="text-white font-semibold mb-2">{debate.topic}</h3>

@@ -6,7 +6,6 @@ import { ArenaPanel } from '@/components/panels/ArenaPanel'
 import { LiveBattlePanel } from '@/components/panels/LiveBattlePanel'
 import { ChallengesPanel } from '@/components/panels/ChallengesPanel'
 import { ProfilePanel } from '@/components/panels/ProfilePanel'
-import { LeaderboardPanel } from '@/components/panels/LeaderboardPanel'
 import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
 
 export function DashboardHomePage() {
@@ -46,11 +45,6 @@ export function DashboardHomePage() {
               <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
                 <h2 className="text-2xl font-bold text-text-primary mb-2">Your Profile</h2>
                 <ProfilePanel />
-              </div>
-
-              {/* Leaderboard */}
-              <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
-                <LeaderboardPanel />
               </div>
             </div>
           </div>

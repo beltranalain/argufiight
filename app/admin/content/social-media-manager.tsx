@@ -27,12 +27,12 @@ export function SocialMediaLinksManager({
   const [editingLink, setEditingLink] = useState<{ platform: string; url: string } | null>(null)
 
   const PLATFORMS = [
-    { value: 'FACEBOOK', label: 'Facebook', icon: '📘' },
-    { value: 'TWITTER', label: 'Twitter/X', icon: '🐦' },
-    { value: 'INSTAGRAM', label: 'Instagram', icon: '📷' },
-    { value: 'LINKEDIN', label: 'LinkedIn', icon: '💼' },
-    { value: 'YOUTUBE', label: 'YouTube', icon: '▶️' },
-    { value: 'TIKTOK', label: 'TikTok', icon: '🎵' },
+    { value: 'FACEBOOK', label: 'Facebook' },
+    { value: 'TWITTER', label: 'Twitter/X' },
+    { value: 'INSTAGRAM', label: 'Instagram' },
+    { value: 'LINKEDIN', label: 'LinkedIn' },
+    { value: 'YOUTUBE', label: 'YouTube' },
+    { value: 'TIKTOK', label: 'TikTok' },
   ]
 
   const getLinkForPlatform = (platform: string) => {
@@ -80,7 +80,6 @@ export function SocialMediaLinksManager({
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">{platform.icon}</span>
                 <div>
                   <h3 className="text-white font-semibold">{platform.label}</h3>
                   {link && link.isActive && (

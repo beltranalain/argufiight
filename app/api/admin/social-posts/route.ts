@@ -68,13 +68,29 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { debateId, platform, content, imagePrompt, hashtags, status, scheduledAt } = body
+    const { debateId, topic, platform, content, imagePrompt, hashtags, status, scheduledAt } = body
 
-    if (!debateId || !platform || !content) {
+    if (!platform || !content) {
       return NextResponse.json(
-        { error: 'debateId, platform, and content are required' },
+        { error: 'platform and content are required' },
         { status: 400 }
       )
+    }
+
+    // For general platform posts (no debateId), we'll skip saving to database
+    // The main use case is copy/paste, so saving is optional
+    if (!debateId) {
+      return NextResponse.json({
+        success: true,
+        message: 'Post generated successfully. Use copy buttons to copy content.',
+        post: {
+          topic: topic || 'General Platform Post',
+          platform,
+          content,
+          imagePrompt,
+          hashtags,
+        },
+      })
     }
 
     if (!['INSTAGRAM', 'LINKEDIN', 'TWITTER'].includes(platform)) {
@@ -95,13 +111,27 @@ export async function POST(request: NextRequest) {
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       },
       include: {
-        debate: {
+        debate: debateId ? {
           select: {
             id: true,
             topic: true,
             category: true,
+            challenger: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+              },
+            },
+            opponent: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+              },
+            },
           },
-        },
+        } : undefined,
       },
     })
 

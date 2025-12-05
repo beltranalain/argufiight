@@ -53,10 +53,20 @@ export function UserProfileModal({ isOpen, onClose, userId }: UserProfileModalPr
       const response = await fetch(`/api/admin/users/${userId}`)
       if (response.ok) {
         const data = await response.json()
-        setProfile(data.user)
+        if (data.user) {
+          setProfile(data.user)
+        } else {
+          // Handle case where API returns user directly (backward compatibility)
+          setProfile(data)
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('Failed to fetch user profile:', errorData.error || 'Request failed')
+        setProfile(null)
       }
     } catch (error) {
       console.error('Failed to fetch user profile:', error)
+      setProfile(null)
     } finally {
       setIsLoading(false)
     }

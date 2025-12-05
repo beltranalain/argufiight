@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/ui/Loading'
@@ -34,7 +33,7 @@ export function LeaderboardPanel() {
   const fetchLeaderboard = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/leaderboard?limit=10')
+      const response = await fetch('/api/leaderboard?limit=15')
       if (response.ok) {
         const data = await response.json()
         // Ensure leaderboard is an array before setting
@@ -69,88 +68,94 @@ export function LeaderboardPanel() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <h3 className="text-lg font-bold text-text-primary">ELO Leaderboard</h3>
-        </CardHeader>
-        <CardBody>
-          <div className="flex items-center justify-center py-8">
-            <LoadingSpinner size="md" />
+      <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-2xl font-bold text-text-primary mb-1">ELO Leaderboard</h3>
+            <p className="text-text-secondary text-sm">Top debaters ranked by ELO rating</p>
           </div>
-        </CardBody>
-      </Card>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <LoadingSpinner size="md" />
+        </div>
+      </div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-text-primary">ELO Leaderboard</h3>
-          <Link href="/leaderboard" className="text-sm text-electric-blue hover:text-neon-orange">
-            View All
-          </Link>
+    <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-2xl font-bold text-text-primary mb-1">ELO Leaderboard</h3>
+          <p className="text-text-secondary text-sm">Top debaters ranked by ELO rating</p>
         </div>
-      </CardHeader>
-      <CardBody>
-        {leaderboard.length === 0 ? (
-          <EmptyState
-            icon={
-              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-              </svg>
-            }
-            title="No Rankings Yet"
-            description="Complete debates to appear on the leaderboard"
-          />
-        ) : (
-          <div className="space-y-3">
-            {leaderboard.map((entry) => {
-              const isCurrentUser = user?.id === entry.id
-              return (
-                <Link
-                  key={entry.id}
-                  href={`/profile/${entry.id}`}
-                  className={`block p-3 rounded-lg border transition-colors ${
-                    isCurrentUser
-                      ? 'bg-electric-blue/10 border-electric-blue/30 hover:border-electric-blue'
-                      : 'bg-bg-tertiary border-bg-tertiary hover:border-bg-secondary'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0 w-8 text-center">
-                      {getRankBadge(entry.rank)}
+        <Link href="/leaderboard" className="text-sm text-electric-blue hover:text-neon-orange font-medium">
+          View All →
+        </Link>
+      </div>
+      {leaderboard.length === 0 ? (
+        <EmptyState
+          icon={
+            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+            </svg>
+          }
+          title="No Rankings Yet"
+          description="Complete debates to appear on the leaderboard"
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {leaderboard.map((entry) => {
+            const isCurrentUser = user?.id === entry.id
+            return (
+              <Link
+                key={entry.id}
+                href={`/profile/${entry.id}`}
+                className={`block p-4 rounded-lg border transition-colors ${
+                  isCurrentUser
+                    ? 'bg-electric-blue/10 border-electric-blue/30 hover:border-electric-blue'
+                    : 'bg-bg-tertiary border-bg-tertiary hover:border-bg-secondary'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0 w-10 text-center">
+                    {getRankBadge(entry.rank)}
+                  </div>
+                  <Avatar
+                    src={entry.avatarUrl}
+                    username={entry.username}
+                    size="md"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className={`font-semibold truncate ${isCurrentUser ? 'text-electric-blue' : 'text-text-primary'}`}>
+                        {entry.username}
+                      </p>
+                      {isCurrentUser && (
+                        <Badge variant="default" size="sm" className="bg-electric-blue text-black text-xs">
+                          You
+                        </Badge>
+                      )}
                     </div>
-                    <Avatar
-                      src={entry.avatarUrl}
-                      username={entry.username}
-                      size="sm"
-                    />
-                    <div className="flex-1 min-w-0">
+                    <div className="flex flex-col gap-1 text-xs text-text-secondary">
+                      <span className="text-electric-blue font-semibold">ELO: {entry.eloRating}</span>
                       <div className="flex items-center gap-2">
-                        <p className={`font-semibold truncate ${isCurrentUser ? 'text-electric-blue' : 'text-text-primary'}`}>
-                          {entry.username}
-                        </p>
-                        {isCurrentUser && (
-                          <Badge variant="default" size="sm" className="bg-electric-blue text-black text-xs">
-                            You
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-text-secondary mt-1">
-                        <span className="text-electric-blue font-semibold">ELO: {entry.eloRating}</span>
+                        <span>{entry.totalDebates} debates</span>
+                        <span>•</span>
+                        <span className="text-cyber-green">{entry.wins}W</span>
+                        <span className="text-neon-orange">{entry.losses}L</span>
                         <span>•</span>
                         <span>{entry.winRate}% win rate</span>
                       </div>
                     </div>
                   </div>
-                </Link>
-              )
-            })}
-          </div>
-        )}
-      </CardBody>
-    </Card>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 

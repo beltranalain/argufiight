@@ -6,10 +6,10 @@ export function ThemeToggle() {
   try {
     const { theme, setTheme } = useTheme()
 
-    const themes: Array<{ value: 'dark' | 'light' | 'grape'; label: string }> = [
+    const themes: Array<{ value: 'dark' | 'light' | 'purple'; label: string }> = [
       { value: 'dark', label: 'Dark' },
       { value: 'light', label: 'Light' },
-      { value: 'grape', label: 'Grape' },
+      { value: 'purple', label: 'Purple' },
     ]
 
     return (

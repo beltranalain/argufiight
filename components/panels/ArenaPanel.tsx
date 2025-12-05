@@ -9,6 +9,7 @@ import { Card, CardBody } from '@/components/ui/Card'
 import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
 import { StaggerContainer } from '@/components/ui/StaggerContainer'
 import { StaggerItem } from '@/components/ui/StaggerItem'
+import { LeaderboardPanel } from '@/components/panels/LeaderboardPanel'
 
 export function ArenaPanel() {
   const [debates, setDebates] = useState<any[]>([])
@@ -153,6 +154,11 @@ export function ArenaPanel() {
           ))}
         </StaggerContainer>
       )}
+      </div>
+
+      {/* ELO Leaderboard */}
+      <div>
+        <LeaderboardPanel />
       </div>
 
       {/* Create Debate Modal */}
