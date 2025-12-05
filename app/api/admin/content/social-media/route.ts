@@ -5,7 +5,10 @@ import { prisma } from '@/lib/db/prisma'
 // GET /api/admin/content/social-media - Get all social media links
 export async function GET() {
   try {
-    await verifyAdmin()
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const links = await prisma.socialMediaLink.findMany({
       orderBy: { order: 'asc' },
@@ -24,7 +27,10 @@ export async function GET() {
 // POST /api/admin/content/social-media - Create or update social media link
 export async function POST(request: NextRequest) {
   try {
-    await verifyAdmin()
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const body = await request.json()
     const { platform, url, order, isActive } = body
@@ -65,7 +71,10 @@ export async function POST(request: NextRequest) {
 // DELETE /api/admin/content/social-media - Delete social media link
 export async function DELETE(request: NextRequest) {
   try {
-    await verifyAdmin()
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { searchParams } = new URL(request.url)
     const platform = searchParams.get('platform')
