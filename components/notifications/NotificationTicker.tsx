@@ -12,34 +12,91 @@ interface Notification {
   debateId: string | null
   read: boolean
   createdAt: string
+  priority?: 'high' | 'medium' | 'low'
+}
+
+interface TickerUpdate {
+  id: string
+  type: 'BIG_BATTLE' | 'HIGH_VIEWS' | 'MAJOR_UPSET' | 'NEW_VERDICT' | 'STREAK' | 'MILESTONE'
+  title: string
+  message: string
+  debateId: string | null
+  priority: 'high' | 'medium' | 'low'
+  createdAt: string
 }
 
 export function NotificationTicker() {
   const { user } = useAuth()
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [tickerUpdates, setTickerUpdates] = useState<TickerUpdate[]>([])
+  const [allItems, setAllItems] = useState<(Notification | TickerUpdate)[]>([])
   const [isPaused, setIsPaused] = useState(false)
   const tickerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!user) return
+    fetchTickerUpdates()
+    const tickerInterval = setInterval(() => {
+      fetchTickerUpdates()
+    }, 60000) // Update ticker every minute
 
-    fetchNotifications()
-    const interval = setInterval(() => {
+    if (user) {
       fetchNotifications()
-    }, 30000)
+      const notificationInterval = setInterval(() => {
+        fetchNotifications()
+      }, 30000) // Update notifications every 30 seconds
 
-    return () => clearInterval(interval)
+      return () => {
+        clearInterval(tickerInterval)
+        clearInterval(notificationInterval)
+      }
+    }
+
+    return () => clearInterval(tickerInterval)
   }, [user])
 
   useEffect(() => {
-    if (!contentRef.current || notifications.length === 0) return
+    // Merge notifications and ticker updates, prioritizing unread notifications
+    const merged: (Notification | TickerUpdate)[] = []
+    
+    // Add unread notifications first
+    const unreadNotifications = notifications.filter(n => !n.read)
+    merged.push(...unreadNotifications)
+    
+    // Add ticker updates
+    merged.push(...tickerUpdates)
+    
+    // Add read notifications (less priority)
+    const readNotifications = notifications.filter(n => n.read)
+    merged.push(...readNotifications)
+    
+    // Sort by priority and recency
+    merged.sort((a, b) => {
+      const priorityOrder = { high: 3, medium: 2, low: 1 }
+      const aPriority = 'priority' in a ? (a.priority || 'low') : 'low'
+      const bPriority = 'priority' in b ? (b.priority || 'low') : 'low'
+      const priorityDiff = priorityOrder[bPriority] - priorityOrder[aPriority]
+      if (priorityDiff !== 0) return priorityDiff
+      
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
+    
+    setAllItems(merged)
+  }, [notifications, tickerUpdates])
 
-    const visibleNotifications = notifications.filter(
-      n => !n.read || new Date(n.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
-    ).slice(0, 10)
+  useEffect(() => {
+    if (!contentRef.current || allItems.length === 0) return
 
-    if (visibleNotifications.length === 0) return
+    // Filter items to show (recent items within last 24 hours)
+    const visibleItems = allItems.filter(
+      item => {
+        const itemDate = new Date(item.createdAt)
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+        return itemDate > oneDayAgo || ('read' in item && !item.read)
+      }
+    ).slice(0, 15)
+
+    if (visibleItems.length === 0) return
 
     const content = contentRef.current
     let animationId: number
@@ -50,10 +107,10 @@ export function NotificationTicker() {
       if (!isPaused && content) {
         position += speed
         
-        // Calculate width of one set of notifications
+        // Calculate width of one set of items
         const gap = 16 // gap-4 = 16px
         let singleSetWidth = 0
-        for (let i = 0; i < visibleNotifications.length; i++) {
+        for (let i = 0; i < visibleItems.length; i++) {
           const child = content.children[i] as HTMLElement
           if (child) {
             singleSetWidth += child.getBoundingClientRect().width + gap
@@ -78,7 +135,7 @@ export function NotificationTicker() {
         cancelAnimationFrame(animationId)
       }
     }
-  }, [notifications, isPaused])
+  }, [allItems, isPaused])
 
   const fetchNotifications = async () => {
     if (!user) return
@@ -95,7 +152,42 @@ export function NotificationTicker() {
     }
   }
 
-  const getNotificationColor = (notification: Notification): string => {
+  const fetchTickerUpdates = async () => {
+    try {
+      const response = await fetch('/api/ticker')
+      if (response.ok) {
+        const data = await response.json()
+        setTickerUpdates(data.updates || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch ticker updates:', error)
+    }
+  }
+
+  const getItemColor = (item: Notification | TickerUpdate): string => {
+    // Handle ticker updates
+    if ('priority' in item && !('read' in item)) {
+      const tickerUpdate = item as TickerUpdate
+      switch (tickerUpdate.type) {
+        case 'BIG_BATTLE':
+          return 'text-neon-orange'
+        case 'HIGH_VIEWS':
+          return 'text-electric-blue'
+        case 'MAJOR_UPSET':
+          return 'text-red-400'
+        case 'NEW_VERDICT':
+          return 'text-cyber-green'
+        case 'STREAK':
+          return 'text-yellow-400'
+        case 'MILESTONE':
+          return 'text-purple-400'
+        default:
+          return 'text-electric-blue'
+      }
+    }
+    
+    // Handle notifications
+    const notification = item as Notification
     const isWin = notification.title.toLowerCase().includes('won') || 
                   notification.message.toLowerCase().includes('won')
     const isLoss = notification.title.toLowerCase().includes('lost') || 
@@ -132,22 +224,23 @@ export function NotificationTicker() {
     }
   }
 
-  const getNotificationUrl = (notification: Notification): string => {
-    if (notification.debateId) {
-      return `/debate/${notification.debateId}`
+  const getItemUrl = (item: Notification | TickerUpdate): string => {
+    if (item.debateId) {
+      return `/debate/${item.debateId}`
     }
     return '/dashboard'
   }
 
-  if (!user || notifications.length === 0) {
-    return null
-  }
+  // Show ticker if there are any items (notifications or ticker updates)
+  const visibleItems = allItems.filter(
+    item => {
+      const itemDate = new Date(item.createdAt)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+      return itemDate > oneDayAgo || ('read' in item && !item.read)
+    }
+  ).slice(0, 15)
 
-  const visibleNotifications = notifications.filter(
-    n => !n.read || new Date(n.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
-  ).slice(0, 10)
-
-  if (visibleNotifications.length === 0) {
+  if (visibleItems.length === 0) {
     return null
   }
 
@@ -176,16 +269,16 @@ export function NotificationTicker() {
             className="ticker-content flex items-center gap-4 h-full"
             style={{ width: 'max-content' }}
           >
-            {/* Original notifications */}
-            {visibleNotifications.map((notification) => (
+            {/* Original items */}
+            {visibleItems.map((item) => (
               <Link
-                key={notification.id}
-                href={getNotificationUrl(notification)}
-                className={`flex items-center gap-2 px-3 py-1 transition-colors hover:opacity-80 whitespace-nowrap ${getNotificationColor(notification)}`}
+                key={item.id}
+                href={getItemUrl(item)}
+                className={`flex items-center gap-2 px-3 py-1 transition-colors hover:opacity-80 whitespace-nowrap ${getItemColor(item)}`}
                 onClick={async () => {
-                  if (!notification.read) {
+                  if ('read' in item && !item.read && user) {
                     try {
-                      await fetch(`/api/notifications/${notification.id}/read`, {
+                      await fetch(`/api/notifications/${item.id}/read`, {
                         method: 'POST',
                       })
                       fetchNotifications()
@@ -196,31 +289,31 @@ export function NotificationTicker() {
                 }}
               >
                 <span className="text-xs font-semibold">
-                  {notification.title}
+                  {item.title}
                 </span>
                 <span className="text-[10px] opacity-70">
-                  {notification.message}
+                  {item.message}
                 </span>
-                {!notification.read && (
+                {'read' in item && !item.read && (
                   <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 bg-current" />
                 )}
               </Link>
             ))}
             
             {/* Duplicate for seamless loop */}
-            {visibleNotifications.map((notification) => (
+            {visibleItems.map((item) => (
               <Link
-                key={`${notification.id}-duplicate`}
-                href={getNotificationUrl(notification)}
-                className={`flex items-center gap-2 px-3 py-1 transition-colors hover:opacity-80 whitespace-nowrap ${getNotificationColor(notification)}`}
+                key={`${item.id}-duplicate`}
+                href={getItemUrl(item)}
+                className={`flex items-center gap-2 px-3 py-1 transition-colors hover:opacity-80 whitespace-nowrap ${getItemColor(item)}`}
               >
                 <span className="text-xs font-semibold">
-                  {notification.title}
+                  {item.title}
                 </span>
                 <span className="text-[10px] opacity-70">
-                  {notification.message}
+                  {item.message}
                 </span>
-                {!notification.read && (
+                {'read' in item && !item.read && (
                   <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 bg-current" />
                 )}
               </Link>
