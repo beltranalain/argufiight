@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { VoiceToTextButton } from './VoiceToTextButton'
@@ -9,6 +9,7 @@ interface SubmitArgumentFormProps {
   debateId: string
   currentRound: number
   totalRounds: number
+  allowCopyPaste?: boolean
   onSuccess?: () => void
 }
 
