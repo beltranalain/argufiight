@@ -418,7 +418,7 @@ export default function AdminSettingsPage() {
                 </p>
                 {googleAnalyticsKey && googleAnalyticsKey.includes('gtag') && (
                   <div className="mt-2 p-2 rounded text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
-                    ⚠️ Warning: It looks like you pasted the gtag.js script. You need the Service Account JSON file from Google Cloud Console, which starts with {"type": "service_account", ...}
+                    <span>⚠️ Warning: It looks like you pasted the gtag.js script. You need the Service Account JSON file from Google Cloud Console, which starts with {`{"type": "service_account", ...}`}</span>
                   </div>
                 )}
               </div>

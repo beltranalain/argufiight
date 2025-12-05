@@ -263,19 +263,18 @@ export default function UserProfilePage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                      {currentUser && currentUser.id !== userId && (
-                        <Button
-                          variant={isFollowing ? 'secondary' : 'primary'}
-                          onClick={handleToggleFollow}
-                          isLoading={isTogglingFollow}
-                          className="min-w-[100px]"
-                        >
-                          {isFollowing ? 'Following' : 'Follow'}
-                        </Button>
-                      )}
+                  {currentUser && currentUser.id !== userId && (
+                    <div className="mb-4">
+                      <Button
+                        variant={isFollowing ? 'secondary' : 'primary'}
+                        onClick={handleToggleFollow}
+                        isLoading={isTogglingFollow}
+                        className="min-w-[100px]"
+                      >
+                        {isFollowing ? 'Following' : 'Follow'}
+                      </Button>
                     </div>
-                  </div>
+                  )}
 
                   {profile.bio && (
                     <p className="text-text-secondary mb-4">{profile.bio}</p>
