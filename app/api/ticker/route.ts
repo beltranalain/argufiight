@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       updates.push({
         id: `big-battle-${debate.id}`,
         type: 'BIG_BATTLE',
-        title: '🔥 BIG BATTLE',
+        title: 'BIG BATTLE',
         message: `${debate.challenger.username} (${debate.challenger.eloRating}) vs ${debate.opponent.username} (${debate.opponent.eloRating}) - ${debate.topic.substring(0, 50)}${debate.topic.length > 50 ? '...' : ''}`,
         debateId: debate.id,
         priority: combinedElo > 3500 ? 'high' : 'medium',
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
       updates.push({
         id: `high-views-${debate.id}`,
         type: 'HIGH_VIEWS',
-        title: '👁️ TRENDING',
+        title: 'TRENDING',
         message: `${debate.challenger.username} vs ${debate.opponent.username} - ${debate.viewCount} views • ${debate.topic.substring(0, 40)}${debate.topic.length > 40 ? '...' : ''}`,
         debateId: debate.id,
         priority: debate.viewCount > 100 ? 'high' : 'medium',
@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
           updates.push({
             id: `upset-${debate.id}`,
             type: 'MAJOR_UPSET',
-            title: '⚡ MAJOR UPSET',
+            title: 'MAJOR UPSET',
             message: `${winner.username} (${Math.round(winnerElo)}) defeated ${loser.username} (${Math.round(loserElo)}) • ${debate.topic.substring(0, 40)}${debate.topic.length > 40 ? '...' : ''}`,
             debateId: debate.id,
             priority: eloDiff > 300 ? 'high' : 'medium',
@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
       updates.push({
         id: `verdict-${debate.id}`,
         type: 'NEW_VERDICT',
-        title: '⚖️ VERDICT',
+        title: 'VERDICT',
         message: `${winner.username} won "${debate.topic.substring(0, 45)}${debate.topic.length > 45 ? '...' : ''}"`,
         debateId: debate.id,
         priority: 'medium',
@@ -317,7 +317,7 @@ export async function GET(request: NextRequest) {
         updates.push({
           id: `streak-${user.id}-${Date.now()}`,
           type: 'STREAK',
-          title: '🔥 HOT STREAK',
+          title: 'HOT STREAK',
           message: `${user.username} is on a ${streakCount}-win streak! (ELO: ${user.eloRating})`,
           debateId: null,
           priority: streakCount >= 5 ? 'high' : 'medium',
@@ -357,7 +357,7 @@ export async function GET(request: NextRequest) {
         updates.push({
           id: `milestone-${user.id}-${elo}`,
           type: 'MILESTONE',
-          title: '🏆 MILESTONE',
+          title: 'MILESTONE',
           message: `${user.username} reached ${elo} ELO!`,
           debateId: null,
           priority: elo >= 2000 ? 'high' : 'medium',
