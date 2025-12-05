@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
+import { getDeepSeekKey } from '@/lib/ai/deepseek'
 
 // POST /api/admin/social-posts/generate - Generate AI-powered social media post
 export async function POST(request: NextRequest) {
@@ -30,11 +31,13 @@ export async function POST(request: NextRequest) {
     // Use provided topic or default to general platform content
     const postTopic = topic?.trim() || 'Argu Fight platform and community'
 
-    // Check for DeepSeek API key
-    const deepseekApiKey = process.env.DEEPSEEK_API_KEY
-    if (!deepseekApiKey) {
+    // Get DeepSeek API key from database (or env fallback)
+    let deepseekApiKey: string
+    try {
+      deepseekApiKey = await getDeepSeekKey()
+    } catch (error: any) {
       return NextResponse.json(
-        { error: 'DeepSeek API key not configured' },
+        { error: error.message || 'DeepSeek API key not configured. Please add it in Admin Settings.' },
         { status: 500 }
       )
     }

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
-import { Resend } from 'resend'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { getResendKey, createResendClient } from '@/lib/email/resend'
 
 // POST /api/admin/settings/test-resend - Test Resend API connection
 export async function POST(request: NextRequest) {
@@ -28,25 +28,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Get Resend API key
-    const setting = await prisma.adminSetting.findUnique({
-      where: { key: 'RESEND_API_KEY' },
-    })
-
-    const apiKey = setting?.value || process.env.RESEND_API_KEY
-
-    if (!apiKey) {
+    // Get Resend client (reads from database first, then env fallback)
+    const resend = await createResendClient()
+    
+    if (!resend) {
       return NextResponse.json(
         { 
           success: false,
-          error: 'Resend API key not configured. Please add it in settings.',
+          error: 'Resend API key not configured. Please add it in Admin Settings.',
         },
         { status: 400 }
       )
     }
-
-    // Test the API key
-    const resend = new Resend(apiKey)
 
     // Try to list API keys (this validates the key)
     const result = await resend.apiKeys.list()
