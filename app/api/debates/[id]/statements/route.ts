@@ -223,13 +223,6 @@ export async function POST(
             console.error('❌ [Debate Complete] Fallback fetch also failed:', fetchError.message)
           })
         })
-        } catch (error: any) {
-          console.error('❌ Error triggering verdict generation:', {
-            debateId: id,
-            error: error.message,
-            stack: error.stack
-          })
-        }
 
         // Notify participants and watchers
         await notifyDebateWatchers(
