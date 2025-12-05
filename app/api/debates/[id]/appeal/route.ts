@@ -172,64 +172,46 @@ export async function POST(
     })
 
     // Trigger new verdict generation automatically
-    // Use fetch with proper error handling to ensure it executes
+    // Call the regenerate function directly (no network calls = more reliable)
     console.log(`[Appeal] Triggering automatic verdict regeneration for debate ${debateId}`)
     
-    // Determine base URL - prioritize NEXT_PUBLIC_APP_URL for reliability
-    let baseUrl = 'http://localhost:3000'
-    if (process.env.NEXT_PUBLIC_APP_URL) {
-      baseUrl = process.env.NEXT_PUBLIC_APP_URL
-    } else if (process.env.VERCEL_URL) {
-      baseUrl = `https://${process.env.VERCEL_URL}`
-    }
-    
-    const regenerateUrl = `${baseUrl}/api/verdicts/regenerate`
-    
-    // Execute fetch in an async IIFE to ensure it runs and is properly awaited
-    // This prevents the promise from being lost
-    ;(async () => {
+    // Import and call the regenerate function directly
+    // This runs immediately without network delays
+    import('@/lib/verdicts/regenerate-appeal').then(async (regenerateModule) => {
       try {
-        console.log(`[Appeal] Calling ${regenerateUrl} for debate ${debateId}`)
-        
-        const response = await fetch(regenerateUrl, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ debateId }),
+        console.log(`[Appeal] Starting direct regenerate call for debate ${debateId}`)
+        const result = await regenerateModule.regenerateAppealVerdicts(debateId)
+        console.log('✅ [Appeal] Verdict regeneration completed successfully:', {
+          debateId,
+          result,
+          timestamp: new Date().toISOString(),
         })
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          console.error('❌ [Appeal] Failed to trigger verdict regeneration:', {
-            debateId,
-            status: response.status,
-            statusText: response.statusText,
-            error: errorData.error || 'Unknown error',
-            details: errorData.details,
-            url: regenerateUrl,
-            timestamp: new Date().toISOString(),
-          })
-        } else {
-          const result = await response.json().catch(() => ({}))
-          console.log('✅ [Appeal] Verdict regeneration triggered successfully:', {
-            debateId,
-            result,
-            url: regenerateUrl,
-            timestamp: new Date().toISOString(),
-          })
-        }
       } catch (error: any) {
-        console.error('❌ [Appeal] Error triggering verdict regeneration:', {
+        console.error('❌ [Appeal] Error in direct regenerate call:', {
           debateId,
           error: error.message,
-          errorName: error.name,
           stack: error.stack,
-          url: regenerateUrl,
           timestamp: new Date().toISOString(),
         })
       }
-    })()
+    }).catch((importError: any) => {
+      console.error('❌ [Appeal] Failed to import regenerate module:', importError.message)
+      // Fallback to fetch if import fails (shouldn't happen, but safety net)
+      let baseUrl = 'http://localhost:3000'
+      if (process.env.NEXT_PUBLIC_APP_URL) {
+        baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      } else if (process.env.VERCEL_URL) {
+        baseUrl = `https://${process.env.VERCEL_URL}`
+      }
+      
+      fetch(`${baseUrl}/api/verdicts/regenerate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ debateId }),
+      }).catch((fetchError: any) => {
+        console.error('❌ [Appeal] Fallback fetch also failed:', fetchError.message)
+      })
+    })
 
     return NextResponse.json({
       success: true,
