@@ -318,7 +318,7 @@ export default function SubscriptionPlansPage() {
                         Edit
                       </Button>
                       <Button
-                        variant="error"
+                        variant="danger"
                         size="sm"
                         onClick={() => handleDelete(plan.id)}
                         className="flex-1"
