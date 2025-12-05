@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
                 debatesLost: true,
                 debatesTied: true,
                 totalDebates: true,
+                totalScore: true,
+                totalMaxScore: true,
                 isAdmin: true,
                 isBanned: true,
                 createdAt: true,
@@ -75,6 +77,8 @@ export async function GET(request: NextRequest) {
         debatesLost: true,
         debatesTied: true,
         totalDebates: true,
+        totalScore: true,
+        totalMaxScore: true,
         isAdmin: true,
         isBanned: true,
         createdAt: true,
@@ -101,6 +105,8 @@ export async function GET(request: NextRequest) {
       debates_lost: user.debatesLost,
       debates_tied: user.debatesTied,
       total_debates: user.totalDebates,
+      total_score: user.totalScore,
+      total_max_score: user.totalMaxScore,
     }
 
     return NextResponse.json({ user: mobileUser })
