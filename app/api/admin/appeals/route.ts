@@ -6,8 +6,8 @@ import { getUserAppealLimit, adjustAppealCount, setMonthlyLimit } from '@/lib/ut
 // GET /api/admin/appeals - Get all appeal limits and statistics
 export async function GET(request: NextRequest) {
   try {
-    const userId = await verifyAdmin()
-    if (!userId) {
+    const adminUserId = await verifyAdmin()
+    if (!adminUserId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
