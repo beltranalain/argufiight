@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
     })
 
     for (const debate of bigBattles) {
+      if (!debate.challenger || !debate.opponent) continue
       const combinedElo = debate.challenger.eloRating + debate.opponent.eloRating
       updates.push({
         id: `big-battle-${debate.id}`,
@@ -99,6 +100,7 @@ export async function GET(request: NextRequest) {
     })
 
     for (const debate of highViewDebates) {
+      if (!debate.challenger || !debate.opponent) continue
       updates.push({
         id: `high-views-${debate.id}`,
         type: 'HIGH_VIEWS',
@@ -156,6 +158,7 @@ export async function GET(request: NextRequest) {
 
     for (const debate of recentCompleted) {
       if (debate.verdicts.length === 0) continue
+      if (!debate.challenger || !debate.opponent) continue
       
       const winnerId = debate.verdicts[0].winnerId
       const challengerElo = debate.challenger.eloRating - (debate.challengerEloChange || 0)
@@ -223,6 +226,7 @@ export async function GET(request: NextRequest) {
 
     for (const debate of newVerdicts) {
       if (debate.verdicts.length === 0) continue
+      if (!debate.challenger || !debate.opponent) continue
       
       const winnerId = debate.verdicts[0].winnerId
       const winner = winnerId === debate.challenger.id ? debate.challenger : debate.opponent
