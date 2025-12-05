@@ -29,6 +29,10 @@ model User {
   debatesLost  Int @default(0) @map("debates_lost")
   debatesTied  Int @default(0) @map("debates_tied")
   totalDebates Int @default(0) @map("total_debates")
+  
+  // Score System
+  totalScore    Int @default(0) @map("total_score") // Sum of all scores from all debates
+  totalMaxScore Int @default(0) @map("total_max_score") // Max possible (judges × 100 × debates)
 
   // Permissions
   isAdmin  Boolean @default(false) @map("is_admin")

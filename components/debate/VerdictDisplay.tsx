@@ -75,6 +75,11 @@ export function VerdictDisplay({
   const opponentVotes = displayedVerdicts.filter(v => v.decision === 'OPPONENT_WINS').length
   const tieVotes = displayedVerdicts.filter(v => v.decision === 'TIE').length
 
+  // Calculate total scores
+  const challengerTotalScore = displayedVerdicts.reduce((sum, v) => sum + (v.challengerScore ?? 0), 0)
+  const opponentTotalScore = displayedVerdicts.reduce((sum, v) => sum + (v.opponentScore ?? 0), 0)
+  const maxPossibleScore = displayedVerdicts.length * 100
+
   const isChallengerWinner = finalWinnerId === challengerId
   const isOpponentWinner = finalWinnerId === opponentId
   const isTie = !finalWinnerId
@@ -344,6 +349,43 @@ export function VerdictDisplay({
                 <span className="text-lg font-bold text-text-primary">
                   {isChallengerWinner ? challengerName : isOpponentWinner ? opponentName : ''} Wins!
                 </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Total Scores Summary */}
+        {(challengerTotalScore > 0 || opponentTotalScore > 0) && (
+          <div className="mb-6 p-4 bg-bg-secondary border border-bg-tertiary rounded-lg">
+            <h3 className="text-sm font-semibold text-text-primary mb-3">Total Scores</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-text-secondary">{challengerName}</span>
+                  <span className="text-sm font-bold text-text-primary">
+                    {challengerTotalScore}/{maxPossibleScore}
+                  </span>
+                </div>
+                <div className="w-full bg-bg-tertiary rounded-full h-2">
+                  <div
+                    className="bg-cyber-green h-2 rounded-full transition-all"
+                    style={{ width: `${(challengerTotalScore / maxPossibleScore) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-text-secondary">{opponentName}</span>
+                  <span className="text-sm font-bold text-text-primary">
+                    {opponentTotalScore}/{maxPossibleScore}
+                  </span>
+                </div>
+                <div className="w-full bg-bg-tertiary rounded-full h-2">
+                  <div
+                    className="bg-neon-orange h-2 rounded-full transition-all"
+                    style={{ width: `${(opponentTotalScore / maxPossibleScore) * 100}%` }}
+                  />
+                </div>
               </div>
             </div>
           </div>

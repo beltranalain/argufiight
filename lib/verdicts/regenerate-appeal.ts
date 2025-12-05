@@ -374,6 +374,21 @@ export async function regenerateAppealVerdicts(debateId: string) {
       finalWinnerId = debate.opponentId
     }
 
+    // Calculate scores from new verdicts
+    const challengerNewScore = newVerdicts.reduce((sum, v) => sum + (v.challengerScore ?? 0), 0)
+    const opponentNewScore = newVerdicts.reduce((sum, v) => sum + (v.opponentScore ?? 0), 0)
+    const maxScoreForDebate = newVerdicts.length * 100
+
+    // Calculate scores from original verdicts (to subtract)
+    const challengerOriginalScore = debate.verdicts.reduce((sum, v) => sum + (v.challengerScore ?? 0), 0)
+    const opponentOriginalScore = debate.verdicts.reduce((sum, v) => sum + (v.opponentScore ?? 0), 0)
+    const originalMaxScore = debate.verdicts.length * 100
+
+    // Calculate score differences
+    const challengerScoreDiff = challengerNewScore - challengerOriginalScore
+    const opponentScoreDiff = opponentNewScore - opponentOriginalScore
+    const maxScoreDiff = maxScoreForDebate - originalMaxScore
+
     // Calculate ELO changes only if verdict differs from original
     const originalWinnerId = debate.originalWinnerId
     const verdictFlipped = originalWinnerId !== finalWinnerId
@@ -452,6 +467,8 @@ export async function regenerateAppealVerdicts(debateId: string) {
           where: { id: debate.challengerId },
           data: {
             debatesWon: { decrement: 1 },
+            totalScore: { decrement: challengerOriginalScore },
+            totalMaxScore: { decrement: originalMaxScore },
           },
         })
         if (debate.opponentId) {
@@ -459,6 +476,8 @@ export async function regenerateAppealVerdicts(debateId: string) {
             where: { id: debate.opponentId },
             data: {
               debatesLost: { decrement: 1 },
+              totalScore: { decrement: opponentOriginalScore },
+              totalMaxScore: { decrement: originalMaxScore },
             },
           })
         }
@@ -468,6 +487,8 @@ export async function regenerateAppealVerdicts(debateId: string) {
             where: { id: debate.opponentId },
             data: {
               debatesWon: { decrement: 1 },
+              totalScore: { decrement: opponentOriginalScore },
+              totalMaxScore: { decrement: originalMaxScore },
             },
           })
         }
@@ -475,6 +496,8 @@ export async function regenerateAppealVerdicts(debateId: string) {
           where: { id: debate.challengerId },
           data: {
             debatesLost: { decrement: 1 },
+            totalScore: { decrement: challengerOriginalScore },
+            totalMaxScore: { decrement: originalMaxScore },
           },
         })
       } else {
@@ -482,6 +505,8 @@ export async function regenerateAppealVerdicts(debateId: string) {
           where: { id: debate.challengerId },
           data: {
             debatesTied: { decrement: 1 },
+            totalScore: { decrement: challengerOriginalScore },
+            totalMaxScore: { decrement: originalMaxScore },
           },
         })
         if (debate.opponentId) {
@@ -489,6 +514,8 @@ export async function regenerateAppealVerdicts(debateId: string) {
             where: { id: debate.opponentId },
             data: {
               debatesTied: { decrement: 1 },
+              totalScore: { decrement: opponentOriginalScore },
+              totalMaxScore: { decrement: originalMaxScore },
             },
           })
         }
@@ -501,6 +528,8 @@ export async function regenerateAppealVerdicts(debateId: string) {
           data: {
             eloRating: { increment: challengerEloChange },
             debatesWon: { increment: 1 },
+            totalScore: { increment: challengerNewScore },
+            totalMaxScore: { increment: maxScoreForDebate },
           },
         })
         if (debate.opponentId) {
@@ -509,6 +538,8 @@ export async function regenerateAppealVerdicts(debateId: string) {
             data: {
               eloRating: { increment: opponentEloChange },
               debatesLost: { increment: 1 },
+              totalScore: { increment: opponentNewScore },
+              totalMaxScore: { increment: maxScoreForDebate },
             },
           })
         }
@@ -518,6 +549,8 @@ export async function regenerateAppealVerdicts(debateId: string) {
           data: {
             eloRating: { increment: challengerEloChange },
             debatesLost: { increment: 1 },
+            totalScore: { increment: challengerNewScore },
+            totalMaxScore: { increment: maxScoreForDebate },
           },
         })
         if (debate.opponentId) {
@@ -526,6 +559,8 @@ export async function regenerateAppealVerdicts(debateId: string) {
             data: {
               eloRating: { increment: opponentEloChange },
               debatesWon: { increment: 1 },
+              totalScore: { increment: opponentNewScore },
+              totalMaxScore: { increment: maxScoreForDebate },
             },
           })
         }
@@ -536,6 +571,8 @@ export async function regenerateAppealVerdicts(debateId: string) {
           data: {
             eloRating: { increment: challengerEloChange },
             debatesTied: { increment: 1 },
+            totalScore: { increment: challengerNewScore },
+            totalMaxScore: { increment: maxScoreForDebate },
           },
         })
         if (debate.opponentId) {
@@ -544,6 +581,8 @@ export async function regenerateAppealVerdicts(debateId: string) {
             data: {
               eloRating: { increment: opponentEloChange },
               debatesTied: { increment: 1 },
+              totalScore: { increment: opponentNewScore },
+              totalMaxScore: { increment: maxScoreForDebate },
             },
           })
         }

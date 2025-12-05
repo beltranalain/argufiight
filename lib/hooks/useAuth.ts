@@ -13,6 +13,8 @@ interface User {
   debatesLost: number
   debatesTied: number
   totalDebates: number
+  totalScore: number
+  totalMaxScore: number
   isAdmin: boolean
   isBanned: boolean
 }
@@ -40,6 +42,8 @@ export function useAuth() {
             debatesLost: data.user.debatesLost || data.user.debates_lost || 0,
             debatesTied: data.user.debatesTied || data.user.debates_tied || 0,
             totalDebates: data.user.totalDebates || data.user.total_debates || 0,
+            totalScore: data.user.totalScore || data.user.total_score || 0,
+            totalMaxScore: data.user.totalMaxScore || data.user.total_max_score || 0,
           }
           setUser(normalizedUser)
         } else {

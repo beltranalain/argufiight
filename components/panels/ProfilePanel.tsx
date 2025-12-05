@@ -90,9 +90,16 @@ export function ProfilePanel() {
         />
         <div>
           <h3 className="text-lg font-bold text-text-primary">{user.username}</h3>
-          <Badge variant="default" size="sm" className="mt-1">
-            ELO: {user.eloRating}
-          </Badge>
+          <div className="flex items-center gap-2 mt-1">
+            <Badge variant="default" size="sm">
+              ELO: {user.eloRating}
+            </Badge>
+            {user.totalMaxScore > 0 && (
+              <Badge variant="default" size="sm" className="bg-electric-blue/20 text-electric-blue">
+                Score: {user.totalScore}/{user.totalMaxScore}
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 

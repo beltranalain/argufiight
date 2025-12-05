@@ -26,6 +26,8 @@ export async function GET() {
         debatesLost: true,
         debatesTied: true,
         totalDebates: true,
+        totalScore: true,
+        totalMaxScore: true,
         createdAt: true,
       },
     })
@@ -100,6 +102,8 @@ export async function PUT(request: NextRequest) {
         debatesLost: true,
         debatesTied: true,
         totalDebates: true,
+        totalScore: true,
+        totalMaxScore: true,
         createdAt: true,
       },
     })

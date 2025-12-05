@@ -22,6 +22,8 @@ interface UserProfile {
   debatesLost: number
   debatesTied: number
   totalDebates: number
+  totalScore: number
+  totalMaxScore: number
   createdAt: string
 }
 

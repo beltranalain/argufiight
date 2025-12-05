@@ -22,6 +22,8 @@ interface UserProfile {
   debatesLost: number
   debatesTied: number
   totalDebates: number
+  totalScore: number
+  totalMaxScore: number
   winRate: number
   createdAt: string
 }
@@ -232,9 +234,16 @@ export default function UserProfilePage() {
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <Badge variant="default" className="text-lg px-4 py-2 bg-electric-blue text-black">
-                        ELO {profile.eloRating}
-                      </Badge>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge variant="default" className="text-lg px-4 py-2 bg-electric-blue text-black">
+                          ELO {profile.eloRating}
+                        </Badge>
+                        {profile.totalMaxScore > 0 && (
+                          <Badge variant="default" className="text-sm px-3 py-1 bg-electric-blue/20 text-electric-blue">
+                            Score: {profile.totalScore.toLocaleString()}/{profile.totalMaxScore.toLocaleString()}
+                          </Badge>
+                        )}
+                      </div>
                       {currentUser && currentUser.id !== userId && (
                         <Button
                           variant={isFollowing ? 'secondary' : 'primary'}

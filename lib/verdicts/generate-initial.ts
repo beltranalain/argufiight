@@ -249,6 +249,11 @@ export async function generateInitialVerdicts(debateId: string) {
       },
     })
 
+    // Calculate total scores from verdicts
+    const challengerTotalScore = verdicts.reduce((sum, v) => sum + (v.challengerScore ?? 0), 0)
+    const opponentTotalScore = verdicts.reduce((sum, v) => sum + (v.opponentScore ?? 0), 0)
+    const maxScoreForDebate = verdicts.length * 100 // Each judge can give up to 100 points
+
     // Update user stats
     if (finalWinnerId === debate.challengerId) {
       await prisma.user.update({
@@ -257,6 +262,8 @@ export async function generateInitialVerdicts(debateId: string) {
           debatesWon: { increment: 1 },
           totalDebates: { increment: 1 },
           eloRating: { increment: challengerEloChange },
+          totalScore: { increment: challengerTotalScore },
+          totalMaxScore: { increment: maxScoreForDebate },
         },
       })
       if (debate.opponentId) {
@@ -266,6 +273,8 @@ export async function generateInitialVerdicts(debateId: string) {
             debatesLost: { increment: 1 },
             totalDebates: { increment: 1 },
             eloRating: { increment: opponentEloChange },
+            totalScore: { increment: opponentTotalScore },
+            totalMaxScore: { increment: maxScoreForDebate },
           },
         })
       }
@@ -277,6 +286,8 @@ export async function generateInitialVerdicts(debateId: string) {
             debatesWon: { increment: 1 },
             totalDebates: { increment: 1 },
             eloRating: { increment: opponentEloChange },
+            totalScore: { increment: opponentTotalScore },
+            totalMaxScore: { increment: maxScoreForDebate },
           },
         })
       }
@@ -286,6 +297,8 @@ export async function generateInitialVerdicts(debateId: string) {
           debatesLost: { increment: 1 },
           totalDebates: { increment: 1 },
           eloRating: { increment: challengerEloChange },
+          totalScore: { increment: challengerTotalScore },
+          totalMaxScore: { increment: maxScoreForDebate },
         },
       })
     } else {
@@ -296,6 +309,8 @@ export async function generateInitialVerdicts(debateId: string) {
           debatesTied: { increment: 1 },
           totalDebates: { increment: 1 },
           eloRating: { increment: challengerEloChange },
+          totalScore: { increment: challengerTotalScore },
+          totalMaxScore: { increment: maxScoreForDebate },
         },
       })
       if (debate.opponentId) {
@@ -305,6 +320,8 @@ export async function generateInitialVerdicts(debateId: string) {
             debatesTied: { increment: 1 },
             totalDebates: { increment: 1 },
             eloRating: { increment: opponentEloChange },
+            totalScore: { increment: opponentTotalScore },
+            totalMaxScore: { increment: maxScoreForDebate },
           },
         })
       }
