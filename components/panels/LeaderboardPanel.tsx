@@ -93,52 +93,52 @@ export function LeaderboardPanel() {
           View All →
         </Link>
       </div>
-      {leaderboard.length === 0 ? (
-        <EmptyState
-          icon={
-            <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-            </svg>
-          }
-          title="No Rankings Yet"
-          description="Complete debates to appear on the leaderboard"
-        />
-      ) : (
+        {leaderboard.length === 0 ? (
+          <EmptyState
+            icon={
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+              </svg>
+            }
+            title="No Rankings Yet"
+            description="Complete debates to appear on the leaderboard"
+          />
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {leaderboard.map((entry) => {
-            const isCurrentUser = user?.id === entry.id
-            return (
-              <Link
-                key={entry.id}
-                href={`/profile/${entry.id}`}
+            {leaderboard.map((entry) => {
+              const isCurrentUser = user?.id === entry.id
+              return (
+                <Link
+                  key={entry.id}
+                  href={`/profile/${entry.id}`}
                 className={`block p-4 rounded-lg border transition-colors ${
-                  isCurrentUser
-                    ? 'bg-electric-blue/10 border-electric-blue/30 hover:border-electric-blue'
-                    : 'bg-bg-tertiary border-bg-tertiary hover:border-bg-secondary'
-                }`}
-              >
-                <div className="flex items-center gap-3">
+                    isCurrentUser
+                      ? 'bg-electric-blue/10 border-electric-blue/30 hover:border-electric-blue'
+                      : 'bg-bg-tertiary border-bg-tertiary hover:border-bg-secondary'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
                   <div className="flex-shrink-0 w-10 text-center">
-                    {getRankBadge(entry.rank)}
-                  </div>
-                  <Avatar
-                    src={entry.avatarUrl}
-                    username={entry.username}
-                    size="md"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className={`font-semibold truncate ${isCurrentUser ? 'text-electric-blue' : 'text-text-primary'}`}>
-                        {entry.username}
-                      </p>
-                      {isCurrentUser && (
-                        <Badge variant="default" size="sm" className="bg-electric-blue text-black text-xs">
-                          You
-                        </Badge>
-                      )}
+                      {getRankBadge(entry.rank)}
                     </div>
+                    <Avatar
+                      src={entry.avatarUrl}
+                      username={entry.username}
+                    size="md"
+                    />
+                    <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                        <p className={`font-semibold truncate ${isCurrentUser ? 'text-electric-blue' : 'text-text-primary'}`}>
+                          {entry.username}
+                        </p>
+                        {isCurrentUser && (
+                          <Badge variant="default" size="sm" className="bg-electric-blue text-black text-xs">
+                            You
+                          </Badge>
+                        )}
+                      </div>
                     <div className="flex flex-col gap-1 text-xs text-text-secondary">
-                      <span className="text-electric-blue font-semibold">ELO: {entry.eloRating}</span>
+                        <span className="text-electric-blue font-semibold">ELO: {entry.eloRating}</span>
                       <div className="flex items-center gap-2">
                         <span>{entry.totalDebates} debates</span>
                         <span>•</span>
@@ -147,14 +147,14 @@ export function LeaderboardPanel() {
                         <span>•</span>
                         <span>{entry.winRate}% win rate</span>
                       </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
-            )
-          })}
-        </div>
-      )}
+                </Link>
+              )
+            })}
+          </div>
+        )}
     </div>
   )
 }

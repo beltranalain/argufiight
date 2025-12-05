@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     // Get Resend client (reads from database first, then env fallback)
     const resend = await createResendClient()
-    
+
     if (!resend) {
       return NextResponse.json(
         { 

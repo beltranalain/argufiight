@@ -261,18 +261,18 @@ export default function UserProfilePage() {
                         <p className="text-3xl font-bold text-text-secondary">N/A</p>
                         <p className="text-xs text-text-muted mt-1">No completed debates yet</p>
                       </div>
-                    )}
-                  </div>
-                  {currentUser && currentUser.id !== userId && (
+                        )}
+                      </div>
+                      {currentUser && currentUser.id !== userId && (
                     <div className="mb-4">
-                      <Button
-                        variant={isFollowing ? 'secondary' : 'primary'}
-                        onClick={handleToggleFollow}
-                        isLoading={isTogglingFollow}
-                        className="min-w-[100px]"
-                      >
-                        {isFollowing ? 'Following' : 'Follow'}
-                      </Button>
+                        <Button
+                          variant={isFollowing ? 'secondary' : 'primary'}
+                          onClick={handleToggleFollow}
+                          isLoading={isTogglingFollow}
+                          className="min-w-[100px]"
+                        >
+                          {isFollowing ? 'Following' : 'Follow'}
+                        </Button>
                     </div>
                   )}
 

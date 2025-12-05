@@ -19,6 +19,7 @@ interface HomepageSection {
   isVisible: boolean
   metaTitle: string | null
   metaDescription: string | null
+  contactEmail: string | null
   images: Array<{
     id: string
     url: string
@@ -432,6 +433,7 @@ function EditSectionModal({
   const [content, setContent] = useState(initialSection.content || '')
   const [metaTitle, setMetaTitle] = useState(initialSection.metaTitle || '')
   const [metaDescription, setMetaDescription] = useState(initialSection.metaDescription || '')
+  const [contactEmail, setContactEmail] = useState(initialSection.contactEmail || '')
   const [order, setOrder] = useState(initialSection.order)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -447,6 +449,7 @@ function EditSectionModal({
     setContent(initialSection.content || '')
     setMetaTitle(initialSection.metaTitle || '')
     setMetaDescription(initialSection.metaDescription || '')
+    setContactEmail(initialSection.contactEmail || '')
     setOrder(initialSection.order)
   }, [initialSection])
 
@@ -458,6 +461,7 @@ function EditSectionModal({
         content,
         metaTitle,
         metaDescription,
+        contactEmail: section.key === 'footer' ? contactEmail : undefined,
         order,
       })
     } catch (error) {
@@ -518,6 +522,23 @@ function EditSectionModal({
             </p>
           )}
         </div>
+
+        {/* Contact Email (Footer only) */}
+        {section.key === 'footer' && (
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Contact Email</label>
+            <input
+              type="email"
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
+              placeholder="info@argufight.com"
+              className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
+            />
+            <p className="text-xs text-text-secondary mt-2">
+              Enter the contact email address displayed in the footer's Contact section.
+            </p>
+          </div>
+        )}
 
         {/* SEO */}
         <div className="grid grid-cols-2 gap-4">

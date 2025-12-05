@@ -304,7 +304,7 @@ export default function ProfilePage() {
                     <div className="bg-bg-tertiary rounded-lg p-3">
                       <p className="text-xs text-text-secondary mb-1">Win Rate</p>
                       <p className="text-xl font-bold text-electric-blue">{winRate}%</p>
-                    </div>
+                  </div>
                   </div>
 
                   {/* Deep Analytics Section - Always Visible */}

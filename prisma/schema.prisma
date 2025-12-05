@@ -1053,6 +1053,9 @@ model HomepageSection {
   order     Int     @default(0) // Display order
   isVisible Boolean @default(true) @map("is_visible")
 
+  // Footer-specific fields
+  contactEmail String? @map("contact_email") // Contact email for footer section
+
   // SEO
   metaTitle       String? @map("meta_title")
   metaDescription String? @map("meta_description")

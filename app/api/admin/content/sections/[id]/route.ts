@@ -25,6 +25,7 @@ export async function PATCH(
         isVisible: body.isVisible !== undefined ? body.isVisible : undefined,
         metaTitle: body.metaTitle !== undefined ? body.metaTitle : undefined,
         metaDescription: body.metaDescription !== undefined ? body.metaDescription : undefined,
+        contactEmail: body.contactEmail !== undefined ? body.contactEmail : undefined,
       },
     })
 

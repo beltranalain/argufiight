@@ -54,7 +54,7 @@ export function UserProfileModal({ isOpen, onClose, userId }: UserProfileModalPr
       if (response.ok) {
         const data = await response.json()
         if (data.user) {
-          setProfile(data.user)
+        setProfile(data.user)
         } else {
           // Handle case where API returns user directly (backward compatibility)
           setProfile(data)

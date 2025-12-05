@@ -492,7 +492,9 @@ function FooterSection({ section }: { section: HomepageSection | undefined }) {
           {/* Contact Column */}
           <div>
             <h3 className="text-text-primary font-semibold text-lg mb-6">Contact</h3>
-            <p className="text-text-primary/80 text-base">support@honorable.ai</p>
+            <p className="text-text-primary/80 text-base">
+              {section?.contactEmail || 'info@argufight.com'}
+            </p>
           </div>
         </div>
 
