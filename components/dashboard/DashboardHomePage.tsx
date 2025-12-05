@@ -53,7 +53,7 @@ export function DashboardHomePage() {
 
       {/* FAB Button */}
       <button 
-        className="fixed bottom-4 right-4 md:bottom-8 md:right-8 w-14 h-14 md:w-16 md:h-16 rounded-full bg-electric-blue flex items-center justify-center text-black shadow-lg hover:scale-110 active:scale-95 transition-transform z-40 hover:bg-[#00B8E6] touch-manipulation"
+        className="fixed bottom-20 right-4 md:bottom-24 md:right-8 w-14 h-14 md:w-16 md:h-16 rounded-full bg-electric-blue flex items-center justify-center text-black shadow-lg hover:scale-110 active:scale-95 transition-transform z-40 hover:bg-[#00B8E6] touch-manipulation"
         onClick={() => setIsCreateModalOpen(true)}
         aria-label="Create Debate"
       >

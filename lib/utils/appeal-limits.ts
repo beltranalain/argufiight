@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
+import { getUserSubscription } from '@/lib/subscriptions/subscription-utils'
+import { FEATURE_LIMITS } from '@/lib/subscriptions/features'
 
 /**
  * Get or create appeal limit for a user
@@ -8,11 +10,13 @@ export async function getUserAppealLimit(userId: string) {
     where: { userId },
   })
 
+  // Get user's subscription to determine limit
+  const subscription = await getUserSubscription(userId)
+  const tier = subscription.tier as 'FREE' | 'PRO'
+  const monthlyLimit = FEATURE_LIMITS[tier].APPEALS
+
   // Create default limit if doesn't exist
   if (!appealLimit) {
-    // Get system default (from settings or use 4)
-    const defaultLimit = 4 // TODO: Get from admin settings
-    
     const resetDate = new Date()
     resetDate.setMonth(resetDate.getMonth() + 1)
     resetDate.setDate(1) // First of next month
@@ -20,11 +24,21 @@ export async function getUserAppealLimit(userId: string) {
     appealLimit = await prisma.appealLimit.create({
       data: {
         userId,
-        monthlyLimit: defaultLimit,
+        monthlyLimit,
         currentCount: 0,
         resetDate,
       },
     })
+  } else {
+    // Update limit if subscription tier changed
+    if (appealLimit.monthlyLimit !== monthlyLimit) {
+      appealLimit = await prisma.appealLimit.update({
+        where: { id: appealLimit.id },
+        data: {
+          monthlyLimit,
+        },
+      })
+    }
   }
 
   // Check if we need to reset (new month)
@@ -53,20 +67,8 @@ export async function getUserAppealLimit(userId: string) {
 export async function canUserAppeal(userId: string): Promise<{ canAppeal: boolean; remaining: number; limit: number }> {
   const appealLimit = await getUserAppealLimit(userId)
   
-  // Check subscription for additional appeals
-  const activeSubscription = await prisma.appealSubscription.findFirst({
-    where: {
-      userId,
-      status: 'ACTIVE',
-      OR: [
-        { endDate: null },
-        { endDate: { gt: new Date() } },
-      ],
-    },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  const totalLimit = appealLimit.monthlyLimit + (activeSubscription?.appealsIncluded || 0)
+  // Appeal limit is now based on subscription tier (already set in monthlyLimit)
+  const totalLimit = appealLimit.monthlyLimit
   const remaining = Math.max(0, totalLimit - appealLimit.currentCount)
 
   return {

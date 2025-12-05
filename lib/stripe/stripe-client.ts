@@ -201,3 +201,117 @@ export async function updateSubscription(
   })
 }
 
+// ============================================
+// STRIPE CONNECT (For Creator Marketplace)
+// ============================================
+
+/**
+ * Create connected account for creator
+ */
+export async function createCreatorStripeAccount(
+  creatorId: string,
+  email: string
+): Promise<string> {
+  const stripe = await createStripeClient()
+
+  const account = await stripe.accounts.create({
+    type: 'express', // Express accounts for creators
+    country: 'US',
+    email: email,
+    capabilities: {
+      transfers: { requested: true },
+    },
+    business_type: 'individual',
+    metadata: {
+      creatorId,
+    },
+  })
+
+  return account.id
+}
+
+/**
+ * Generate onboarding link for creator to complete tax forms
+ */
+export async function createAccountOnboardingLink(
+  stripeAccountId: string,
+  returnUrl: string
+): Promise<string> {
+  const stripe = await createStripeClient()
+
+  const accountLink = await stripe.accountLinks.create({
+    account: stripeAccountId,
+    refresh_url: `${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/creator/setup`,
+    return_url: returnUrl,
+    type: 'account_onboarding',
+  })
+
+  return accountLink.url
+}
+
+/**
+ * Hold payment in escrow when contract is signed
+ */
+export async function holdPaymentInEscrow(
+  amount: number,
+  customerId: string,
+  description: string
+): Promise<Stripe.PaymentIntent> {
+  const stripe = await createStripeClient()
+
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: Math.round(amount * 100), // Convert to cents
+    currency: 'usd',
+    customer: customerId,
+    description: description,
+    capture_method: 'manual', // Hold funds, don't capture yet
+  })
+
+  return paymentIntent
+}
+
+/**
+ * Release payment to creator when contract completes
+ */
+export async function payoutToCreator(
+  amount: number,
+  platformFee: number,
+  creatorStripeAccountId: string,
+  description: string
+): Promise<Stripe.Transfer> {
+  const stripe = await createStripeClient()
+
+  const transfer = await stripe.transfers.create({
+    amount: Math.round((amount - platformFee) * 100), // Creator's cut in cents
+    currency: 'usd',
+    destination: creatorStripeAccountId,
+    description: description,
+  })
+
+  return transfer
+}
+
+/**
+ * Get account balance for creator
+ */
+export async function getCreatorBalance(stripeAccountId: string): Promise<Stripe.Balance> {
+  const stripe = await createStripeClient()
+
+  const balance = await stripe.balance.retrieve({
+    stripeAccount: stripeAccountId,
+  })
+
+  return balance
+}
+
+/**
+ * Capture payment intent (release from escrow)
+ */
+export async function capturePaymentIntent(
+  paymentIntentId: string
+): Promise<Stripe.PaymentIntent> {
+  const stripe = await createStripeClient()
+
+  return await stripe.paymentIntents.capture(paymentIntentId)
+}
+

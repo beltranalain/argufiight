@@ -15,6 +15,17 @@ export default function AdminSettingsPage() {
   const [stripePublishableKey, setStripePublishableKey] = useState('')
   const [stripeSecretKey, setStripeSecretKey] = useState('')
   const [tournamentsEnabled, setTournamentsEnabled] = useState(false)
+  
+  // Advertising settings
+  const [platformAdsEnabled, setPlatformAdsEnabled] = useState(false)
+  const [creatorMarketplaceEnabled, setCreatorMarketplaceEnabled] = useState(false)
+  const [creatorMinELO, setCreatorMinELO] = useState('1500')
+  const [creatorMinDebates, setCreatorMinDebates] = useState('10')
+  const [creatorMinAgeMonths, setCreatorMinAgeMonths] = useState('3')
+  const [creatorFeeBronze, setCreatorFeeBronze] = useState('25')
+  const [creatorFeeSilver, setCreatorFeeSilver] = useState('20')
+  const [creatorFeeGold, setCreatorFeeGold] = useState('15')
+  const [creatorFeePlatinum, setCreatorFeePlatinum] = useState('10')
   const [isLoading, setIsLoading] = useState(false)
   const [isFetching, setIsFetching] = useState(true)
   const [isTesting, setIsTesting] = useState(false)
@@ -42,6 +53,17 @@ export default function AdminSettingsPage() {
         setStripePublishableKey(data.STRIPE_PUBLISHABLE_KEY || '')
         setStripeSecretKey(data.STRIPE_SECRET_KEY || '')
         setTournamentsEnabled(data.TOURNAMENTS_ENABLED === 'true')
+        
+        // Advertising settings
+        setPlatformAdsEnabled(data.ADS_PLATFORM_ENABLED === 'true')
+        setCreatorMarketplaceEnabled(data.ADS_CREATOR_MARKETPLACE_ENABLED === 'true')
+        setCreatorMinELO(data.CREATOR_MIN_ELO || '1500')
+        setCreatorMinDebates(data.CREATOR_MIN_DEBATES || '10')
+        setCreatorMinAgeMonths(data.CREATOR_MIN_ACCOUNT_AGE_MONTHS || '3')
+        setCreatorFeeBronze(data.CREATOR_FEE_BRONZE || '25')
+        setCreatorFeeSilver(data.CREATOR_FEE_SILVER || '20')
+        setCreatorFeeGold(data.CREATOR_FEE_GOLD || '15')
+        setCreatorFeePlatinum(data.CREATOR_FEE_PLATINUM || '10')
       }
     } catch (error) {
       console.error('Failed to fetch settings:', error)
@@ -65,6 +87,16 @@ export default function AdminSettingsPage() {
           STRIPE_PUBLISHABLE_KEY: stripePublishableKey,
           STRIPE_SECRET_KEY: stripeSecretKey,
           TOURNAMENTS_ENABLED: tournamentsEnabled.toString(),
+          // Advertising settings
+          ADS_PLATFORM_ENABLED: platformAdsEnabled.toString(),
+          ADS_CREATOR_MARKETPLACE_ENABLED: creatorMarketplaceEnabled.toString(),
+          CREATOR_MIN_ELO: creatorMinELO,
+          CREATOR_MIN_DEBATES: creatorMinDebates,
+          CREATOR_MIN_ACCOUNT_AGE_MONTHS: creatorMinAgeMonths,
+          CREATOR_FEE_BRONZE: creatorFeeBronze,
+          CREATOR_FEE_SILVER: creatorFeeSilver,
+          CREATOR_FEE_GOLD: creatorFeeGold,
+          CREATOR_FEE_PLATINUM: creatorFeePlatinum,
         }),
       })
 
@@ -650,6 +682,155 @@ export default function AdminSettingsPage() {
                   tournamentsEnabled ? 'after:translate-x-5' : 'after:translate-x-0'
                 }`}></div>
               </label>
+            </div>
+          </CardBody>
+        </Card>
+
+        {/* Advertising Settings */}
+        <Card>
+          <CardHeader>
+            <h2 className="text-xl font-bold text-white">Advertising Settings</h2>
+            <p className="text-sm text-text-secondary mt-1">
+              Configure Platform Ads and Creator Marketplace
+            </p>
+          </CardHeader>
+          <CardBody className="space-y-6">
+            {/* Toggles */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg">
+                <div>
+                  <p className="font-semibold text-white">Platform Ads</p>
+                  <p className="text-sm text-text-secondary">
+                    Enable platform-wide advertising campaigns
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={platformAdsEnabled}
+                    onChange={(e) => setPlatformAdsEnabled(e.target.checked)}
+                  />
+                  <div className={`w-11 h-6 rounded-full transition-colors ${
+                    platformAdsEnabled ? 'bg-electric-blue' : 'bg-bg-secondary'
+                  } after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                    platformAdsEnabled ? 'after:translate-x-5' : 'after:translate-x-0'
+                  }`}></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg">
+                <div>
+                  <p className="font-semibold text-white">Creator Marketplace</p>
+                  <p className="text-sm text-text-secondary">
+                    Enable creator-advertiser sponsorship system
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={creatorMarketplaceEnabled}
+                    onChange={(e) => setCreatorMarketplaceEnabled(e.target.checked)}
+                  />
+                  <div className={`w-11 h-6 rounded-full transition-colors ${
+                    creatorMarketplaceEnabled ? 'bg-electric-blue' : 'bg-bg-secondary'
+                  } after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all ${
+                    creatorMarketplaceEnabled ? 'after:translate-x-5' : 'after:translate-x-0'
+                  }`}></div>
+                </label>
+              </div>
+            </div>
+
+            {/* Creator Eligibility */}
+            <div className="border-t border-bg-tertiary pt-6">
+              <h3 className="text-lg font-bold text-white mb-4">Creator Eligibility Requirements</h3>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    Minimum ELO
+                  </label>
+                  <input
+                    type="number"
+                    value={creatorMinELO}
+                    onChange={(e) => setCreatorMinELO(e.target.value)}
+                    className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    Minimum Debates
+                  </label>
+                  <input
+                    type="number"
+                    value={creatorMinDebates}
+                    onChange={(e) => setCreatorMinDebates(e.target.value)}
+                    className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    Minimum Account Age (Months)
+                  </label>
+                  <input
+                    type="number"
+                    value={creatorMinAgeMonths}
+                    onChange={(e) => setCreatorMinAgeMonths(e.target.value)}
+                    className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Platform Fees */}
+            <div className="border-t border-bg-tertiary pt-6">
+              <h3 className="text-lg font-bold text-white mb-4">Platform Fees (%)</h3>
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    Bronze (1500-1999 ELO)
+                  </label>
+                  <input
+                    type="number"
+                    value={creatorFeeBronze}
+                    onChange={(e) => setCreatorFeeBronze(e.target.value)}
+                    className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    Silver (2000-2499 ELO)
+                  </label>
+                  <input
+                    type="number"
+                    value={creatorFeeSilver}
+                    onChange={(e) => setCreatorFeeSilver(e.target.value)}
+                    className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    Gold (2500+ ELO)
+                  </label>
+                  <input
+                    type="number"
+                    value={creatorFeeGold}
+                    onChange={(e) => setCreatorFeeGold(e.target.value)}
+                    className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    Platinum (Top 1%)
+                  </label>
+                  <input
+                    type="number"
+                    value={creatorFeePlatinum}
+                    onChange={(e) => setCreatorFeePlatinum(e.target.value)}
+                    className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white"
+                  />
+                </div>
+              </div>
             </div>
           </CardBody>
         </Card>

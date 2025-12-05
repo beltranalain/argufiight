@@ -11,6 +11,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { BattleHistory } from '@/components/profile/BattleHistory'
+import { TierBadge } from '@/components/subscriptions/TierBadge'
 import Link from 'next/link'
 
 interface UserProfile {
@@ -221,9 +222,14 @@ export default function UserProfilePage() {
                 <div className="flex-1">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h1 className="text-3xl font-bold text-text-primary mb-2">
-                        {profile.username}
-                      </h1>
+                      <div className="flex items-center gap-3 mb-2">
+                        <h1 className="text-3xl font-bold text-text-primary">
+                          {profile.username}
+                        </h1>
+                        {profile.subscription && (
+                          <TierBadge tier={profile.subscription.tier} showVerified={profile.subscription.tier === 'PRO'} />
+                        )}
+                      </div>
                       <p className="text-text-secondary mb-2">
                         Member since {joinDate}
                       </p>

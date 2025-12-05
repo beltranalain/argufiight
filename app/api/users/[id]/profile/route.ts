@@ -36,6 +36,11 @@ export async function GET(
         averageRounds: true,
         createdAt: true,
         isBanned: true,
+        subscription: {
+          select: {
+            tier: true,
+          },
+        },
         // Don't expose email or admin status
       },
     })
@@ -64,6 +69,9 @@ export async function GET(
       user: {
         ...user,
         winRate,
+        subscription: user.subscription ? {
+          tier: user.subscription.tier,
+        } : { tier: 'FREE' },
       },
     })
   } catch (error) {
