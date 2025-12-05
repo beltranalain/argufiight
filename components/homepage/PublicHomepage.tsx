@@ -193,22 +193,25 @@ function HomepageSectionComponent({ section, index }: { section: HomepageSection
               <div className={`relative ${
                 isImageRight ? 'lg:order-2' : 'lg:order-1'
               }`}>
-                <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-white/20 bg-bg-tertiary flex items-center justify-center">
+                <div className="relative min-h-[300px] rounded-2xl overflow-hidden border border-white/20">
                   {primaryImage.url.startsWith('data:') ? (
                     <img
                       src={primaryImage.url}
                       alt={primaryImage.alt || section.title || ''}
-                      className="w-full h-full object-contain"
+                      className="w-full h-auto object-contain"
                     />
                   ) : (
-                    <Image
-                      src={primaryImage.url}
-                      alt={primaryImage.alt || section.title || ''}
-                      fill
-                      className="object-contain"
-                      priority={index === 0}
-                      unoptimized={primaryImage.url.includes('blob.vercel-storage.com') || primaryImage.url.startsWith('data:')}
-                    />
+                    <div className="relative w-full" style={{ aspectRatio: 'auto' }}>
+                      <Image
+                        src={primaryImage.url}
+                        alt={primaryImage.alt || section.title || ''}
+                        width={800}
+                        height={600}
+                        className="w-full h-auto object-contain"
+                        priority={index === 0}
+                        unoptimized={primaryImage.url.includes('blob.vercel-storage.com') || primaryImage.url.startsWith('data:')}
+                      />
+                    </div>
                   )}
                   {primaryImage.caption && (
                     <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm p-3 text-text-primary text-sm">
@@ -257,19 +260,20 @@ function HomepageSectionComponent({ section, index }: { section: HomepageSection
         {sectionImages.length > 1 && (
           <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-4">
             {sectionImages.slice(1).map((image) => (
-              <div key={image.id} className="relative aspect-square rounded-xl overflow-hidden border border-white/20 bg-bg-tertiary flex items-center justify-center">
+              <div key={image.id} className="relative rounded-xl overflow-hidden border border-white/20">
                 {image.url.includes('blob.vercel-storage.com') || image.url.startsWith('data:') ? (
                   <img
                     src={image.url}
                     alt={image.alt || ''}
-                    className="w-full h-full object-contain"
+                    className="w-full h-auto object-contain"
                   />
                 ) : (
                   <Image
                     src={image.url}
                     alt={image.alt || ''}
-                    fill
-                    className="object-contain"
+                    width={400}
+                    height={400}
+                    className="w-full h-auto object-contain"
                   />
                 )}
               </div>
