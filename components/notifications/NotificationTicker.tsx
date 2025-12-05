@@ -44,7 +44,7 @@ export function NotificationTicker() {
     const content = contentRef.current
     let animationId: number
     let position = 0
-    const speed = 1 // pixels per frame - consistent speed
+    const speed = 0.3 // pixels per frame - slower, smoother scroll
 
     const animate = () => {
       if (!isPaused && content) {
