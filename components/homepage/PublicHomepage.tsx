@@ -4,6 +4,29 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 
+interface SocialMediaLink {
+  platform: string
+  url: string
+}
+
+const PLATFORM_ICONS: Record<string, string> = {
+  FACEBOOK: '📘',
+  TWITTER: '🐦',
+  INSTAGRAM: '📷',
+  LINKEDIN: '💼',
+  YOUTUBE: '▶️',
+  TIKTOK: '🎵',
+}
+
+const PLATFORM_LABELS: Record<string, string> = {
+  FACEBOOK: 'Facebook',
+  TWITTER: 'Twitter',
+  INSTAGRAM: 'Instagram',
+  LINKEDIN: 'LinkedIn',
+  YOUTUBE: 'YouTube',
+  TIKTOK: 'TikTok',
+}
+
 interface HomepageSection {
   id: string
   key: string
@@ -451,6 +474,15 @@ function AppDownloadSection({ section }: { section: HomepageSection }) {
 }
 
 function FooterSection({ section }: { section: HomepageSection | undefined }) {
+  const [socialLinks, setSocialLinks] = useState<SocialMediaLink[]>([])
+
+  useEffect(() => {
+    fetch('/api/content/social-media')
+      .then((res) => res.json())
+      .then((data) => setSocialLinks(data.links || []))
+      .catch(() => setSocialLinks([]))
+  }, [])
+
   return (
     <footer className="py-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -493,9 +525,30 @@ function FooterSection({ section }: { section: HomepageSection | undefined }) {
           {/* Contact Column */}
           <div>
             <h3 className="text-text-primary font-semibold text-lg mb-6">Contact</h3>
-            <p className="text-text-primary/80 text-base">
+            <p className="text-text-primary/80 text-base mb-4">
               {section?.contactEmail || 'info@argufight.com'}
             </p>
+            
+            {/* Social Media Links */}
+            {socialLinks.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {socialLinks.map((link) => (
+                  <a
+                    key={link.platform}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-text-primary/80 hover:text-text-primary"
+                    title={PLATFORM_LABELS[link.platform] || link.platform}
+                  >
+                    <span className="text-base">{PLATFORM_ICONS[link.platform] || '🔗'}</span>
+                    <span className="text-sm font-medium hidden sm:inline">
+                      {PLATFORM_LABELS[link.platform] || link.platform}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
