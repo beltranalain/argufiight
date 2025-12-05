@@ -265,6 +265,7 @@ model Debate {
   appealPredictions AppealPrediction[]
   tags              DebateTag[]
   tournamentMatch   TournamentMatch?   @relation("TournamentDebate")
+  socialMediaPosts  SocialMediaPost[]
 
   @@index([status])
   @@index([category])
