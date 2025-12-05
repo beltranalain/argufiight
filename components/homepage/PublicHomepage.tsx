@@ -494,11 +494,9 @@ function FooterSection({ section }: { section: HomepageSection | undefined }) {
 
         {/* Copyright */}
         <div className="text-center text-text-primary/60 text-sm pt-8 border-t border-text-primary/10">
-          {section?.content ? (
-            <div dangerouslySetInnerHTML={{ __html: section.content }} />
-          ) : (
-            <p>&copy; {new Date().getFullYear()} Argu Fight. All rights reserved.</p>
-          )}
+          <p>
+            &copy; {new Date().getFullYear()} {section?.content || 'Argu Fight. All rights reserved.'}
+          </p>
         </div>
       </div>
     </footer>

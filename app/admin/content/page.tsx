@@ -493,11 +493,11 @@ function EditSectionModal({
             {section.key === 'footer' ? 'Copyright Text' : 'Content'}
           </label>
           {section.key === 'footer' ? (
-            <textarea
-              value={content}
+            <input
+              type="text"
+              value={content || ''}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="© 2025 Argu Fight. All rights reserved."
-              rows={3}
+              placeholder="Argu Fight. All rights reserved."
               className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
             />
           ) : (
@@ -514,7 +514,7 @@ function EditSectionModal({
           )}
           {section.key === 'footer' && (
             <p className="text-xs text-text-secondary mt-2">
-              This text will appear at the bottom of the footer. You can use HTML like &lt;strong&gt; for bold text.
+              Enter your copyright text (e.g., "Argu Fight. All rights reserved."). The copyright symbol and year will be added automatically.
             </p>
           )}
         </div>
