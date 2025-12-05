@@ -167,7 +167,7 @@ export function RematchButton({
   // Show request button for loser if no rematch has been requested
   if (isLoser && !rematchRequestedBy && !isPending && !isDeclined) {
     return (
-      <div className="mt-4">
+      <div className="mt-4 mb-20 pb-4">
         <Button
           variant="secondary"
           onClick={handleRequestRematch}
@@ -183,7 +183,7 @@ export function RematchButton({
   // Show pending status if current user requested rematch
   if (rematchRequestedByCurrentUser && isPending) {
     return (
-      <div className="mt-4 p-4 bg-bg-tertiary rounded-lg border border-electric-blue/30">
+      <div className="mt-4 mb-20 pb-4 p-4 bg-bg-tertiary rounded-lg border border-electric-blue/30">
         <p className="text-sm text-text-secondary text-center">
           Rematch request sent. Waiting for opponent to respond...
         </p>
@@ -194,7 +194,7 @@ export function RematchButton({
   // Show accept/decline buttons if opponent requested rematch
   if (rematchRequestedByOpponent && isPending) {
     return (
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 mb-20 pb-4 space-y-3">
         <div className="p-4 bg-bg-tertiary rounded-lg border border-electric-blue/30">
           <p className="text-sm text-text-primary mb-3 text-center">
             Your opponent has requested a rematch!
@@ -225,7 +225,7 @@ export function RematchButton({
   // Show declined status
   if (isDeclined) {
     return (
-      <div className="mt-4 p-4 bg-bg-tertiary rounded-lg border border-bg-tertiary">
+      <div className="mt-4 mb-20 pb-4 p-4 bg-bg-tertiary rounded-lg border border-bg-tertiary">
         <p className="text-sm text-text-secondary text-center">
           Rematch request was declined
         </p>

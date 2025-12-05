@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { useToast } from '@/components/ui/Toast'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 interface AppealButtonProps {
   debateId: string
@@ -33,14 +34,35 @@ export function AppealButton({
   verdicts,
   onAppealSubmitted,
 }: AppealButtonProps) {
+  const { user } = useAuth()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState<string>('')
   const [appealReason, setAppealReason] = useState<string>('')
   const [selectedVerdicts, setSelectedVerdicts] = useState<Set<string>>(new Set())
+  const [appealLimit, setAppealLimit] = useState<{ remaining: number; limit: number } | null>(null)
   const scrollPositionRef = useRef<number>(0)
   const scrollLockRef = useRef<boolean>(false)
   const { showToast } = useToast()
+
+  // Fetch appeal limit
+  useEffect(() => {
+    if (!user) return
+
+    const fetchAppealLimit = async () => {
+      try {
+        const response = await fetch('/api/debates/appeal-limit')
+        if (response.ok) {
+          const data = await response.json()
+          setAppealLimit({ remaining: data.remaining, limit: data.limit })
+        }
+      } catch (error) {
+        console.error('Failed to fetch appeal limit:', error)
+      }
+    }
+
+    fetchAppealLimit()
+  }, [user])
 
   // Calculate time remaining for appeal
   useEffect(() => {
@@ -243,6 +265,11 @@ export function AppealButton({
         Appeal Verdict
         {timeRemaining && timeRemaining !== 'Expired' && (
           <span className="ml-2 text-xs opacity-75">({timeRemaining})</span>
+        )}
+        {appealLimit && (
+          <span className="ml-2 text-xs opacity-75">
+            {appealLimit.remaining}/{appealLimit.limit} remaining
+          </span>
         )}
       </Button>
 
