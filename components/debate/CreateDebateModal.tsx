@@ -46,6 +46,7 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
   const [position, setPosition] = useState<PositionValue>('FOR')
   const [totalRounds, setTotalRounds] = useState(5)
   const [speedMode, setSpeedMode] = useState(false)
+  const [allowCopyPaste, setAllowCopyPaste] = useState(true)
   const [challengeType, setChallengeType] = useState<ChallengeTypeValue>('OPEN')
   const [selectedUsers, setSelectedUsers] = useState<User[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -136,6 +137,7 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
       setPosition('FOR')
       setTotalRounds(5)
       setSpeedMode(false)
+      setAllowCopyPaste(true)
       setChallengeType('OPEN')
       setSelectedUsers([])
       setImages([])
@@ -228,6 +230,7 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
           challengerPosition: position,
           totalRounds,
           speedMode,
+          allowCopyPaste,
           challengeType,
           invitedUserIds: challengeType !== 'OPEN' ? selectedUsers.map(u => u.id) : null,
         }),
@@ -306,6 +309,7 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
       setPosition('FOR')
       setTotalRounds(5)
       setSpeedMode(false)
+      setAllowCopyPaste(true)
       setChallengeType('OPEN')
       setSelectedUsers([])
       setImages([])
@@ -584,6 +588,26 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
             <span className="font-semibold">Speed Mode</span>
             <span className="text-text-secondary ml-2">(1 hour per round instead of 24 hours)</span>
           </label>
+        </div>
+
+        {/* Copy-Paste Restriction */}
+        <div className="flex items-start gap-3 p-4 bg-bg-secondary border border-bg-tertiary rounded-lg">
+          <input
+            type="checkbox"
+            id="allowCopyPaste"
+            checked={allowCopyPaste}
+            onChange={(e) => setAllowCopyPaste(e.target.checked)}
+            className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-electric-blue focus:ring-electric-blue focus:ring-2 mt-0.5"
+          />
+          <div className="flex-1">
+            <label htmlFor="allowCopyPaste" className="text-sm text-text-primary cursor-pointer">
+              <span className="font-semibold">Allow Copy-Paste</span>
+            </label>
+            <p className="text-xs text-text-secondary mt-1">
+              When unchecked, participants cannot paste text from external sources to prevent cheating. 
+              They must type their arguments manually.
+            </p>
+          </div>
         </div>
 
         <ModalFooter>

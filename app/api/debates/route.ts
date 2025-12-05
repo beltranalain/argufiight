@@ -136,6 +136,7 @@ export async function POST(request: NextRequest) {
       challengerPosition, 
       totalRounds, 
       speedMode,
+      allowCopyPaste = true,
       challengeType = 'OPEN',
       invitedUserIds = null,
     } = body
@@ -274,6 +275,7 @@ export async function POST(request: NextRequest) {
           totalRounds: totalRounds || 5,
           roundDuration,
           speedMode: speedMode || false,
+          allowCopyPaste: allowCopyPaste !== false, // Default to true
           challengeType,
           invitedUserIds: invitedUserIds ? JSON.stringify(invitedUserIds) : null,
           invitedBy: challengeType !== 'OPEN' ? userId : null,

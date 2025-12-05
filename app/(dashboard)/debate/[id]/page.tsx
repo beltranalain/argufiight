@@ -77,6 +77,7 @@ interface Debate {
   currentRound: number
   status: string
   roundDeadline: Date | string | null
+  allowCopyPaste: boolean
   winnerId: string | null
   verdictDate: Date | string | null
   appealedAt: Date | string | null

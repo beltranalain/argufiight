@@ -25,6 +25,7 @@ export async function GET(
         currentRound: true,
         roundDeadline: true,
         speedMode: true,
+        allowCopyPaste: true,
         winnerId: true,
         verdictReached: true,
         verdictDate: true,

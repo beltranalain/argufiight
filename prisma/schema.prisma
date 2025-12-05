@@ -152,6 +152,7 @@ model Debate {
   spectatorCount Int     @default(0) @map("spectator_count")
   viewCount      Int     @default(0) @map("view_count")
   featured       Boolean @default(false)
+  allowCopyPaste Boolean @default(true) @map("allow_copy_paste") // Allow copy-paste in arguments
 
   // Relations
   images DebateImage[]
