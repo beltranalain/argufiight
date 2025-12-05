@@ -215,19 +215,19 @@ export default function ContentManagerPage() {
       
       // Fetch updated section data to refresh the modal
       await fetchSections()
-      const updatedSections = await fetch('/api/admin/content/sections').then(r => r.json())
+        const updatedSections = await fetch('/api/admin/content/sections').then(r => r.json())
       const updatedSection = (updatedSections.sections || updatedSections || []).find(
         (s: HomepageSection) => s.id === selectedSection.id
       )
       
-      if (updatedSection) {
+        if (updatedSection) {
         // Update selected section with fresh data including images and buttons
         setSelectedSection({
           ...updatedSection,
           images: updatedSection.images || [],
           buttons: updatedSection.buttons || [],
         })
-      }
+        }
       // Keep modal open - don't close it
     } catch (error: any) {
       console.error('Save error:', error)
@@ -489,15 +489,34 @@ function EditSectionModal({
 
         {/* Content (Rich Text Editor) */}
         <div>
-          <label className="block text-sm font-medium text-white mb-2">Content</label>
-          <RichTextEditor
-            value={content}
-            onChange={setContent}
-            placeholder="Enter your content here. Use the toolbar to format text, add links, and create lists."
-          />
-          <p className="text-xs text-text-secondary mt-2">
-            Use the toolbar above to format your text, add links, and create lists. HTML is generated automatically in the background.
-          </p>
+          <label className="block text-sm font-medium text-white mb-2">
+            {section.key === 'footer' ? 'Copyright Text' : 'Content'}
+          </label>
+          {section.key === 'footer' ? (
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="© 2025 Argu Fight. All rights reserved."
+              rows={3}
+              className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
+            />
+          ) : (
+            <>
+              <RichTextEditor
+                value={content}
+                onChange={setContent}
+                placeholder="Enter your content here. Use the toolbar to format text, add links, and create lists."
+              />
+              <p className="text-xs text-text-secondary mt-2">
+                Use the toolbar above to format your text, add links, and create lists. HTML is generated automatically in the background.
+              </p>
+            </>
+          )}
+          {section.key === 'footer' && (
+            <p className="text-xs text-text-secondary mt-2">
+              This text will appear at the bottom of the footer. You can use HTML like &lt;strong&gt; for bold text.
+            </p>
+          )}
         </div>
 
         {/* SEO */}
