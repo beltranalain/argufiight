@@ -61,8 +61,12 @@ export async function POST(request: NextRequest) {
     let promoCodeId: string | null = null
     if (subscription.discounts && subscription.discounts.length > 0) {
       const discount = subscription.discounts[0]
-      if (typeof discount !== 'string' && discount.coupon?.metadata?.promoCodeId) {
-        promoCodeId = discount.coupon.metadata.promoCodeId
+      // Stripe Discount type structure: discount.discount.coupon
+      if (typeof discount !== 'string' && 'discount' in discount && discount.discount) {
+        const discountObj = discount.discount as any
+        if (discountObj.coupon?.metadata?.promoCodeId) {
+          promoCodeId = discountObj.coupon.metadata.promoCodeId
+        }
       }
     }
     
@@ -84,8 +88,8 @@ export async function POST(request: NextRequest) {
         tier: 'PRO',
         billingCycle,
         status: subscription.status === 'active' ? 'ACTIVE' : 'PAST_DUE',
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        currentPeriodStart: new Date(subscription.currentPeriodStart * 1000),
+        currentPeriodEnd: new Date(subscription.currentPeriodEnd * 1000),
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscription.id,
         stripePriceId: subscription.items.data[0]?.price.id || null,
@@ -96,13 +100,13 @@ export async function POST(request: NextRequest) {
         tier: 'PRO',
         billingCycle,
         status: subscription.status === 'active' ? 'ACTIVE' : 'PAST_DUE',
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
+        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscription.id,
         stripePriceId: subscription.items.data[0]?.price.id || null,
         promoCodeId,
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        cancelAtPeriodEnd: (subscription as any).cancel_at_period_end,
       },
     })
 
