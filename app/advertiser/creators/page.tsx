@@ -35,10 +35,15 @@ export default function CreatorDiscoveryPage() {
     minFollowers: '',
     search: '',
   })
-
+  // Debounce search input and fetch on filter changes
   useEffect(() => {
-    fetchCreators()
-  }, [filters])
+    const timeout = setTimeout(() => {
+      fetchCreators()
+    }, filters.search ? 500 : 0) // Wait 500ms after user stops typing for search, immediate for other filters
+
+    return () => clearTimeout(timeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.search, filters.minELO, filters.category, filters.minFollowers])
 
   const fetchCreators = async () => {
     try {
@@ -47,15 +52,20 @@ export default function CreatorDiscoveryPage() {
       if (filters.minELO) params.append('minELO', filters.minELO)
       if (filters.category) params.append('category', filters.category)
       if (filters.minFollowers) params.append('minFollowers', filters.minFollowers)
-      if (filters.search) params.append('search', filters.search)
+      if (filters.search && filters.search.trim()) params.append('search', filters.search.trim())
 
       const response = await fetch(`/api/advertiser/creators?${params.toString()}`)
       if (response.ok) {
         const data = await response.json()
         setCreators(data.creators || [])
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Failed to fetch creators:', response.status, errorData)
+        setCreators([])
       }
     } catch (error) {
       console.error('Failed to fetch creators:', error)
+      setCreators([])
     } finally {
       setIsLoading(false)
     }
@@ -105,7 +115,7 @@ export default function CreatorDiscoveryPage() {
                   <label className="block text-sm font-medium text-text-secondary mb-2">
                     Search Username
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={filters.search}
                     onChange={(e) => {
@@ -113,7 +123,6 @@ export default function CreatorDiscoveryPage() {
                       setFilters(prev => ({ ...prev, search: value }))
                     }}
                     placeholder="Search..."
-                    className="w-full px-4 py-3.5 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary transition-all duration-300 outline-none focus:border-electric-blue focus:shadow-[0_0_0_3px_rgba(0,217,255,0.1)] placeholder:text-text-muted"
                   />
                 </div>
                 <div>

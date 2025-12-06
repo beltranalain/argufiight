@@ -65,9 +65,19 @@ export async function GET(request: NextRequest) {
       where.followerCount = { gte: parseInt(minFollowers, 10) }
     }
 
-    if (search) {
-      where.username = { contains: search, mode: 'insensitive' }
+    if (search && search.trim()) {
+      where.username = { 
+        contains: search.trim(), 
+        mode: 'insensitive' 
+      }
     }
+
+    console.log('[API] Fetching creators with filters:', {
+      isCreator: where.isCreator,
+      minELO: where.eloRating,
+      minFollowers: where.followerCount,
+      search: where.username,
+    })
 
     const creators = await prisma.user.findMany({
       where,
@@ -91,6 +101,8 @@ export async function GET(request: NextRequest) {
       orderBy: { eloRating: 'desc' },
       take: 50,
     })
+
+    console.log('[API] Found creators:', creators.length)
 
     // Filter by category if provided (would need debate history analysis)
     // For now, return all matching creators
