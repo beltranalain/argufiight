@@ -51,11 +51,14 @@ export function useAuth() {
         } else {
           setUser(null)
         }
+      } else if (response.status === 401) {
+        // 401 is expected when user is not logged in - not an error
+        setUser(null)
       } else {
         setUser(null)
       }
     } catch (error) {
-      console.error('Failed to fetch user:', error)
+      // Silently handle errors - 401 is expected for logged-out users
       setUser(null)
     } finally {
       setIsLoading(false)

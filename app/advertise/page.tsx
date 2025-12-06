@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -339,8 +339,8 @@ export default function AdvertisePage() {
     </div>
   )
 
-  // Application/Signup Tab
-  const ApplicationTab = () => (
+  // Application/Signup Tab - Memoized to prevent re-creation on every render
+  const ApplicationTab = useMemo(() => (
     <div className="space-y-6">
       {user ? (
         <div className="rounded-xl border border-electric-blue/50 bg-purple-800/30 backdrop-blur-sm p-6">
@@ -485,7 +485,7 @@ export default function AdvertisePage() {
         </form>
       </div>
     </div>
-  )
+  ), [user, formData, isSubmitting, handleCompanyNameChange, handleWebsiteChange, handleIndustryChange, handleContactNameChange, handleContactEmailChange, handleBusinessEINChange, handleSubmit, router])
 
   if (authLoading) {
     return (
@@ -582,7 +582,7 @@ export default function AdvertisePage() {
                 { id: 'overview', label: 'Program Overview', content: <OverviewTab /> },
                 { id: 'how-to', label: 'How to Participate', content: <HowToParticipateTab /> },
                 { id: 'rules', label: 'Rules & Guidelines', content: <RulesTab /> },
-                { id: 'apply', label: 'Apply / Sign Up', content: <ApplicationTab /> },
+                { id: 'apply', label: 'Apply / Sign Up', content: ApplicationTab },
               ]}
               defaultTab="overview"
             />
