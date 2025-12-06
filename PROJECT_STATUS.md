@@ -83,6 +83,14 @@ We've been fixing TypeScript build errors that occurred after migrating to a new
 - **Issue:** `coupon` property doesn't exist on `SubscriptionCreateParams` type
 - **Fix:** Used type assertion `(subscriptionData as any).coupon = coupon.id`
 
+#### 12. useSearchParams Suspense Boundary (Next.js 15)
+- **Files:**
+  - `app/(auth)/signup/payment/page.tsx`
+  - `app/(auth)/signup/success/page.tsx`
+  - `app/(auth)/reset-password/page.tsx`
+- **Issue:** `useSearchParams()` must be wrapped in Suspense boundary in Next.js 15
+- **Fix:** Extracted components using `useSearchParams()` and wrapped them in `<Suspense>` boundaries
+
 ### Cron Job Configuration
 - **File:** `vercel.json`
 - **Issue:** Hobby plan only allows daily cron jobs
@@ -114,6 +122,9 @@ We've been fixing TypeScript build errors that occurred after migrating to a new
 13. `app/api/cron/process-ad-payouts/route.ts` - Fixed duplicate property
 14. `vercel.json` - Fixed cron schedule
 15. `lib/stripe/stripe-client.ts` - Fixed coupon property type assertion
+16. `app/(auth)/signup/payment/page.tsx` - Added Suspense boundary for useSearchParams
+17. `app/(auth)/signup/success/page.tsx` - Added Suspense boundary for useSearchParams
+18. `app/(auth)/reset-password/page.tsx` - Added Suspense boundary for useSearchParams
 
 ## Next Steps (If Build Still Fails)
 1. Check Vercel dashboard to confirm it's building commit `3f48a854`
