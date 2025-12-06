@@ -105,11 +105,11 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
       status: subscription.status === 'active' ? 'ACTIVE' : 
               subscription.status === 'canceled' ? 'CANCELLED' :
               subscription.status === 'past_due' ? 'PAST_DUE' : 'EXPIRED',
-      currentPeriodStart: new Date(subscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
+      currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
       stripeSubscriptionId: subscriptionId,
       stripePriceId: subscription.items.data[0]?.price.id || null,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      cancelAtPeriodEnd: (subscription as any).cancel_at_period_end,
     },
   })
 
