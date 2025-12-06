@@ -14,7 +14,10 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   const [isListening, setIsListening] = useState(false)
   const [isSupported, setIsSupported] = useState(false)
   const [showPermissionModal, setShowPermissionModal] = useState(false)
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle')
+  const [testMessage, setTestMessage] = useState('')
   const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const testRecognitionRef = useRef<SpeechRecognition | null>(null)
 
   useEffect(() => {
     // Check if browser supports Web Speech API
@@ -91,6 +94,13 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
           // Ignore errors when stopping
         }
       }
+      if (testRecognitionRef.current) {
+        try {
+          testRecognitionRef.current.stop()
+        } catch (e) {
+          // Ignore errors when stopping
+        }
+      }
     }
   }, [onTranscript])
 
@@ -135,6 +145,91 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   const stopListening = () => {
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop()
+    }
+  }
+
+  // Test microphone function - forces browser to prompt for permission
+  const testMicrophone = () => {
+    if (!isSupported) {
+      setTestStatus('error')
+      setTestMessage('Speech recognition is not supported in this browser')
+      return
+    }
+
+    setTestStatus('testing')
+    setTestMessage('Requesting microphone access...')
+
+    try {
+      // Create a new recognition instance just for testing
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      const testRecognition = new SpeechRecognition()
+      testRecognition.continuous = false
+      testRecognition.interimResults = false
+      testRecognition.lang = 'en-US'
+
+      // Set up test handlers
+      testRecognition.onstart = () => {
+        console.log('Test: Speech recognition started successfully')
+        setTestStatus('success')
+        setTestMessage('Microphone is working! You can now use Voice Input.')
+        // Stop after 2 seconds
+        setTimeout(() => {
+          if (testRecognitionRef.current) {
+            try {
+              testRecognitionRef.current.stop()
+            } catch (e) {
+              // Ignore errors
+            }
+          }
+        }, 2000)
+      }
+
+      testRecognition.onresult = (event: SpeechRecognitionEvent) => {
+        let transcript = ''
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript
+        }
+        if (transcript) {
+          setTestMessage(`Microphone is working! Heard: "${transcript}"`)
+        }
+      }
+
+      testRecognition.onerror = (event: any) => {
+        console.error('Test: Speech recognition error:', event.error)
+        if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+          setTestStatus('error')
+          setTestMessage('Microphone permission denied. Please allow access in your browser settings.')
+        } else if (event.error === 'no-speech') {
+          // This is actually okay - it means the mic is working but no speech was detected
+          setTestStatus('success')
+          setTestMessage('Microphone is working! (No speech detected, but mic is connected)')
+        } else {
+          setTestStatus('error')
+          setTestMessage(`Error: ${event.error}. Please check your microphone settings.`)
+        }
+      }
+
+      testRecognition.onend = () => {
+        console.log('Test: Speech recognition ended')
+        if (testStatus === 'testing') {
+          setTestStatus('idle')
+          setTestMessage('')
+        }
+      }
+
+      testRecognitionRef.current = testRecognition
+
+      // Force start - this will trigger browser permission prompt
+      console.log('Test: Attempting to start speech recognition to test microphone...')
+      testRecognition.start()
+    } catch (error: any) {
+      console.error('Test: Failed to start speech recognition:', error)
+      setTestStatus('error')
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setTestMessage('Microphone permission denied. Please allow access in your browser settings.')
+      } else {
+        setTestMessage(`Error: ${error.message || 'Failed to access microphone'}`)
+      }
     }
   }
 
@@ -255,10 +350,83 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
             </ul>
           </div>
 
+          {/* Test Microphone Section */}
+          <div className="border-t border-bg-tertiary pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h4 className="font-semibold text-text-primary mb-1">Test Microphone</h4>
+                <p className="text-sm text-text-secondary">
+                  Click the button below to test if your microphone is working
+                </p>
+              </div>
+              <Button
+                variant={testStatus === 'success' ? 'success' : testStatus === 'error' ? 'danger' : 'primary'}
+                onClick={testMicrophone}
+                disabled={testStatus === 'testing'}
+                className="ml-4"
+              >
+                {testStatus === 'testing' ? (
+                  <>
+                    <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12c0-1.657.663-3.157 1.734-4.266l-1.415-1.414A9.97 9.97 0 000 12c0 5.523 4.477 10 10 10s10-4.477 10-10S15.523 2 10 2V0c5.523 0 10 4.477 10 10s-4.477 10-10 10z"></path>
+                    </svg>
+                    Testing...
+                  </>
+                ) : testStatus === 'success' ? (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    Working!
+                  </>
+                ) : testStatus === 'error' ? (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    Try Again
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                    </svg>
+                    Test Microphone
+                  </>
+                )}
+              </Button>
+            </div>
+            {testMessage && (
+              <div className={`p-3 rounded-lg ${
+                testStatus === 'success' 
+                  ? 'bg-green-500/10 border border-green-500/30 text-green-400' 
+                  : testStatus === 'error'
+                  ? 'bg-red-500/10 border border-red-500/30 text-red-400'
+                  : 'bg-electric-blue/10 border border-electric-blue/30 text-electric-blue'
+              }`}>
+                <p className="text-sm">{testMessage}</p>
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-end pt-2">
             <Button
               variant="primary"
-              onClick={() => setShowPermissionModal(false)}
+              onClick={() => {
+                setShowPermissionModal(false)
+                setTestStatus('idle')
+                setTestMessage('')
+                // Clean up test recognition
+                if (testRecognitionRef.current) {
+                  try {
+                    testRecognitionRef.current.stop()
+                  } catch (e) {
+                    // Ignore errors
+                  }
+                  testRecognitionRef.current = null
+                }
+              }}
             >
               Got it
             </Button>
