@@ -94,24 +94,39 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Transform user object to snake_case for mobile compatibility
-    const mobileUser = {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      avatar_url: user.avatarUrl || undefined,
-      bio: user.bio || undefined,
-      elo_rating: user.eloRating,
-      debates_won: user.debatesWon,
-      debates_lost: user.debatesLost,
-      debates_tied: user.debatesTied,
-      total_debates: user.totalDebates,
-      total_score: user.totalScore,
-      total_max_score: user.totalMaxScore,
-      is_creator: user.isCreator,
-    }
-
-    return NextResponse.json({ user: mobileUser })
+    // Return user with both camelCase and snake_case for compatibility
+    return NextResponse.json({ 
+      user: {
+        // camelCase (for web)
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+        bio: user.bio,
+        eloRating: user.eloRating,
+        debatesWon: user.debatesWon,
+        debatesLost: user.debatesLost,
+        debatesTied: user.debatesTied,
+        totalDebates: user.totalDebates,
+        totalScore: user.totalScore,
+        totalMaxScore: user.totalMaxScore,
+        isAdmin: user.isAdmin,
+        isBanned: user.isBanned,
+        isCreator: user.isCreator,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        // snake_case (for mobile compatibility)
+        avatar_url: user.avatarUrl || undefined,
+        elo_rating: user.eloRating,
+        debates_won: user.debatesWon,
+        debates_lost: user.debatesLost,
+        debates_tied: user.debatesTied,
+        total_debates: user.totalDebates,
+        total_score: user.totalScore,
+        total_max_score: user.totalMaxScore,
+        is_creator: user.isCreator,
+      }
+    })
   } catch (error) {
     console.error('Get user error:', error)
     return NextResponse.json(
