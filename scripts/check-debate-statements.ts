@@ -28,6 +28,7 @@ async function checkDebateStatements() {
           include: {
             author: {
               select: {
+                id: true,
                 username: true,
                 isAI: true,
               },

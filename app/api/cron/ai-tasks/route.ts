@@ -173,18 +173,17 @@ export async function GET(request: NextRequest) {
             )
 
             // Submit the statement
-            const wordCount = calculateWordCount(aiResponse)
             const statement = await prisma.statement.create({
               data: {
                 debateId: debate.id,
                 authorId: aiUser.id,
-                content: aiResponse,
+                content: aiResponse.trim(),
                 round: debate.currentRound,
-                wordCount,
               },
             })
 
             // Update analytics
+            const wordCount = calculateWordCount(aiResponse)
             await updateUserAnalyticsOnStatement(aiUser.id, wordCount)
 
             // Check if both users have submitted for this round
@@ -196,13 +195,13 @@ export async function GET(request: NextRequest) {
               },
             })
 
-            const opponentStatement = await prisma.statement.findFirst({
+            const opponentStatement = debate.opponentId ? await prisma.statement.findFirst({
               where: {
                 debateId: debate.id,
                 round: debate.currentRound,
                 authorId: debate.opponentId,
               },
-            })
+            }) : null
 
             if (challengerStatement && opponentStatement) {
               if (debate.currentRound >= debate.totalRounds) {

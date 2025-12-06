@@ -68,7 +68,10 @@ async function checkDebateVerdicts() {
     } else {
       debate.verdicts.forEach((verdict, idx) => {
         console.log(`\n${idx + 1}. ${verdict.judge.name} (${verdict.judge.personality})`)
-        console.log(`   Winner: ${verdict.winner === debate.challengerId ? debate.challenger.username : debate.opponent?.username}`)
+        const winnerName = verdict.winnerId === debate.challengerId 
+          ? debate.challenger.username 
+          : (verdict.winnerId === debate.opponentId ? debate.opponent?.username : 'Unknown')
+        console.log(`   Winner: ${winnerName}`)
         console.log(`   Created: ${new Date(verdict.createdAt).toLocaleString()}`)
         if (verdict.reasoning) {
           console.log(`   Reasoning: ${verdict.reasoning.substring(0, 100)}...`)
