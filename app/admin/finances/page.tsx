@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { AdminNav } from '@/components/admin/AdminNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
@@ -105,21 +104,14 @@ export default function FinancesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen bg-black">
-        <AdminNav />
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="flex items-center justify-center min-h-[400px]">
-            <LoadingSpinner />
-          </div>
-        </main>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <LoadingSpinner />
       </div>
     )
   }
 
   return (
-    <div className="flex h-screen bg-black">
-      <AdminNav />
-      <main className="flex-1 overflow-y-auto p-8">
+    <div>
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -422,7 +414,6 @@ export default function FinancesPage() {
             </>
           )}
         </div>
-      </main>
     </div>
   )
 }
