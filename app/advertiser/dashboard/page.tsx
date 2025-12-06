@@ -224,40 +224,7 @@ export default function AdvertiserDashboardPage() {
                   </div>
                   <Button 
                     variant="primary"
-                    onClick={async () => {
-                      try {
-                        const response = await fetch('/api/advertiser/stripe-onboarding')
-                        if (response.ok) {
-                          const data = await response.json()
-                          if (data.url) {
-                            window.location.href = data.url
-                          }
-                        } else {
-                          const error = await response.json()
-                          
-                          // Check if it's a Connect not enabled error
-                          if (error.code === 'CONNECT_NOT_ENABLED') {
-                            showToast({
-                              type: 'error',
-                              title: 'Stripe Connect Not Enabled',
-                              description: 'Please enable Stripe Connect in your Stripe Dashboard. Visit https://dashboard.stripe.com/settings/connect',
-                            })
-                          } else {
-                            showToast({
-                              type: 'error',
-                              title: 'Setup Failed',
-                              description: error.error || 'Failed to start Stripe setup',
-                            })
-                          }
-                        }
-                      } catch (error: any) {
-                        showToast({
-                          type: 'error',
-                          title: 'Error',
-                          description: 'Failed to connect Stripe account',
-                        })
-                      }
-                    }}
+                    onClick={() => router.push('/advertiser/settings')}
                   >
                     Connect Stripe
                   </Button>

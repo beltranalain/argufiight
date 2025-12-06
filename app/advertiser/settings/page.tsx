@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
+import { FinancialConnectionsModal } from '@/components/stripe/FinancialConnectionsModal'
 
 interface Advertiser {
   id: string
@@ -153,42 +154,21 @@ export default function AdvertiserSettingsPage() {
     }
   }
 
-  const handleConnectStripe = async () => {
-    try {
-      setIsSaving(true)
-      const response = await fetch('/api/advertiser/stripe-onboarding')
-      
-      if (!response.ok) {
-        const error = await response.json()
-        
-        // Check if it's a Connect not enabled error
-        if (error.code === 'CONNECT_NOT_ENABLED') {
-          showToast({
-            type: 'error',
-            title: 'Stripe Connect Not Enabled',
-            description: 'Please enable Stripe Connect in your Stripe Dashboard. Visit https://dashboard.stripe.com/settings/connect to get started.',
-          })
-          return
-        }
-        
-        throw new Error(error.error || 'Failed to create onboarding link')
-      }
+  const [showFinancialConnections, setShowFinancialConnections] = useState(false)
 
-      const data = await response.json()
-      
-      // Redirect to Stripe onboarding
-      if (data.url) {
-        window.location.href = data.url
-      }
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Setup Failed',
-        description: error.message || 'Failed to start Stripe setup',
-      })
-    } finally {
-      setIsSaving(false)
-    }
+  const handleConnectStripe = async () => {
+    // Open Financial Connections modal instead of redirecting
+    setShowFinancialConnections(true)
+  }
+
+  const handleFinancialConnectionsSuccess = async () => {
+    showToast({
+      type: 'success',
+      title: 'Bank Account Connected',
+      description: 'Your bank account has been successfully connected.',
+    })
+    // Refresh advertiser data
+    fetchData()
   }
 
   if (isLoading) {
@@ -416,6 +396,15 @@ export default function AdvertiserSettingsPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Financial Connections Modal */}
+      <FinancialConnectionsModal
+        isOpen={showFinancialConnections}
+        onClose={() => setShowFinancialConnections(false)}
+        onSuccess={handleFinancialConnectionsSuccess}
+        apiEndpoint="/api/advertiser/financial-connections"
+        permissions={['payment_method', 'balances']}
+      />
     </div>
   )
 }
