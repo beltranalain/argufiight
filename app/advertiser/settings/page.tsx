@@ -154,12 +154,30 @@ export default function AdvertiserSettingsPage() {
   }
 
   const handleConnectStripe = async () => {
-    // TODO: Implement Stripe Connect onboarding
-    showToast({
-      type: 'info',
-      title: 'Stripe Integration',
-      description: 'Stripe Connect integration coming soon.',
-    })
+    try {
+      setIsSaving(true)
+      const response = await fetch('/api/advertiser/stripe-onboarding')
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create onboarding link')
+      }
+
+      const data = await response.json()
+      
+      // Redirect to Stripe onboarding
+      if (data.url) {
+        window.location.href = data.url
+      }
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Setup Failed',
+        description: error.message || 'Failed to start Stripe setup',
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   if (isLoading) {

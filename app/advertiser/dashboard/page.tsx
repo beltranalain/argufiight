@@ -222,7 +222,35 @@ export default function AdvertiserDashboardPage() {
                       Connect your Stripe account to start creating campaigns and making offers to creators.
                     </p>
                   </div>
-                  <Button variant="primary">Connect Stripe</Button>
+                  <Button 
+                    variant="primary"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch('/api/advertiser/stripe-onboarding')
+                        if (response.ok) {
+                          const data = await response.json()
+                          if (data.url) {
+                            window.location.href = data.url
+                          }
+                        } else {
+                          const error = await response.json()
+                          showToast({
+                            type: 'error',
+                            title: 'Setup Failed',
+                            description: error.error || 'Failed to start Stripe setup',
+                          })
+                        }
+                      } catch (error: any) {
+                        showToast({
+                          type: 'error',
+                          title: 'Error',
+                          description: 'Failed to connect Stripe account',
+                        })
+                      }
+                    }}
+                  >
+                    Connect Stripe
+                  </Button>
                 </div>
               </CardBody>
             </Card>
@@ -256,7 +284,9 @@ export default function AdvertiserDashboardPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <h3 className="text-lg font-bold text-text-primary">{campaign.name}</h3>
-                          <Badge className={getStatusColor(campaign.status)}>{campaign.status}</Badge>
+                          <Badge className={getStatusColor(campaign.status)}>
+                            {campaign.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
+                          </Badge>
                         </div>
                         <div className="text-sm text-text-secondary space-y-1">
                           <p>Budget: ${Number(campaign.budget).toLocaleString()}</p>

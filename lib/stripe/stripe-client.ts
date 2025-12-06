@@ -234,6 +234,36 @@ export async function createCreatorStripeAccount(
 }
 
 /**
+ * Create Stripe Connect account for advertiser
+ */
+export async function createAdvertiserStripeAccount(
+  advertiserId: string,
+  email: string,
+  companyName: string
+): Promise<string> {
+  const stripe = await createStripeClient()
+
+  const account = await stripe.accounts.create({
+    type: 'express', // Express accounts for advertisers
+    country: 'US',
+    email: email,
+    capabilities: {
+      card_payments: { requested: true },
+      transfers: { requested: true },
+    },
+    business_type: 'company',
+    company: {
+      name: companyName,
+    },
+    metadata: {
+      advertiserId,
+    },
+  })
+
+  return account.id
+}
+
+/**
  * Generate onboarding link for creator to complete tax forms
  */
 export async function createAccountOnboardingLink(

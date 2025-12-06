@@ -55,6 +55,13 @@ export default function CampaignAnalyticsPage() {
     }
   }
 
+  const formatStatus = (status: string) => {
+    return status
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ACTIVE':
@@ -63,6 +70,8 @@ export default function CampaignAnalyticsPage() {
         return 'bg-electric-blue/20 text-electric-blue'
       case 'PAUSED':
         return 'bg-neon-orange/20 text-neon-orange'
+      case 'PENDING_REVIEW':
+        return 'bg-yellow-500/20 text-yellow-500'
       case 'COMPLETED':
         return 'bg-gray-500/20 text-gray-400'
       default:

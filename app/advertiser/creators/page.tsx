@@ -105,13 +105,15 @@ export default function CreatorDiscoveryPage() {
                   <label className="block text-sm font-medium text-text-secondary mb-2">
                     Search Username
                   </label>
-                  <Input
+                  <input
+                    type="text"
                     value={filters.search}
                     onChange={(e) => {
                       const value = e.target.value
                       setFilters(prev => ({ ...prev, search: value }))
                     }}
                     placeholder="Search..."
+                    className="w-full px-4 py-3.5 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary transition-all duration-300 outline-none focus:border-electric-blue focus:shadow-[0_0_0_3px_rgba(0,217,255,0.1)] placeholder:text-text-muted"
                   />
                 </div>
                 <div>
