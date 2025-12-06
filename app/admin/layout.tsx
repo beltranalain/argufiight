@@ -23,11 +23,23 @@ export default async function AdminLayout({
   
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { isAdmin: true },
+    select: { isAdmin: true, totpEnabled: true },
   })
 
   if (!user?.isAdmin) {
     redirect('/')
+  }
+
+  // Check if 2FA is required and verified for this session
+  if (user.totpEnabled) {
+    const currentSession = await prisma.session.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (!currentSession?.twoFactorVerified) {
+      redirect('/verify-2fa?userId=' + userId)
+    }
   }
 
   return (

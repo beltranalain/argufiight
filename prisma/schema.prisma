@@ -91,6 +91,11 @@ model User {
   googlePicture     String?  @map("google_picture")
   googleAuthEnabled Boolean  @default(false) @map("google_auth_enabled")
 
+  // Google Authenticator 2FA (for employees and advertisers)
+  totpSecret    String? @map("totp_secret") // Secret key for TOTP
+  totpEnabled   Boolean @default(false) @map("totp_enabled") // Whether 2FA is enabled
+  totpBackupCodes String? @map("totp_backup_codes") // JSON array of backup codes
+
   // Relations
   sessions          Session[]
   challengerDebates Debate[]        @relation("Challenger")
@@ -698,6 +703,7 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
   expiresAt DateTime @map("expires_at")
+  twoFactorVerified Boolean @default(false) @map("two_factor_verified") // Whether 2FA has been verified for this session
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])

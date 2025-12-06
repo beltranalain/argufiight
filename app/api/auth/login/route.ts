@@ -21,6 +21,24 @@ export async function POST(request: NextRequest) {
     // Find user
     const user = await prisma.user.findUnique({
       where: { email: normalizedEmail },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        passwordHash: true,
+        googleAuthEnabled: true,
+        isAdmin: true,
+        isBanned: true,
+        bannedUntil: true,
+        avatarUrl: true,
+        bio: true,
+        eloRating: true,
+        debatesWon: true,
+        debatesLost: true,
+        debatesTied: true,
+        totalDebates: true,
+        totpEnabled: true,
+      },
     })
 
     if (!user) {
@@ -70,7 +88,47 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create session and get JWT token
+    // Check if user is employee or advertiser (requires 2FA)
+    const isEmployee = user.isAdmin
+    let isAdvertiser = false
+    let requires2FA = false
+
+    if (isEmployee) {
+      requires2FA = true
+    } else {
+      const advertiser = await prisma.advertiser.findUnique({
+        where: { contactEmail: user.email },
+        select: { status: true },
+      })
+      isAdvertiser = advertiser?.status === 'APPROVED'
+      if (isAdvertiser) {
+        requires2FA = true
+      }
+    }
+
+    // If 2FA is required but not set up, create a temporary session for setup
+    if (requires2FA && !user.totpEnabled) {
+      // Create temporary session for 2FA setup
+      const tempSessionJWT = await createSession(user.id)
+      return NextResponse.json({
+        requires2FASetup: true,
+        token: tempSessionJWT,
+        userId: user.id,
+      })
+    }
+
+    // If 2FA is enabled, require verification before creating full session
+    if (requires2FA && user.totpEnabled) {
+      // Create temporary session that will be upgraded after 2FA verification
+      const tempSessionJWT = await createSession(user.id)
+      return NextResponse.json({
+        requires2FA: true,
+        token: tempSessionJWT,
+        userId: user.id,
+      })
+    }
+
+    // No 2FA required, create full session
     const sessionJWT = await createSession(user.id)
     console.log(`Login successful for user: ${user.email}`)
 
