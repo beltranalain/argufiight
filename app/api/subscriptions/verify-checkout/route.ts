@@ -68,13 +68,12 @@ export async function POST(request: NextRequest) {
     
     // Increment promo code usage
     if (promoCodeId) {
-        await prisma.promoCode.update({
-          where: { id: promoCodeId },
-          data: {
-            currentUses: { increment: 1 },
-          },
-        })
-      }
+      await prisma.promoCode.update({
+        where: { id: promoCodeId },
+        data: {
+          currentUses: { increment: 1 },
+        },
+      })
     }
 
     // Create or update UserSubscription
