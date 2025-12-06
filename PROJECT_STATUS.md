@@ -3,7 +3,7 @@
 ## Current Status
 **Last Updated:** 2025-12-05  
 **Repository:** `argufight/argufight` (GitHub)  
-**Latest Commit:** `341d5773` - Fix: Wrap useSearchParams in Suspense boundaries for Next.js 15 compatibility
+**Latest Commit:** `1f859d1d` - Fix: Remove reset-usage cron job to stay within Vercel plan limit (2 cron jobs)
 
 ## Recent Work - Build Error Fixes
 
@@ -91,6 +91,11 @@ We've been fixing TypeScript build errors that occurred after migrating to a new
 - **Issue:** `useSearchParams()` must be wrapped in Suspense boundary in Next.js 15
 - **Fix:** Extracted components using `useSearchParams()` and wrapped them in `<Suspense>` boundaries
 
+#### 13. Vercel Cron Jobs Limit
+- **File:** `vercel.json`
+- **Issue:** Vercel Hobby plan allows only 2 cron jobs, but 3 were configured
+- **Fix:** Removed `reset-usage` cron job (monthly job can be run manually if needed)
+
 ### Cron Job Configuration
 - **File:** `vercel.json`
 - **Issue:** Hobby plan only allows daily cron jobs
@@ -102,9 +107,9 @@ We've been fixing TypeScript build errors that occurred after migrating to a new
 - **No authentication prompts:** Token is working correctly
 
 ## Current Build Status
-- **Last Known Error:** Fixed in commit `341d5773`
-- **Expected Status:** Build should succeed
-- **If errors persist:** Check if Vercel is building the latest commit (`341d5773`)
+- **Last Known Error:** Fixed in commit `1f859d1d`
+- **Build Status:** ✅ Build succeeded! Deployment should now work.
+- **If errors persist:** Check if Vercel is building the latest commit (`1f859d1d`)
 
 ## Key Files Modified
 1. `app/(dashboard)/profile/[id]/page.tsx` - Added subscription property, AdDisplay import
@@ -125,13 +130,20 @@ We've been fixing TypeScript build errors that occurred after migrating to a new
 16. `app/(auth)/signup/payment/page.tsx` - Added Suspense boundary for useSearchParams
 17. `app/(auth)/signup/success/page.tsx` - Added Suspense boundary for useSearchParams
 18. `app/(auth)/reset-password/page.tsx` - Added Suspense boundary for useSearchParams
+19. `vercel.json` - Removed reset-usage cron job to stay within plan limit
 
 ## Next Steps (If Build Still Fails)
-1. Check Vercel dashboard to confirm it's building commit `341d5773`
+1. Check Vercel dashboard to confirm it's building commit `1f859d1d`
 2. If new errors appear, they'll likely be similar Stripe type issues - use type assertions
 3. Check for any remaining Badge variant issues (search for `variant="secondary"`)
 4. Verify all Stripe property accesses use type assertions where needed
 5. Check for any other `useSearchParams()` usage that might need Suspense boundaries
+
+## Deployment Notes
+- **Cron Jobs:** Limited to 2 on Hobby plan. Currently configured:
+  - `process-ad-payouts` - Daily at 2 AM
+  - `check-expired-offers` - Daily at 3 AM
+- **Removed:** `reset-usage` cron job (monthly) - can be run manually if needed
 
 ## Important Notes
 - **Stripe API Version:** `2025-11-17.clover` (latest)
