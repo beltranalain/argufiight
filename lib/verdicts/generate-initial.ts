@@ -255,6 +255,9 @@ export async function generateInitialVerdicts(debateId: string) {
     const opponentTotalScore = verdicts.reduce((sum, v) => sum + (v.opponentScore ?? 0), 0)
     const maxScoreForDebate = verdicts.length * 100 // Each judge can give up to 100 points
 
+    // Calculate rounds for analytics
+    const roundsCompleted = debate.currentRound || debate.totalRounds || 0
+
     // Update user stats
     if (finalWinnerId === debate.challengerId) {
       await prisma.user.update({
@@ -267,6 +270,23 @@ export async function generateInitialVerdicts(debateId: string) {
           totalMaxScore: { increment: maxScoreForDebate },
         },
       })
+      // Update average rounds
+      const challengerUser = await prisma.user.findUnique({
+        where: { id: debate.challengerId },
+        select: { totalDebates: true, averageRounds: true },
+      })
+      if (challengerUser) {
+        const oldCount = challengerUser.totalDebates - 1
+        const oldAverage = challengerUser.averageRounds || 0
+        const newAverage = oldCount > 0
+          ? (oldAverage * oldCount + roundsCompleted) / challengerUser.totalDebates
+          : roundsCompleted
+        await prisma.user.update({
+          where: { id: debate.challengerId },
+          data: { averageRounds: newAverage },
+        })
+      }
+
       if (debate.opponentId) {
         await prisma.user.update({
           where: { id: debate.opponentId },
@@ -278,6 +298,22 @@ export async function generateInitialVerdicts(debateId: string) {
             totalMaxScore: { increment: maxScoreForDebate },
           },
         })
+        // Update average rounds
+        const opponentUser = await prisma.user.findUnique({
+          where: { id: debate.opponentId },
+          select: { totalDebates: true, averageRounds: true },
+        })
+        if (opponentUser) {
+          const oldCount = opponentUser.totalDebates - 1
+          const oldAverage = opponentUser.averageRounds || 0
+          const newAverage = oldCount > 0
+            ? (oldAverage * oldCount + roundsCompleted) / opponentUser.totalDebates
+            : roundsCompleted
+          await prisma.user.update({
+            where: { id: debate.opponentId },
+            data: { averageRounds: newAverage },
+          })
+        }
       }
     } else if (finalWinnerId === debate.opponentId) {
       if (debate.opponentId) {
@@ -291,6 +327,22 @@ export async function generateInitialVerdicts(debateId: string) {
             totalMaxScore: { increment: maxScoreForDebate },
           },
         })
+        // Update average rounds
+        const opponentUser = await prisma.user.findUnique({
+          where: { id: debate.opponentId },
+          select: { totalDebates: true, averageRounds: true },
+        })
+        if (opponentUser) {
+          const oldCount = opponentUser.totalDebates - 1
+          const oldAverage = opponentUser.averageRounds || 0
+          const newAverage = oldCount > 0
+            ? (oldAverage * oldCount + roundsCompleted) / opponentUser.totalDebates
+            : roundsCompleted
+          await prisma.user.update({
+            where: { id: debate.opponentId },
+            data: { averageRounds: newAverage },
+          })
+        }
       }
       await prisma.user.update({
         where: { id: debate.challengerId },
@@ -302,6 +354,22 @@ export async function generateInitialVerdicts(debateId: string) {
           totalMaxScore: { increment: maxScoreForDebate },
         },
       })
+      // Update average rounds
+      const challengerUser = await prisma.user.findUnique({
+        where: { id: debate.challengerId },
+        select: { totalDebates: true, averageRounds: true },
+      })
+      if (challengerUser) {
+        const oldCount = challengerUser.totalDebates - 1
+        const oldAverage = challengerUser.averageRounds || 0
+        const newAverage = oldCount > 0
+          ? (oldAverage * oldCount + roundsCompleted) / challengerUser.totalDebates
+          : roundsCompleted
+        await prisma.user.update({
+          where: { id: debate.challengerId },
+          data: { averageRounds: newAverage },
+        })
+      }
     } else {
       // Tie
       await prisma.user.update({
@@ -314,6 +382,23 @@ export async function generateInitialVerdicts(debateId: string) {
           totalMaxScore: { increment: maxScoreForDebate },
         },
       })
+      // Update average rounds
+      const challengerUser = await prisma.user.findUnique({
+        where: { id: debate.challengerId },
+        select: { totalDebates: true, averageRounds: true },
+      })
+      if (challengerUser) {
+        const oldCount = challengerUser.totalDebates - 1
+        const oldAverage = challengerUser.averageRounds || 0
+        const newAverage = oldCount > 0
+          ? (oldAverage * oldCount + roundsCompleted) / challengerUser.totalDebates
+          : roundsCompleted
+        await prisma.user.update({
+          where: { id: debate.challengerId },
+          data: { averageRounds: newAverage },
+        })
+      }
+
       if (debate.opponentId) {
         await prisma.user.update({
           where: { id: debate.opponentId },
@@ -325,6 +410,22 @@ export async function generateInitialVerdicts(debateId: string) {
             totalMaxScore: { increment: maxScoreForDebate },
           },
         })
+        // Update average rounds
+        const opponentUser = await prisma.user.findUnique({
+          where: { id: debate.opponentId },
+          select: { totalDebates: true, averageRounds: true },
+        })
+        if (opponentUser) {
+          const oldCount = opponentUser.totalDebates - 1
+          const oldAverage = opponentUser.averageRounds || 0
+          const newAverage = oldCount > 0
+            ? (oldAverage * oldCount + roundsCompleted) / opponentUser.totalDebates
+            : roundsCompleted
+          await prisma.user.update({
+            where: { id: debate.opponentId },
+            data: { averageRounds: newAverage },
+          })
+        }
       }
     }
 

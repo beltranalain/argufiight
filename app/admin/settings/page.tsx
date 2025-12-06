@@ -35,9 +35,6 @@ export default function AdminSettingsPage() {
   const [testResult, setTestResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [testGoogleResult, setTestGoogleResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [testResendResult, setTestResendResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
-  const [testEmailAddress, setTestEmailAddress] = useState('info@argufight.com')
-  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false)
-  const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [testStripeResult, setTestStripeResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
 
   useEffect(() => {
@@ -456,129 +453,6 @@ export default function AdminSettingsPage() {
                     resend.com
                   </a>
                 </p>
-              </div>
-              
-              {/* Test Email Buttons */}
-              <div className="mt-4 p-4 bg-bg-secondary rounded-lg border border-bg-tertiary">
-                <label className="block text-sm font-medium text-white mb-2">
-                  Send Test Emails
-                </label>
-                <div className="flex items-end gap-2 mb-3">
-                  <div className="flex-1">
-                    <input
-                      type="email"
-                      value={testEmailAddress}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTestEmailAddress(e.target.value)}
-                      placeholder="info@argufight.com"
-                      className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={async () => {
-                      setIsSendingTestEmail(true)
-                      setTestEmailResult(null)
-                      try {
-                        const response = await fetch('/api/admin/test-emails', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ email: testEmailAddress, type: 'approval' }),
-                        })
-                        const data = await response.json()
-                        setTestEmailResult({
-                          success: data.success,
-                          message: data.message,
-                          error: data.error,
-                        })
-                        if (data.success) {
-                          showToast({
-                            type: 'success',
-                            title: 'Test Email Sent',
-                            description: 'Approval email sent successfully!',
-                          })
-                        } else {
-                          showToast({
-                            type: 'error',
-                            title: 'Failed to Send',
-                            description: data.message || 'Check Resend API key configuration',
-                          })
-                        }
-                      } catch (error: any) {
-                        setTestEmailResult({
-                          success: false,
-                          error: error.message || 'Failed to send test email',
-                        })
-                      } finally {
-                        setIsSendingTestEmail(false)
-                      }
-                    }}
-                    isLoading={isSendingTestEmail}
-                    disabled={!testEmailAddress}
-                  >
-                    Send Approval Email
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={async () => {
-                      setIsSendingTestEmail(true)
-                      setTestEmailResult(null)
-                      try {
-                        const response = await fetch('/api/admin/test-emails', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ email: testEmailAddress, type: 'rejection' }),
-                        })
-                        const data = await response.json()
-                        setTestEmailResult({
-                          success: data.success,
-                          message: data.message,
-                          error: data.error,
-                        })
-                        if (data.success) {
-                          showToast({
-                            type: 'success',
-                            title: 'Test Email Sent',
-                            description: 'Rejection email sent successfully!',
-                          })
-                        } else {
-                          showToast({
-                            type: 'error',
-                            title: 'Failed to Send',
-                            description: data.message || 'Check Resend API key configuration',
-                          })
-                        }
-                      } catch (error: any) {
-                        setTestEmailResult({
-                          success: false,
-                          error: error.message || 'Failed to send test email',
-                        })
-                      } finally {
-                        setIsSendingTestEmail(false)
-                      }
-                    }}
-                    isLoading={isSendingTestEmail}
-                    disabled={!testEmailAddress}
-                  >
-                    Send Rejection Email
-                  </Button>
-                </div>
-                {testEmailResult && (
-                  <div className={`mt-3 p-3 rounded-lg border ${
-                    testEmailResult.success
-                      ? 'bg-cyber-green/10 border-cyber-green/30'
-                      : 'bg-neon-orange/10 border-neon-orange/30'
-                  }`}>
-                    <p className={`text-sm ${
-                      testEmailResult.success ? 'text-cyber-green' : 'text-neon-orange'
-                    }`}>
-                      {testEmailResult.success ? testEmailResult.message : testEmailResult.error}
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
 
