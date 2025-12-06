@@ -358,7 +358,10 @@ export default function AdvertisePage() {
             <input
               required
               value={formData.companyName}
-              onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormData(prev => ({ ...prev, companyName: value }))
+              }}
               placeholder="Your Company Name"
               className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
@@ -372,7 +375,10 @@ export default function AdvertisePage() {
               type="text"
               required
               value={formData.website}
-              onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormData(prev => ({ ...prev, website: value }))
+              }}
               placeholder="example.com or https://example.com"
               className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
@@ -410,7 +416,10 @@ export default function AdvertisePage() {
             <input
               required
               value={formData.contactName}
-              onChange={(e) => setFormData(prev => ({ ...prev, contactName: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormData(prev => ({ ...prev, contactName: value }))
+              }}
               placeholder="Your Full Name"
               className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
@@ -424,7 +433,10 @@ export default function AdvertisePage() {
               type="email"
               required
               value={formData.contactEmail}
-              onChange={(e) => setFormData(prev => ({ ...prev, contactEmail: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormData(prev => ({ ...prev, contactEmail: value }))
+              }}
               placeholder="your@email.com"
               className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
@@ -436,7 +448,10 @@ export default function AdvertisePage() {
             </label>
             <input
               value={formData.businessEIN}
-              onChange={(e) => setFormData(prev => ({ ...prev, businessEIN: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormData(prev => ({ ...prev, businessEIN: value }))
+              }}
               placeholder="XX-XXXXXXX"
               className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
