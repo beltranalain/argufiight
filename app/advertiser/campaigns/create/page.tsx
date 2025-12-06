@@ -392,8 +392,14 @@ export default function CreateCampaignPage() {
               <div>
                 <span className="text-text-secondary">Duration:</span>
                 <span className="ml-2 text-text-primary font-semibold">
-                  {new Date(formData.startDate).toLocaleDateString()} -{' '}
-                  {new Date(formData.endDate).toLocaleDateString()}
+                  {formData.startDate && formData.endDate ? (() => {
+                    // Parse date string (YYYY-MM-DD) and format for display
+                    // The date string is already in the correct format, just reformat for display
+                    const [startYear, startMonth, startDay] = formData.startDate.split('-')
+                    const [endYear, endMonth, endDay] = formData.endDate.split('-')
+                    // Format as M/D/YYYY (Eastern Time format)
+                    return `${parseInt(startMonth)}/${parseInt(startDay)}/${startYear} - ${parseInt(endMonth)}/${parseInt(endDay)}/${endYear}`
+                  })() : 'N/A'}
                 </span>
               </div>
             </div>

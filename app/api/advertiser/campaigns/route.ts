@@ -5,6 +5,41 @@ import { prisma } from '@/lib/db/prisma'
 import { put } from '@vercel/blob'
 import { validateCampaignDates } from '@/lib/ads/helpers'
 
+/**
+ * Get Eastern Timezone offset in minutes for a given date
+ */
+function getEasternTimezoneOffset(date: Date): number {
+  // Create formatters for UTC and Eastern Time
+  const utcFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  
+  const easternFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  
+  // Get UTC and Eastern time strings
+  const utcParts = utcFormatter.formatToParts(date)
+  const easternParts = easternFormatter.formatToParts(date)
+  
+  const utcHours = parseInt(utcParts.find(p => p.type === 'hour')?.value || '0')
+  const utcMinutes = parseInt(utcParts.find(p => p.type === 'minute')?.value || '0')
+  const easternHours = parseInt(easternParts.find(p => p.type === 'hour')?.value || '0')
+  const easternMinutes = parseInt(easternParts.find(p => p.type === 'minute')?.value || '0')
+  
+  const utcTotalMinutes = utcHours * 60 + utcMinutes
+  const easternTotalMinutes = easternHours * 60 + easternMinutes
+  
+  // Calculate offset (Eastern is behind UTC, so offset is negative)
+  return easternTotalMinutes - utcTotalMinutes
+}
+
 // POST /api/advertiser/campaigns - Create new campaign
 export async function POST(request: NextRequest) {
   try {
@@ -64,10 +99,34 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate dates
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-    const dateValidation = validateCampaignDates(start, end)
+    // Parse dates in Eastern Time to prevent timezone shifts
+    // Date input returns "YYYY-MM-DD", we need to create dates at midnight Eastern Time
+    const startDateStr = startDate.includes('T') ? startDate.split('T')[0] : startDate
+    const endDateStr = endDate.includes('T') ? endDate.split('T')[0] : endDate
+    
+    // Parse date components
+    const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number)
+    const [endYear, endMonth, endDay] = endDateStr.split('-').map(Number)
+    
+    // Create dates representing midnight Eastern Time
+    // We'll create a temporary date to determine the Eastern Time offset
+    const tempStart = new Date(startYear, startMonth - 1, startDay)
+    const tempEnd = new Date(endYear, endMonth - 1, endDay)
+    
+    // Get the Eastern Time offset for these dates (handles DST automatically)
+    const startOffset = getEasternTimezoneOffset(tempStart)
+    const endOffset = getEasternTimezoneOffset(tempEnd)
+    
+    // Create dates at midnight UTC, then adjust to Eastern Time
+    // Eastern Time is UTC-5 (EST) or UTC-4 (EDT), so we add the offset
+    const startFinal = new Date(Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0))
+    const endFinal = new Date(Date.UTC(endYear, endMonth - 1, endDay, 0, 0, 0))
+    
+    // Adjust to Eastern Time midnight (subtract offset since Eastern is behind UTC)
+    const startAdjusted = new Date(startFinal.getTime() - (startOffset * 60 * 1000))
+    const endAdjusted = new Date(endFinal.getTime() - (endOffset * 60 * 1000))
+    
+    const dateValidation = validateCampaignDates(startAdjusted, endAdjusted)
     if (!dateValidation.valid) {
       return NextResponse.json(
         { error: dateValidation.error },
@@ -125,8 +184,8 @@ export async function POST(request: NextRequest) {
         type: type as any,
         category: category.trim(),
         budget: parseFloat(budget),
-        startDate: start,
-        endDate: end,
+        startDate: startAdjusted,
+        endDate: endAdjusted,
         destinationUrl: destinationUrl.trim(),
         ctaText: ctaText.trim(),
         bannerUrl: finalBannerUrl,
