@@ -46,10 +46,19 @@ export default function AdvertisePage() {
     setIsSubmitting(true)
 
     try {
+      // Normalize website URL - add https:// if missing
+      let normalizedWebsite = formData.website.trim()
+      if (normalizedWebsite && !normalizedWebsite.match(/^https?:\/\//i)) {
+        normalizedWebsite = `https://${normalizedWebsite}`
+      }
+
       const response = await fetch('/api/advertisers/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          website: normalizedWebsite,
+        }),
       })
 
       if (!response.ok) {
@@ -349,7 +358,10 @@ export default function AdvertisePage() {
             <Input
               required
               value={formData.companyName}
-              onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormData(prev => ({ ...prev, companyName: value }))
+              }}
               placeholder="Your Company Name"
             />
           </div>
@@ -359,11 +371,14 @@ export default function AdvertisePage() {
               Website URL *
             </label>
             <Input
-              type="url"
+              type="text"
               required
               value={formData.website}
-              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-              placeholder="https://example.com"
+              onChange={(e) => {
+                const value = e.target.value
+                setFormData(prev => ({ ...prev, website: value }))
+              }}
+              placeholder="example.com or https://example.com"
             />
           </div>
 
@@ -374,7 +389,10 @@ export default function AdvertisePage() {
             <select
               required
               value={formData.industry}
-              onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormData(prev => ({ ...prev, industry: value }))
+              }}
               className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
             >
               <option value="">Select Industry</option>
@@ -396,7 +414,10 @@ export default function AdvertisePage() {
             <Input
               required
               value={formData.contactName}
-              onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormData(prev => ({ ...prev, contactName: value }))
+              }}
               placeholder="Your Full Name"
             />
           </div>
@@ -409,7 +430,10 @@ export default function AdvertisePage() {
               type="email"
               required
               value={formData.contactEmail}
-              onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormData(prev => ({ ...prev, contactEmail: value }))
+              }}
               placeholder="your@email.com"
             />
           </div>
@@ -420,7 +444,10 @@ export default function AdvertisePage() {
             </label>
             <Input
               value={formData.businessEIN}
-              onChange={(e) => setFormData({ ...formData, businessEIN: e.target.value })}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormData(prev => ({ ...prev, businessEIN: value }))
+              }}
               placeholder="XX-XXXXXXX"
             />
             <p className="text-xs text-white/70 mt-1">
