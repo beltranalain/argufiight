@@ -33,6 +33,9 @@ interface UserProfile {
   averageRounds: number
   winRate: number
   createdAt: string
+  subscription: {
+    tier: string
+  }
 }
 
 export default function UserProfilePage() {
