@@ -31,6 +31,11 @@ interface UserData {
   employeeRole: string | null
   accessLevel: string | null
   createdAt: string
+  // AI User fields (optional)
+  isAI?: boolean
+  aiPersonality?: string | null
+  aiResponseDelay?: number | null
+  aiPaused?: boolean
 }
 
 interface UserLimitInfo {
@@ -593,7 +598,14 @@ export default function AdminUsersPage() {
           setEditingAIUser(null)
         }}
         onSuccess={fetchUsers}
-        editingUser={editingAIUser}
+        editingUser={editingAIUser ? {
+          id: editingAIUser.id,
+          username: editingAIUser.username,
+          avatarUrl: editingAIUser.avatarUrl,
+          aiPersonality: editingAIUser.aiPersonality || 'BALANCED',
+          aiResponseDelay: editingAIUser.aiResponseDelay || 3600000,
+          aiPaused: editingAIUser.aiPaused || false,
+        } : null}
       />
 
       {/* Action Confirmation Modal */}
