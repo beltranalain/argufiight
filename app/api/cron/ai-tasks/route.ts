@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
     }
 
     const results = {
-      autoAccept: { accepted: 0, errors: [] },
-      responses: { generated: 0, errors: [] },
+      autoAccept: { accepted: 0, errors: [] as string[] },
+      responses: { generated: 0, errors: [] as string[] },
     }
 
     // ===== AUTO-ACCEPT CHALLENGES =====
