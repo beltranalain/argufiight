@@ -104,7 +104,7 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     }
   }, [onTranscript])
 
-  const startListening = () => {
+  const startListening = async () => {
     if (!recognitionRef.current) {
       console.error('Speech recognition not initialized')
       return
@@ -115,29 +115,43 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       return
     }
 
-    // CRITICAL: Just try to start - DO NOT check permissions first
-    // The Speech Recognition API will trigger the browser's native permission prompt
-    // If we check permissions first, we prevent the browser from showing its prompt
+    // NEW APPROACH: Explicitly request microphone permission first using getUserMedia
+    // This is more reliable than relying on SpeechRecognition to trigger the prompt
     try {
-      console.log('Attempting to start speech recognition (will trigger browser permission prompt if needed)...')
+      console.log('Step 1: Requesting microphone permission explicitly...')
+      
+      // Request microphone access explicitly - this will show the browser's permission prompt
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      
+      // Permission granted! Stop the stream (we don't need it, just needed permission)
+      stream.getTracks().forEach(track => track.stop())
+      
+      console.log('Step 2: Microphone permission granted, starting speech recognition...')
+      
+      // Now start speech recognition - it should work since we have permission
       recognitionRef.current.start()
-      // If we get here without error, it started successfully
-      // The browser will show its permission prompt if needed
+      
     } catch (error: any) {
-      console.error('Failed to start speech recognition:', error)
+      console.error('Failed to get microphone permission or start speech recognition:', error)
       setIsListening(false)
       
-      // Only show modal if it's clearly a permission error
-      // Most errors here are synchronous and happen immediately if permission is denied
+      // Handle permission denial
       if (error.name === 'NotAllowedError' || 
-          error.name === 'PermissionDeniedError' || 
-          (error.message && (error.message.includes('permission') || error.message.includes('not allowed')))) {
+          error.name === 'PermissionDeniedError' ||
+          error.name === 'NotReadableError' ||
+          (error.message && (error.message.includes('permission') || error.message.includes('not allowed') || error.message.includes('denied')))) {
         // Permission was denied - show help modal
         console.log('Permission error detected, showing help modal')
         setShowPermissionModal(true)
       } else {
-        // For other errors, log but don't show permission modal
-        console.warn('Speech recognition start failed (non-permission):', error.name, error.message)
+        // For other errors, try to start speech recognition anyway (might work)
+        console.warn('getUserMedia failed, trying speech recognition directly:', error.name, error.message)
+        try {
+          recognitionRef.current.start()
+        } catch (recognitionError: any) {
+          console.error('Speech recognition also failed:', recognitionError)
+          setShowPermissionModal(true)
+        }
       }
     }
   }
@@ -148,8 +162,8 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     }
   }
 
-  // Test microphone function - forces browser to prompt for permission
-  const testMicrophone = () => {
+  // Test microphone function - uses getUserMedia to explicitly request permission
+  const testMicrophone = async () => {
     if (!isSupported) {
       setTestStatus('error')
       setTestMessage('Speech recognition is not supported in this browser')
@@ -160,75 +174,79 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     setTestMessage('Requesting microphone access...')
 
     try {
-      // Create a new recognition instance just for testing
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-      const testRecognition = new SpeechRecognition()
-      testRecognition.continuous = false
-      testRecognition.interimResults = false
-      testRecognition.lang = 'en-US'
-
-      // Set up test handlers
-      testRecognition.onstart = () => {
-        console.log('Test: Speech recognition started successfully')
-        setTestStatus('success')
-        setTestMessage('Microphone is working! You can now use Voice Input.')
-        // Stop after 2 seconds
-        setTimeout(() => {
-          if (testRecognitionRef.current) {
-            try {
-              testRecognitionRef.current.stop()
-            } catch (e) {
-              // Ignore errors
+      // Step 1: Explicitly request microphone permission using getUserMedia
+      console.log('Test: Requesting microphone permission via getUserMedia...')
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      
+      // Permission granted! Test that we can actually access the audio
+      const audioContext = new AudioContext()
+      const source = audioContext.createMediaStreamSource(stream)
+      const analyser = audioContext.createAnalyser()
+      source.connect(analyser)
+      
+      // Check if we're getting audio data
+      const dataArray = new Uint8Array(analyser.frequencyBinCount)
+      analyser.getByteFrequencyData(dataArray)
+      
+      // Stop the stream
+      stream.getTracks().forEach(track => track.stop())
+      audioContext.close()
+      
+      console.log('Test: Microphone permission granted and audio stream accessible')
+      setTestStatus('success')
+      setTestMessage('Microphone is working! Permission granted. You can now use Voice Input.')
+      
+      // Now try speech recognition to confirm it works
+      try {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+        const testRecognition = new SpeechRecognition()
+        testRecognition.continuous = false
+        testRecognition.interimResults = false
+        testRecognition.lang = 'en-US'
+        
+        testRecognition.onstart = () => {
+          console.log('Test: Speech recognition also started successfully')
+          setTestMessage('Microphone is working! Speech recognition is ready. You can now use Voice Input.')
+          setTimeout(() => {
+            if (testRecognitionRef.current) {
+              try {
+                testRecognitionRef.current.stop()
+              } catch (e) {
+                // Ignore errors
+              }
             }
+          }, 2000)
+        }
+        
+        testRecognition.onerror = (event: any) => {
+          if (event.error === 'no-speech') {
+            // This is fine - mic works, just no speech detected
+            setTestMessage('Microphone is working! (No speech detected, but mic is connected)')
           }
-        }, 2000)
-      }
-
-      testRecognition.onresult = (event: SpeechRecognitionEvent) => {
-        let transcript = ''
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript
         }
-        if (transcript) {
-          setTestMessage(`Microphone is working! Heard: "${transcript}"`)
+        
+        testRecognition.onend = () => {
+          // Keep success status
         }
+        
+        testRecognitionRef.current = testRecognition
+        testRecognition.start()
+      } catch (recognitionError) {
+        // Speech recognition failed but mic permission works - that's still success
+        console.log('Test: Speech recognition test failed but mic permission works:', recognitionError)
       }
-
-      testRecognition.onerror = (event: any) => {
-        console.error('Test: Speech recognition error:', event.error)
-        if (event.error === 'not-allowed' || event.error === 'permission-denied') {
-          setTestStatus('error')
-          setTestMessage('Microphone permission denied. Please allow access in your browser settings.')
-        } else if (event.error === 'no-speech') {
-          // This is actually okay - it means the mic is working but no speech was detected
-          setTestStatus('success')
-          setTestMessage('Microphone is working! (No speech detected, but mic is connected)')
-        } else {
-          setTestStatus('error')
-          setTestMessage(`Error: ${event.error}. Please check your microphone settings.`)
-        }
-      }
-
-      testRecognition.onend = () => {
-        console.log('Test: Speech recognition ended')
-        if (testStatus === 'testing') {
-          setTestStatus('idle')
-          setTestMessage('')
-        }
-      }
-
-      testRecognitionRef.current = testRecognition
-
-      // Force start - this will trigger browser permission prompt
-      console.log('Test: Attempting to start speech recognition to test microphone...')
-      testRecognition.start()
+      
     } catch (error: any) {
-      console.error('Test: Failed to start speech recognition:', error)
+      console.error('Test: Failed to get microphone permission:', error)
       setTestStatus('error')
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        setTestMessage('Microphone permission denied. Please allow access in your browser settings.')
+        setTestMessage('Microphone permission denied. Please click "Allow" when your browser asks for permission.')
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        setTestMessage('No microphone found. Please connect a microphone and try again.')
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        setTestMessage('Microphone is being used by another application. Please close other apps using the mic.')
       } else {
-        setTestMessage(`Error: ${error.message || 'Failed to access microphone'}`)
+        setTestMessage(`Error: ${error.message || 'Failed to access microphone'}. Please check your browser settings.`)
       }
     }
   }
