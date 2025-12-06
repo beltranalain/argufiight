@@ -187,7 +187,7 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
                   <h4 className="font-semibold text-text-primary">Chrome / Edge / Brave</h4>
                 </div>
                 <ol className="list-decimal list-inside space-y-1 text-sm text-text-secondary ml-2">
-                  <li>Click the lock icon (🔒) or info icon (ℹ️) in the address bar</li>
+                  <li>Click the lock icon or info icon in the address bar</li>
                   <li>Find "Microphone" in the permissions list</li>
                   <li>Change from "Block" to "Allow"</li>
                   <li>Refresh the page and try again</li>
