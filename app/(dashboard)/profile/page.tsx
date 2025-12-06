@@ -299,7 +299,7 @@ export default function ProfilePage() {
                   </div>
 
                   {/* Stats Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                     <div className="bg-bg-tertiary rounded-lg p-3">
                       <p className="text-xs text-text-secondary mb-1">Total</p>
                       <p className="text-xl font-bold text-text-primary">{profile.totalDebates || 0}</p>
@@ -311,6 +311,10 @@ export default function ProfilePage() {
                     <div className="bg-bg-tertiary rounded-lg p-3">
                       <p className="text-xs text-text-secondary mb-1">Losses</p>
                       <p className="text-xl font-bold text-neon-orange">{profile.debatesLost || 0}</p>
+                    </div>
+                    <div className="bg-bg-tertiary rounded-lg p-3">
+                      <p className="text-xs text-text-secondary mb-1">Ties</p>
+                      <p className="text-xl font-bold text-text-muted">{profile.debatesTied || 0}</p>
                     </div>
                     <div className="bg-bg-tertiary rounded-lg p-3">
                       <p className="text-xs text-text-secondary mb-1">Win Rate</p>

@@ -21,6 +21,8 @@ interface LeaderboardEntry {
   debatesTied: number
   totalDebates: number
   winRate: number
+  overallScore: string
+  overallScorePercent: number
 }
 
 export default function LeaderboardPage() {
@@ -140,18 +142,15 @@ export default function LeaderboardPage() {
                             <div className="flex items-center gap-4 text-sm text-text-secondary">
                               <span className="text-electric-blue font-semibold">ELO: {entry.eloRating}</span>
                               <span>•</span>
+                              <span className="text-cyber-green font-semibold">Score: {entry.overallScore}</span>
+                              <span>•</span>
                               <span>{entry.winRate}% win rate</span>
                               <span>•</span>
                               <span>{entry.totalDebates} debates</span>
                               <span>•</span>
                               <span className="text-cyber-green">{entry.debatesWon}W</span>
                               <span className="text-neon-orange">{entry.debatesLost}L</span>
-                              {entry.debatesTied > 0 && (
-                                <>
-                                  <span>•</span>
-                                  <span className="text-text-muted">{entry.debatesTied}T</span>
-                                </>
-                              )}
+                              <span className="text-text-muted">{entry.debatesTied}T</span>
                             </div>
                           </div>
                         </div>

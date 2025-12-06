@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
         debatesLost: true,
         debatesTied: true,
         totalDebates: true,
+        totalScore: true,
+        totalMaxScore: true,
       },
       orderBy: {
         eloRating: 'desc',
@@ -33,16 +35,26 @@ export async function GET(request: NextRequest) {
       take: limit,
     })
 
-    // Calculate win rates and add rank
+    // Calculate win rates, overall scores, and add rank
     const leaderboardWithRank = leaderboard.map((user, index) => {
       const winRate = user.totalDebates > 0
         ? ((user.debatesWon / user.totalDebates) * 100).toFixed(1)
+        : '0.0'
+      
+      const overallScore = user.totalMaxScore > 0
+        ? `${user.totalScore}/${user.totalMaxScore}`
+        : '0/0'
+      
+      const overallScorePercent = user.totalMaxScore > 0
+        ? ((user.totalScore / user.totalMaxScore) * 100).toFixed(1)
         : '0.0'
 
       return {
         rank: index + 1,
         ...user,
         winRate: parseFloat(winRate),
+        overallScore,
+        overallScorePercent: parseFloat(overallScorePercent),
       }
     })
 
