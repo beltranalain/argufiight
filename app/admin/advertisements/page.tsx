@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
 import { Tabs } from '@/components/ui/Tabs'
+import { Modal } from '@/components/ui/Modal'
 
 // ============================================
 // BASIC ADS TAB (Legacy System)
@@ -1534,6 +1535,280 @@ function AdvertisersManagementTab() {
 }
 
 // ============================================
+// EMAIL TEMPLATES TAB
+// ============================================
+function EmailTemplatesTab() {
+  const { showToast } = useToast()
+  const [approvalEmail, setApprovalEmail] = useState({
+    subject: 'Your Advertiser Application Has Been Approved!',
+    html: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advertiser Application Approved</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+    <h1 style="color: white; margin: 0;">🎉 Application Approved!</h1>
+  </div>
+  
+  <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+    <p>Hi {{advertiserName}},</p>
+    
+    <p>Great news! Your advertiser application for <strong>{{companyName}}</strong> has been approved.</p>
+    
+    <p>You can now access your advertiser dashboard to:</p>
+    <ul>
+      <li>Create and manage advertising campaigns</li>
+      <li>Connect your Stripe account for payments</li>
+      <li>Discover and sponsor creators</li>
+      <li>Track your campaign performance</li>
+    </ul>
+    
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="{{dashboardUrl}}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+        Access Dashboard
+      </a>
+    </div>
+    
+    <p style="font-size: 14px; color: #666;">
+      If you haven't already, you'll need to <a href="{{loginUrl}}" style="color: #667eea;">sign in</a> using the email address you provided: <strong>{{advertiserEmail}}</strong>
+    </p>
+    
+    <p style="font-size: 14px; color: #666; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+      If you have any questions, please contact our support team.
+    </p>
+    
+    <p style="margin-top: 20px;">
+      Best regards,<br>
+      The Argu Fight Team
+    </p>
+  </div>
+</body>
+</html>`,
+  })
+
+  const [rejectionEmail, setRejectionEmail] = useState({
+    subject: 'Update on Your Advertiser Application',
+    html: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advertiser Application Update</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: #f9f9f9; padding: 30px; border-radius: 10px;">
+    <p>Hi {{advertiserName}},</p>
+    
+    <p>Thank you for your interest in advertising with Argu Fight.</p>
+    
+    <p>Unfortunately, we are unable to approve your advertiser application for <strong>{{companyName}}</strong> at this time.</p>
+    
+    {{#if reason}}
+    <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+      <p style="margin: 0;"><strong>Reason:</strong> {{reason}}</p>
+    </div>
+    {{/if}}
+    
+    <p>If you have any questions or would like to discuss this decision, please contact our support team.</p>
+    
+    <p style="margin-top: 30px;">
+      Best regards,<br>
+      The Argu Fight Team
+    </p>
+  </div>
+</body>
+</html>`,
+  })
+
+  const [previewType, setPreviewType] = useState<'approval' | 'rejection' | null>(null)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
+
+  const replacePlaceholders = (template: string, type: 'approval' | 'rejection') => {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
+    const dashboardUrl = `${baseUrl}/advertiser/dashboard`
+    const loginUrl = `${baseUrl}/login`
+    
+    let html = template
+      .replace(/\{\{advertiserName\}\}/g, 'John Doe')
+      .replace(/\{\{companyName\}\}/g, 'Example Company')
+      .replace(/\{\{advertiserEmail\}\}/g, 'john.doe@example.com')
+      .replace(/\{\{dashboardUrl\}\}/g, dashboardUrl)
+      .replace(/\{\{loginUrl\}\}/g, loginUrl)
+
+    if (type === 'rejection') {
+      html = html
+        .replace(/\{\{#if reason\}\}/g, '')
+        .replace(/\{\{\/if\}\}/g, '')
+        .replace(/\{\{reason\}\}/g, 'Your application did not meet our current advertising guidelines.')
+    } else {
+      // Remove handlebars conditionals for approval
+      html = html.replace(/\{\{#if reason\}\}[\s\S]*?\{\{\/if\}\}/g, '')
+    }
+
+    return html
+  }
+
+  const handlePreview = (type: 'approval' | 'rejection') => {
+    setPreviewType(type)
+    setShowPreviewModal(true)
+  }
+
+  const getPreviewHtml = () => {
+    if (!previewType) return ''
+    const template = previewType === 'approval' ? approvalEmail.html : rejectionEmail.html
+    return replacePlaceholders(template, previewType)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-text-primary">Email Templates</h2>
+        <p className="text-text-secondary mt-1">
+          Manage approval and rejection email templates sent to advertisers
+        </p>
+      </div>
+
+      {/* Approval Email Template */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-text-primary">Approval Email</h3>
+              <p className="text-sm text-text-secondary mt-1">
+                Sent when an advertiser application is approved
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              onClick={() => handlePreview('approval')}
+            >
+              Preview
+            </Button>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                Subject Line
+              </label>
+              <Input
+                value={approvalEmail.subject}
+                onChange={(e) => setApprovalEmail({ ...approvalEmail, subject: e.target.value })}
+                placeholder="Email subject"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                HTML Template
+              </label>
+              <textarea
+                value={approvalEmail.html}
+                onChange={(e) => setApprovalEmail({ ...approvalEmail, html: e.target.value })}
+                className="w-full h-96 px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary font-mono text-sm"
+                placeholder="HTML email template"
+              />
+              <p className="text-xs text-text-secondary mt-2">
+                Available placeholders: {'{'}advertiserName{'}'}, {'{'}companyName{'}'}, {'{'}advertiserEmail{'}'}, {'{'}dashboardUrl{'}'}, {'{'}loginUrl{'}'}
+              </p>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Rejection Email Template */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-text-primary">Rejection Email</h3>
+              <p className="text-sm text-text-secondary mt-1">
+                Sent when an advertiser application is rejected
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              onClick={() => handlePreview('rejection')}
+            >
+              Preview
+            </Button>
+          </div>
+        </CardHeader>
+        <CardBody>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                Subject Line
+              </label>
+              <Input
+                value={rejectionEmail.subject}
+                onChange={(e) => setRejectionEmail({ ...rejectionEmail, subject: e.target.value })}
+                placeholder="Email subject"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                HTML Template
+              </label>
+              <textarea
+                value={rejectionEmail.html}
+                onChange={(e) => setRejectionEmail({ ...rejectionEmail, html: e.target.value })}
+                className="w-full h-96 px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary font-mono text-sm"
+                placeholder="HTML email template"
+              />
+              <p className="text-xs text-text-secondary mt-2">
+                Available placeholders: {'{'}advertiserName{'}'}, {'{'}companyName{'}'}, {'{'}reason{'}'}
+              </p>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Preview Modal */}
+      <Modal
+        isOpen={showPreviewModal}
+        onClose={() => {
+          setShowPreviewModal(false)
+          setPreviewType(null)
+        }}
+        title={`Email Preview - ${previewType === 'approval' ? 'Approval' : 'Rejection'}`}
+      >
+        <div className="space-y-4">
+          <div className="bg-bg-secondary p-4 rounded-lg">
+            <p className="text-sm font-medium text-text-secondary mb-1">Subject:</p>
+            <p className="text-text-primary">
+              {previewType === 'approval' ? approvalEmail.subject : rejectionEmail.subject}
+            </p>
+          </div>
+          <div className="border border-bg-tertiary rounded-lg overflow-hidden">
+            <div className="bg-white p-4" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+              <div
+                dangerouslySetInnerHTML={{ __html: getPreviewHtml() }}
+                style={{ maxWidth: '100%' }}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowPreviewModal(false)
+                setPreviewType(null)
+              }}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  )
+}
+
+// ============================================
 // MAIN PAGE COMPONENT
 // ============================================
 export default function AdvertisementsPage() {
@@ -1544,6 +1819,7 @@ export default function AdvertisementsPage() {
     { id: 'platform', label: 'Platform Ads', content: <PlatformAdsTab /> },
     { id: 'marketplace', label: 'Creator Marketplace', content: <CreatorMarketplaceTab /> },
     { id: 'advertisers', label: 'Advertisers', content: <AdvertisersManagementTab /> },
+    { id: 'email', label: 'Email', content: <EmailTemplatesTab /> },
   ]
 
   return (
