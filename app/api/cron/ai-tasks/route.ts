@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
             await prisma.notification.create({
               data: {
                 userId: challenge.challenger.id,
-                type: 'CHALLENGE_ACCEPTED',
+                type: 'DEBATE_ACCEPTED',
                 title: 'Challenge Accepted',
                 message: `${aiUser.username} has accepted your challenge: ${challenge.topic}`,
                 debateId: challenge.id,
