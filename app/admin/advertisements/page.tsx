@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
 import { Tabs } from '@/components/ui/Tabs'
 import { Modal } from '@/components/ui/Modal'
+import { EmailTemplateEditor } from '@/components/admin/EmailTemplateEditor'
 
 // ============================================
 // BASIC ADS TAB (Legacy System)
@@ -1537,11 +1538,26 @@ function AdvertisersManagementTab() {
 // ============================================
 // EMAIL TEMPLATES TAB
 // ============================================
-function EmailTemplatesTab() {
-  const { showToast } = useToast()
-  const [approvalEmail, setApprovalEmail] = useState({
-    subject: 'Your Advertiser Application Has Been Approved!',
-    html: `<!DOCTYPE html>
+// Helper function to extract body content from full HTML
+const extractBodyContent = (fullHtml: string): string => {
+  // Try to extract content from the inner div (body content)
+  const bodyMatch = fullHtml.match(/<div[^>]*style="[^"]*background:\s*#f9f9f9[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/body>/i)
+  if (bodyMatch) {
+    return bodyMatch[1].trim()
+  }
+  // Fallback: try to extract from any div with padding
+  const divMatch = fullHtml.match(/<div[^>]*style="[^"]*padding:\s*30px[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/body>/i)
+  if (divMatch) {
+    return divMatch[1].trim()
+  }
+  // If no match, return empty
+  return ''
+}
+
+// Helper function to wrap body content in email template
+const wrapEmailTemplate = (bodyContent: string, type: 'approval' | 'rejection'): string => {
+  if (type === 'approval') {
+    return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -1554,44 +1570,12 @@ function EmailTemplatesTab() {
   </div>
   
   <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
-    <p>Hi {{advertiserName}},</p>
-    
-    <p>Great news! Your advertiser application for <strong>{{companyName}}</strong> has been approved.</p>
-    
-    <p>You can now access your advertiser dashboard to:</p>
-    <ul>
-      <li>Create and manage advertising campaigns</li>
-      <li>Connect your Stripe account for payments</li>
-      <li>Discover and sponsor creators</li>
-      <li>Track your campaign performance</li>
-    </ul>
-    
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="{{dashboardUrl}}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-        Access Dashboard
-      </a>
-    </div>
-    
-    <p style="font-size: 14px; color: #666;">
-      If you haven't already, you'll need to <a href="{{loginUrl}}" style="color: #667eea;">sign in</a> using the email address you provided: <strong>{{advertiserEmail}}</strong>
-    </p>
-    
-    <p style="font-size: 14px; color: #666; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
-      If you have any questions, please contact our support team.
-    </p>
-    
-    <p style="margin-top: 20px;">
-      Best regards,<br>
-      The Argu Fight Team
-    </p>
+    ${bodyContent}
   </div>
 </body>
-</html>`,
-  })
-
-  const [rejectionEmail, setRejectionEmail] = useState({
-    subject: 'Update on Your Advertiser Application',
-    html: `<!DOCTYPE html>
+</html>`
+  } else {
+    return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -1600,27 +1584,65 @@ function EmailTemplatesTab() {
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: #f9f9f9; padding: 30px; border-radius: 10px;">
-    <p>Hi {{advertiserName}},</p>
-    
-    <p>Thank you for your interest in advertising with Argu Fight.</p>
-    
-    <p>Unfortunately, we are unable to approve your advertiser application for <strong>{{companyName}}</strong> at this time.</p>
-    
-    {{#if reason}}
-    <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
-      <p style="margin: 0;"><strong>Reason:</strong> {{reason}}</p>
-    </div>
-    {{/if}}
-    
-    <p>If you have any questions or would like to discuss this decision, please contact our support team.</p>
-    
-    <p style="margin-top: 30px;">
-      Best regards,<br>
-      The Argu Fight Team
-    </p>
+    ${bodyContent}
   </div>
 </body>
-</html>`,
+</html>`
+  }
+}
+
+function EmailTemplatesTab() {
+  const { showToast } = useToast()
+  
+  // Store just the body content (what the user edits)
+  const [approvalEmail, setApprovalEmail] = useState({
+    subject: 'Your Advertiser Application Has Been Approved!',
+    bodyContent: `<p>Hi {{advertiserName}},</p>
+    
+<p>Great news! Your advertiser application for <strong>{{companyName}}</strong> has been approved.</p>
+
+<p>You can now access your advertiser dashboard to:</p>
+<ul>
+  <li>Create and manage advertising campaigns</li>
+  <li>Connect your Stripe account for payments</li>
+  <li>Discover and sponsor creators</li>
+  <li>Track your campaign performance</li>
+</ul>
+
+<div style="text-align: center; margin: 30px 0;">
+  <a href="{{dashboardUrl}}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+    Access Dashboard
+  </a>
+</div>
+
+<p style="font-size: 14px; color: #666;">
+  If you haven't already, you'll need to <a href="{{loginUrl}}" style="color: #667eea;">sign in</a> using the email address you provided: <strong>{{advertiserEmail}}</strong>
+</p>
+
+<p style="font-size: 14px; color: #666; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+  If you have any questions, please contact our support team.
+</p>
+
+<p style="margin-top: 20px;">
+  Best regards,<br>
+  The Argu Fight Team
+</p>`,
+  })
+
+  const [rejectionEmail, setRejectionEmail] = useState({
+    subject: 'Update on Your Advertiser Application',
+    bodyContent: `<p>Hi {{advertiserName}},</p>
+
+<p>Thank you for your interest in advertising with Argu Fight.</p>
+
+<p>Unfortunately, we are unable to approve your advertiser application for <strong>{{companyName}}</strong> at this time.</p>
+
+<p>If you have any questions or would like to discuss this decision, please contact our support team.</p>
+
+<p style="margin-top: 30px;">
+  Best regards,<br>
+  The Argu Fight Team
+</p>`,
   })
 
   const [previewType, setPreviewType] = useState<'approval' | 'rejection' | null>(null)
@@ -1658,8 +1680,9 @@ function EmailTemplatesTab() {
 
   const getPreviewHtml = () => {
     if (!previewType) return ''
-    const template = previewType === 'approval' ? approvalEmail.html : rejectionEmail.html
-    return replacePlaceholders(template, previewType)
+    const bodyContent = previewType === 'approval' ? approvalEmail.bodyContent : rejectionEmail.bodyContent
+    const fullHtml = wrapEmailTemplate(bodyContent, previewType)
+    return replacePlaceholders(fullHtml, previewType)
   }
 
   return (
@@ -1703,16 +1726,16 @@ function EmailTemplatesTab() {
             </div>
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">
-                HTML Template
+                Email Content
               </label>
-              <textarea
-                value={approvalEmail.html}
-                onChange={(e) => setApprovalEmail({ ...approvalEmail, html: e.target.value })}
-                className="w-full h-96 px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary font-mono text-sm"
-                placeholder="HTML email template"
+              <EmailTemplateEditor
+                value={approvalEmail.bodyContent}
+                onChange={(html) => setApprovalEmail({ ...approvalEmail, bodyContent: html })}
+                placeholder="Enter your email content here. Use the toolbar to format text, add links, emojis, and insert placeholders."
+                availablePlaceholders={['advertiserName', 'companyName', 'advertiserEmail', 'dashboardUrl', 'loginUrl']}
               />
               <p className="text-xs text-text-secondary mt-2">
-                Available placeholders: {'{'}advertiserName{'}'}, {'{'}companyName{'}'}, {'{'}advertiserEmail{'}'}, {'{'}dashboardUrl{'}'}, {'{'}loginUrl{'}'}
+                Available placeholders: {'{'}advertiserName{'}'}, {'{'}companyName{'}'}, {'{'}advertiserEmail{'}'}, {'{'}dashboardUrl{'}'}, {'{'}loginUrl{'}'}. HTML is generated automatically in the background.
               </p>
             </div>
           </div>
@@ -1751,16 +1774,16 @@ function EmailTemplatesTab() {
             </div>
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-2">
-                HTML Template
+                Email Content
               </label>
-              <textarea
-                value={rejectionEmail.html}
-                onChange={(e) => setRejectionEmail({ ...rejectionEmail, html: e.target.value })}
-                className="w-full h-96 px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary font-mono text-sm"
-                placeholder="HTML email template"
+              <EmailTemplateEditor
+                value={rejectionEmail.bodyContent}
+                onChange={(html) => setRejectionEmail({ ...rejectionEmail, bodyContent: html })}
+                placeholder="Enter your email content here. Use the toolbar to format text, add links, emojis, and insert placeholders."
+                availablePlaceholders={['advertiserName', 'companyName', 'reason']}
               />
               <p className="text-xs text-text-secondary mt-2">
-                Available placeholders: {'{'}advertiserName{'}'}, {'{'}companyName{'}'}, {'{'}reason{'}'}
+                Available placeholders: {'{'}advertiserName{'}'}, {'{'}companyName{'}'}, {'{'}reason{'}'}. HTML is generated automatically in the background.
               </p>
             </div>
           </div>
