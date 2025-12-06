@@ -1,12 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/cron/process-ad-payouts",
+      "path": "/api/cron/process-ad-tasks",
       "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/check-expired-offers",
-      "schedule": "0 3 * * *"
     },
     {
       "path": "/api/cron/ai-tasks",
