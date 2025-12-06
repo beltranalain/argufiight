@@ -63,7 +63,7 @@ export async function GET(
       )
     }
 
-    // Calculate win rate
+    // Calculate win rate (wins / total debates, not wins / (wins + losses))
     const winRate = user.totalDebates > 0
       ? Math.round((user.debatesWon / user.totalDebates) * 100)
       : 0

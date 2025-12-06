@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
         totalDebates: true,
         debatesWon: true,
         debatesLost: true,
+        debatesTied: true,
         isAdmin: true,
         isBanned: true,
         bannedUntil: true,

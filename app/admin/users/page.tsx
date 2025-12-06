@@ -25,6 +25,8 @@ interface UserData {
   eloRating: number
   totalDebates: number
   debatesWon: number
+  debatesLost: number
+  debatesTied: number
   isAdmin: boolean
   isBanned: boolean
   bannedUntil: string | null
@@ -446,7 +448,9 @@ export default function AdminUsersPage() {
                             <span>•</span>
                             <span>{user.totalDebates} debates</span>
                             <span>•</span>
-                            <span>{user.debatesWon} wins</span>
+                            <span className="text-cyber-green">{user.debatesWon}W</span>
+                            <span className="text-neon-orange">{user.debatesLost}L</span>
+                            <span className="text-yellow-500">{user.debatesTied || 0}T</span>
                           </div>
                         </div>
                       </div>
@@ -538,7 +542,9 @@ export default function AdminUsersPage() {
                             <span>•</span>
                             <span>{user.totalDebates} debates</span>
                             <span>•</span>
-                            <span>{user.debatesWon} wins</span>
+                            <span className="text-cyber-green">{user.debatesWon}W</span>
+                            <span className="text-neon-orange">{user.debatesLost}L</span>
+                            <span className="text-yellow-500">{user.debatesTied || 0}T</span>
                           </div>
                         </div>
                       </div>

@@ -157,7 +157,7 @@ export function UserProfileModal({ isOpen, onClose, userId }: UserProfileModalPr
               )}
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="bg-bg-tertiary rounded-lg p-4">
                   <p className="text-text-secondary text-sm mb-1">Total</p>
                   <p className="text-2xl font-bold text-white">
@@ -174,6 +174,12 @@ export function UserProfileModal({ isOpen, onClose, userId }: UserProfileModalPr
                   <p className="text-text-secondary text-sm mb-1">Losses</p>
                   <p className="text-2xl font-bold text-neon-orange">
                     {profile.debatesLost}
+                  </p>
+                </div>
+                <div className="bg-bg-tertiary rounded-lg p-4">
+                  <p className="text-text-secondary text-sm mb-1">Ties</p>
+                  <p className="text-2xl font-bold text-yellow-500">
+                    {profile.debatesTied || 0}
                   </p>
                 </div>
                 <div className="bg-bg-tertiary rounded-lg p-4">
