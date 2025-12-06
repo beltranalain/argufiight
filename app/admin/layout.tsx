@@ -12,13 +12,13 @@ export default async function AdminLayout({
   const session = await verifySession()
 
   if (!session) {
-    redirect('/login')
+    redirect('/login?userType=employee')
   }
 
   // Check if user is admin
   const userId = getUserIdFromSession(session)
   if (!userId) {
-    redirect('/login')
+    redirect('/login?userType=employee')
   }
   
   const user = await prisma.user.findUnique({
