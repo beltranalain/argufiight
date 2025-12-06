@@ -49,25 +49,25 @@ model User {
   accessLevel  String? @map("access_level") // e.g., "full", "moderation", "support"
 
   // Creator marketplace fields
-  isCreator              Boolean        @default(false) @map("is_creator")
-  creatorStatus          CreatorStatus?
-  creatorSince           DateTime?      @map("creator_since")
-  
+  isCreator     Boolean        @default(false) @map("is_creator")
+  creatorStatus CreatorStatus?
+  creatorSince  DateTime?      @map("creator_since")
+
   // Ad slot availability
-  profileBannerAvailable Boolean        @default(true) @map("profile_banner_available")
-  postDebateAvailable    Boolean        @default(true) @map("post_debate_available")
-  debateWidgetAvailable  Boolean        @default(true) @map("debate_widget_available")
-  
+  profileBannerAvailable Boolean @default(true) @map("profile_banner_available")
+  postDebateAvailable    Boolean @default(true) @map("post_debate_available")
+  debateWidgetAvailable  Boolean @default(true) @map("debate_widget_available")
+
   // Pricing (creator sets their own rates)
-  profileBannerPrice     Decimal?       @map("profile_banner_price") @db.Decimal(10, 2)
-  postDebatePrice        Decimal?       @map("post_debate_price") @db.Decimal(10, 2)
-  debateWidgetPrice      Decimal?      @map("debate_widget_price") @db.Decimal(10, 2)
-  
+  profileBannerPrice Decimal? @map("profile_banner_price") @db.Decimal(10, 2)
+  postDebatePrice    Decimal? @map("post_debate_price") @db.Decimal(10, 2)
+  debateWidgetPrice  Decimal? @map("debate_widget_price") @db.Decimal(10, 2)
+
   // Stats for advertisers (calculated monthly)
-  avgMonthlyViews        Int           @default(0) @map("avg_monthly_views")
-  avgDebateViews         Int           @default(0) @map("avg_debate_views")
-  followerCount          Int           @default(0) @map("follower_count")
-  profileVisits          Int           @default(0) @map("profile_visits")
+  avgMonthlyViews Int @default(0) @map("avg_monthly_views")
+  avgDebateViews  Int @default(0) @map("avg_debate_views")
+  followerCount   Int @default(0) @map("follower_count")
+  profileVisits   Int @default(0) @map("profile_visits")
 
   // Timestamps
   createdAt DateTime @default(now()) @map("created_at")
@@ -78,6 +78,12 @@ model User {
   bannedUntil  DateTime? @map("banned_until")
   banReason    String?   @map("ban_reason")
   rankedBanned Boolean   @default(false) @map("ranked_banned")
+
+  // AI User fields
+  isAI            Boolean @default(false) @map("is_ai")
+  aiPersonality   String? @map("ai_personality") // BALANCED, SMART, AGGRESSIVE, CALM, WITTY, ANALYTICAL
+  aiResponseDelay Int?    @map("ai_response_delay") // milliseconds (e.g., 600000 for 10 min, 3600000 for 1 hour, 86400000 for 1 day)
+  aiPaused        Boolean @default(false) @map("ai_paused")
 
   // Relations
   sessions          Session[]
@@ -107,10 +113,10 @@ model User {
   appealSubscriptions AppealSubscription[]
 
   // Subscription
-  subscription        UserSubscription?
+  subscription UserSubscription?
 
   // Usage Tracking
-  usageTracking      UsageTracking[]
+  usageTracking UsageTracking[]
 
   // Support tickets
   supportTickets       SupportTicket[]
@@ -124,9 +130,9 @@ model User {
   conversationsAsUser2 Conversation[]  @relation("User2")
 
   // Creator marketplace relations
-  offersReceived       Offer[]         @relation("OffersReceived")
-  activeContracts      AdContract[]    @relation("CreatorContracts")
-  creatorTaxInfo       CreatorTaxInfo?
+  offersReceived  Offer[]         @relation("OffersReceived")
+  activeContracts AdContract[]    @relation("CreatorContracts")
+  creatorTaxInfo  CreatorTaxInfo?
 
   @@index([email])
   @@index([username])
@@ -139,14 +145,14 @@ model User {
 // ============================================
 
 model AppealLimit {
-  id               String   @id @default(uuid())
-  userId           String   @unique @map("user_id")
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  monthlyLimit     Int      @default(4) @map("monthly_limit")
-  currentCount     Int      @default(0) @map("current_count")
-  resetDate        DateTime @default(now()) @map("reset_date")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  userId       String   @unique @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthlyLimit Int      @default(4) @map("monthly_limit")
+  currentCount Int      @default(0) @map("current_count")
+  resetDate    DateTime @default(now()) @map("reset_date")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@index([userId])
   @@map("appeal_limits")
@@ -202,33 +208,33 @@ model SubscriptionPlan {
 // ============================================
 
 model UserSubscription {
-  id                    String   @id @default(uuid())
-  userId                String   @unique @map("user_id")
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Subscription Details
-  tier                  String   // FREE, PRO
-  billingCycle          String?  // MONTHLY, YEARLY (null for FREE)
-  status                String   @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED, PAST_DUE
-  currentPeriodStart    DateTime? @map("current_period_start")
-  currentPeriodEnd      DateTime? @map("current_period_end")
-  
+  tier               String // FREE, PRO
+  billingCycle       String? // MONTHLY, YEARLY (null for FREE)
+  status             String    @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED, PAST_DUE
+  currentPeriodStart DateTime? @map("current_period_start")
+  currentPeriodEnd   DateTime? @map("current_period_end")
+
   // Stripe Integration
-  stripeCustomerId      String?  @unique @map("stripe_customer_id")
-  stripeSubscriptionId  String?  @unique @map("stripe_subscription_id")
-  stripePriceId        String?  @map("stripe_price_id") // For monthly/yearly
-  
+  stripeCustomerId     String? @unique @map("stripe_customer_id")
+  stripeSubscriptionId String? @unique @map("stripe_subscription_id")
+  stripePriceId        String? @map("stripe_price_id") // For monthly/yearly
+
   // Promo Code
-  promoCodeId           String?  @map("promo_code_id")
-  promoCode             PromoCode? @relation(fields: [promoCodeId], references: [id])
-  
+  promoCodeId String?    @map("promo_code_id")
+  promoCode   PromoCode? @relation(fields: [promoCodeId], references: [id])
+
   // Cancellation
-  cancelAtPeriodEnd     Boolean  @default(false) @map("cancel_at_period_end")
-  cancelledAt           DateTime? @map("cancelled_at")
-  
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
-  
+  cancelAtPeriodEnd Boolean   @default(false) @map("cancel_at_period_end")
+  cancelledAt       DateTime? @map("cancelled_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@index([userId])
   @@index([status])
   @@index([tier])
@@ -240,36 +246,36 @@ model UserSubscription {
 // ============================================
 
 model PromoCode {
-  id              String   @id @default(uuid())
-  code            String   @unique // e.g., "WELCOME50"
-  description     String?  @db.Text
-  
+  id          String  @id @default(uuid())
+  code        String  @unique // e.g., "WELCOME50"
+  description String? @db.Text
+
   // Discount Type
-  discountType    String   // PERCENTAGE, FIXED_AMOUNT
-  discountValue   Decimal  @db.Decimal(10, 2) // 50 for 50% or 10.00 for $10 off
-  
+  discountType  String // PERCENTAGE, FIXED_AMOUNT
+  discountValue Decimal @db.Decimal(10, 2) // 50 for 50% or 10.00 for $10 off
+
   // Usage Limits
-  maxUses         Int?     @map("max_uses") // null = unlimited
-  currentUses     Int      @default(0) @map("current_uses")
-  
+  maxUses     Int? @map("max_uses") // null = unlimited
+  currentUses Int  @default(0) @map("current_uses")
+
   // Time Limits
-  validFrom       DateTime @map("valid_from")
-  validUntil      DateTime? @map("valid_until") // null = no expiration
-  
+  validFrom  DateTime  @map("valid_from")
+  validUntil DateTime? @map("valid_until") // null = no expiration
+
   // Applicability
-  applicableTo    String   @default("PRO") // FREE, PRO, BOTH
-  billingCycles   String?  @map("billing_cycles") // JSON: ["MONTHLY", "YEARLY"] or null for all
-  
+  applicableTo  String  @default("PRO") // FREE, PRO, BOTH
+  billingCycles String? @map("billing_cycles") // JSON: ["MONTHLY", "YEARLY"] or null for all
+
   // Status
-  isActive        Boolean  @default(true) @map("is_active")
-  
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  createdBy       String?   @map("created_by") // Admin user ID
-  
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") // Admin user ID
+
   // Relations
-  subscriptions   UserSubscription[]
-  
+  subscriptions UserSubscription[]
+
   @@index([code])
   @@index([isActive])
   @@index([validUntil])
@@ -281,22 +287,22 @@ model PromoCode {
 // ============================================
 
 model UsageTracking {
-  id              String   @id @default(uuid())
-  userId          String   @map("user_id")
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Feature Usage
-  featureType     String   // APPEAL, TOURNAMENT_CREDIT, THATS_THE_ONE, SPEED_DEBATE
-  count           Int      @default(0)
-  
+  featureType String // APPEAL, TOURNAMENT_CREDIT, THATS_THE_ONE, SPEED_DEBATE
+  count       Int    @default(0)
+
   // Period Tracking
-  periodStart     DateTime @map("period_start")
-  periodEnd       DateTime @map("period_end")
-  periodType      String   @default("MONTHLY") // MONTHLY, YEARLY
-  
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+  periodType  String   @default("MONTHLY") // MONTHLY, YEARLY
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@unique([userId, featureType, periodStart])
   @@index([userId])
   @@index([featureType])
@@ -334,33 +340,33 @@ model Advertisement {
 // ============================================
 
 model Advertiser {
-  id              String            @id @default(uuid())
-  companyName     String            @map("company_name")
-  website         String
-  industry        String
-  contactEmail    String            @unique @map("contact_email")
-  contactName     String            @map("contact_name")
-  businessEIN     String?           @map("business_ein")
-  
+  id           String  @id @default(uuid())
+  companyName  String  @map("company_name")
+  website      String
+  industry     String
+  contactEmail String  @unique @map("contact_email")
+  contactName  String  @map("contact_name")
+  businessEIN  String? @map("business_ein")
+
   // Status management
-  status          AdvertiserStatus  @default(PENDING)
-  stripeAccountId String?           @unique @map("stripe_account_id")
-  paymentReady    Boolean           @default(false) @map("payment_ready")
-  
+  status          AdvertiserStatus @default(PENDING)
+  stripeAccountId String?          @unique @map("stripe_account_id")
+  paymentReady    Boolean          @default(false) @map("payment_ready")
+
   // Timestamps
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
-  approvedAt      DateTime?         @map("approved_at")
-  approvedBy      String?          @map("approved_by")
-  rejectionReason String?           @map("rejection_reason") @db.Text
-  suspendedAt     DateTime?         @map("suspended_at")
-  suspensionReason String?          @map("suspension_reason") @db.Text
-  
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  approvedAt       DateTime? @map("approved_at")
+  approvedBy       String?   @map("approved_by")
+  rejectionReason  String?   @map("rejection_reason") @db.Text
+  suspendedAt      DateTime? @map("suspended_at")
+  suspensionReason String?   @map("suspension_reason") @db.Text
+
   // Relations
-  campaigns       Campaign[]
-  offers          Offer[]
-  contracts       AdContract[]
-  
+  campaigns Campaign[]
+  offers    Offer[]
+  contracts AdContract[]
+
   @@index([status])
   @@index([contactEmail])
   @@index([createdAt])
@@ -380,47 +386,47 @@ enum AdvertiserStatus {
 // ============================================
 
 model Campaign {
-  id              String         @id @default(uuid())
-  advertiserId    String         @map("advertiser_id")
-  advertiser      Advertiser     @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
-  
+  id           String     @id @default(uuid())
+  advertiserId String     @map("advertiser_id")
+  advertiser   Advertiser @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+
   // Campaign details
-  name            String
-  type            CampaignType
-  category        String
-  budget          Decimal        @db.Decimal(10, 2)
-  
+  name     String
+  type     CampaignType
+  category String
+  budget   Decimal      @db.Decimal(10, 2)
+
   // Schedule
-  startDate       DateTime       @map("start_date")
-  endDate         DateTime       @map("end_date")
-  
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+
   // Creative assets
-  bannerUrl       String?        @map("banner_url")
-  videoUrl        String?        @map("video_url")
-  destinationUrl  String          @map("destination_url")
-  ctaText         String         @default("Learn More") @map("cta_text")
-  
+  bannerUrl      String? @map("banner_url")
+  videoUrl       String? @map("video_url")
+  destinationUrl String  @map("destination_url")
+  ctaText        String  @default("Learn More") @map("cta_text")
+
   // Targeting (for creator sponsorships)
-  minELO          Int?           @map("min_elo")
-  targetCategories String[]      @map("target_categories")
-  minFollowers    Int?           @map("min_followers")
-  maxBudgetPerCreator Decimal?   @map("max_budget_per_creator") @db.Decimal(10, 2)
-  
+  minELO              Int?     @map("min_elo")
+  targetCategories    String[] @map("target_categories")
+  minFollowers        Int?     @map("min_followers")
+  maxBudgetPerCreator Decimal? @map("max_budget_per_creator") @db.Decimal(10, 2)
+
   // Status
   status          CampaignStatus @default(PENDING_REVIEW)
   rejectionReason String?        @map("rejection_reason") @db.Text
-  
+
   // Timestamps
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
-  approvedAt      DateTime?      @map("approved_at")
-  
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  approvedAt DateTime? @map("approved_at")
+
   // Relations
-  offers          Offer[]
-  contracts       AdContract[]
-  impressions     Impression[]
-  clicks          Click[]
-  
+  offers      Offer[]
+  contracts   AdContract[]
+  impressions Impression[]
+  clicks      Click[]
+
   @@index([advertiserId])
   @@index([status])
   @@index([startDate, endDate])
@@ -450,41 +456,41 @@ enum CampaignStatus {
 // ============================================
 
 model Offer {
-  id              String       @id @default(uuid())
-  advertiserId    String       @map("advertiser_id")
-  advertiser      Advertiser   @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
-  campaignId      String       @map("campaign_id")
-  campaign        Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  creatorId       String       @map("creator_id")
-  creator         User         @relation("OffersReceived", fields: [creatorId], references: [id], onDelete: Cascade)
-  
+  id           String     @id @default(uuid())
+  advertiserId String     @map("advertiser_id")
+  advertiser   Advertiser @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  campaignId   String     @map("campaign_id")
+  campaign     Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creatorId    String     @map("creator_id")
+  creator      User       @relation("OffersReceived", fields: [creatorId], references: [id], onDelete: Cascade)
+
   // Offer details
-  placement       PlacementType
-  duration        Int          // days
-  
+  placement PlacementType
+  duration  Int // days
+
   // Payment structure
-  paymentType     PaymentType  @map("payment_type")
-  amount          Decimal      @db.Decimal(10, 2)
-  cpcRate         Decimal?     @map("cpc_rate") @db.Decimal(10, 2)
-  cpmRate         Decimal?     @map("cpm_rate") @db.Decimal(10, 2)
-  
+  paymentType PaymentType @map("payment_type")
+  amount      Decimal     @db.Decimal(10, 2)
+  cpcRate     Decimal?    @map("cpc_rate") @db.Decimal(10, 2)
+  cpmRate     Decimal?    @map("cpm_rate") @db.Decimal(10, 2)
+
   // Communication
-  message         String?      @db.Text
-  status          OfferStatus  @default(PENDING)
-  
+  message String?     @db.Text
+  status  OfferStatus @default(PENDING)
+
   // Counter offers (negotiation)
-  counterAmount   Decimal?     @map("counter_amount") @db.Decimal(10, 2)
-  counterMessage  String?      @map("counter_message") @db.Text
-  negotiationRound Int         @default(0) @map("negotiation_round")
-  
+  counterAmount    Decimal? @map("counter_amount") @db.Decimal(10, 2)
+  counterMessage   String?  @map("counter_message") @db.Text
+  negotiationRound Int      @default(0) @map("negotiation_round")
+
   // Timestamps
-  createdAt       DateTime     @default(now()) @map("created_at")
-  expiresAt       DateTime     @map("expires_at")
-  respondedAt     DateTime?    @map("responded_at")
-  
+  createdAt   DateTime  @default(now()) @map("created_at")
+  expiresAt   DateTime  @map("expires_at")
+  respondedAt DateTime? @map("responded_at")
+
   // Relations
-  contract        AdContract?
-  
+  contract AdContract?
+
   @@index([creatorId])
   @@index([advertiserId])
   @@index([status])
@@ -517,50 +523,50 @@ enum OfferStatus {
 }
 
 model AdContract {
-  id              String          @id @default(uuid())
-  offerId         String          @unique @map("offer_id")
-  offer           Offer           @relation(fields: [offerId], references: [id], onDelete: Cascade)
-  
+  id      String @id @default(uuid())
+  offerId String @unique @map("offer_id")
+  offer   Offer  @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
   // Parties
-  advertiserId    String          @map("advertiser_id")
-  advertiser      Advertiser      @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
-  creatorId       String          @map("creator_id")
-  creator         User            @relation("CreatorContracts", fields: [creatorId], references: [id], onDelete: Cascade)
-  campaignId      String          @map("campaign_id")
-  campaign        Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
+  advertiserId String     @map("advertiser_id")
+  advertiser   Advertiser @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+  creatorId    String     @map("creator_id")
+  creator      User       @relation("CreatorContracts", fields: [creatorId], references: [id], onDelete: Cascade)
+  campaignId   String     @map("campaign_id")
+  campaign     Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
   // Contract terms
-  placement       PlacementType
-  totalAmount     Decimal         @map("total_amount") @db.Decimal(10, 2)
-  platformFee     Decimal         @map("platform_fee") @db.Decimal(10, 2)
-  creatorPayout   Decimal         @map("creator_payout") @db.Decimal(10, 2)
-  
+  placement     PlacementType
+  totalAmount   Decimal       @map("total_amount") @db.Decimal(10, 2)
+  platformFee   Decimal       @map("platform_fee") @db.Decimal(10, 2)
+  creatorPayout Decimal       @map("creator_payout") @db.Decimal(10, 2)
+
   // Schedule
-  startDate       DateTime        @map("start_date")
-  endDate         DateTime        @map("end_date")
-  
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+
   // Performance tracking
-  impressionsDelivered Int        @default(0) @map("impressions_delivered")
-  clicksDelivered      Int        @default(0) @map("clicks_delivered")
-  
+  impressionsDelivered Int @default(0) @map("impressions_delivered")
+  clicksDelivered      Int @default(0) @map("clicks_delivered")
+
   // Status
-  status          ContractStatus  @default(SCHEDULED)
-  signedAt        DateTime        @default(now()) @map("signed_at")
-  completedAt     DateTime?       @map("completed_at")
-  cancelledAt     DateTime?      @map("cancelled_at")
-  cancellationReason String?      @map("cancellation_reason") @db.Text
-  
+  status             ContractStatus @default(SCHEDULED)
+  signedAt           DateTime       @default(now()) @map("signed_at")
+  completedAt        DateTime?      @map("completed_at")
+  cancelledAt        DateTime?      @map("cancelled_at")
+  cancellationReason String?        @map("cancellation_reason") @db.Text
+
   // Payment
-  escrowHeld      Boolean         @default(false) @map("escrow_held")
-  payoutSent      Boolean         @default(false) @map("payout_sent")
-  payoutDate      DateTime?       @map("payout_date")
-  stripePaymentId String?         @map("stripe_payment_id")
-  stripePayoutId  String?         @map("stripe_payout_id")
-  
+  escrowHeld      Boolean   @default(false) @map("escrow_held")
+  payoutSent      Boolean   @default(false) @map("payout_sent")
+  payoutDate      DateTime? @map("payout_date")
+  stripePaymentId String?   @map("stripe_payment_id")
+  stripePayoutId  String?   @map("stripe_payout_id")
+
   // Relations
-  impressions     Impression[]
-  clicks          Click[]
-  
+  impressions Impression[]
+  clicks      Click[]
+
   @@index([creatorId])
   @@index([advertiserId])
   @@index([status])
@@ -581,20 +587,20 @@ enum ContractStatus {
 // ============================================
 
 model Impression {
-  id         String      @id @default(uuid())
-  contractId String      @map("contract_id")
-  contract   AdContract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  campaignId String      @map("campaign_id")
-  campaign   Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
+  id         String     @id @default(uuid())
+  contractId String     @map("contract_id")
+  contract   AdContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  campaignId String     @map("campaign_id")
+  campaign   Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
   // Tracking data
-  userId     String?     @map("user_id")
-  ipAddress  String      @map("ip_address")
-  userAgent  String      @map("user_agent")
-  referrer   String?
-  
-  timestamp  DateTime    @default(now())
-  
+  userId    String? @map("user_id")
+  ipAddress String  @map("ip_address")
+  userAgent String  @map("user_agent")
+  referrer  String?
+
+  timestamp DateTime @default(now())
+
   @@index([contractId])
   @@index([campaignId])
   @@index([timestamp])
@@ -603,20 +609,20 @@ model Impression {
 }
 
 model Click {
-  id         String      @id @default(uuid())
-  contractId String      @map("contract_id")
-  contract   AdContract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  campaignId String      @map("campaign_id")
-  campaign   Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
+  id         String     @id @default(uuid())
+  contractId String     @map("contract_id")
+  contract   AdContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  campaignId String     @map("campaign_id")
+  campaign   Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
   // Tracking data
-  userId     String?     @map("user_id")
-  ipAddress  String      @map("ip_address")
-  userAgent  String      @map("user_agent")
-  referrer   String?
-  
-  timestamp  DateTime    @default(now())
-  
+  userId    String? @map("user_id")
+  ipAddress String  @map("ip_address")
+  userAgent String  @map("user_agent")
+  referrer  String?
+
+  timestamp DateTime @default(now())
+
   @@index([contractId])
   @@index([campaignId])
   @@index([timestamp])
@@ -629,23 +635,23 @@ model Click {
 // ============================================
 
 model CreatorTaxInfo {
-  id              String   @id @default(uuid())
-  creatorId       String   @unique @map("creator_id")
-  creator         User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  
+  id        String @id @default(uuid())
+  creatorId String @unique @map("creator_id")
+  creator   User   @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
   // Stripe Connect
-  stripeAccountId String   @unique @map("stripe_account_id")
-  taxFormComplete Boolean  @default(false) @map("tax_form_complete")
-  bankVerified    Boolean  @default(false) @map("bank_verified")
-  payoutEnabled   Boolean  @default(false) @map("payout_enabled")
-  
+  stripeAccountId String  @unique @map("stripe_account_id")
+  taxFormComplete Boolean @default(false) @map("tax_form_complete")
+  bankVerified    Boolean @default(false) @map("bank_verified")
+  payoutEnabled   Boolean @default(false) @map("payout_enabled")
+
   // Earnings tracking (for 1099 generation)
-  yearlyEarnings  Json     @default("{}") @map("yearly_earnings")
-  
+  yearlyEarnings Json @default("{}") @map("yearly_earnings")
+
   // Timestamps
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@map("creator_tax_info")
 }
 

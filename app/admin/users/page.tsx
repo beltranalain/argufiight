@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
 import { AddEmployeeModal } from '@/components/admin/AddEmployeeModal'
 import { UserProfileModal } from '@/components/admin/UserProfileModal'
+import { AIUserModal } from '@/components/admin/AIUserModal'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { StaggerContainer } from '@/components/ui/StaggerContainer'
 import { StaggerItem } from '@/components/ui/StaggerItem'
@@ -52,6 +53,11 @@ export default function AdminUsersPage() {
   const [isActionModalOpen, setIsActionModalOpen] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [suspendDays, setSuspendDays] = useState<string>('7')
+  const [aiUsers, setAiUsers] = useState<UserData[]>([])
+  const [regularUsers, setRegularUsers] = useState<UserData[]>([])
+  const [employees, setEmployees] = useState<UserData[]>([])
+  const [isAIUserModalOpen, setIsAIUserModalOpen] = useState(false)
+  const [editingAIUser, setEditingAIUser] = useState<UserData | null>(null)
 
   useEffect(() => {
     fetchUsers()
@@ -65,6 +71,13 @@ export default function AdminUsersPage() {
       if (response.ok) {
         const data = await response.json()
         setUserData(data)
+        // Separate users into categories
+        const ai = data.filter((u: any) => u.isAI)
+        const emp = data.filter((u: any) => u.isAdmin || u.employeeRole)
+        const regular = data.filter((u: any) => !u.isAI && !u.isAdmin && !u.employeeRole)
+        setAiUsers(ai)
+        setEmployees(emp)
+        setRegularUsers(regular)
       }
     } catch (error) {
       console.error('Failed to fetch users:', error)
@@ -168,9 +181,7 @@ export default function AdminUsersPage() {
     }
   }
 
-  // Separate employees (admins) from regular users
-  const employees = userData.filter(user => user.isAdmin)
-  const regularUsers = userData.filter(user => !user.isAdmin)
+  // Users are already separated in fetchUsers
 
   if (isLoading) {
     return (
@@ -212,6 +223,15 @@ export default function AdminUsersPage() {
               User Limit Settings
             </Button>
             <Button
+              variant="secondary"
+              onClick={() => {
+                setEditingAIUser(null)
+                setIsAIUserModalOpen(true)
+              }}
+            >
+              Create AI User
+            </Button>
+            <Button
               variant="primary"
               onClick={() => setIsModalOpen(true)}
             >
@@ -221,6 +241,151 @@ export default function AdminUsersPage() {
         </div>
 
         <div className="space-y-6">
+          {/* AI Users Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-white">AI Users</h2>
+                  <p className="text-sm text-text-secondary mt-1">Automated users that accept challenges and debate</p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setEditingAIUser(null)
+                    setIsAIUserModalOpen(true)
+                  }}
+                >
+                  Create AI User
+                </Button>
+              </div>
+            </CardHeader>
+            <CardBody>
+              {aiUsers.length === 0 ? (
+                <EmptyState
+                  icon={
+                    <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  }
+                  title="No AI Users"
+                  description="Create AI users to automatically accept challenges and participate in debates"
+                />
+              ) : (
+                <StaggerContainer className="space-y-4">
+                  {aiUsers.map((user) => {
+                    const aiUser = user as any
+                    const delayMs = aiUser.aiResponseDelay || 3600000
+                    const delayHours = Math.round(delayMs / 3600000)
+                    const delayLabel = delayMs < 3600000 
+                      ? `${Math.round(delayMs / 60000)} min`
+                      : delayHours === 1 
+                        ? '1 hour'
+                        : `${delayHours} hours`
+                    
+                    return (
+                      <StaggerItem key={user.id}>
+                        <motion.div
+                          whileHover={cardHover}
+                          whileTap={cardTap}
+                          className="p-4 bg-bg-tertiary rounded-lg border border-bg-tertiary hover:border-electric-blue transition-all"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4 flex-1">
+                              <Avatar 
+                                username={user.username}
+                                src={user.avatarUrl}
+                                size="md"
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="text-white font-semibold">{user.username}</h3>
+                                  <Badge variant="default" size="sm" className="bg-purple-500 text-white">
+                                    AI User
+                                  </Badge>
+                                  {aiUser.aiPersonality && (
+                                    <Badge variant="default" size="sm" className="bg-electric-blue text-black">
+                                      {aiUser.aiPersonality}
+                                    </Badge>
+                                  )}
+                                  {aiUser.aiPaused && (
+                                    <Badge variant="default" size="sm" className="bg-neon-orange text-black">
+                                      Paused
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-text-secondary">{user.email}</p>
+                                <div className="flex items-center gap-4 mt-2 text-sm text-text-secondary">
+                                  <span>ELO: {user.eloRating}</span>
+                                  <span>•</span>
+                                  <span>{user.totalDebates} debates</span>
+                                  <span>•</span>
+                                  <span>Auto-accept: {delayLabel}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingAIUser(user)
+                                    setIsAIUserModalOpen(true)
+                                  }}
+                                  className="text-xs"
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={async () => {
+                                    try {
+                                      const response = await fetch(`/api/admin/ai-users/${user.id}/toggle-pause`, {
+                                        method: 'POST',
+                                      })
+                                      if (response.ok) {
+                                        showToast({
+                                          type: 'success',
+                                          title: 'Success',
+                                          description: `AI user ${aiUser.aiPaused ? 'resumed' : 'paused'}`,
+                                        })
+                                        fetchUsers()
+                                      }
+                                    } catch (error) {
+                                      showToast({
+                                        type: 'error',
+                                        title: 'Error',
+                                        description: 'Failed to toggle pause',
+                                      })
+                                    }
+                                  }}
+                                  className="text-xs"
+                                >
+                                  {aiUser.aiPaused ? 'Resume' : 'Pause'}
+                                </Button>
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => handleDeleteUser(user.id)}
+                                  className="text-xs text-red-400 hover:text-red-300 hover:border-red-400"
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      </StaggerItem>
+                    )
+                  })}
+                </StaggerContainer>
+              )}
+            </CardBody>
+          </Card>
+
           {/* Employees Section */}
           {employees.length > 0 && (
             <Card>
@@ -419,6 +584,16 @@ export default function AdminUsersPage() {
           setSelectedUserId(null)
         }}
         userId={selectedUserId}
+      />
+
+      <AIUserModal
+        isOpen={isAIUserModalOpen}
+        onClose={() => {
+          setIsAIUserModalOpen(false)
+          setEditingAIUser(null)
+        }}
+        onSuccess={fetchUsers}
+        editingUser={editingAIUser}
       />
 
       {/* Action Confirmation Modal */}
