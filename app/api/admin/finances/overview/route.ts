@@ -17,9 +17,22 @@ export async function GET(request: NextRequest) {
 
     // Get date range from query params (default to last 30 days)
     const searchParams = request.nextUrl.searchParams
-    const days = parseInt(searchParams.get('days') || '30')
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - days)
+    let startDate: Date
+    let endDate = new Date()
+    
+    if (searchParams.get('startDate') && searchParams.get('endDate')) {
+      // Custom date range
+      startDate = new Date(searchParams.get('startDate')!)
+      endDate = new Date(searchParams.get('endDate')!)
+      // Set end date to end of day
+      endDate.setHours(23, 59, 59, 999)
+    } else {
+      // Quick filter (days)
+      const days = parseInt(searchParams.get('days') || '30')
+      startDate = new Date()
+      startDate.setDate(startDate.getDate() - days)
+      startDate.setHours(0, 0, 0, 0)
+    }
 
     // ===== SUBSCRIPTION REVENUE =====
     const subscriptions = await prisma.userSubscription.findMany({
@@ -167,9 +180,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       isTestMode,
       period: {
-        days,
         startDate,
-        endDate: new Date(),
+        endDate,
       },
       revenue: {
         subscriptions: {

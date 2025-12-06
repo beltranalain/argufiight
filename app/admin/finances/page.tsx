@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
@@ -10,7 +10,6 @@ import { Tabs } from '@/components/ui/Tabs'
 interface FinanceOverview {
   isTestMode: boolean
   period: {
-    days: number
     startDate: Date
     endDate: Date
   }
@@ -49,11 +48,36 @@ export default function FinancesPage() {
   const [isTestMode, setIsTestMode] = useState(false)
   const [overview, setOverview] = useState<FinanceOverview | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState(30)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
+  const [useCustomRange, setUseCustomRange] = useState(false)
+  const datePickerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchStripeMode()
+  }, [])
+
+  useEffect(() => {
     fetchOverview()
-  }, [selectedPeriod])
+  }, [selectedPeriod, useCustomRange, customStartDate, customEndDate])
+
+  // Close date picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+        setShowDatePicker(false)
+      }
+    }
+
+    if (showDatePicker) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showDatePicker])
 
   const fetchStripeMode = async () => {
     try {
@@ -70,7 +94,14 @@ export default function FinancesPage() {
   const fetchOverview = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/admin/finances/overview?days=${selectedPeriod}`)
+      let url = `/api/admin/finances/overview?`
+      if (useCustomRange && customStartDate && customEndDate) {
+        url += `startDate=${customStartDate}&endDate=${customEndDate}`
+      } else {
+        url += `days=${selectedPeriod}`
+      }
+      
+      const response = await fetch(url)
       if (!response.ok) {
         throw new Error('Failed to fetch finances overview')
       }
@@ -85,6 +116,37 @@ export default function FinancesPage() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleQuickFilter = (days: number) => {
+    setUseCustomRange(false)
+    setSelectedPeriod(days)
+    setCustomStartDate('')
+    setCustomEndDate('')
+    setShowDatePicker(false)
+  }
+
+  const handleCustomDateRange = () => {
+    if (!customStartDate || !customEndDate) {
+      showToast({
+        type: 'error',
+        title: 'Invalid Date Range',
+        description: 'Please select both start and end dates',
+      })
+      return
+    }
+
+    if (new Date(customStartDate) > new Date(customEndDate)) {
+      showToast({
+        type: 'error',
+        title: 'Invalid Date Range',
+        description: 'Start date must be before end date',
+      })
+      return
+    }
+
+    setUseCustomRange(true)
+    setShowDatePicker(false)
   }
 
   const formatCurrency = (amount: number) => {
@@ -127,17 +189,88 @@ export default function FinancesPage() {
           </div>
 
           {/* Period Selector */}
-          <div className="flex gap-2">
-            {[7, 30, 90, 365].map((days) => (
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex gap-2">
+              {[7, 30, 90, 365].map((days) => (
+                <Button
+                  key={days}
+                  variant={!useCustomRange && selectedPeriod === days ? 'primary' : 'secondary'}
+                  onClick={() => handleQuickFilter(days)}
+                  className="text-sm"
+                >
+                  {days === 365 ? '1 Year' : `${days} Days`}
+                </Button>
+              ))}
+            </div>
+            
+            <div className="relative" ref={datePickerRef}>
               <Button
-                key={days}
-                variant={selectedPeriod === days ? 'primary' : 'secondary'}
-                onClick={() => setSelectedPeriod(days)}
+                variant={useCustomRange ? 'primary' : 'secondary'}
+                onClick={() => setShowDatePicker(!showDatePicker)}
                 className="text-sm"
               >
-                {days === 365 ? '1 Year' : `${days} Days`}
+                Custom Range
               </Button>
-            ))}
+              
+              {showDatePicker && (
+                <div className="absolute top-full left-0 mt-2 bg-bg-secondary border border-bg-tertiary rounded-lg p-4 shadow-lg z-50 min-w-[300px]">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-text-secondary mb-2">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="w-full px-3 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-electric-blue"
+                        max={customEndDate || undefined}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-text-secondary mb-2">
+                        End Date
+                      </label>
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="w-full px-3 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-electric-blue"
+                        min={customStartDate || undefined}
+                        max={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="primary"
+                        onClick={handleCustomDateRange}
+                        className="flex-1 text-sm"
+                        disabled={!customStartDate || !customEndDate}
+                      >
+                        Apply
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setShowDatePicker(false)
+                          setCustomStartDate('')
+                          setCustomEndDate('')
+                        }}
+                        className="flex-1 text-sm"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {useCustomRange && customStartDate && customEndDate && (
+              <div className="text-sm text-text-secondary">
+                {formatDate(customStartDate)} - {formatDate(customEndDate)}
+              </div>
+            )}
           </div>
 
           {overview && (
