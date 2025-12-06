@@ -42,28 +42,35 @@ export default function AdvertisePage() {
   }, [user, authLoading, router])
 
   // Individual handlers for each field to prevent re-render issues
+  // Extract value immediately to avoid event object issues
   const handleCompanyNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, companyName: e.target.value }))
+    const value = e.target.value
+    setFormData((prev) => ({ ...prev, companyName: value }))
   }, [])
 
   const handleWebsiteChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, website: e.target.value }))
+    const value = e.target.value
+    setFormData((prev) => ({ ...prev, website: value }))
   }, [])
 
   const handleIndustryChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFormData((prev) => ({ ...prev, industry: e.target.value }))
+    const value = e.target.value
+    setFormData((prev) => ({ ...prev, industry: value }))
   }, [])
 
   const handleContactNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, contactName: e.target.value }))
+    const value = e.target.value
+    setFormData((prev) => ({ ...prev, contactName: value }))
   }, [])
 
   const handleContactEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, contactEmail: e.target.value }))
+    const value = e.target.value
+    setFormData((prev) => ({ ...prev, contactEmail: value }))
   }, [])
 
   const handleBusinessEINChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, businessEIN: e.target.value }))
+    const value = e.target.value
+    setFormData((prev) => ({ ...prev, businessEIN: value }))
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
