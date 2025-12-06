@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { AuthLayout } from '@/components/auth/AuthLayout'
@@ -10,7 +10,7 @@ import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { useToast } from '@/components/ui/Toast'
 import { LoadingSpinner } from '@/components/ui/Loading'
 
-export default function PaymentPage() {
+function PaymentPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { showToast } = useToast()
@@ -281,6 +281,22 @@ export default function PaymentPage() {
         </Card>
       </div>
     </AuthLayout>
+  )
+}
+
+export default function PaymentPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthLayout>
+          <div className="flex items-center justify-center min-h-[400px]">
+            <LoadingSpinner size="lg" />
+          </div>
+        </AuthLayout>
+      }
+    >
+      <PaymentPageContent />
+    </Suspense>
   )
 }
 

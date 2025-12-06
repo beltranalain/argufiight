@@ -3,14 +3,14 @@
 export const dynamic = 'force-dynamic'
 export const runtime = 'edge'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
-export default function ResetPasswordPage() {
+function ResetPasswordPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
@@ -194,6 +194,22 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </AuthLayout>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthLayout>
+          <div className="bg-bg-secondary border border-bg-tertiary rounded-2xl p-10">
+            <p className="text-text-secondary text-center">Loading...</p>
+          </div>
+        </AuthLayout>
+      }
+    >
+      <ResetPasswordPageContent />
+    </Suspense>
   )
 }
 

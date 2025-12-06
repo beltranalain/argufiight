@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { AuthLayout } from '@/components/auth/AuthLayout'
@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/Toast'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { createStripeClient } from '@/lib/stripe/stripe-client'
 
-export default function SuccessPage() {
+function SuccessPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { showToast } = useToast()
@@ -122,6 +122,23 @@ export default function SuccessPage() {
         </CardBody>
       </Card>
     </AuthLayout>
+  )
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthLayout>
+          <div className="flex flex-col items-center justify-center min-h-[400px]">
+            <LoadingSpinner size="lg" />
+            <p className="text-text-secondary mt-4">Loading...</p>
+          </div>
+        </AuthLayout>
+      }
+    >
+      <SuccessPageContent />
+    </Suspense>
   )
 }
 
