@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
+import { sendAdvertiserRejectionEmail } from '@/lib/email/advertiser-notifications'
 
 export async function POST(
   request: NextRequest,
@@ -32,7 +33,18 @@ export async function POST(
       },
     })
 
-    // TODO: Send rejection email
+    // Send rejection email
+    try {
+      await sendAdvertiserRejectionEmail(
+        advertiser.contactEmail,
+        advertiser.contactName,
+        advertiser.companyName,
+        reason
+      )
+    } catch (emailError) {
+      console.error('Failed to send rejection email (non-blocking):', emailError)
+      // Don't fail the rejection if email fails
+    }
 
     return NextResponse.json({ success: true, advertiser })
   } catch (error: any) {

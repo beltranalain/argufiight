@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
+import { sendAdvertiserApprovalEmail } from '@/lib/email/advertiser-notifications'
 
 export async function POST(
   request: NextRequest,
@@ -23,7 +24,17 @@ export async function POST(
       },
     })
 
-    // TODO: Send approval email
+    // Send approval email
+    try {
+      await sendAdvertiserApprovalEmail(
+        advertiser.contactEmail,
+        advertiser.contactName,
+        advertiser.companyName
+      )
+    } catch (emailError) {
+      console.error('Failed to send approval email (non-blocking):', emailError)
+      // Don't fail the approval if email fails
+    }
 
     return NextResponse.json({ success: true, advertiser })
   } catch (error: any) {
