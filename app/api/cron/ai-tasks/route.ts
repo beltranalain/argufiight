@@ -166,25 +166,10 @@ export async function GET(request: NextRequest) {
             }
 
             // Generate AI response
-            const debateContext = {
-              topic: debate.topic,
-              description: debate.description || '',
-              category: debate.category,
-              challengerPosition: debate.challengerPosition,
-              opponentPosition: debate.opponentPosition,
-              currentRound: debate.currentRound,
-              totalRounds: debate.totalRounds,
-              statements: debate.statements.map(s => ({
-                author: s.authorId === debate.challengerId ? debate.challenger.username : debate.opponent?.username || 'Unknown',
-                content: s.content,
-                round: s.round,
-              })),
-              aiUserIsChallenger: debate.challengerId === aiUser.id,
-            }
-
             const aiResponse = await generateAIResponse(
-              debateContext,
-              (aiUser.aiPersonality || 'BALANCED') as any
+              debate.id,
+              aiUser.id,
+              debate.currentRound
             )
 
             // Submit the statement
