@@ -22,7 +22,15 @@ function LoginForm() {
     const type = searchParams.get('userType')
     const errorParam = searchParams.get('error')
     
-    if (type) {
+    // Also check referrer to detect if coming from admin or advertiser pages
+    if (!type) {
+      const referrer = document.referrer
+      if (referrer.includes('/admin')) {
+        setUserType('employee')
+      } else if (referrer.includes('/advertiser')) {
+        setUserType('advertiser')
+      }
+    } else {
       setUserType(type)
     }
     
