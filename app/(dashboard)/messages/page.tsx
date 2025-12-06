@@ -310,7 +310,7 @@ export default function MessagesPage() {
     <div className="min-h-screen bg-bg-primary">
       <TopNav currentPanel="THE ARENA" />
       <div className="pt-20 pb-20">
-      <div className="max-w-7xl mx-auto px-4 md:px-8">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">Direct Messages</h1>
           <p className="text-text-secondary">Chat with other users</p>
@@ -666,6 +666,7 @@ export default function MessagesPage() {
               </CardBody>
             )}
           </Card>
+        </div>
         </div>
       </div>
     </div>
