@@ -128,7 +128,7 @@ export function TrendingTopics({ onTopicClick }: TrendingTopicsProps) {
                 {topic.category}
               </Badge>
               
-              <h4 className="text-lg font-bold text-text-primary mb-4 flex-grow line-clamp-2">
+              <h4 className="text-lg font-bold text-text-primary mb-4 flex-grow line-clamp-2 overflow-hidden text-ellipsis">
                 {topic.title}
               </h4>
               

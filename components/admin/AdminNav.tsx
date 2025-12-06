@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
@@ -110,6 +111,27 @@ const NAV_ITEMS = [
 
 export function AdminNav() {
   const pathname = usePathname()
+  const [unreadTicketCount, setUnreadTicketCount] = useState(0)
+
+  useEffect(() => {
+    // Fetch unread ticket count
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await fetch('/api/admin/support/tickets/unread-count')
+        if (response.ok) {
+          const data = await response.json()
+          setUnreadTicketCount(data.unreadCount || 0)
+        }
+      } catch (error) {
+        console.error('Failed to fetch unread ticket count:', error)
+      }
+    }
+
+    fetchUnreadCount()
+    // Poll every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="w-64 border-r border-bg-tertiary bg-bg-secondary h-screen flex flex-col">
@@ -131,13 +153,15 @@ export function AdminNav() {
       <nav className="flex-1 overflow-y-auto px-6 py-2 space-y-2">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/admin' && pathname?.startsWith(item.href))
+          const isSupport = item.href === '/admin/support'
+          const showBadge = isSupport && unreadTicketCount > 0
 
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg transition-all',
+                'flex items-center gap-3 px-4 py-3 rounded-lg transition-all relative',
                 isActive
                   ? 'bg-electric-blue/10 text-electric-blue border border-electric-blue/30'
                   : 'text-text-secondary hover:bg-bg-tertiary hover:text-white'
@@ -145,6 +169,11 @@ export function AdminNav() {
             >
               {item.icon}
               <span className="font-medium">{item.label}</span>
+              {showBadge && (
+                <span className="ml-auto bg-neon-orange text-black text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                  {unreadTicketCount > 99 ? '99+' : unreadTicketCount}
+                </span>
+              )}
             </Link>
           )
         })}

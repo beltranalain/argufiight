@@ -67,7 +67,18 @@ export default function MessagesPage() {
 
   useEffect(() => {
     fetchConversations()
-  }, [])
+    
+    // Poll for new messages every 5 seconds
+    const interval = setInterval(() => {
+      if (selectedConversation) {
+        fetchMessages(selectedConversation.id)
+      } else {
+        fetchConversations()
+      }
+    }, 5000)
+    
+    return () => clearInterval(interval)
+  }, [selectedConversation])
 
   useEffect(() => {
     if (viewMode === 'following') {
@@ -150,7 +161,26 @@ export default function MessagesPage() {
       const response = await fetch(`/api/messages/conversations/${conversationId}/messages`)
       if (response.ok) {
         const data = await response.json()
-        setMessages(data.messages || [])
+        const newMessages = data.messages || []
+        
+        // Check for new messages (if polling silently)
+        if (silent && messages.length > 0 && newMessages.length > messages.length) {
+          const latestMessage = newMessages[newMessages.length - 1]
+          // Only show notification if it's not from the current user
+          if (latestMessage.senderId !== user?.id) {
+            showToast({
+              type: 'info',
+              title: 'New Message',
+              description: `${latestMessage.sender.username}: ${latestMessage.content.substring(0, 50)}${latestMessage.content.length > 50 ? '...' : ''}`,
+            })
+            // Scroll to bottom
+            setTimeout(() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+            }, 100)
+          }
+        }
+        
+        setMessages(newMessages)
         if (!silent) {
           // Update unread count in conversations list
           setConversations(prev => prev.map(conv => 

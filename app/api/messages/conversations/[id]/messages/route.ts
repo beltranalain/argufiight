@@ -178,6 +178,21 @@ export async function POST(
       },
     })
 
+    // Create notification for the receiver
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: receiverId,
+          type: 'NEW_MESSAGE',
+          title: 'New Message',
+          message: `${message.sender.username} sent you a message`,
+        },
+      })
+    } catch (error) {
+      // Log but don't fail if notification creation fails
+      console.error('Failed to create message notification:', error)
+    }
+
     return NextResponse.json({ message }, { status: 201 })
   } catch (error) {
     console.error('Failed to send message:', error)

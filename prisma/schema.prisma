@@ -1014,6 +1014,7 @@ enum NotificationType {
   REMATCH_REQUESTED // Someone requested a rematch
   REMATCH_ACCEPTED // Rematch was accepted
   REMATCH_DECLINED // Rematch was declined
+  NEW_MESSAGE // New direct message received
 }
 
 // ============================================
