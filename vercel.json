@@ -7,6 +7,14 @@
     {
       "path": "/api/cron/check-expired-offers",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/ai-auto-accept",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/ai-generate-responses",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
