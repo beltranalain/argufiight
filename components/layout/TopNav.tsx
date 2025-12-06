@@ -17,16 +17,29 @@ export function TopNav({ currentPanel }: TopNavProps) {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [userTier, setUserTier] = useState<'FREE' | 'PRO' | null>(null)
+  const [isAdvertiser, setIsAdvertiser] = useState(false)
 
   useEffect(() => {
     if (user) {
       fetchUnreadCount()
       fetchUserTier()
+      checkIfAdvertiser()
       // Poll for new notifications every 30 seconds
       const interval = setInterval(fetchUnreadCount, 30000)
       return () => clearInterval(interval)
     }
   }, [user])
+  
+  const checkIfAdvertiser = async () => {
+    try {
+      const response = await fetch('/api/advertiser/me')
+      if (response.ok) {
+        setIsAdvertiser(true)
+      }
+    } catch (error) {
+      setIsAdvertiser(false)
+    }
+  }
 
   const fetchUserTier = async () => {
     try {
@@ -53,7 +66,21 @@ export function TopNav({ currentPanel }: TopNavProps) {
     }
   }
 
-  const menuItems = [
+  const menuItems = isAdvertiser ? [
+    {
+      label: 'Profile',
+      onClick: () => window.location.href = '/advertiser/dashboard',
+    },
+    {
+      label: 'Settings',
+      onClick: () => window.location.href = '/advertiser/settings',
+    },
+    {
+      label: 'Logout',
+      variant: 'danger' as const,
+      onClick: logout,
+    },
+  ] : [
     {
       label: 'Profile',
       onClick: () => window.location.href = '/profile',

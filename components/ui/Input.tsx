@@ -23,7 +23,7 @@ export function Input({
       )}
       <input
         className={cn(
-          'bg-bg-secondary border border-bg-tertiary rounded-lg px-4 py-3.5 text-white',
+          'bg-bg-secondary border border-bg-tertiary rounded-lg px-4 py-3.5 text-text-primary',
           'transition-all duration-300 outline-none',
           'focus:border-electric-blue focus:shadow-[0_0_0_3px_rgba(0,217,255,0.1)]',
           'placeholder:text-text-muted',

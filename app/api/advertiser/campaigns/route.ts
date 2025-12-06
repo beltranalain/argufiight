@@ -40,6 +40,75 @@ function getEasternTimezoneOffset(date: Date): number {
   return easternTotalMinutes - utcTotalMinutes
 }
 
+// GET /api/advertiser/campaigns - Get advertiser's campaigns
+export async function GET(request: NextRequest) {
+  try {
+    const session = await verifySession()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const userId = getUserIdFromSession(session)
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get user's email
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Find advertiser by email
+    const advertiser = await prisma.advertiser.findUnique({
+      where: { contactEmail: user.email },
+    })
+
+    if (!advertiser) {
+      return NextResponse.json({ error: 'Advertiser account not found' }, { status: 404 })
+    }
+
+    // Get campaigns for this advertiser
+    const campaigns = await prisma.campaign.findMany({
+      where: { advertiserId: advertiser.id },
+      include: {
+        impressions: {
+          select: { id: true },
+        },
+        clicks: {
+          select: { id: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    // Format campaigns with impression and click counts
+    const formattedCampaigns = campaigns.map((campaign) => ({
+      id: campaign.id,
+      name: campaign.name,
+      type: campaign.type,
+      status: campaign.status,
+      budget: campaign.budget.toString(),
+      startDate: campaign.startDate.toISOString(),
+      endDate: campaign.endDate.toISOString(),
+      impressionsDelivered: campaign.impressions.length,
+      clicksDelivered: campaign.clicks.length,
+    }))
+
+    return NextResponse.json({ campaigns: formattedCampaigns })
+  } catch (error: any) {
+    console.error('Failed to fetch campaigns:', error)
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch campaigns' },
+      { status: 500 }
+    )
+  }
+}
+
 // POST /api/advertiser/campaigns - Create new campaign
 export async function POST(request: NextRequest) {
   try {

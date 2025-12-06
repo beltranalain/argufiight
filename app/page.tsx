@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { PublicHomepage } from '@/components/homepage/PublicHomepage'
 import { DashboardHomePage } from '@/components/dashboard/DashboardHomePage'
+import { prisma } from '@/lib/db/prisma'
 
 export default async function RootPage() {
   // Use verifySessionWithDb to get full session with userId
@@ -15,8 +16,25 @@ export default async function RootPage() {
     })
   }
 
-  // If logged in, show dashboard
+  // If logged in, check if user is advertiser and redirect accordingly
   if (session?.userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { email: true },
+    })
+
+    if (user) {
+      const advertiser = await prisma.advertiser.findUnique({
+        where: { contactEmail: user.email },
+        select: { status: true },
+      })
+
+      // If user is an approved advertiser, redirect to advertiser dashboard
+      if (advertiser && advertiser.status === 'APPROVED') {
+        redirect('/advertiser/dashboard')
+      }
+    }
+
     return <DashboardHomePage />
   }
 

@@ -107,7 +107,10 @@ export default function CreatorDiscoveryPage() {
                   </label>
                   <Input
                     value={filters.search}
-                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setFilters(prev => ({ ...prev, search: value }))
+                    }}
                     placeholder="Search..."
                   />
                 </div>
@@ -118,7 +121,10 @@ export default function CreatorDiscoveryPage() {
                   <Input
                     type="number"
                     value={filters.minELO}
-                    onChange={(e) => setFilters({ ...filters, minELO: e.target.value })}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setFilters(prev => ({ ...prev, minELO: value }))
+                    }}
                     placeholder="1500"
                   />
                 </div>
@@ -145,7 +151,10 @@ export default function CreatorDiscoveryPage() {
                   <Input
                     type="number"
                     value={filters.minFollowers}
-                    onChange={(e) => setFilters({ ...filters, minFollowers: e.target.value })}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setFilters(prev => ({ ...prev, minFollowers: value }))
+                    }}
                     placeholder="100"
                   />
                 </div>
