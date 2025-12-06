@@ -1,9 +1,9 @@
 # Project Status - ArguFight
 
 ## Current Status
-**Last Updated:** 2025-01-XX  
+**Last Updated:** 2025-12-05  
 **Repository:** `argufight/argufight` (GitHub)  
-**Latest Commit:** `d3aaf179` - Fix: Use type assertion for promotion_code property
+**Latest Commit:** `d7359662` - Add: Project status documentation for handoff
 
 ## Recent Work - Build Error Fixes
 
@@ -78,6 +78,11 @@ We've been fixing TypeScript build errors that occurred after migrating to a new
 - **Issue:** Extra closing brace causing syntax error
 - **Fix:** Removed extra brace
 
+#### 11. Stripe Coupon Property Type Error
+- **File:** `lib/stripe/stripe-client.ts`
+- **Issue:** `coupon` property doesn't exist on `SubscriptionCreateParams` type
+- **Fix:** Used type assertion `(subscriptionData as any).coupon = coupon.id`
+
 ### Cron Job Configuration
 - **File:** `vercel.json`
 - **Issue:** Hobby plan only allows daily cron jobs
@@ -89,9 +94,9 @@ We've been fixing TypeScript build errors that occurred after migrating to a new
 - **No authentication prompts:** Token is working correctly
 
 ## Current Build Status
-- **Last Known Error:** Fixed in commit `d3aaf179`
+- **Last Known Error:** Fixed in commit `d7359662`
 - **Expected Status:** Build should succeed
-- **If errors persist:** Check if Vercel is building the latest commit (`d3aaf179`)
+- **If errors persist:** Check if Vercel is building the latest commit (`d7359662`)
 
 ## Key Files Modified
 1. `app/(dashboard)/profile/[id]/page.tsx` - Added subscription property, AdDisplay import
@@ -108,9 +113,10 @@ We've been fixing TypeScript build errors that occurred after migrating to a new
 12. `app/api/creator/profile/route.ts` - Added isCreator to select
 13. `app/api/cron/process-ad-payouts/route.ts` - Fixed duplicate property
 14. `vercel.json` - Fixed cron schedule
+15. `lib/stripe/stripe-client.ts` - Fixed coupon property type assertion
 
 ## Next Steps (If Build Still Fails)
-1. Check Vercel dashboard to confirm it's building commit `d3aaf179`
+1. Check Vercel dashboard to confirm it's building commit `d7359662`
 2. If new errors appear, they'll likely be similar Stripe type issues - use type assertions
 3. Check for any remaining Badge variant issues (search for `variant="secondary"`)
 4. Verify all Stripe property accesses use type assertions where needed
@@ -124,9 +130,9 @@ We've been fixing TypeScript build errors that occurred after migrating to a new
 
 ## Environment
 - **Node.js:** (Check package.json)
-- **Next.js:** 15.5.7
+- **Next.js:** 15.2.4
 - **Prisma:** 6.19.0
-- **Stripe:** Latest (check package.json for exact version)
+- **Stripe:** 20.0.0
 
 ## Database
 - **Provider:** PostgreSQL

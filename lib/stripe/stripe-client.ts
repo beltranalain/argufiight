@@ -154,7 +154,7 @@ export async function createSubscription(
       // Fallback: search for coupon by ID (if promoCode is actually a coupon ID)
       try {
         const coupon = await stripe.coupons.retrieve(promoCode)
-        subscriptionData.coupon = coupon.id
+        ;(subscriptionData as any).coupon = coupon.id
       } catch {
         // Coupon not found, ignore
       }
