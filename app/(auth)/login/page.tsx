@@ -108,6 +108,8 @@ function LoginForm() {
       setTimeout(() => {
         if (data.user?.isAdmin) {
           window.location.href = '/admin'
+        } else if (data.user?.isAdvertiser) {
+          window.location.href = '/advertiser/dashboard'
         } else {
           window.location.href = '/'
         }

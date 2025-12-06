@@ -134,6 +134,16 @@ export async function POST(request: NextRequest) {
     const sessionJWT = await createSession(user.id)
     console.log(`Login successful for user: ${user.email}`)
 
+    // Check if user is an approved advertiser (for redirect logic)
+    let isApprovedAdvertiser = false
+    if (!isEmployee) {
+      const advertiserCheck = await prisma.advertiser.findUnique({
+        where: { contactEmail: user.email },
+        select: { status: true },
+      })
+      isApprovedAdvertiser = advertiserCheck?.status === 'APPROVED'
+    }
+
     // Return user (without password) with token for mobile apps
     const { passwordHash, ...userWithoutPassword } = user
 
@@ -150,6 +160,7 @@ export async function POST(request: NextRequest) {
       debates_tied: userWithoutPassword.debatesTied,
       total_debates: userWithoutPassword.totalDebates,
       isAdmin: userWithoutPassword.isAdmin, // Include isAdmin for web app
+      isAdvertiser: isApprovedAdvertiser, // Include isAdvertiser for redirect logic
     }
 
     return NextResponse.json({
