@@ -113,44 +113,59 @@ export function LeaderboardPanel() {
                 <Link
                   key={entry.id}
                   href={`/profile/${entry.id}`}
-                className={`block p-4 rounded-lg border transition-colors ${
+                  className={`block p-5 rounded-xl border-2 transition-all hover:shadow-lg ${
                     isCurrentUser
-                      ? 'bg-electric-blue/10 border-electric-blue/30 hover:border-electric-blue'
-                      : 'bg-bg-tertiary border-bg-tertiary hover:border-bg-secondary'
+                      ? 'bg-gradient-to-br from-electric-blue/20 to-electric-blue/5 border-electric-blue/50 hover:border-electric-blue shadow-electric-blue/20'
+                      : 'bg-bg-tertiary border-bg-secondary hover:border-bg-primary'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                  <div className="flex-shrink-0 w-10 text-center">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0">
                       {getRankBadge(entry.rank)}
                     </div>
-                    <Avatar
-                      src={entry.avatarUrl}
-                      username={entry.username}
-                    size="md"
-                    />
                     <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                        <p className={`font-semibold truncate ${isCurrentUser ? 'text-electric-blue' : 'text-text-primary'}`}>
-                          {entry.username}
-                        </p>
-                        {isCurrentUser && (
-                          <Badge variant="default" size="sm" className="bg-electric-blue text-black text-xs">
-                            You
-                          </Badge>
-                        )}
+                      <div className="flex items-center gap-2 mb-2">
+                        <Avatar
+                          src={entry.avatarUrl}
+                          username={entry.username}
+                          size="md"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className={`font-bold text-base truncate ${isCurrentUser ? 'text-electric-blue' : 'text-text-primary'}`}>
+                              {entry.username}
+                            </p>
+                            {isCurrentUser && (
+                              <Badge variant="default" size="sm" className="bg-electric-blue text-black text-xs px-2 py-0.5">
+                                You
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    <div className="flex flex-col gap-1 text-xs text-text-secondary">
-                        <span className="text-electric-blue font-semibold">ELO: {entry.eloRating}</span>
-                        <span className="text-cyber-green font-semibold">Score: {entry.overallScore}</span>
-                      <div className="flex items-center gap-2">
-                        <span>{entry.totalDebates} debates</span>
-                        <span>•</span>
-                        <span className="text-cyber-green">{entry.debatesWon}W</span>
-                        <span className="text-neon-orange">{entry.debatesLost}L</span>
-                        <span className="text-text-muted">{entry.debatesTied}T</span>
-                        <span>•</span>
-                        <span>{entry.winRate}% win rate</span>
-                      </div>
+                      <div className="space-y-2 mt-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-text-secondary">ELO</span>
+                          <span className="text-electric-blue font-bold">{entry.eloRating}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-text-secondary">Score</span>
+                          <span className="text-cyber-green font-bold">{entry.overallScore} ({entry.overallScorePercent}%)</span>
+                        </div>
+                        <div className="pt-2 border-t border-bg-secondary">
+                          <div className="flex items-center justify-between text-xs text-text-secondary mb-1">
+                            <span>Record</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-cyber-green font-semibold">{entry.debatesWon}W</span>
+                              <span className="text-neon-orange font-semibold">{entry.debatesLost}L</span>
+                              <span className="text-yellow-500 font-semibold">{entry.debatesTied || 0}T</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-text-secondary">
+                            <span>{entry.totalDebates} debates</span>
+                            <span className="text-electric-blue font-semibold">{entry.winRate}% win rate</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

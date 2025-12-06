@@ -113,44 +113,55 @@ export default function LeaderboardPage() {
                       <Link
                         key={entry.id}
                         href={`/profile/${entry.id}`}
-                        className={`block p-4 rounded-lg border transition-colors ${
+                        className={`block p-5 rounded-xl border-2 transition-all hover:shadow-lg ${
                           isCurrentUser
-                            ? 'bg-electric-blue/10 border-electric-blue/30 hover:border-electric-blue'
-                            : 'bg-bg-tertiary border-bg-tertiary hover:border-bg-secondary'
+                            ? 'bg-gradient-to-br from-electric-blue/20 to-electric-blue/5 border-electric-blue/50 hover:border-electric-blue shadow-electric-blue/20'
+                            : 'bg-bg-tertiary border-bg-secondary hover:border-bg-primary'
                         }`}
                       >
                         <div className="flex items-center gap-4">
-                          <div className="flex-shrink-0 w-16 text-center">
+                          <div className="flex-shrink-0">
                             {getRankBadge(entry.rank)}
                           </div>
                           <Avatar
                             src={entry.avatarUrl}
                             username={entry.username}
-                            size="md"
+                            size="lg"
                           />
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className={`font-semibold text-lg truncate ${isCurrentUser ? 'text-electric-blue' : 'text-text-primary'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <p className={`font-bold text-lg truncate ${isCurrentUser ? 'text-electric-blue' : 'text-text-primary'}`}>
                                 {entry.username}
                               </p>
                               {isCurrentUser && (
-                                <Badge variant="default" size="sm" className="bg-electric-blue text-black">
+                                <Badge variant="default" size="sm" className="bg-electric-blue text-black px-2 py-0.5">
                                   You
                                 </Badge>
                               )}
                             </div>
-                            <div className="flex items-center gap-4 text-sm text-text-secondary">
-                              <span className="text-electric-blue font-semibold">ELO: {entry.eloRating}</span>
-                              <span>•</span>
-                              <span className="text-cyber-green font-semibold">Score: {entry.overallScore}</span>
-                              <span>•</span>
-                              <span>{entry.winRate}% win rate</span>
-                              <span>•</span>
-                              <span>{entry.totalDebates} debates</span>
-                              <span>•</span>
-                              <span className="text-cyber-green">{entry.debatesWon}W</span>
-                              <span className="text-neon-orange">{entry.debatesLost}L</span>
-                              <span className="text-text-muted">{entry.debatesTied}T</span>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                              <div>
+                                <span className="text-text-secondary block text-xs mb-0.5">ELO</span>
+                                <span className="text-electric-blue font-bold">{entry.eloRating}</span>
+                              </div>
+                              <div>
+                                <span className="text-text-secondary block text-xs mb-0.5">Score</span>
+                                <span className="text-cyber-green font-bold">{entry.overallScore}</span>
+                                <span className="text-text-muted text-xs ml-1">({entry.overallScorePercent}%)</span>
+                              </div>
+                              <div>
+                                <span className="text-text-secondary block text-xs mb-0.5">Record</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-cyber-green font-semibold">{entry.debatesWon}W</span>
+                                  <span className="text-neon-orange font-semibold">{entry.debatesLost}L</span>
+                                  <span className="text-yellow-500 font-semibold">{entry.debatesTied || 0}T</span>
+                                </div>
+                              </div>
+                              <div>
+                                <span className="text-text-secondary block text-xs mb-0.5">Win Rate</span>
+                                <span className="text-electric-blue font-bold">{entry.winRate}%</span>
+                                <span className="text-text-muted text-xs ml-1">({entry.totalDebates} debates)</span>
+                              </div>
                             </div>
                           </div>
                         </div>
