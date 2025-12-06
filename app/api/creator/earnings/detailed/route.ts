@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { signedAt: 'desc' },
     })
 
     // Calculate totals

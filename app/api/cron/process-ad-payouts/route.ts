@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       processed: processedContracts.length,
-      errors: errors.length,
+      errorCount: errors.length,
       processedContracts,
       errors,
     })

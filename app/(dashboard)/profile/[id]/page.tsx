@@ -34,7 +34,7 @@ interface UserProfile {
   winRate: number
   createdAt: string
   subscription: {
-    tier: string
+    tier: 'FREE' | 'PRO'
   }
 }
 

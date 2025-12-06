@@ -127,8 +127,8 @@ export default function SubscriptionPage() {
               </p>
             </div>
             <Badge
-              variant={isPro ? 'default' : 'secondary'}
-              className={isPro ? 'bg-electric-blue/20 text-electric-blue' : ''}
+              variant="default"
+              className={isPro ? 'bg-electric-blue/20 text-electric-blue border border-electric-blue/30' : ''}
             >
               {subscription?.tier || 'FREE'}
             </Badge>

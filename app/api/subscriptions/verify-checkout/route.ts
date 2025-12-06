@@ -57,13 +57,17 @@ export async function POST(request: NextRequest) {
     const interval = subscription.items.data[0]?.price.recurring?.interval
     const billingCycle = interval === 'month' ? 'MONTHLY' : interval === 'year' ? 'YEARLY' : null
 
-    // Get promo code from subscription metadata or discount
+    // Get promo code from subscription metadata or discounts
     let promoCodeId: string | null = null
-    if (subscription.discount?.coupon?.metadata?.promoCodeId) {
-      promoCodeId = subscription.discount.coupon.metadata.promoCodeId
-      
-      // Increment promo code usage
-      if (promoCodeId) {
+    if (subscription.discounts && subscription.discounts.length > 0) {
+      const discount = subscription.discounts[0]
+      if (typeof discount !== 'string' && discount.coupon?.metadata?.promoCodeId) {
+        promoCodeId = discount.coupon.metadata.promoCodeId
+      }
+    }
+    
+    // Increment promo code usage
+    if (promoCodeId) {
         await prisma.promoCode.update({
           where: { id: promoCodeId },
           data: {

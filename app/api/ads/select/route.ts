@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        orderBy: { createdAt: 'desc' }, // Most recent first
+        orderBy: { signedAt: 'desc' }, // Most recent first
       })
 
       if (creatorContract) {
