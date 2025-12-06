@@ -3,7 +3,7 @@
 ## Current Status
 **Last Updated:** 2025-12-05  
 **Repository:** `argufight/argufight` (GitHub)  
-**Latest Commit:** `d7359662` - Add: Project status documentation for handoff
+**Latest Commit:** `3f48a854` - Fix: Use type assertion for coupon property in Stripe subscription
 
 ## Recent Work - Build Error Fixes
 
@@ -94,9 +94,9 @@ We've been fixing TypeScript build errors that occurred after migrating to a new
 - **No authentication prompts:** Token is working correctly
 
 ## Current Build Status
-- **Last Known Error:** Fixed in commit `d7359662`
+- **Last Known Error:** Fixed in commit `3f48a854`
 - **Expected Status:** Build should succeed
-- **If errors persist:** Check if Vercel is building the latest commit (`d7359662`)
+- **If errors persist:** Check if Vercel is building the latest commit (`3f48a854`)
 
 ## Key Files Modified
 1. `app/(dashboard)/profile/[id]/page.tsx` - Added subscription property, AdDisplay import
@@ -116,7 +116,7 @@ We've been fixing TypeScript build errors that occurred after migrating to a new
 15. `lib/stripe/stripe-client.ts` - Fixed coupon property type assertion
 
 ## Next Steps (If Build Still Fails)
-1. Check Vercel dashboard to confirm it's building commit `d7359662`
+1. Check Vercel dashboard to confirm it's building commit `3f48a854`
 2. If new errors appear, they'll likely be similar Stripe type issues - use type assertions
 3. Check for any remaining Badge variant issues (search for `variant="secondary"`)
 4. Verify all Stripe property accesses use type assertions where needed
