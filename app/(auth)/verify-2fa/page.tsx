@@ -50,7 +50,12 @@ function Verify2FAForm() {
             } else {
               // Check if advertiser
               fetch('/api/advertiser/me')
-                .then(advRes => advRes.json())
+                .then(advRes => {
+                  if (advRes.ok) {
+                    return advRes.json()
+                  }
+                  return { advertiser: null }
+                })
                 .then(advData => {
                   if (advData.advertiser) {
                     window.location.href = '/advertiser/dashboard'

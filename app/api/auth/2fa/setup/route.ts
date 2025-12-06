@@ -20,31 +20,14 @@ export async function GET(request: NextRequest) {
     // Get user
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true, isAdmin: true },
+      select: { email: true },
     })
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    // Check if user is employee or advertiser
-    const isEmployee = user.isAdmin
-    let isAdvertiser = false
-
-    if (!isEmployee) {
-      const advertiser = await prisma.advertiser.findUnique({
-        where: { contactEmail: user.email },
-        select: { status: true },
-      })
-      isAdvertiser = advertiser?.status === 'APPROVED'
-    }
-
-    if (!isEmployee && !isAdvertiser) {
-      return NextResponse.json(
-        { error: '2FA is only available for employees and advertisers' },
-        { status: 403 }
-      )
-    }
+    // 2FA is now available for all users (optional)
 
     // Generate new secret
     const secret = generateTotpSecret(user.email)

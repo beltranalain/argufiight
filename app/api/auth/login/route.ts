@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user is employee or advertiser (requires 2FA)
+    // Check if user is employee or advertiser (requires 2FA) OR if regular user has 2FA enabled (optional)
     const isEmployee = user.isAdmin
     let isAdvertiser = false
     let requires2FA = false
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If 2FA is required but not set up, create a temporary session for setup
+    // If 2FA is required (employee/advertiser) but not set up, create a temporary session for setup
     if (requires2FA && !user.totpEnabled) {
       // Create temporary session for 2FA setup
       const tempSessionJWT = await createSession(user.id)
@@ -117,8 +117,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // If 2FA is enabled, require verification before creating full session
-    if (requires2FA && user.totpEnabled) {
+    // If 2FA is enabled (required for employees/advertisers, optional for regular users), require verification
+    if (user.totpEnabled) {
       // Create temporary session that will be upgraded after 2FA verification
       const tempSessionJWT = await createSession(user.id)
       return NextResponse.json({
