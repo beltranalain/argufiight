@@ -24,20 +24,26 @@ function PaymentPageContent() {
   const [promoValid, setPromoValid] = useState<{ valid: boolean; discount?: number; finalPrice?: number } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [pricing, setPricing] = useState({ monthly: 9.99, yearly: 89.0 })
 
-  const monthlyPrice = 9.99
-  const yearlyPrice = 89.00
-  const basePrice = billingCycle === 'MONTHLY' ? monthlyPrice : yearlyPrice
+  const basePrice = billingCycle === 'MONTHLY' ? pricing.monthly : pricing.yearly
 
   useEffect(() => {
-    // Check if user is authenticated
-    fetch('/api/auth/me')
-      .then((res) => {
-        if (!res.ok) {
+    // Check if user is authenticated and fetch pricing
+    Promise.all([
+      fetch('/api/auth/me'),
+      fetch('/api/subscriptions/pricing'),
+    ])
+      .then(async ([authRes, pricingRes]) => {
+        if (!authRes.ok) {
           router.push('/login')
-        } else {
-          setIsLoading(false)
+          return
         }
+        if (pricingRes.ok) {
+          const pricingData = await pricingRes.json()
+          setPricing(pricingData)
+        }
+        setIsLoading(false)
       })
       .catch(() => {
         router.push('/login')
@@ -176,7 +182,7 @@ function PaymentPageContent() {
                   }`}
                 >
                   <div className="text-lg font-bold text-white mb-1">Monthly</div>
-                  <div className="text-2xl font-bold text-electric-blue">$9.99</div>
+                  <div className="text-2xl font-bold text-electric-blue">${pricing.monthly.toFixed(2)}</div>
                   <div className="text-sm text-text-secondary">per month</div>
                 </button>
                 <button
@@ -195,7 +201,7 @@ function PaymentPageContent() {
                     SAVE 25%
                   </div>
                   <div className="text-lg font-bold text-white mb-1">Yearly</div>
-                  <div className="text-2xl font-bold text-electric-blue">$89</div>
+                  <div className="text-2xl font-bold text-electric-blue">${pricing.yearly.toFixed(2)}</div>
                   <div className="text-sm text-text-secondary">per year</div>
                 </button>
               </div>

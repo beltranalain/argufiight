@@ -55,10 +55,22 @@ export async function POST(request: NextRequest) {
     // Get or create Stripe customer
     const customerId = await getOrCreateCustomer(userId, user.email)
 
-    // Get Stripe price IDs from SubscriptionPlan or use defaults
-    // For now, we'll need to create these in Stripe and store them
-    // Monthly: $9.99 = 999 cents
-    // Yearly: $89.00 = 8900 cents
+    // Get pricing from database
+    const pricingSettings = await prisma.adminSetting.findMany({
+      where: {
+        key: {
+          in: ['PRO_MONTHLY_PRICE', 'PRO_YEARLY_PRICE'],
+        },
+      },
+    })
+
+    const pricingMap = pricingSettings.reduce((acc, setting) => {
+      acc[setting.key] = setting.value
+      return acc
+    }, {} as Record<string, string>)
+
+    const monthlyPrice = parseFloat(pricingMap.PRO_MONTHLY_PRICE || '9.99')
+    const yearlyPrice = parseFloat(pricingMap.PRO_YEARLY_PRICE || '89.00')
     
     const stripe = await createStripeClient()
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
@@ -95,7 +107,7 @@ export async function POST(request: NextRequest) {
             name: 'Argu Fight Pro - Monthly',
             description: 'Pro subscription with all premium features',
           },
-          unit_amount: 999, // $9.99
+          unit_amount: Math.round(monthlyPrice * 100), // Convert to cents
           recurring: {
             interval: 'month',
           },
@@ -110,7 +122,7 @@ export async function POST(request: NextRequest) {
             name: 'Argu Fight Pro - Yearly',
             description: 'Pro subscription with all premium features (Save 25%)',
           },
-          unit_amount: 8900, // $89.00
+          unit_amount: Math.round(yearlyPrice * 100), // Convert to cents
           recurring: {
             interval: 'year',
           },
@@ -149,6 +161,23 @@ async function validatePromoCode(
   billingCycle: string
 ): Promise<{ valid: boolean; couponId?: string; discountAmount?: number }> {
   try {
+    // Get pricing from database
+    const pricingSettings = await prisma.adminSetting.findMany({
+      where: {
+        key: {
+          in: ['PRO_MONTHLY_PRICE', 'PRO_YEARLY_PRICE'],
+        },
+      },
+    })
+
+    const pricingMap = pricingSettings.reduce((acc, setting) => {
+      acc[setting.key] = setting.value
+      return acc
+    }, {} as Record<string, string>)
+
+    const monthlyPrice = parseFloat(pricingMap.PRO_MONTHLY_PRICE || '9.99')
+    const yearlyPrice = parseFloat(pricingMap.PRO_YEARLY_PRICE || '89.00')
+
     const promoCode = await prisma.promoCode.findUnique({
       where: { code: code.toUpperCase() },
     })
@@ -212,8 +241,8 @@ async function validatePromoCode(
       couponId = coupon.id
     }
 
-    // Calculate discount amount
-    const basePrice = billingCycle === 'MONTHLY' ? 9.99 : 89.0
+    // Calculate discount amount using database pricing
+    const basePrice = billingCycle === 'MONTHLY' ? monthlyPrice : yearlyPrice
     let discountAmount = 0
     if (promoCode.discountType === 'PERCENTAGE') {
       discountAmount = (basePrice * Number(promoCode.discountValue)) / 100

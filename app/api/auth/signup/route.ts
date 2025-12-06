@@ -192,6 +192,34 @@ export async function POST(request: NextRequest) {
       throw new Error(`Failed to create session: ${sessionError instanceof Error ? sessionError.message : String(sessionError)}`)
     }
 
+    // Automatically create FREE subscription
+    try {
+      await prisma.userSubscription.create({
+        data: {
+          userId: user.id,
+          tier: 'FREE',
+          status: 'ACTIVE',
+          billingCycle: null,
+        },
+      })
+
+      // Create appeal limit for Free tier (4/month)
+      await prisma.appealLimit.upsert({
+        where: { userId: user.id },
+        create: {
+          userId: user.id,
+          monthlyLimit: 4,
+          currentCount: 0,
+        },
+        update: {
+          monthlyLimit: 4,
+        },
+      })
+    } catch (subscriptionError) {
+      console.error('Failed to create free subscription:', subscriptionError)
+      // Don't fail signup if subscription creation fails - user can still use the app
+    }
+
     // Return user (without password)
     const { passwordHash: _, ...userWithoutPassword } = user
 

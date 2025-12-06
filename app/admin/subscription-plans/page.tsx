@@ -7,213 +7,114 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
-import { Badge } from '@/components/ui/Badge'
 
-interface SubscriptionPlan {
-  id: string
-  name: string
-  description: string | null
-  price: number
-  billingCycle: string
-  features: string
-  appealLimit: number | null
-  debateLimit: number | null
-  prioritySupport: boolean
-  customBadge: string | null
-  stripePriceId: string | null
-  stripeProductId: string | null
-  isActive: boolean
-  createdAt: string
+interface Pricing {
+  monthly: number
+  yearly: number
 }
 
-export default function SubscriptionPlansPage() {
+export default function SubscriptionPricingPage() {
   const { showToast } = useToast()
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([])
+  const [pricing, setPricing] = useState<Pricing>({ monthly: 9.99, yearly: 89.0 })
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null)
-
-  // Form state
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    billingCycle: 'MONTHLY',
-    features: '',
-    appealLimit: '',
-    debateLimit: '',
-    prioritySupport: false,
-    customBadge: '',
-    stripePriceId: '',
-    stripeProductId: '',
-    isActive: false,
+    monthly: '9.99',
+    yearly: '89.00',
   })
 
   useEffect(() => {
-    fetchPlans()
+    fetchPricing()
   }, [])
 
-  const fetchPlans = async () => {
+  const fetchPricing = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/admin/subscription-plans')
+      const response = await fetch('/api/subscriptions/pricing')
       if (response.ok) {
         const data = await response.json()
-        setPlans(data.plans || [])
+        setPricing(data)
+        setFormData({
+          monthly: data.monthly.toString(),
+          yearly: data.yearly.toString(),
+        })
       }
     } catch (error) {
-      console.error('Failed to fetch plans:', error)
+      console.error('Failed to fetch pricing:', error)
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Failed to load subscription plans',
+        description: 'Failed to load pricing',
       })
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleCreate = () => {
-    setEditingPlan(null)
-    setFormData({
-      name: '',
-      description: '',
-      price: '',
-      billingCycle: 'MONTHLY',
-      features: '',
-      appealLimit: '',
-      debateLimit: '',
-      prioritySupport: false,
-      customBadge: '',
-      stripePriceId: '',
-      stripeProductId: '',
-      isActive: false,
-    })
-    setShowCreateModal(true)
-  }
-
-  const handleEdit = (plan: SubscriptionPlan) => {
-    setEditingPlan(plan)
-    try {
-      const featuresArray = JSON.parse(plan.features)
-      setFormData({
-        name: plan.name,
-        description: plan.description || '',
-        price: plan.price.toString(),
-        billingCycle: plan.billingCycle,
-        features: Array.isArray(featuresArray) ? featuresArray.join(', ') : plan.features,
-        appealLimit: plan.appealLimit?.toString() || '',
-        debateLimit: plan.debateLimit?.toString() || '',
-        prioritySupport: plan.prioritySupport,
-        customBadge: plan.customBadge || '',
-        stripePriceId: plan.stripePriceId || '',
-        stripeProductId: plan.stripeProductId || '',
-        isActive: plan.isActive,
-      })
-    } catch {
-      setFormData({
-        name: plan.name,
-        description: plan.description || '',
-        price: plan.price.toString(),
-        billingCycle: plan.billingCycle,
-        features: plan.features,
-        appealLimit: plan.appealLimit?.toString() || '',
-        debateLimit: plan.debateLimit?.toString() || '',
-        prioritySupport: plan.prioritySupport,
-        customBadge: plan.customBadge || '',
-        stripePriceId: plan.stripePriceId || '',
-        stripeProductId: plan.stripeProductId || '',
-        isActive: plan.isActive,
-      })
-    }
-    setShowCreateModal(true)
-  }
-
   const handleSave = async () => {
-    if (!formData.name || !formData.price) {
+    const monthly = parseFloat(formData.monthly)
+    const yearly = parseFloat(formData.yearly)
+
+    if (isNaN(monthly) || isNaN(yearly)) {
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Name and price are required',
+        description: 'Please enter valid numbers',
+      })
+      return
+    }
+
+    if (monthly <= 0 || yearly <= 0) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Prices must be greater than 0',
       })
       return
     }
 
     try {
       setIsSaving(true)
-      const url = editingPlan
-        ? `/api/admin/subscription-plans/${editingPlan.id}`
-        : '/api/admin/subscription-plans'
-      const method = editingPlan ? 'PUT' : 'POST'
-
-      const response = await fetch(url, {
-        method,
+      const response = await fetch('/api/subscriptions/pricing', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ monthly, yearly }),
       })
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.error || 'Failed to save plan')
+        throw new Error(error.error || 'Failed to update pricing')
       }
 
+      const data = await response.json()
+      setPricing(data.pricing)
       showToast({
         type: 'success',
         title: 'Success',
-        description: `Plan ${editingPlan ? 'updated' : 'created'} successfully!`,
+        description: 'Pricing updated successfully!',
       })
-
-      setShowCreateModal(false)
-      fetchPlans()
     } catch (error: any) {
       showToast({
         type: 'error',
         title: 'Error',
-        description: error.message || 'Failed to save plan',
+        description: error.message || 'Failed to update pricing',
       })
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this plan?')) return
-
-    try {
-      const response = await fetch(`/api/admin/subscription-plans/${id}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to delete plan')
-      }
-
-      showToast({
-        type: 'success',
-        title: 'Success',
-        description: 'Plan deleted successfully!',
-      })
-
-      fetchPlans()
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to delete plan',
-      })
+  const calculateSavings = () => {
+    const monthlyYearly = pricing.monthly * 12
+    if (monthlyYearly > pricing.yearly) {
+      const savings = monthlyYearly - pricing.yearly
+      const savingsPercent = ((savings / monthlyYearly) * 100).toFixed(0)
+      return { savings, savingsPercent }
     }
+    return null
   }
 
-  const parseFeatures = (features: string): string[] => {
-    try {
-      const parsed = JSON.parse(features)
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return features.split(',').map(f => f.trim()).filter(Boolean)
-    }
-  }
+  const savings = calculateSavings()
 
   if (isLoading) {
     return (
@@ -230,301 +131,142 @@ export default function SubscriptionPlansPage() {
     <div className="min-h-screen bg-bg-primary">
       <TopNav currentPanel="ADMIN" />
       <div className="pt-20 px-4 md:px-8 pb-8">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-text-primary">Subscription Plans</h1>
-            <Button variant="primary" onClick={handleCreate}>
-              Create Plan
-            </Button>
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold text-text-primary">Subscription Pricing</h1>
+            <p className="text-text-secondary mt-2">
+              Manage Pro subscription pricing. Changes will apply to new subscriptions immediately.
+            </p>
           </div>
 
           <Card>
-            <CardBody>
-              <p className="text-text-secondary mb-4">
-                Manage subscription plans for your platform. Plans are not active by default.
-                Configure Stripe integration to enable payments.
+            <CardHeader>
+              <h2 className="text-xl font-bold text-text-primary">Pro Subscription Pricing</h2>
+              <p className="text-sm text-text-secondary mt-1">
+                Set the monthly and yearly prices for Pro subscriptions
               </p>
+            </CardHeader>
+            <CardBody className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Monthly Pricing */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-text-secondary">
+                    Monthly Price (USD)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary">
+                      $
+                    </span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.monthly}
+                      onChange={(e) => setFormData({ ...formData, monthly: e.target.value })}
+                      className="pl-8"
+                      placeholder="9.99"
+                    />
+                  </div>
+                  <p className="text-xs text-text-secondary">
+                    Current: ${pricing.monthly.toFixed(2)}/month
+                  </p>
+                </div>
+
+                {/* Yearly Pricing */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-text-secondary">
+                    Yearly Price (USD)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary">
+                      $
+                    </span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.yearly}
+                      onChange={(e) => setFormData({ ...formData, yearly: e.target.value })}
+                      className="pl-8"
+                      placeholder="89.00"
+                    />
+                  </div>
+                  <p className="text-xs text-text-secondary">
+                    Current: ${pricing.yearly.toFixed(2)}/year
+                  </p>
+                </div>
+              </div>
+
+              {/* Savings Calculation */}
+              {savings && (
+                <div className="p-4 bg-cyber-green/10 border border-cyber-green/30 rounded-lg">
+                  <p className="text-sm text-cyber-green">
+                    <strong>Yearly Savings:</strong> ${savings.savings.toFixed(2)} ({savings.savingsPercent}% off)
+                  </p>
+                  <p className="text-xs text-text-secondary mt-1">
+                    Monthly × 12 = ${(pricing.monthly * 12).toFixed(2)} vs Yearly = ${pricing.yearly.toFixed(2)}
+                  </p>
+                </div>
+              )}
+
+              {/* Warning */}
+              <div className="p-4 bg-neon-orange/10 border border-neon-orange/30 rounded-lg">
+                <p className="text-sm text-neon-orange">
+                  <strong>Note:</strong> Price changes only affect new subscriptions. Existing subscribers will continue at their current rate until they cancel and resubscribe.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  variant="primary"
+                  onClick={handleSave}
+                  isLoading={isSaving}
+                  className="flex-1"
+                >
+                  Save Pricing
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={fetchPricing}
+                  className="flex-1"
+                >
+                  Reset
+                </Button>
+              </div>
             </CardBody>
           </Card>
 
-          {/* Plans Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {plans.map((plan) => {
-              const features = parseFeatures(plan.features)
-              return (
-                <Card key={plan.id}>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-xl font-bold text-text-primary">{plan.name}</h2>
-                      <div className="flex items-center gap-2">
-                        {plan.isActive ? (
-                          <Badge className="bg-cyber-green/20 text-cyber-green">Active</Badge>
-                        ) : (
-                          <Badge className="bg-gray-500/20 text-gray-400">Inactive</Badge>
-                        )}
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold text-electric-blue mt-2">
-                      ${plan.price.toFixed(2)}
-                      <span className="text-sm text-text-secondary ml-1">
-                        /{plan.billingCycle.toLowerCase()}
-                      </span>
-                    </p>
-                  </CardHeader>
-                  <CardBody>
-                    {plan.description && (
-                      <p className="text-text-secondary mb-4">{plan.description}</p>
-                    )}
-
-                    <div className="space-y-2 mb-4">
-                      {plan.appealLimit !== null && (
-                        <p className="text-sm text-text-secondary">
-                          Appeals: {plan.appealLimit}/month
-                        </p>
-                      )}
-                      {plan.debateLimit !== null && (
-                        <p className="text-sm text-text-secondary">
-                          Debates: {plan.debateLimit}/month
-                        </p>
-                      )}
-                      {plan.prioritySupport && (
-                        <p className="text-sm text-cyber-green">✓ Priority Support</p>
-                      )}
-                      {plan.customBadge && (
-                        <p className="text-sm text-electric-blue">Badge: {plan.customBadge}</p>
-                      )}
-                    </div>
-
-                    {features.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-sm font-semibold text-text-secondary mb-2">Features:</p>
-                        <ul className="space-y-1">
-                          {features.map((feature, idx) => (
-                            <li key={idx} className="text-sm text-text-primary">
-                              • {feature}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2 mt-4">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleEdit(plan)}
-                        className="flex-1"
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => handleDelete(plan.id)}
-                        className="flex-1"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </CardBody>
-                </Card>
-              )
-            })}
-          </div>
-
-          {plans.length === 0 && (
-            <Card>
-              <CardBody>
-                <p className="text-text-secondary text-center py-8">
-                  No subscription plans yet. Create your first plan to get started.
-                </p>
-              </CardBody>
-            </Card>
-          )}
-
-          {/* Create/Edit Modal */}
-          {showCreateModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <Card className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <CardHeader>
-                  <h2 className="text-2xl font-bold text-text-primary">
-                    {editingPlan ? 'Edit Plan' : 'Create New Plan'}
-                  </h2>
-                </CardHeader>
-                <CardBody>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-text-secondary mb-2">
-                        Plan Name *
-                      </label>
-                      <Input
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="e.g., Premium, Pro"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-text-secondary mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary min-h-[80px]"
-                        placeholder="Plan description..."
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">
-                          Price *
-                        </label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={formData.price}
-                          onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">
-                          Billing Cycle *
-                        </label>
-                        <select
-                          value={formData.billingCycle}
-                          onChange={(e) => setFormData({ ...formData, billingCycle: e.target.value })}
-                          className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary"
-                        >
-                          <option value="MONTHLY">Monthly</option>
-                          <option value="YEARLY">Yearly</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-text-secondary mb-2">
-                        Features (comma-separated)
-                      </label>
-                      <Input
-                        value={formData.features}
-                        onChange={(e) => setFormData({ ...formData, features: e.target.value })}
-                        placeholder="Feature 1, Feature 2, Feature 3"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">
-                          Appeal Limit
-                        </label>
-                        <Input
-                          type="number"
-                          value={formData.appealLimit}
-                          onChange={(e) => setFormData({ ...formData, appealLimit: e.target.value })}
-                          placeholder="e.g., 10"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">
-                          Debate Limit
-                        </label>
-                        <Input
-                          type="number"
-                          value={formData.debateLimit}
-                          onChange={(e) => setFormData({ ...formData, debateLimit: e.target.value })}
-                          placeholder="e.g., 50"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-text-secondary mb-2">
-                        Custom Badge
-                      </label>
-                      <Input
-                        value={formData.customBadge}
-                        onChange={(e) => setFormData({ ...formData, customBadge: e.target.value })}
-                        placeholder="e.g., PRO, PREMIUM"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">
-                          Stripe Price ID
-                        </label>
-                        <Input
-                          value={formData.stripePriceId}
-                          onChange={(e) => setFormData({ ...formData, stripePriceId: e.target.value })}
-                          placeholder="price_xxx"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">
-                          Stripe Product ID
-                        </label>
-                        <Input
-                          value={formData.stripeProductId}
-                          onChange={(e) => setFormData({ ...formData, stripeProductId: e.target.value })}
-                          placeholder="prod_xxx"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="prioritySupport"
-                        checked={formData.prioritySupport}
-                        onChange={(e) => setFormData({ ...formData, prioritySupport: e.target.checked })}
-                        className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-electric-blue"
-                      />
-                      <label htmlFor="prioritySupport" className="text-sm text-text-secondary">
-                        Priority Support
-                      </label>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="isActive"
-                        checked={formData.isActive}
-                        onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                        className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-electric-blue"
-                      />
-                      <label htmlFor="isActive" className="text-sm text-text-secondary">
-                        Active (Note: Plans are inactive by default)
-                      </label>
-                    </div>
-
-                    <div className="flex gap-2 pt-4">
-                      <Button
-                        variant="primary"
-                        onClick={handleSave}
-                        isLoading={isSaving}
-                        className="flex-1"
-                      >
-                        {editingPlan ? 'Update' : 'Create'} Plan
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        onClick={() => setShowCreateModal(false)}
-                        className="flex-1"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
+          {/* Current Pricing Display */}
+          <Card>
+            <CardHeader>
+              <h2 className="text-xl font-bold text-text-primary">Current Pricing</h2>
+            </CardHeader>
+            <CardBody>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-4 bg-bg-secondary rounded-lg">
+                  <div className="text-sm text-text-secondary mb-1">Monthly</div>
+                  <div className="text-3xl font-bold text-electric-blue">
+                    ${pricing.monthly.toFixed(2)}
+                    <span className="text-lg text-text-secondary font-normal">/month</span>
                   </div>
-                </CardBody>
-              </Card>
-            </div>
-          )}
+                </div>
+                <div className="p-4 bg-bg-secondary rounded-lg">
+                  <div className="text-sm text-text-secondary mb-1">Yearly</div>
+                  <div className="text-3xl font-bold text-electric-blue">
+                    ${pricing.yearly.toFixed(2)}
+                    <span className="text-lg text-text-secondary font-normal">/year</span>
+                  </div>
+                  {savings && (
+                    <div className="mt-2 text-xs text-cyber-green">
+                      Save {savings.savingsPercent}% vs monthly
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardBody>
+          </Card>
         </div>
       </div>
     </div>
   )
 }
-

@@ -91,10 +91,10 @@ export default function SignupPage() {
         throw new Error(errorMsg)
       }
 
-      // Wait a moment for session cookie to be set, then redirect to tier selection
-      // Use window.location to ensure a full page reload so session is detected
+      // FREE subscription is created automatically on the server
+      // Wait a moment for session cookie to be set, then redirect to dashboard
       setTimeout(() => {
-        window.location.href = '/signup/select-tier'
+        window.location.href = '/'
       }, 100)
     } catch (err: any) {
       setError(err.message || 'Failed to create account')

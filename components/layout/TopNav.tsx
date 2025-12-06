@@ -16,15 +16,30 @@ export function TopNav({ currentPanel }: TopNavProps) {
   const { user, logout } = useAuth()
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [userTier, setUserTier] = useState<'FREE' | 'PRO' | null>(null)
 
   useEffect(() => {
     if (user) {
       fetchUnreadCount()
+      fetchUserTier()
       // Poll for new notifications every 30 seconds
       const interval = setInterval(fetchUnreadCount, 30000)
       return () => clearInterval(interval)
     }
   }, [user])
+
+  const fetchUserTier = async () => {
+    try {
+      const response = await fetch('/api/subscriptions')
+      if (response.ok) {
+        const data = await response.json()
+        setUserTier(data.subscription?.tier || 'FREE')
+      }
+    } catch (error) {
+      console.error('Failed to fetch user tier:', error)
+      setUserTier('FREE') // Default to FREE
+    }
+  }
 
   const fetchUnreadCount = async () => {
     try {
@@ -55,6 +70,11 @@ export function TopNav({ currentPanel }: TopNavProps) {
       label: 'Support',
       onClick: () => window.location.href = '/support',
     },
+    ...(userTier === 'FREE' ? [{
+      label: 'Upgrade to Pro',
+      onClick: () => window.location.href = '/upgrade',
+      variant: 'default' as const,
+    }] : []),
     {
       label: 'Settings',
       onClick: () => window.location.href = '/settings',

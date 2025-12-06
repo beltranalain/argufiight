@@ -59,7 +59,7 @@ export function Tabs({ tabs, defaultTab, onChange }: TabsProps) {
       </div>
 
       {/* Tab Content */}
-      <div className="py-6 px-6">
+      <div className="p-6">
         {activeTabContent}
       </div>
     </div>
