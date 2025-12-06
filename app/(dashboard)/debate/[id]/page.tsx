@@ -800,13 +800,13 @@ export default function DebatePage() {
                 context="debate-sidebar"
               />
 
-              {/* Live Chat - Only show during active debates and if user is participant */}
-              {debate.status === 'ACTIVE' && isParticipant && (
+              {/* Live Chat - Show for all users during active debates */}
+              {debate.status === 'ACTIVE' && (
                 <Card>
                   <CardHeader>
                     <h2 className="text-xl font-bold text-text-primary">Live Chat</h2>
                     <p className="text-sm text-text-secondary mt-1">
-                      Chat with your opponent during the debate
+                      Chat with everyone watching this debate
                     </p>
                   </CardHeader>
                   <CardBody className="p-0">
