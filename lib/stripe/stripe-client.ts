@@ -149,7 +149,7 @@ export async function createSubscription(
       limit: 1,
     })
     if (promotionCodes.data.length > 0) {
-      subscriptionData.promotion_code = promotionCodes.data[0].id
+      (subscriptionData as any).promotion_code = promotionCodes.data[0].id
     } else {
       // Fallback: search for coupon by ID (if promoCode is actually a coupon ID)
       try {
