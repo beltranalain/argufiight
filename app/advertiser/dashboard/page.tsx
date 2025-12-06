@@ -57,7 +57,11 @@ export default function AdvertiserDashboardPage() {
       if (advertiserRes.ok) {
         const advertiserData = await advertiserRes.json()
         setAdvertiser(advertiserData.advertiser)
-      } else if (advertiserRes.status === 401 || advertiserRes.status === 404) {
+      } else if (advertiserRes.status === 401) {
+        // Redirect to login with advertiser userType
+        router.push('/login?userType=advertiser')
+        return
+      } else if (advertiserRes.status === 404) {
         // Not an advertiser, redirect to apply
         router.push('/advertise')
         return
