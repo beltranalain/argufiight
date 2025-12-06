@@ -1,6 +1,10 @@
 import { prisma } from '@/lib/db/prisma'
 import { NextResponse } from 'next/server'
 
+// Public endpoint - no authentication required
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export async function GET() {
   try {
     // Test connection
