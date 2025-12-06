@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/Toast'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { TopNav } from '@/components/layout/TopNav'
 import Link from 'next/link'
 
 interface Conversation {
@@ -296,14 +297,19 @@ export default function MessagesPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen pt-20 pb-20 flex items-center justify-center">
-        <LoadingSpinner size="lg" />
+      <div className="min-h-screen bg-bg-primary">
+        <TopNav currentPanel="THE ARENA" />
+        <div className="pt-20 pb-20 flex items-center justify-center">
+          <LoadingSpinner size="lg" />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen pt-20 pb-20">
+    <div className="min-h-screen bg-bg-primary">
+      <TopNav currentPanel="THE ARENA" />
+      <div className="pt-20 pb-20">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">Direct Messages</h1>

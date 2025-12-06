@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { Modal } from '@/components/ui/Modal'
 import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
+import { TopNav } from '@/components/layout/TopNav'
 
 interface SupportTicket {
   id: string
@@ -218,7 +219,9 @@ export default function SupportPage() {
     : tickets.filter(t => t.status === filter)
 
   return (
-    <div className="min-h-screen pt-20 pb-20 px-4 md:px-8">
+    <div className="min-h-screen bg-bg-primary">
+      <TopNav currentPanel="THE ARENA" />
+      <div className="pt-20 pb-20 px-4 md:px-8">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -488,6 +491,7 @@ export default function SupportPage() {
           </div>
         </Modal>
       )}
+      </div>
     </div>
   )
 }

@@ -2,24 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { SocialMediaIcon } from '@/components/ui/SocialMediaIcon'
 
 interface SocialMediaLink {
   platform: string
   url: string
 }
 
-const PLATFORM_ICONS: Record<string, string> = {
-  FACEBOOK: '📘',
-  TWITTER: '🐦',
-  INSTAGRAM: '📷',
-  LINKEDIN: '💼',
-  YOUTUBE: '▶️',
-  TIKTOK: '🎵',
-}
-
 const PLATFORM_LABELS: Record<string, string> = {
   FACEBOOK: 'Facebook',
-  TWITTER: 'Twitter',
+  TWITTER: 'X',
   INSTAGRAM: 'Instagram',
   LINKEDIN: 'LinkedIn',
   YOUTUBE: 'YouTube',
@@ -53,6 +45,11 @@ export function PublicFooter() {
               <li>
                 <Link href="/leaderboard" className="text-white/80 hover:text-white transition-colors text-base">
                   Leaderboard
+                </Link>
+              </li>
+              <li>
+                <Link href="/advertise" className="text-white/80 hover:text-white transition-colors text-base">
+                  Advertiser
                 </Link>
               </li>
             </ul>
@@ -92,7 +89,7 @@ export function PublicFooter() {
                     className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-white/80 hover:text-white"
                     title={PLATFORM_LABELS[link.platform] || link.platform}
                   >
-                    <span className="text-lg">{PLATFORM_ICONS[link.platform] || '🔗'}</span>
+                    <SocialMediaIcon platform={link.platform} className="w-5 h-5" />
                     <span className="text-sm font-medium hidden sm:inline">
                       {PLATFORM_LABELS[link.platform] || link.platform}
                     </span>

@@ -70,6 +70,11 @@ export function TopNav({ currentPanel }: TopNavProps) {
       label: 'Support',
       onClick: () => window.location.href = '/support',
     },
+    ...(user?.isCreator ? [{
+      label: 'Creator Dashboard',
+      onClick: () => window.location.href = '/creator/dashboard',
+      variant: 'default' as const,
+    }] : []),
     ...(userTier === 'FREE' ? [{
       label: 'Upgrade to Pro',
       onClick: () => window.location.href = '/upgrade',

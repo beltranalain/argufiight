@@ -81,6 +81,7 @@ export async function GET(request: NextRequest) {
         totalMaxScore: true,
         isAdmin: true,
         isBanned: true,
+        isCreator: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -107,6 +108,7 @@ export async function GET(request: NextRequest) {
       total_debates: user.totalDebates,
       total_score: user.totalScore,
       total_max_score: user.totalMaxScore,
+      is_creator: user.isCreator,
     }
 
     return NextResponse.json({ user: mobileUser })

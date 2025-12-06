@@ -3,24 +3,16 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { SocialMediaIcon } from '@/components/ui/SocialMediaIcon'
 
 interface SocialMediaLink {
   platform: string
   url: string
 }
 
-const PLATFORM_ICONS: Record<string, string> = {
-  FACEBOOK: '📘',
-  TWITTER: '🐦',
-  INSTAGRAM: '📷',
-  LINKEDIN: '💼',
-  YOUTUBE: '▶️',
-  TIKTOK: '🎵',
-}
-
 const PLATFORM_LABELS: Record<string, string> = {
   FACEBOOK: 'Facebook',
-  TWITTER: 'Twitter',
+  TWITTER: 'X',
   INSTAGRAM: 'Instagram',
   LINKEDIN: 'LinkedIn',
   YOUTUBE: 'YouTube',
@@ -502,6 +494,11 @@ function FooterSection({ section }: { section: HomepageSection | undefined }) {
                   Leaderboard
                 </Link>
               </li>
+              <li>
+                <Link href="/advertise" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                  Advertiser
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -541,7 +538,7 @@ function FooterSection({ section }: { section: HomepageSection | undefined }) {
                     className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-text-primary/80 hover:text-text-primary"
                     title={PLATFORM_LABELS[link.platform] || link.platform}
                   >
-                    <span className="text-base">{PLATFORM_ICONS[link.platform] || '🔗'}</span>
+                    <SocialMediaIcon platform={link.platform} className="w-5 h-5" />
                     <span className="text-sm font-medium hidden sm:inline">
                       {PLATFORM_LABELS[link.platform] || link.platform}
                     </span>

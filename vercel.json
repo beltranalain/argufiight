@@ -9,12 +9,8 @@
       "schedule": "0 3 * * *"
     },
     {
-      "path": "/api/cron/ai-auto-accept",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/ai-generate-responses",
-      "schedule": "* * * * *"
+      "path": "/api/cron/ai-tasks",
+      "schedule": "0 4 * * *"
     }
   ]
 }

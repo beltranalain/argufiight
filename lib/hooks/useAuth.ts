@@ -17,6 +17,7 @@ interface User {
   totalMaxScore: number
   isAdmin: boolean
   isBanned: boolean
+  isCreator?: boolean
 }
 
 export function useAuth() {
@@ -44,6 +45,7 @@ export function useAuth() {
             totalDebates: data.user.totalDebates || data.user.total_debates || 0,
             totalScore: data.user.totalScore || data.user.total_score || 0,
             totalMaxScore: data.user.totalMaxScore || data.user.total_max_score || 0,
+            isCreator: data.user.isCreator || data.user.is_creator || false,
           }
           setUser(normalizedUser)
         } else {
