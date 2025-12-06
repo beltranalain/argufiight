@@ -53,8 +53,14 @@ export async function GET(request: NextRequest) {
     const minFollowers = searchParams.get('minFollowers')
     const search = searchParams.get('search')
 
-    const where: any = {
-      isCreator: true,
+    // If searching by username, allow searching all users (not just creators)
+    // Otherwise, only show users marked as creators
+    const where: any = search && search.trim() ? {} : { isCreator: true }
+
+    // If searching, don't require isCreator flag
+    // If not searching, require isCreator
+    if (!search || !search.trim()) {
+      where.isCreator = true
     }
 
     if (minELO) {
@@ -66,8 +72,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (search && search.trim()) {
+      // Use case-insensitive search
+      const searchTerm = search.trim()
       where.username = { 
-        contains: search.trim(), 
+        contains: searchTerm, 
         mode: 'insensitive' 
       }
     }
@@ -103,6 +111,9 @@ export async function GET(request: NextRequest) {
     })
 
     console.log('[API] Found creators:', creators.length)
+    if (creators.length > 0) {
+      console.log('[API] Sample creator usernames:', creators.slice(0, 5).map(c => c.username))
+    }
 
     // Filter by category if provided (would need debate history analysis)
     // For now, return all matching creators

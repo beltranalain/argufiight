@@ -28,26 +28,24 @@ interface Creator {
 
 export default function CreatorDiscoveryPage() {
   const [creators, setCreators] = useState<Creator[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
   const [filters, setFilters] = useState({
     minELO: '',
     category: '',
     minFollowers: '',
     search: '',
   })
-  // Debounce search input and fetch on filter changes
+
+  // Initial load - fetch all creators
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      fetchCreators()
-    }, filters.search ? 500 : 0) // Wait 500ms after user stops typing for search, immediate for other filters
+    handleSearch()
+  }, [])
 
-    return () => clearTimeout(timeout)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.search, filters.minELO, filters.category, filters.minFollowers])
-
-  const fetchCreators = async () => {
+  const handleSearch = async () => {
     try {
       setIsLoading(true)
+      setHasSearched(true)
       const params = new URLSearchParams()
       if (filters.minELO) params.append('minELO', filters.minELO)
       if (filters.category) params.append('category', filters.category)
@@ -58,6 +56,7 @@ export default function CreatorDiscoveryPage() {
       if (response.ok) {
         const data = await response.json()
         setCreators(data.creators || [])
+        console.log('Fetched creators:', data.creators?.length || 0)
       } else {
         const errorData = await response.json().catch(() => ({}))
         console.error('Failed to fetch creators:', response.status, errorData)
@@ -68,6 +67,12 @@ export default function CreatorDiscoveryPage() {
       setCreators([])
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch()
     }
   }
 
@@ -86,16 +91,6 @@ export default function CreatorDiscoveryPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-bg-primary">
-        <TopNav currentPanel="ADVERTISER" />
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <LoadingSpinner size="lg" />
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-bg-primary">
@@ -110,7 +105,7 @@ export default function CreatorDiscoveryPage() {
           {/* Filters */}
           <Card>
             <CardBody>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-text-secondary mb-2">
                     Search Username
@@ -122,7 +117,8 @@ export default function CreatorDiscoveryPage() {
                       const value = e.target.value
                       setFilters(prev => ({ ...prev, search: value }))
                     }}
-                    placeholder="Search..."
+                    onKeyPress={handleKeyPress}
+                    placeholder="Search username..."
                   />
                 </div>
                 <div>
@@ -169,6 +165,15 @@ export default function CreatorDiscoveryPage() {
                     placeholder="100"
                   />
                 </div>
+              </div>
+              <div className="flex justify-end">
+                <Button 
+                  variant="primary" 
+                  onClick={handleSearch}
+                  isLoading={isLoading}
+                >
+                  Search
+                </Button>
               </div>
             </CardBody>
           </Card>
@@ -255,11 +260,27 @@ export default function CreatorDiscoveryPage() {
             ))}
           </div>
 
-          {creators.length === 0 && (
+          {isLoading && (
+            <div className="flex items-center justify-center py-12">
+              <LoadingSpinner size="lg" />
+            </div>
+          )}
+
+          {!isLoading && hasSearched && creators.length === 0 && (
             <Card>
               <CardBody>
                 <p className="text-text-secondary text-center py-8">
                   No creators found matching your filters.
+                </p>
+              </CardBody>
+            </Card>
+          )}
+
+          {!isLoading && !hasSearched && creators.length === 0 && (
+            <Card>
+              <CardBody>
+                <p className="text-text-secondary text-center py-8">
+                  Enter search criteria and click "Search" to find creators.
                 </p>
               </CardBody>
             </Card>
