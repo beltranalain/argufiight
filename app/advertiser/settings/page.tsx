@@ -160,6 +160,17 @@ export default function AdvertiserSettingsPage() {
       
       if (!response.ok) {
         const error = await response.json()
+        
+        // Check if it's a Connect not enabled error
+        if (error.code === 'CONNECT_NOT_ENABLED') {
+          showToast({
+            type: 'error',
+            title: 'Stripe Connect Not Enabled',
+            description: 'Please enable Stripe Connect in your Stripe Dashboard. Visit https://dashboard.stripe.com/settings/connect to get started.',
+          })
+          return
+        }
+        
         throw new Error(error.error || 'Failed to create onboarding link')
       }
 

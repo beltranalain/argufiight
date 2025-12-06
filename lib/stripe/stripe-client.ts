@@ -243,24 +243,34 @@ export async function createAdvertiserStripeAccount(
 ): Promise<string> {
   const stripe = await createStripeClient()
 
-  const account = await stripe.accounts.create({
-    type: 'express', // Express accounts for advertisers
-    country: 'US',
-    email: email,
-    capabilities: {
-      card_payments: { requested: true },
-      transfers: { requested: true },
-    },
-    business_type: 'company',
-    company: {
-      name: companyName,
-    },
-    metadata: {
-      advertiserId,
-    },
-  })
+  try {
+    const account = await stripe.accounts.create({
+      type: 'express', // Express accounts for advertisers
+      country: 'US',
+      email: email,
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+      business_type: 'company',
+      company: {
+        name: companyName,
+      },
+      metadata: {
+        advertiserId,
+      },
+    })
 
-  return account.id
+    return account.id
+  } catch (error: any) {
+    // Re-throw with more context if it's a Connect not enabled error
+    if (error.message?.includes('Connect') || error.code === 'resource_missing') {
+      const connectError = new Error(error.message || 'Stripe Connect is not enabled')
+      ;(connectError as any).code = 'CONNECT_NOT_ENABLED'
+      throw connectError
+    }
+    throw error
+  }
 }
 
 /**
