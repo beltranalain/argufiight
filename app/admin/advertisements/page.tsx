@@ -1808,10 +1808,28 @@ function EmailTemplatesTab() {
           </div>
           <div className="border border-bg-tertiary rounded-lg overflow-hidden">
             <div className="bg-white p-4" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+              <style dangerouslySetInnerHTML={{ __html: `
+                .email-preview * {
+                  color: #000 !important;
+                }
+                .email-preview a {
+                  color: #2563eb !important;
+                }
+                .email-preview p,
+                .email-preview div,
+                .email-preview span,
+                .email-preview strong,
+                .email-preview em,
+                .email-preview li,
+                .email-preview ul,
+                .email-preview ol {
+                  color: #000 !important;
+                }
+              ` }} />
               <div
+                className="email-preview"
                 dangerouslySetInnerHTML={{ __html: getPreviewHtml() }}
                 style={{ maxWidth: '100%', color: '#000' }}
-                className="[&_*]:!text-black [&_p]:!text-black [&_div]:!text-black [&_span]:!text-black [&_strong]:!text-black [&_em]:!text-black [&_li]:!text-black [&_a]:!text-blue-600"
               />
             </div>
           </div>
