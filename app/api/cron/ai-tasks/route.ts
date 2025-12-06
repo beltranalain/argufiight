@@ -151,6 +151,9 @@ export async function GET(request: NextRequest) {
 
         for (const debate of activeDebates) {
           try {
+            // Skip if no opponent (shouldn't happen for ACTIVE debates, but TypeScript safety)
+            if (!debate.opponentId) continue
+
             // Determine whose turn it is
             const lastStatement = debate.statements[debate.statements.length - 1]
             const isChallengerTurn = !lastStatement || lastStatement.authorId === debate.opponentId
