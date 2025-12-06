@@ -355,14 +355,12 @@ export default function AdvertisePage() {
             <label className="block text-sm font-medium text-white/90 mb-2">
               Company Name *
             </label>
-            <Input
+            <input
               required
               value={formData.companyName}
-              onChange={(e) => {
-                const value = e.target.value
-                setFormData(prev => ({ ...prev, companyName: value }))
-              }}
+              onChange={(e) => setFormData(prev => ({ ...prev, companyName: e.target.value }))}
               placeholder="Your Company Name"
+              className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
           </div>
 
@@ -370,15 +368,13 @@ export default function AdvertisePage() {
             <label className="block text-sm font-medium text-white/90 mb-2">
               Website URL *
             </label>
-            <Input
+            <input
               type="text"
               required
               value={formData.website}
-              onChange={(e) => {
-                const value = e.target.value
-                setFormData(prev => ({ ...prev, website: value }))
-              }}
+              onChange={(e) => setFormData(prev => ({ ...prev, website: e.target.value }))}
               placeholder="example.com or https://example.com"
+              className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
           </div>
 
@@ -411,14 +407,12 @@ export default function AdvertisePage() {
             <label className="block text-sm font-medium text-white/90 mb-2">
               Contact Name *
             </label>
-            <Input
+            <input
               required
               value={formData.contactName}
-              onChange={(e) => {
-                const value = e.target.value
-                setFormData(prev => ({ ...prev, contactName: value }))
-              }}
+              onChange={(e) => setFormData(prev => ({ ...prev, contactName: e.target.value }))}
               placeholder="Your Full Name"
+              className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
           </div>
 
@@ -426,15 +420,13 @@ export default function AdvertisePage() {
             <label className="block text-sm font-medium text-white/90 mb-2">
               Contact Email *
             </label>
-            <Input
+            <input
               type="email"
               required
               value={formData.contactEmail}
-              onChange={(e) => {
-                const value = e.target.value
-                setFormData(prev => ({ ...prev, contactEmail: value }))
-              }}
+              onChange={(e) => setFormData(prev => ({ ...prev, contactEmail: e.target.value }))}
               placeholder="your@email.com"
+              className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
           </div>
 
@@ -442,13 +434,11 @@ export default function AdvertisePage() {
             <label className="block text-sm font-medium text-white/90 mb-2">
               Business EIN (Optional)
             </label>
-            <Input
+            <input
               value={formData.businessEIN}
-              onChange={(e) => {
-                const value = e.target.value
-                setFormData(prev => ({ ...prev, businessEIN: value }))
-              }}
+              onChange={(e) => setFormData(prev => ({ ...prev, businessEIN: e.target.value }))}
               placeholder="XX-XXXXXXX"
+              className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
             <p className="text-xs text-white/70 mt-1">
               For verification purposes. Not required for individual advertisers.
