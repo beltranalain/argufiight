@@ -28,7 +28,13 @@ export function FinancialConnectionsModal({
     // Load Stripe.js
     const initStripe = async () => {
       try {
-        const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+        // Fetch publishable key from API (supports both env vars and database settings)
+        const keyResponse = await fetch('/api/stripe/publishable-key')
+        if (!keyResponse.ok) {
+          const errorData = await keyResponse.json()
+          throw new Error(errorData.error || 'Stripe publishable key not found')
+        }
+        const { publishableKey } = await keyResponse.json()
         if (!publishableKey) {
           throw new Error('Stripe publishable key not found')
         }
