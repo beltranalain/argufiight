@@ -35,7 +35,22 @@ export async function POST(request: NextRequest) {
     // Note: We allow suspended users to log in, they just can't debate
     // Only check isBanned (permanent ban), not bannedUntil (temporary suspension)
 
+    // Check if user has Google OAuth enabled (no password)
+    if (user.googleAuthEnabled && !user.passwordHash) {
+      return NextResponse.json(
+        { error: 'This account uses Google authentication. Please sign in with Google.' },
+        { status: 401 }
+      )
+    }
+
     // Verify password
+    if (!user.passwordHash) {
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
+
     let isValid = false
     try {
       isValid = await verifyPassword(password, user.passwordHash)

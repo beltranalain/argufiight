@@ -61,19 +61,26 @@ export async function PUT(request: NextRequest) {
       // Get user to verify current password
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { passwordHash: true },
+        select: { passwordHash: true, googleAuthEnabled: true },
       })
 
       if (!user) {
         return NextResponse.json({ error: 'User not found' }, { status: 404 })
       }
 
-      // Verify current password
-      const isValid = await verifyPassword(currentPassword, user.passwordHash)
-      if (!isValid) {
+      // Verify current password (skip if user has Google OAuth enabled)
+      if (!user.googleAuthEnabled && user.passwordHash) {
+        const isValid = await verifyPassword(currentPassword, user.passwordHash)
+        if (!isValid) {
+          return NextResponse.json(
+            { error: 'Current password is incorrect' },
+            { status: 401 }
+          )
+        }
+      } else if (user.googleAuthEnabled) {
         return NextResponse.json(
-          { error: 'Current password is incorrect' },
-          { status: 401 }
+          { error: 'Password cannot be changed for Google OAuth accounts' },
+          { status: 400 }
         )
       }
 

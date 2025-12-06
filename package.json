@@ -58,6 +58,7 @@
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.25",
+    "google-auth-library": "^10.5.0",
     "jose": "^6.1.3",
     "jsonwebtoken": "^9.0.2",
     "next": "^15.2.4",

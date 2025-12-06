@@ -19,7 +19,7 @@ model User {
   id           String  @id @default(uuid())
   email        String  @unique
   username     String  @unique
-  passwordHash String  @map("password_hash")
+  passwordHash String? @map("password_hash") // Optional for OAuth users
   avatarUrl    String? @map("avatar_url")
   bio          String?
 
@@ -84,6 +84,12 @@ model User {
   aiPersonality   String? @map("ai_personality") // BALANCED, SMART, AGGRESSIVE, CALM, WITTY, ANALYTICAL
   aiResponseDelay Int?    @map("ai_response_delay") // milliseconds (e.g., 600000 for 10 min, 3600000 for 1 hour, 86400000 for 1 day)
   aiPaused        Boolean @default(false) @map("ai_paused")
+
+  // Google OAuth fields (for advertisers and employees only)
+  googleId          String?  @unique @map("google_id")
+  googleEmail       String?  @map("google_email")
+  googlePicture     String?  @map("google_picture")
+  googleAuthEnabled Boolean  @default(false) @map("google_auth_enabled")
 
   // Relations
   sessions          Session[]

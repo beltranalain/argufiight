@@ -334,7 +334,7 @@ export default function AdvertisePage() {
               Log in to access your advertiser dashboard
             </p>
             <div className="flex gap-3 justify-center">
-              <Button variant="primary" onClick={() => router.push('/login')}>
+              <Button variant="primary" onClick={() => router.push('/login?userType=advertiser')}>
                 Login
               </Button>
               <Button variant="secondary" onClick={() => router.push('/signup')}>
