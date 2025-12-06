@@ -143,17 +143,20 @@ export async function createSubscription(
 
   // Add promo code if provided
   if (promoCode) {
-    const coupons = await stripe.coupons.list({ code: promoCode, limit: 1 })
-    if (coupons.data.length > 0) {
-      subscriptionData.coupon = coupons.data[0].id
+    // Try to find promotion code first (recommended approach)
+    const promotionCodes = await stripe.promotionCodes.list({
+      code: promoCode,
+      limit: 1,
+    })
+    if (promotionCodes.data.length > 0) {
+      subscriptionData.promotion_code = promotionCodes.data[0].id
     } else {
-      // Try to find promotion code
-      const promotionCodes = await stripe.promotionCodes.list({
-        code: promoCode,
-        limit: 1,
-      })
-      if (promotionCodes.data.length > 0) {
-        subscriptionData.promotion_code = promotionCodes.data[0].id
+      // Fallback: search for coupon by ID (if promoCode is actually a coupon ID)
+      try {
+        const coupon = await stripe.coupons.retrieve(promoCode)
+        subscriptionData.coupon = coupon.id
+      } catch {
+        // Coupon not found, ignore
       }
     }
   }
