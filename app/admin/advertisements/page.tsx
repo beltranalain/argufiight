@@ -1810,7 +1810,8 @@ function EmailTemplatesTab() {
             <div className="bg-white p-4" style={{ maxHeight: '600px', overflowY: 'auto' }}>
               <div
                 dangerouslySetInnerHTML={{ __html: getPreviewHtml() }}
-                style={{ maxWidth: '100%' }}
+                style={{ maxWidth: '100%', color: '#000' }}
+                className="[&_*]:!text-black [&_p]:!text-black [&_div]:!text-black [&_span]:!text-black [&_strong]:!text-black [&_em]:!text-black [&_li]:!text-black [&_a]:!text-blue-600"
               />
             </div>
           </div>
