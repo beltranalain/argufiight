@@ -1,131 +1,140 @@
-# Honorable.AI Project Status
+# Project Status - ArguFight
 
-## Current Status: Active Development
+## Current Status
+**Last Updated:** 2025-01-XX  
+**Repository:** `argufight/argufight` (GitHub)  
+**Latest Commit:** `d3aaf179` - Fix: Use type assertion for promotion_code property
 
-### ✅ Recently Completed (Latest Session)
-1. **Fixed debate reply submission** - Added better error handling, loading states, and retry logic
-2. **Added turn notification polling** - Automatically checks for turn notifications every 10 seconds
-3. **Created "Your Turn" banner** - Animated banner that appears when it's your turn
-4. **Enhanced countdown timer** - Added pulsing and color-changing animations (fixed native driver conflict)
-5. **Improved waiting states** - Better visual feedback when waiting for opponent
+## Recent Work - Build Error Fixes
 
-### 🔧 Just Fixed
-- **Animation Error**: Fixed `useNativeDriver` conflict in `AnimatedCountdownTimer` by using state-based colors instead of animated color interpolation
+### Context
+We've been fixing TypeScript build errors that occurred after migrating to a new GitHub repository (`argufight/argufight`) and updating Stripe API version. The errors were primarily related to:
 
-### 📋 Current Features Status
+1. **Stripe TypeScript SDK Version Mismatch** - Updated from older API version to `2025-11-17.clover`
+2. **Property Naming Differences** - Stripe API uses snake_case but TypeScript types expect different formats
+3. **API Method Changes** - Some Stripe methods changed their parameters
 
-#### Core Debate Functionality ✅
-- [x] Create debates
-- [x] Accept debate challenges
-- [x] Submit arguments/statements
-- [x] View debate details
-- [x] View statements by round
-- [x] View verdicts when ready
-- [x] Debate status tracking (WAITING → ACTIVE → VERDICT_READY)
-- [x] Round progression
-- [x] Turn notifications
-- [x] Countdown timers with animations
+### Fixes Applied
 
-#### User Features ✅
-- [x] Authentication (login/signup)
-- [x] User profiles
-- [x] Profile picture upload
-- [x] Followers/Following
-- [x] User stats (ELO, wins, losses)
-- [x] User activity feed
+#### 1. Subscription Tier Types
+- **File:** `app/(dashboard)/profile/[id]/page.tsx`
+- **Issue:** `UserProfile` interface missing `subscription` property
+- **Fix:** Added `subscription: { tier: 'FREE' | 'PRO' }` to interface
 
-#### Engagement Features ✅
-- [x] Like debates
-- [x] Save debates
-- [x] Comment on debates
-- [x] Reply to comments
-- [x] Share debates
-- [x] Vote on debates
-- [x] Watch debates
+#### 2. Badge Variant Issues
+- **Files:** 
+  - `app/(dashboard)/settings/subscription/page.tsx`
+  - `components/subscriptions/TierBadge.tsx`
+- **Issue:** Badge component doesn't have `'secondary'` variant
+- **Fix:** Changed to `'default'` variant
 
-#### UI/UX Features ✅
-- [x] Dark/Light theme support
-- [x] Pull-to-refresh
-- [x] Loading states
-- [x] Error handling
-- [x] Animated components
-- [x] Turn notifications
-- [x] Countdown animations
+#### 3. AdContract OrderBy
+- **Files:**
+  - `app/api/admin/contracts/route.ts`
+  - `app/api/ads/select/route.ts`
+  - `app/api/creator/contracts/route.ts`
+  - `app/api/creator/earnings/detailed/route.ts`
+- **Issue:** `AdContract` model uses `signedAt` not `createdAt`
+- **Fix:** Changed `orderBy: { createdAt: 'desc' }` to `orderBy: { signedAt: 'desc' }`
 
-### 🐛 Known Issues
-1. **Comment input text visibility** - Text not visible while typing (documented, low priority)
+#### 4. Missing Imports
+- **File:** `app/(dashboard)/profile/[id]/page.tsx`, `app/(dashboard)/profile/page.tsx`
+- **Issue:** Missing `AdDisplay` import
+- **Fix:** Added `import { AdDisplay } from '@/components/ads/AdDisplay'`
 
-### ✅ Recently Fixed
-1. **Database tables error** - `debate_tags` table error in Next.js logs (RESOLVED - December 2, 2025)
-   - Issue was caused by cached Prisma client in Next.js dev server
-   - **Fix Applied**: Cleared caches, regenerated Prisma client, verified tables
-   - Server now running without errors, API endpoint working correctly
+#### 5. Stripe Property Access Issues
+- **Files:**
+  - `app/api/subscriptions/verify-checkout/route.ts`
+  - `app/api/webhooks/stripe/route.ts`
+- **Issue:** Stripe API uses snake_case properties that don't match TypeScript types
+- **Fix:** Used type assertions:
+  - `(subscription as any).current_period_start`
+  - `(subscription as any).current_period_end`
+  - `(subscription as any).cancel_at_period_end`
+  - `(invoice as any).subscription`
 
-### 🚧 In Progress
-- Turn notification system (just implemented)
-- Countdown timer animations (just fixed)
-- Debate submission improvements (just completed)
+#### 6. Stripe API Version
+- **File:** `lib/stripe/stripe-client.ts`
+- **Issue:** API version mismatch
+- **Fix:** Updated from `'2024-11-20.acacia'` to `'2025-11-17.clover'`
 
-### 📝 Next Steps (Priority Order)
+#### 7. Stripe Promotion Code Lookup
+- **File:** `lib/stripe/stripe-client.ts`
+- **Issue:** `coupons.list()` doesn't accept `code` parameter in new API
+- **Fix:** Changed to use `promotionCodes.list()` instead, with type assertion for `promotion_code` property
 
-#### High Priority
-1. **Test debate functionality end-to-end** - Verify create → accept → submit → verdict flow works
-2. **Fix any remaining API errors** - Ensure all endpoints return proper data
-3. **Database migrations** - Run migrations to ensure all tables exist
-4. **Push notifications** - Implement Expo Notifications for turn alerts
+#### 8. Missing isCreator Field
+- **File:** `app/api/creator/profile/route.ts`
+- **Issue:** `isCreator` not included in Prisma select
+- **Fix:** Added `isCreator: true` to select statement
 
-#### Medium Priority
-1. **Search improvements** - Tag-based search, user search
-2. **UI polish** - Loading skeletons, better empty states
-3. **Performance optimization** - Image optimization, lazy loading
-4. **Comment input fix** - Make text visible while typing
+#### 9. Duplicate Property
+- **File:** `app/api/cron/process-ad-payouts/route.ts`
+- **Issue:** Duplicate `errors` property in return object
+- **Fix:** Changed to `errorCount: errors.length`
 
-#### Low Priority
-1. **Advanced features** - Debate comparison, analytics dashboard
-2. **Moderation tools** - Admin dashboard, content moderation
-3. **Localization** - Multi-language support
-4. **Testing** - Unit tests, E2E tests
+#### 10. Syntax Error
+- **File:** `app/api/subscriptions/verify-checkout/route.ts`
+- **Issue:** Extra closing brace causing syntax error
+- **Fix:** Removed extra brace
 
-### 🔍 Testing Checklist
-- [ ] Create a debate
-- [ ] Accept a debate challenge
-- [ ] Submit an argument
-- [ ] View opponent's argument
-- [ ] Submit rebuttal
-- [ ] Complete all rounds
-- [ ] View verdict
-- [ ] Check turn notifications appear
-- [ ] Verify countdown timer animations work
-- [ ] Test on iOS device
-- [ ] Test on Android device
+### Cron Job Configuration
+- **File:** `vercel.json`
+- **Issue:** Hobby plan only allows daily cron jobs
+- **Fix:** Changed `check-expired-offers` from hourly (`0 * * * *`) to daily (`0 3 * * *`)
 
-### 📊 Completion Estimates
-- **Backend**: ~85% complete
-- **Frontend**: ~80% complete
-- **Core Features**: ~90% complete
-- **Polish & Testing**: ~30% complete
-- **Overall**: ~75% complete
+## Git Configuration
+- **Remote:** `argufight` pointing to `https://github.com/argufight/argufight.git`
+- **Token:** Configured with Personal Access Token (embedded in remote URL)
+- **No authentication prompts:** Token is working correctly
 
-### 🎯 Current Focus
-1. **Stability** - Fix any bugs and ensure core features work reliably
-2. **User Experience** - Improve animations, loading states, and feedback
-3. **Notifications** - Implement push notifications for better engagement
-4. **Testing** - Comprehensive testing of all features
+## Current Build Status
+- **Last Known Error:** Fixed in commit `d3aaf179`
+- **Expected Status:** Build should succeed
+- **If errors persist:** Check if Vercel is building the latest commit (`d3aaf179`)
 
-### 📚 Documentation
-- API routes documented in code
-- Component structure documented
-- Database schema in `prisma/schema.prisma`
-- Feature notes in `Notes/` directory
+## Key Files Modified
+1. `app/(dashboard)/profile/[id]/page.tsx` - Added subscription property, AdDisplay import
+2. `app/(dashboard)/profile/page.tsx` - Added AdDisplay import
+3. `app/(dashboard)/settings/subscription/page.tsx` - Fixed Badge variant
+4. `components/subscriptions/TierBadge.tsx` - Fixed Badge variant
+5. `app/api/subscriptions/verify-checkout/route.ts` - Stripe property fixes, syntax fix
+6. `app/api/webhooks/stripe/route.ts` - Stripe property fixes
+7. `lib/stripe/stripe-client.ts` - API version update, promotion code fix
+8. `app/api/admin/contracts/route.ts` - Fixed orderBy
+9. `app/api/ads/select/route.ts` - Fixed orderBy
+10. `app/api/creator/contracts/route.ts` - Fixed orderBy
+11. `app/api/creator/earnings/detailed/route.ts` - Fixed orderBy
+12. `app/api/creator/profile/route.ts` - Added isCreator to select
+13. `app/api/cron/process-ad-payouts/route.ts` - Fixed duplicate property
+14. `vercel.json` - Fixed cron schedule
 
-### 🚀 Deployment Status
-- Development environment: Active
-- Production environment: Not yet configured
-- Database: Development database in use
-- CI/CD: Not yet set up
+## Next Steps (If Build Still Fails)
+1. Check Vercel dashboard to confirm it's building commit `d3aaf179`
+2. If new errors appear, they'll likely be similar Stripe type issues - use type assertions
+3. Check for any remaining Badge variant issues (search for `variant="secondary"`)
+4. Verify all Stripe property accesses use type assertions where needed
 
----
+## Important Notes
+- **Stripe API Version:** `2025-11-17.clover` (latest)
+- **Type Assertions:** Used extensively for Stripe properties due to type mismatches
+- **Badge Variants:** Only supports: `'default' | 'sports' | 'politics' | 'tech' | 'entertainment' | 'science' | 'success' | 'warning' | 'error'`
+- **AdContract Model:** Uses `signedAt` field, not `createdAt`
+- **Cron Jobs:** Limited to daily on Hobby plan
 
-**Last Updated**: Current session
-**Next Review**: After testing debate functionality
+## Environment
+- **Node.js:** (Check package.json)
+- **Next.js:** 15.5.7
+- **Prisma:** 6.19.0
+- **Stripe:** Latest (check package.json for exact version)
 
+## Database
+- **Provider:** PostgreSQL
+- **Connection:** Via `DATABASE_URL` environment variable
+- **Migrations:** Managed through Prisma
+
+## Deployment
+- **Platform:** Vercel
+- **Repository:** `argufight/argufight`
+- **Branch:** `main`
+- **Auto-deploy:** Enabled (on push to main)
