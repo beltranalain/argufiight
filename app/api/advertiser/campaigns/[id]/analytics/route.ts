@@ -60,11 +60,19 @@ export async function GET(
         impressions: {
           select: {
             id: true,
+            timestamp: true,
+          },
+          orderBy: {
+            timestamp: 'asc',
           },
         },
         clicks: {
           select: {
             id: true,
+            timestamp: true,
+          },
+          orderBy: {
+            timestamp: 'asc',
           },
         },
       },
@@ -87,6 +95,44 @@ export async function GET(
 
     const remaining = Number(campaign.budget) - spent
 
+    // Generate time-series data for chart (daily aggregation)
+    const startDate = new Date(campaign.startDate)
+    const endDate = new Date(campaign.endDate)
+    const today = new Date()
+    const chartEndDate = endDate > today ? today : endDate
+    
+    // Create date range
+    const dateRange: Date[] = []
+    const currentDate = new Date(startDate)
+    while (currentDate <= chartEndDate) {
+      dateRange.push(new Date(currentDate))
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
+
+    // Aggregate impressions and clicks by date
+    const impressionsByDate = new Map<string, number>()
+    const clicksByDate = new Map<string, number>()
+
+    campaign.impressions.forEach((impression) => {
+      const dateKey = impression.timestamp.toISOString().split('T')[0]
+      impressionsByDate.set(dateKey, (impressionsByDate.get(dateKey) || 0) + 1)
+    })
+
+    campaign.clicks.forEach((click) => {
+      const dateKey = click.timestamp.toISOString().split('T')[0]
+      clicksByDate.set(dateKey, (clicksByDate.get(dateKey) || 0) + 1)
+    })
+
+    // Build chart data
+    const chartData = dateRange.map((date) => {
+      const dateKey = date.toISOString().split('T')[0]
+      return {
+        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        impressions: impressionsByDate.get(dateKey) || 0,
+        clicks: clicksByDate.get(dateKey) || 0,
+      }
+    })
+
     const analytics = {
       id: campaign.id,
       name: campaign.name,
@@ -99,6 +145,7 @@ export async function GET(
       ctr,
       spent,
       remaining,
+      chartData,
       contracts: campaign.contracts.map((contract) => ({
         id: contract.id,
         creator: contract.creator,

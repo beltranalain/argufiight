@@ -6,6 +6,13 @@ import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { Badge } from '@/components/ui/Badge'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+
+interface ChartDataPoint {
+  date: string
+  impressions: number
+  clicks: number
+}
 
 interface CampaignAnalytics {
   id: string
@@ -19,6 +26,7 @@ interface CampaignAnalytics {
   ctr: number
   spent: number
   remaining: number
+  chartData?: ChartDataPoint[]
   contracts: Array<{
     id: string
     creator: {
@@ -114,7 +122,9 @@ export default function CampaignAnalyticsPage() {
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold text-text-primary">{analytics.name}</h1>
-              <Badge className={getStatusColor(analytics.status)}>{analytics.status}</Badge>
+              <Badge className={getStatusColor(analytics.status)}>
+                {formatStatus(analytics.status)}
+              </Badge>
             </div>
             <p className="text-text-secondary">
               {new Date(analytics.startDate).toLocaleDateString()} -{' '}
@@ -160,17 +170,64 @@ export default function CampaignAnalyticsPage() {
             </Card>
           </div>
 
-          {/* Performance Chart Placeholder */}
+          {/* Performance Chart */}
           <Card>
             <CardHeader>
               <h2 className="text-xl font-bold text-text-primary">Performance Over Time</h2>
             </CardHeader>
             <CardBody>
-              <div className="h-64 flex items-center justify-center bg-bg-secondary rounded-lg">
-                <p className="text-text-secondary">
-                  Chart visualization coming soon (impressions/clicks over time)
-                </p>
-              </div>
+              {analytics.chartData && analytics.chartData.length > 0 ? (
+                <div className="h-80 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={analytics.chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="#9CA3AF"
+                        style={{ fontSize: '12px' }}
+                      />
+                      <YAxis 
+                        stroke="#9CA3AF"
+                        style={{ fontSize: '12px' }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#1F2937', 
+                          border: '1px solid #374151',
+                          borderRadius: '8px',
+                          color: '#F9FAFB'
+                        }}
+                        labelStyle={{ color: '#F9FAFB' }}
+                      />
+                      <Legend 
+                        wrapperStyle={{ color: '#F9FAFB' }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="impressions" 
+                        stroke="#00D9FF" 
+                        strokeWidth={2}
+                        name="Impressions"
+                        dot={{ fill: '#00D9FF', r: 4 }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="clicks" 
+                        stroke="#10B981" 
+                        strokeWidth={2}
+                        name="Clicks"
+                        dot={{ fill: '#10B981', r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-64 flex items-center justify-center bg-bg-secondary rounded-lg">
+                  <p className="text-text-secondary">
+                    No performance data yet. Data will appear once the campaign is active and receiving impressions.
+                  </p>
+                </div>
+              )}
             </CardBody>
           </Card>
 
@@ -198,11 +255,11 @@ export default function CampaignAnalyticsPage() {
                             {contract.impressionsDelivered.toLocaleString()} impressions •{' '}
                             {contract.clicksDelivered.toLocaleString()} clicks
                           </p>
-                          <p>Status: {contract.status}</p>
+                          <p>Status: {formatStatus(contract.status)}</p>
                         </div>
                       </div>
                       <Badge className={getStatusColor(contract.status)}>
-                        {contract.status}
+                        {formatStatus(contract.status)}
                       </Badge>
                     </div>
                   ))}
