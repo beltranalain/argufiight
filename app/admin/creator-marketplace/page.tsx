@@ -175,6 +175,73 @@ export default function CreatorMarketplacePage() {
     }
   }
 
+  const handleApproveCampaign = async (id: string) => {
+    try {
+      const response = await fetch(`/api/admin/campaigns/${id}/approve`, {
+        method: 'POST',
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: 'Campaign approved',
+        })
+        fetchData()
+      } else {
+        const errorData = await response.json()
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: errorData.error || 'Failed to approve campaign',
+        })
+      }
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to approve campaign',
+      })
+    }
+  }
+
+  const handleRejectCampaign = async (id: string) => {
+    const reason = prompt('Please provide a reason for rejecting this campaign:')
+    if (!reason) {
+      return // User cancelled
+    }
+
+    try {
+      const response = await fetch(`/api/admin/campaigns/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: 'Campaign rejected',
+        })
+        fetchData()
+      } else {
+        const errorData = await response.json()
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: errorData.error || 'Failed to reject campaign',
+        })
+      }
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to reject campaign',
+      })
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-bg-primary">
@@ -345,10 +412,18 @@ export default function CreatorMarketplacePage() {
                             </p>
                           </div>
                           <div className="flex gap-2">
-                            <Button variant="primary" size="sm">
+                            <Button 
+                              variant="primary" 
+                              size="sm"
+                              onClick={() => handleApproveCampaign(campaign.id)}
+                            >
                               Approve
                             </Button>
-                            <Button variant="danger" size="sm">
+                            <Button 
+                              variant="danger" 
+                              size="sm"
+                              onClick={() => handleRejectCampaign(campaign.id)}
+                            >
                               Reject
                             </Button>
                           </div>
