@@ -24,14 +24,22 @@ function LoginForm() {
     
     // Also check referrer to detect if coming from admin or advertiser pages
     if (!type) {
-      const referrer = document.referrer
-      if (referrer.includes('/admin')) {
-        setUserType('employee')
-      } else if (referrer.includes('/advertiser')) {
-        setUserType('advertiser')
+      // Check referrer
+      if (typeof window !== 'undefined') {
+        const referrer = document.referrer
+        if (referrer && referrer.includes('/admin')) {
+          setUserType('employee')
+        } else if (referrer && referrer.includes('/advertiser')) {
+          setUserType('advertiser')
+        }
       }
     } else {
       setUserType(type)
+    }
+    
+    // Debug logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Login page - userType:', type || 'not set', 'detected:', userType)
     }
     
     if (errorParam) {
