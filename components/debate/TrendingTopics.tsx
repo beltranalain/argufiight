@@ -128,11 +128,11 @@ export function TrendingTopics({ onTopicClick }: TrendingTopicsProps) {
                 {topic.category}
               </Badge>
               
-              <h4 className="text-lg font-bold text-text-primary mb-4 flex-grow line-clamp-2 overflow-hidden text-ellipsis">
+              <h4 className="text-lg font-bold text-text-primary mb-3 flex-grow line-clamp-2 overflow-hidden leading-relaxed min-h-[3.5rem]">
                 {topic.title}
               </h4>
               
-              <div className="flex items-center justify-between text-sm mt-auto pt-2">
+              <div className="flex items-center justify-between text-sm mt-auto">
                 <span className="text-text-secondary">
                   {topic.debateCount} debates
                 </span>
