@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
 import { FinancialConnectionsModal } from '@/components/stripe/FinancialConnectionsModal'
+import { StripeConnectModal } from '@/components/stripe/StripeConnectModal'
 
 interface Advertiser {
   id: string
@@ -155,10 +156,21 @@ export default function AdvertiserSettingsPage() {
   }
 
   const [showFinancialConnections, setShowFinancialConnections] = useState(false)
+  const [showStripeConnect, setShowStripeConnect] = useState(false)
 
   const handleConnectStripe = async () => {
-    // Open Financial Connections modal instead of redirecting
-    setShowFinancialConnections(true)
+    // Open Stripe Connect embedded modal for full onboarding
+    setShowStripeConnect(true)
+  }
+
+  const handleStripeConnectSuccess = async () => {
+    showToast({
+      type: 'success',
+      title: 'Stripe Account Connected',
+      description: 'Your Stripe account has been successfully set up.',
+    })
+    // Refresh advertiser data
+    fetchData()
   }
 
   const handleFinancialConnectionsSuccess = async () => {
@@ -396,6 +408,14 @@ export default function AdvertiserSettingsPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Stripe Connect Embedded Modal */}
+      <StripeConnectModal
+        isOpen={showStripeConnect}
+        onClose={() => setShowStripeConnect(false)}
+        onSuccess={handleStripeConnectSuccess}
+        apiEndpoint="/api/advertiser/stripe-connect-embedded"
+      />
 
       {/* Financial Connections Modal */}
       <FinancialConnectionsModal

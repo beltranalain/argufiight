@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -41,11 +41,30 @@ export default function AdvertisePage() {
     }
   }, [user, authLoading, router])
 
-  // Stable input handlers to prevent re-render issues
-  const handleInputChange = (field: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const value = e.target.value
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+  // Individual handlers for each field to prevent re-render issues
+  const handleCompanyNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, companyName: e.target.value }))
+  }, [])
+
+  const handleWebsiteChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, website: e.target.value }))
+  }, [])
+
+  const handleIndustryChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFormData((prev) => ({ ...prev, industry: e.target.value }))
+  }, [])
+
+  const handleContactNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, contactName: e.target.value }))
+  }, [])
+
+  const handleContactEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, contactEmail: e.target.value }))
+  }, [])
+
+  const handleBusinessEINChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, businessEIN: e.target.value }))
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -364,7 +383,7 @@ export default function AdvertisePage() {
             <input
               required
               value={formData.companyName}
-              onChange={handleInputChange('companyName')}
+              onChange={handleCompanyNameChange}
               placeholder="Your Company Name"
               className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
@@ -378,7 +397,7 @@ export default function AdvertisePage() {
               type="text"
               required
               value={formData.website}
-              onChange={handleInputChange('website')}
+              onChange={handleWebsiteChange}
               placeholder="example.com or https://example.com"
               className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
@@ -391,7 +410,7 @@ export default function AdvertisePage() {
             <select
               required
               value={formData.industry}
-              onChange={handleInputChange('industry')}
+              onChange={handleIndustryChange}
               className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
             >
               <option value="">Select Industry</option>
@@ -413,7 +432,7 @@ export default function AdvertisePage() {
             <input
               required
               value={formData.contactName}
-              onChange={handleInputChange('contactName')}
+              onChange={handleContactNameChange}
               placeholder="Your Full Name"
               className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
@@ -427,7 +446,7 @@ export default function AdvertisePage() {
               type="email"
               required
               value={formData.contactEmail}
-              onChange={handleInputChange('contactEmail')}
+              onChange={handleContactEmailChange}
               placeholder="your@email.com"
               className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
@@ -439,7 +458,7 @@ export default function AdvertisePage() {
             </label>
             <input
               value={formData.businessEIN}
-              onChange={handleInputChange('businessEIN')}
+              onChange={handleBusinessEINChange}
               placeholder="XX-XXXXXXX"
               className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
             />
