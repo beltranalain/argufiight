@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/check-expired-offers",
-      "schedule": "0 * * * *"
+      "schedule": "0 3 * * *"
     },
     {
       "path": "/api/cron/reset-usage",

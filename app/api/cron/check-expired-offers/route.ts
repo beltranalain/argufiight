@@ -5,12 +5,13 @@ import { prisma } from '@/lib/db/prisma'
  * Cron job to mark expired offers as EXPIRED
  * Should be called by Vercel Cron or external scheduler
  * 
- * Expected cron schedule: Every hour
+ * Expected cron schedule: Daily at 3 AM UTC
+ * Note: Hobby accounts are limited to daily cron jobs, so this runs once per day
  * vercel.json:
  * {
  *   "crons": [{
  *     "path": "/api/cron/check-expired-offers",
- *     "schedule": "0 * * * *"
+ *     "schedule": "0 3 * * *"
  *   }]
  * }
  */
