@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { BattleHistory } from '@/components/profile/BattleHistory'
 import { CreatorCTA } from '@/components/profile/CreatorCTA'
+import { AdDisplay } from '@/components/ads/AdDisplay'
 
 interface UserProfile {
   id: string

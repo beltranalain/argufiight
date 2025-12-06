@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { BattleHistory } from '@/components/profile/BattleHistory'
 import { TierBadge } from '@/components/subscriptions/TierBadge'
+import { AdDisplay } from '@/components/ads/AdDisplay'
 import Link from 'next/link'
 
 interface UserProfile {
