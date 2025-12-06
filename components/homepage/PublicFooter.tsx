@@ -90,9 +90,6 @@ export function PublicFooter() {
                     title={PLATFORM_LABELS[link.platform] || link.platform}
                   >
                     <SocialMediaIcon platform={link.platform} className="w-5 h-5" />
-                    <span className="text-sm font-medium hidden sm:inline">
-                      {PLATFORM_LABELS[link.platform] || link.platform}
-                    </span>
                   </a>
                 ))}
               </div>
