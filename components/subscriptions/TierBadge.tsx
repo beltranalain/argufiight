@@ -31,7 +31,7 @@ export function TierBadge({ tier, size = 'md', showVerified = false }: TierBadge
 
   return (
     <Badge
-      variant="secondary"
+      variant="default"
       className={`${
         size === 'sm' ? 'text-xs px-2 py-0.5' : size === 'lg' ? 'text-base px-3 py-1' : 'text-sm px-2.5 py-1'
       }`}
