@@ -169,6 +169,19 @@ export async function GET(request: NextRequest) {
                   endedAt: new Date(),
                 },
               })
+
+              // Trigger verdict generation automatically
+              console.log(`[AI Response Cron] Debate ${debate.id} completed, triggering verdict generation`)
+              import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
+                try {
+                  await generateModule.generateInitialVerdicts(debate.id)
+                  console.log(`[AI Response Cron] ✅ Verdict generation completed for debate ${debate.id}`)
+                } catch (error: any) {
+                  console.error(`[AI Response Cron] ❌ Failed to generate verdicts for debate ${debate.id}:`, error.message)
+                }
+              }).catch((importError: any) => {
+                console.error(`[AI Response Cron] ❌ Failed to import verdict generation module:`, importError.message)
+              })
             } else {
               // Advance to next round
               await prisma.debate.update({
