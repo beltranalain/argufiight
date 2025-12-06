@@ -50,17 +50,10 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
           // User didn't speak, just stop listening - don't show modal
           setIsListening(false)
         } else if (event.error === 'not-allowed' || event.error === 'permission-denied') {
-          // Only show modal if it's actually a permission error
-          // Double-check by trying to verify permission status
-          checkActualPermissionStatus().then((hasPermission) => {
-            if (!hasPermission) {
-              console.log('Permission denied confirmed, showing modal')
-              setShowPermissionModal(true)
-            } else {
-              console.log('Permission is granted but API failed - might be network or service issue')
-              // Don't show modal if permission is actually granted
-            }
-          })
+          // Permission was denied - show modal to help user enable it
+          // This error only fires AFTER the browser has already tried and been denied
+          console.log('Permission denied by browser, showing help modal')
+          setShowPermissionModal(true)
         } else if (event.error === 'service-not-allowed') {
           // Service not allowed usually means the speech recognition service itself is blocked
           // This is different from microphone permission - don't show the permission modal
@@ -101,45 +94,7 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     }
   }, [onTranscript])
 
-  const checkActualPermissionStatus = async (): Promise<boolean> => {
-    try {
-      // Check actual permission status using Permissions API
-      if (navigator.permissions && navigator.permissions.query) {
-        try {
-          const result = await navigator.permissions.query({ name: 'microphone' as PermissionName })
-          console.log('Microphone permission status:', result.state)
-          return result.state === 'granted'
-        } catch (e) {
-          console.warn('Permissions API query failed:', e)
-        }
-      }
-      
-      // Fallback: Try to get media stream (this will use existing permission or prompt)
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-          stream.getTracks().forEach(track => track.stop())
-          console.log('Microphone access confirmed via getUserMedia')
-          return true
-        } catch (error: any) {
-          if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            console.log('Microphone permission denied')
-            return false
-          }
-          // Other errors might mean no microphone hardware, but permission might be OK
-          console.warn('getUserMedia error (might not be permission):', error.name)
-          return true // Assume permission is OK if it's not a permission error
-        }
-      }
-      
-      return true // Default to true if we can't check
-    } catch (error) {
-      console.error('Error checking permission status:', error)
-      return true // Default to true on error
-    }
-  }
-
-  const startListening = async () => {
+  const startListening = () => {
     if (!recognitionRef.current) {
       console.error('Speech recognition not initialized')
       return
@@ -150,27 +105,29 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       return
     }
 
+    // CRITICAL: Just try to start - DO NOT check permissions first
+    // The Speech Recognition API will trigger the browser's native permission prompt
+    // If we check permissions first, we prevent the browser from showing its prompt
     try {
-      // Just try to start - let the browser handle permission prompts naturally
-      // Chrome will show a permission prompt if needed, or use existing permission
-      console.log('Starting speech recognition...')
+      console.log('Attempting to start speech recognition (will trigger browser permission prompt if needed)...')
       recognitionRef.current.start()
+      // If we get here without error, it started successfully
+      // The browser will show its permission prompt if needed
     } catch (error: any) {
       console.error('Failed to start speech recognition:', error)
       setIsListening(false)
       
-      // Check actual permission before showing modal
-      const hasPermission = await checkActualPermissionStatus()
-      
-      // If error is permission-related AND we confirmed no permission, show modal
-      if ((error.name === 'NotAllowedError' || 
+      // Only show modal if it's clearly a permission error
+      // Most errors here are synchronous and happen immediately if permission is denied
+      if (error.name === 'NotAllowedError' || 
           error.name === 'PermissionDeniedError' || 
-          error.message?.includes('permission') ||
-          error.message?.includes('not allowed')) && !hasPermission) {
+          (error.message && (error.message.includes('permission') || error.message.includes('not allowed')))) {
+        // Permission was denied - show help modal
+        console.log('Permission error detected, showing help modal')
         setShowPermissionModal(true)
       } else {
-        // For other errors or if permission is actually granted, log but don't show permission modal
-        console.warn('Speech recognition start failed:', error.name, error.message, 'Permission status:', hasPermission)
+        // For other errors, log but don't show permission modal
+        console.warn('Speech recognition start failed (non-permission):', error.name, error.message)
       }
     }
   }
