@@ -102,13 +102,15 @@ export async function POST(request: NextRequest) {
       })
       isAdvertiser = advertiser?.status === 'APPROVED'
       if (isAdvertiser) {
-        requires2FA = true
+        // For approved advertisers, only require 2FA if it's already enabled
+        // This allows testing without 2FA setup
+        requires2FA = user.totpEnabled // Only require if already set up
       }
     }
 
-    // If 2FA is required (employee/advertiser) but not set up, create a temporary session for setup
-    if (requires2FA && !user.totpEnabled) {
-      // Create temporary session for 2FA setup
+    // If 2FA is required (employee) but not set up, create a temporary session for setup
+    if (requires2FA && !user.totpEnabled && isEmployee) {
+      // Create temporary session for 2FA setup (only for employees)
       const tempSessionJWT = await createSession(user.id)
       return NextResponse.json({
         requires2FASetup: true,

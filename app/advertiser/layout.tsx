@@ -41,22 +41,24 @@ export default async function AdvertiserLayout({
     // Don't redirect here - let the page handle it so it can show appropriate messages
     // But we'll still allow the page to load so it can show the error
   } else {
-    // Check if 2FA is required and verified for this session
-    const userWith2FA = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { totpEnabled: true },
-    })
-
-    if (userWith2FA?.totpEnabled) {
-      const currentSession = await prisma.session.findFirst({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
+      // Check if 2FA is enabled and verified for this session
+      // Note: 2FA is optional for advertisers (can be enabled/disabled)
+      const userWith2FA = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { totpEnabled: true },
       })
 
-      if (!currentSession?.twoFactorVerified) {
-        redirect('/verify-2fa?userId=' + userId)
+      // Only require 2FA verification if 2FA is actually enabled
+      if (userWith2FA?.totpEnabled) {
+        const currentSession = await prisma.session.findFirst({
+          where: { userId },
+          orderBy: { createdAt: 'desc' },
+        })
+
+        if (!currentSession?.twoFactorVerified) {
+          redirect('/verify-2fa?userId=' + userId)
+        }
       }
-    }
   }
 
   return <>{children}</>
