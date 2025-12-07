@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
@@ -17,6 +17,7 @@ export default function CreateCampaignPage() {
   const [currentStep, setCurrentStep] = useState<Step>(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [categories, setCategories] = useState<string[]>([])
   const [formData, setFormData] = useState({
     // Step 1: Campaign Type
     type: 'PLATFORM_ADS' as 'PLATFORM_ADS' | 'CREATOR_SPONSORSHIP' | 'TOURNAMENT_SPONSORSHIP',
@@ -39,6 +40,28 @@ export default function CreateCampaignPage() {
     minFollowers: '',
     maxBudgetPerCreator: '',
   })
+
+  useEffect(() => {
+    fetchCategories()
+  }, [])
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('/api/categories')
+      if (response.ok) {
+        const data = await response.json()
+        const categoryNames = (data.categories || []).map((cat: any) => cat.name)
+        setCategories(categoryNames)
+      } else {
+        // Fallback to default categories
+        setCategories(['SPORTS', 'TECH', 'POLITICS', 'SCIENCE', 'ENTERTAINMENT', 'OTHER'])
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error)
+      // Fallback to default categories
+      setCategories(['SPORTS', 'TECH', 'POLITICS', 'SCIENCE', 'ENTERTAINMENT', 'OTHER'])
+    }
+  }
 
   const handleNext = () => {
     if (currentStep < 5) {
@@ -314,29 +337,33 @@ export default function CreateCampaignPage() {
                 Target Categories
               </label>
               <div className="space-y-2">
-                {['SPORTS', 'TECH', 'POLITICS', 'SCIENCE', 'ENTERTAINMENT'].map((cat) => (
-                  <label key={cat} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.targetCategories.includes(cat)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setFormData({
-                            ...formData,
-                            targetCategories: [...formData.targetCategories, cat],
-                          })
-                        } else {
-                          setFormData({
-                            ...formData,
-                            targetCategories: formData.targetCategories.filter((c) => c !== cat),
-                          })
-                        }
-                      }}
-                      className="rounded"
-                    />
-                    <span className="text-text-primary">{cat}</span>
-                  </label>
-                ))}
+                {categories.length === 0 ? (
+                  <p className="text-text-secondary text-sm">Loading categories...</p>
+                ) : (
+                  categories.map((cat) => (
+                    <label key={cat} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.targetCategories.includes(cat)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData({
+                              ...formData,
+                              targetCategories: [...formData.targetCategories, cat],
+                            })
+                          } else {
+                            setFormData({
+                              ...formData,
+                              targetCategories: formData.targetCategories.filter((c) => c !== cat),
+                            })
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-text-primary">{cat}</span>
+                    </label>
+                  ))
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

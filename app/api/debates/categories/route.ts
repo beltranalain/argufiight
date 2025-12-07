@@ -4,7 +4,25 @@ import { prisma } from '@/lib/db/prisma';
 // GET /api/debates/categories - Get category statistics
 export async function GET(request: NextRequest) {
   try {
-    const categories = ['SPORTS', 'POLITICS', 'TECH', 'ENTERTAINMENT', 'SCIENCE', 'OTHER'];
+    // Fetch categories from database
+    const dbCategories = await prisma.category.findMany({
+      where: {
+        isActive: true,
+      },
+      select: {
+        name: true,
+      },
+      orderBy: {
+        sortOrder: 'asc',
+      },
+    });
+
+    const categories = dbCategories.map(cat => cat.name);
+
+    // If no categories in database, use fallback
+    if (categories.length === 0) {
+      categories.push('SPORTS', 'POLITICS', 'TECH', 'ENTERTAINMENT', 'SCIENCE', 'OTHER');
+    }
 
     const categoryStats = await Promise.all(
       categories.map(async (category) => {
