@@ -29,7 +29,7 @@ export default function CreateTournamentPage() {
 
   useEffect(() => {
     if (!user) {
-      router.push('/auth/signin')
+      router.push('/login')
       return
     }
 

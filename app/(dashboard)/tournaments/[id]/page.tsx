@@ -121,7 +121,7 @@ export default function TournamentDetailPage() {
 
   const handleJoin = async () => {
     if (!user) {
-      router.push('/auth/signin')
+      router.push('/login')
       return
     }
 

@@ -119,7 +119,7 @@ export default function TournamentsPage() {
 
   const handleCreateClick = () => {
     if (!user) {
-      router.push('/auth/signin')
+      router.push('/login')
       return
     }
 
