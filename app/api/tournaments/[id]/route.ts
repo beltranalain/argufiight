@@ -73,10 +73,14 @@ export async function GET(
                 },
               },
             },
+            round: {
+              select: {
+                roundNumber: true,
+              },
+            },
           },
           orderBy: [
-            { round: 'asc' },
-            { matchNumber: 'asc' },
+            { round: { roundNumber: 'asc' } },
           ],
         },
         rounds: {
@@ -123,16 +127,25 @@ export async function GET(
           status: p.status,
           user: p.user,
         })),
-        matches: tournament.matches.map((m) => ({
-          id: m.id,
-          round: m.round,
-          matchNumber: m.matchNumber,
-          participant1Id: m.participant1Id,
-          participant2Id: m.participant2Id,
-          winnerId: m.winnerId,
-          status: m.status,
-          debate: m.debate,
-        })),
+        matches: tournament.matches.map((m, index, allMatches) => {
+          const roundNumber = m.round?.roundNumber || 0
+          // Calculate matchNumber within the round (1-indexed)
+          const matchesInRound = allMatches.filter(
+            (match) => (match.round?.roundNumber || 0) === roundNumber
+          )
+          const matchNumber = matchesInRound.findIndex((match) => match.id === m.id) + 1
+          
+          return {
+            id: m.id,
+            round: roundNumber,
+            matchNumber,
+            participant1Id: m.participant1Id,
+            participant2Id: m.participant2Id,
+            winnerId: m.winnerId,
+            status: m.status,
+            debate: m.debate,
+          }
+        }),
         rounds: tournament.rounds,
         isParticipant,
         isCreator,
