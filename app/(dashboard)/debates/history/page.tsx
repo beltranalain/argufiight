@@ -74,15 +74,28 @@ export default function DebatesHistoryPage() {
       } else if (activeTab === 'waiting') {
         params.append('status', 'WAITING')
       }
-      // 'all' tab shows all debates
+      // 'all' tab shows all debates (no status filter - includes WAITING, ACTIVE, COMPLETED, etc.)
 
       const response = await fetch(`/api/debates?${params.toString()}`)
       if (response.ok) {
         const data = await response.json()
-        setDebates(data.debates || [])
+        const debates = data.debates || data || []
+        // Ensure we have an array and sort by most recent first
+        const sortedDebates = Array.isArray(debates) 
+          ? debates.sort((a: any, b: any) => {
+              const dateA = new Date(a.createdAt || 0).getTime()
+              const dateB = new Date(b.createdAt || 0).getTime()
+              return dateB - dateA
+            })
+          : []
+        setDebates(sortedDebates)
+      } else {
+        console.error('Failed to fetch debates:', response.status, await response.text())
+        setDebates([])
       }
     } catch (error) {
       console.error('Failed to fetch debates:', error)
+      setDebates([])
     } finally {
       setIsLoading(false)
     }

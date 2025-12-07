@@ -67,8 +67,9 @@ export function ChallengesPanel() {
       const allResponse = await fetch('/api/debates?status=WAITING')
       if (allResponse.ok) {
         const responseData = await allResponse.json()
-        // Ensure data is an array
-        const allData = Array.isArray(responseData) ? responseData : []
+        // Handle paginated response format: { debates: [...], pagination: {...} }
+        // or array format for backwards compatibility
+        const allData = responseData.debates || (Array.isArray(responseData) ? responseData : [])
         
         // Debug: Log images for ED Reed debate
         const edReedDebate = allData.find((d: any) => d.id === 'e59863ee-9213-4c16-86a9-bd4c25621048')
@@ -115,9 +116,11 @@ export function ChallengesPanel() {
         let myData: any[] = []
         if (myResponse.ok) {
           const responseData = await myResponse.json()
-          // Ensure data is an array
-          myData = Array.isArray(responseData) ? responseData : []
-          myData = myData.filter((d: any) => d.challengerId === user.id)
+          // Handle paginated response format: { debates: [...], pagination: {...} }
+          // or array format for backwards compatibility
+          const debates = responseData.debates || (Array.isArray(responseData) ? responseData : [])
+          // Filter to only show debates where user is the challenger (debates they created)
+          myData = debates.filter((d: any) => d.challengerId === user.id)
         }
         
         // Don't show rematch requests in "My Challenges" for the requester
