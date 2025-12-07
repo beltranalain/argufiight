@@ -87,7 +87,6 @@ export async function GET(request: NextRequest) {
       search: where.username,
     })
 
-    const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50) // Max 50 per page
     const skip = (page - 1) * limit
