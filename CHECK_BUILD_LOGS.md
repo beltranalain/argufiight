@@ -81,3 +81,4 @@ If it's still not working, share:
 2. What the schema file shows in GitHub (line 9)
 3. What the build command is set to in Vercel
 
+

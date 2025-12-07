@@ -116,3 +116,4 @@ The component automatically detects which image is for which store by:
 - Support for additional app stores (Amazon Appstore, etc.)
 - Custom button styling per variant
 
+

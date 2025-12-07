@@ -91,3 +91,4 @@ After fixing:
 - ✅ Prisma Client is generated for PostgreSQL
 - ✅ Signup/login works without "Error code 14"
 
+

@@ -145,3 +145,4 @@ After Supabase is set up:
 2. ✅ Profile auto-creation is configured
 3. Ready for Phase 2: Database Schema
 
+

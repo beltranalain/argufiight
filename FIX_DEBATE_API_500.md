@@ -52,3 +52,4 @@ After this, the workaround will still work but Prisma will have the field direct
 ✅ **Fixed** - API should now work even with outdated Prisma client
 ⚠️ **Temporary** - Workaround in place until Prisma client is regenerated
 
+

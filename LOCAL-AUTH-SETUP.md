@@ -179,3 +179,4 @@ For production deployment:
 5. Add email verification if needed
 6. Consider adding OAuth providers (Google, etc.)
 
+

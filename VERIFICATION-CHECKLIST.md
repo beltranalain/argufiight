@@ -141,3 +141,4 @@ Required in `.env`:
 - Database schema is valid
 - Ready for testing once API key is added and judges are seeded
 
+

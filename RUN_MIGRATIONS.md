@@ -51,3 +51,4 @@ npx prisma db push
 2. ✅ You can optionally seed initial data (homepage content, legal pages, etc.)
 3. ✅ Your site will be fully functional!
 
+

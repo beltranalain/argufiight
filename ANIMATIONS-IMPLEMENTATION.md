@@ -159,3 +159,4 @@ To test animations:
 
 All animations should feel smooth, natural, and polished - similar to Apple's software experience.
 
+

@@ -52,3 +52,4 @@ Write-Host "   1. Restart your dev server: npm run dev" -ForegroundColor White
 Write-Host "   2. Check server console for detailed error messages" -ForegroundColor White
 Write-Host ""
 
+

@@ -55,3 +55,4 @@ npm run dev
 ✅ **Tags API**: Fixed with raw SQL fallback + Prisma models added to schema
 ⚠️ **Prisma Client**: Needs regeneration to use new models (fallback works in meantime)
 
+

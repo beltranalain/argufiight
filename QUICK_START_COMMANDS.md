@@ -196,3 +196,4 @@ Get-ChildItem -Path tests -Recurse -Filter *.test.ts | Measure-Object | Select-O
 - **Debug mode**: Use `npm run dev -- --inspect` for backend debugging
 - **Expo DevTools**: Press `j` in Expo terminal to open debugger
 
+

@@ -90,3 +90,4 @@ npx expo start -c
 - ✅ Make sure backend is running on port 3000
 
 
+

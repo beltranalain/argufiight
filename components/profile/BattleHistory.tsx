@@ -101,3 +101,4 @@ export function BattleHistory({ userId }: BattleHistoryProps) {
   )
 }
 
+

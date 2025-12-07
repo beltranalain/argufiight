@@ -65,3 +65,4 @@ npx tsx scripts/make-admin.ts your-email@example.com --remove
 - Visit: `https://honorable-ai.com/api/auth/me`
 - Should show: `"isAdmin": true`
 
+

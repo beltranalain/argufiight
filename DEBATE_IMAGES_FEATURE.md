@@ -124,3 +124,4 @@ Added the ability to upload and display images in debates. Users can now add up 
 - [ ] Test with different image counts (1, 2, 3, 4+)
 - [ ] Verify images are deleted when debate is deleted (cascade)
 
+

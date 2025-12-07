@@ -116,3 +116,4 @@ APPEALED      // Verdict appealed, awaiting re-verdict
 - Appeal cooldown (prevent spam)
 - Community voting on appeals (future feature)
 
+

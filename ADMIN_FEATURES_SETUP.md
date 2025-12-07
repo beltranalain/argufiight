@@ -87,3 +87,4 @@ Go to `/admin/judges` and click "Add Judge" to create AI judge personalities.
 
 All these tables are defined in `prisma/schema.prisma` and should be created by migrations.
 
+

@@ -46,3 +46,4 @@ if (!debateId) {
 
 generateVerdictForDebate(debateId)
 
+

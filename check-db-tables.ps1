@@ -23,3 +23,4 @@ Write-Host ""
 Write-Host "💡 To see all tables, run:" -ForegroundColor Cyan
 Write-Host "   npx prisma studio" -ForegroundColor White
 
+

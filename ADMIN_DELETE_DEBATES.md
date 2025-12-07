@@ -69,3 +69,4 @@ Admins can now delete debates from the admin debates management page.
 - No undo functionality (by design for admin actions)
 - Deletion is logged for audit purposes
 
+

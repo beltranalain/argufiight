@@ -46,3 +46,4 @@ Write-Host "   Visit: https://your-site.vercel.app/api/test-db" -ForegroundColor
 Write-Host ""
 Write-Host "📖 For detailed instructions, see: FIX_VERCEL_500_ERROR.md" -ForegroundColor Cyan
 
+

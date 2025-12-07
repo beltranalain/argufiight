@@ -38,3 +38,4 @@ Write-Host "  ✅ Schema is configured for PostgreSQL" -ForegroundColor Gray
 Write-Host "  ✅ Cleaned Prisma cache" -ForegroundColor Gray
 Write-Host "  ✅ Prisma Client regenerated successfully!" -ForegroundColor Gray
 
+

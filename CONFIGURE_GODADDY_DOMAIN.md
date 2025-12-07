@@ -86,3 +86,4 @@ If you're not sure which DNS records to use:
 2. Vercel will show you **exactly** what DNS records to add
 3. Copy those records to GoDaddy
 
+

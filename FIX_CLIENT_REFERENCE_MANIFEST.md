@@ -86,3 +86,4 @@ After redeploying, check the logs:
 3. Try updating Next.js to latest version
 4. Consider using `output: 'standalone'` in next.config.js (if Railway supports it)
 
+

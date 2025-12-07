@@ -120,3 +120,4 @@ The platform uses Tailwind CSS breakpoints:
 
 **Last Updated:** December 2024
 
+

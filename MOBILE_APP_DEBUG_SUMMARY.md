@@ -85,3 +85,4 @@
 - Console logging added for debugging (can be removed in production)
 - Error boundaries should catch any remaining runtime errors
 
+

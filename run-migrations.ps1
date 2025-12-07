@@ -19,3 +19,4 @@ Write-Host "1. Visit your site: https://honorable-ai.vercel.app" -ForegroundColo
 Write-Host "2. Create your first admin account" -ForegroundColor White
 Write-Host "3. Test the site!" -ForegroundColor White
 
+
