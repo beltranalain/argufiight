@@ -17,10 +17,30 @@ export function ArenaPanel() {
   const [filter, setFilter] = useState('ALL')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [initialDebateData, setInitialDebateData] = useState<{ topic?: string; category?: string } | null>(null)
+  const [categories, setCategories] = useState<string[]>(['ALL', 'SPORTS', 'TECH', 'POLITICS'])
+
+  useEffect(() => {
+    fetchCategories()
+  }, [])
 
   useEffect(() => {
     fetchDebates()
   }, [filter])
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('/api/categories')
+      if (response.ok) {
+        const data = await response.json()
+        const categoryNames = ['ALL', ...(data.categories || []).map((cat: any) => cat.name)]
+        setCategories(categoryNames)
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error)
+      // Fallback to default categories
+      setCategories(['ALL', 'SPORTS', 'TECH', 'POLITICS', 'ENTERTAINMENT', 'SCIENCE', 'OTHER'])
+    }
+  }
 
   // Listen for custom event to refresh debates
   // Only listen if this component is mounted (not during page refresh)
@@ -106,7 +126,7 @@ export function ArenaPanel() {
 
           {/* Filters */}
           <div className="flex gap-2 flex-wrap">
-            {['ALL', 'SPORTS', 'TECH', 'POLITICS'].map((category) => (
+            {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => setFilter(category)}

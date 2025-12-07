@@ -63,8 +63,6 @@ const ALL_TOPICS: Topic[] = [
   { id: '10', title: 'Cryptocurrency Future', category: 'TECH', debateCount: 0 },
 ]
 
-const CATEGORIES = ['ALL', 'SPORTS', 'TECH', 'POLITICS', 'ENTERTAINMENT', 'SCIENCE'] as const
-
 export default function TrendingTopicsPage() {
   const router = useRouter()
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL')
@@ -73,10 +71,30 @@ export default function TrendingTopicsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [initialDebateData, setInitialDebateData] = useState<{ topic?: string; category?: string } | null>(null)
+  const [categories, setCategories] = useState<string[]>(['ALL'])
+
+  useEffect(() => {
+    fetchCategories()
+  }, [])
 
   useEffect(() => {
     fetchAllDebates()
   }, [selectedCategory])
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('/api/categories')
+      if (response.ok) {
+        const data = await response.json()
+        const categoryNames = ['ALL', ...(data.categories || []).map((cat: any) => cat.name)]
+        setCategories(categoryNames)
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error)
+      // Fallback to default categories
+      setCategories(['ALL', 'SPORTS', 'TECH', 'POLITICS', 'ENTERTAINMENT', 'SCIENCE', 'OTHER'])
+    }
+  }
 
   // Listen for custom event to open create debate modal
   // Only listen if this component is mounted (not during page refresh)
@@ -225,7 +243,7 @@ export default function TrendingTopicsPage() {
 
           {/* Category Filters */}
           <div className="flex gap-2 flex-wrap">
-            {CATEGORIES.map((category) => (
+            {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
