@@ -167,6 +167,7 @@ export default function CreateTournamentPage() {
   }
 
   if (!canCreate?.allowed) {
+    const limit = canCreate?.limit || 1
     return (
       <div className="min-h-screen bg-bg-primary">
         <TopNav currentPanel="TOURNAMENTS" />
@@ -179,7 +180,7 @@ export default function CreateTournamentPage() {
                     Tournament Limit Reached
                   </h2>
                   <p className="text-text-secondary mb-6">
-                    You've used your {canCreate.limit} tournament{canCreate.limit === 1 ? '' : 's'} this month.
+                    You've used your {limit} tournament{limit === 1 ? '' : 's'} this month.
                     Upgrade to Pro for unlimited tournaments!
                   </p>
                   <Button onClick={() => router.push('/upgrade')} variant="primary">
