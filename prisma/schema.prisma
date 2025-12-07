@@ -1569,6 +1569,7 @@ model HomepageImage {
   caption String? // Image caption
   linkUrl String? @map("link_url") // Optional link URL for clickable images (e.g., App Store/Google Play links)
   order   Int     @default(0) // Display order within section
+  imagePosition String? @default("left") @map("image_position") // "left" or "right" - where image appears relative to content
 
   // Metadata
   width    Int?

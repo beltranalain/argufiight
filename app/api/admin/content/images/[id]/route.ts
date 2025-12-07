@@ -39,6 +39,7 @@ export async function PATCH(
         ...(body.caption !== undefined && { caption: body.caption || null }),
         ...(body.linkUrl !== undefined && { linkUrl: body.linkUrl || null }),
         ...(body.order !== undefined && { order: body.order }),
+        ...(body.imagePosition !== undefined && { imagePosition: body.imagePosition || 'left' }),
       },
     })
 

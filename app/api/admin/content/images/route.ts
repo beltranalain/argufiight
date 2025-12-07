@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     const fileEntry = formData.get('image')
     const file = fileEntry instanceof File ? fileEntry : null
     const sectionId = (formData.get('sectionId') as string | null) || ''
+    const imagePosition = (formData.get('imagePosition') as string | null) || 'left'
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -101,6 +102,7 @@ export async function POST(request: NextRequest) {
               sectionId,
               url: imageUrl,
               order: maxOrder,
+              imagePosition: imagePosition === 'right' ? 'right' : 'left',
             },
           })
         }
