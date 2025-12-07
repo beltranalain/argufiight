@@ -9,6 +9,31 @@ import { Avatar } from '@/components/ui/Avatar'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 
+// Helper function to extract topic from URL or return topic as-is
+function extractTopicFromUrl(topic: string): string {
+  if (!topic) return ''
+  
+  // If topic is a URL, try to extract the actual topic
+  if (/^https?:\/\//.test(topic)) {
+    // Try to extract from ChatGPT URL
+    const chatgptMatch = topic.match(/[#&]text=([^&]+)/i)
+    if (chatgptMatch) {
+      try {
+        const decoded = decodeURIComponent(chatgptMatch[1])
+        return decoded.replace(/\+/g, ' ')
+      } catch {
+        // If decoding fails, show truncated URL
+        return topic.substring(0, 60) + '...'
+      }
+    }
+    // Regular URL - truncate it
+    return topic.substring(0, 60) + '...'
+  }
+  
+  // Normal topic - return as is
+  return topic
+}
+
 export function ChallengesPanel() {
   const [challenges, setChallenges] = useState<any[]>([])
   const [myChallenges, setMyChallenges] = useState<any[]>([])
@@ -280,7 +305,9 @@ export function ChallengesPanel() {
                           )}
                         </div>
                       </div>
-                      <p className="text-text-primary font-semibold mb-2">{challenge.topic}</p>
+                      <p className="text-text-primary font-semibold mb-2" title={challenge.topic}>
+                        {extractTopicFromUrl(challenge.topic)}
+                      </p>
                       
                       {/* Display images if available */}
                       {(() => {
@@ -422,7 +449,9 @@ export function ChallengesPanel() {
                           {challenge.category}
                         </Badge>
                       </div>
-                      <p className="text-text-primary font-semibold mb-2">{challenge.topic}</p>
+                      <p className="text-text-primary font-semibold mb-2" title={challenge.topic}>
+                        {extractTopicFromUrl(challenge.topic)}
+                      </p>
                       
                       {/* Display images if available */}
                       {challenge.images && Array.isArray(challenge.images) && challenge.images.length > 0 && (

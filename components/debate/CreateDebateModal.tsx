@@ -341,14 +341,58 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
     <Modal isOpen={isOpen} onClose={onClose} title="Create Debate Challenge">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Topic */}
-        <Input
-          label="Debate Topic"
-          placeholder="e.g., Is AI Art Real Art?"
-          value={topic}
-          onChange={(e) => setTopic(e.target.value)}
-          required
-          maxLength={200}
-        />
+        <div>
+          <Input
+            label="Debate Topic"
+            placeholder="e.g., Is AI Art Real Art?"
+            value={topic}
+            onChange={(e) => {
+              let value = e.target.value
+              
+              // Detect and clean URLs (especially ChatGPT URLs)
+              const urlPattern = /https?:\/\/[^\s]+/gi
+              if (urlPattern.test(value)) {
+                // Try to extract topic from ChatGPT URL
+                const chatgptMatch = value.match(/[#&]text=([^&]+)/i)
+                if (chatgptMatch) {
+                  // Decode the topic from URL
+                  try {
+                    const decoded = decodeURIComponent(chatgptMatch[1])
+                    value = decoded.replace(/\+/g, ' ')
+                    showToast({
+                      title: 'URL Detected',
+                      description: 'Extracted topic from URL. Please review and edit if needed.',
+                      type: 'info',
+                    })
+                  } catch {
+                    // If decoding fails, just warn
+                    showToast({
+                      title: 'URL Detected',
+                      description: 'Please enter the actual debate topic, not a URL.',
+                      type: 'warning',
+                    })
+                  }
+                } else {
+                  // Not a ChatGPT URL, just warn
+                  showToast({
+                    title: 'URL Detected',
+                    description: 'Please enter the actual debate topic, not a URL.',
+                    type: 'warning',
+                  })
+                }
+              }
+              
+              setTopic(value)
+            }}
+            required
+            maxLength={200}
+          />
+          {topic && /https?:\/\//.test(topic) && (
+            <p className="text-xs text-neon-orange mt-1">
+              ⚠️ URL detected. Please enter the actual debate topic, not a link.
+            </p>
+          )}
+        </div>
 
         {/* Description */}
         <div>
