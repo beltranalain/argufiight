@@ -26,9 +26,10 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     if (SpeechRecognition) {
       setIsSupported(true)
       const recognition = new SpeechRecognition()
-      recognition.continuous = false
+      recognition.continuous = true  // Keep listening until user stops
       recognition.interimResults = true
       recognition.lang = 'en-US'
+      recognition.maxAlternatives = 1
 
       recognition.onstart = () => {
         console.log('Speech recognition started')
@@ -36,12 +37,27 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
         setShowPermissionModal(false) // Hide modal if it was showing
       }
 
+      // Store accumulated transcript on the recognition object so it persists
+      ;(recognition as any)._accumulatedTranscript = ''
+      
       recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let transcript = ''
+        // Build transcript from all results
+        let accumulated = (recognition as any)._accumulatedTranscript || ''
+        let newTranscript = ''
+        
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript
+          const result = event.results[i]
+          if (result.isFinal) {
+            // Final result - add to accumulated transcript
+            accumulated += result[0].transcript + ' '
+            ;(recognition as any)._accumulatedTranscript = accumulated
+            newTranscript = accumulated
+          } else {
+            // Interim result - show accumulated + current interim
+            newTranscript = accumulated + result[0].transcript
+          }
         }
-        onTranscript(transcript)
+        onTranscript(newTranscript.trim())
       }
 
       recognition.onerror = (event: any) => {
@@ -78,7 +94,20 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
 
       recognition.onend = () => {
         console.log('Speech recognition ended')
-        setIsListening(false)
+        // If we're still supposed to be listening, restart it
+        // This handles cases where recognition stops due to silence but user wants to continue
+        if (isListening && recognitionRef.current) {
+          try {
+            console.log('Restarting speech recognition...')
+            recognitionRef.current.start()
+          } catch (error: any) {
+            // If restart fails, stop listening
+            console.error('Failed to restart speech recognition:', error)
+            setIsListening(false)
+          }
+        } else {
+          setIsListening(false)
+        }
       }
 
       recognitionRef.current = recognition
@@ -113,6 +142,13 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     if (isListening) {
       console.log('Already listening')
       return
+    }
+
+    // Reset accumulated transcript when starting fresh
+    // We'll use a ref to track this across renders
+    const recognition = recognitionRef.current as any
+    if (recognition) {
+      recognition._accumulatedTranscript = ''
     }
 
     // NEW APPROACH: Explicitly request microphone permission first using getUserMedia
