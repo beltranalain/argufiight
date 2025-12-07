@@ -64,8 +64,9 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       
       // Handle common errors
       if (event.error === 'no-speech') {
-        // No speech detected - let onend handle restart
-        console.log('No speech detected, will restart if still listening')
+        // No speech detected - this is normal, don't stop, let onend handle restart
+        console.log('No speech detected, will restart automatically')
+        // Don't set isListening to false - keep it active
         return
       } else if (event.error === 'not-allowed' || event.error === 'permission-denied') {
         shouldListenRef.current = false
@@ -80,52 +81,93 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
         // Only stop if user explicitly stopped
         if (!shouldListenRef.current) {
           setIsListening(false)
+        } else {
+          // If aborted but we should still be listening, restart immediately
+          console.log('Recognition aborted but should continue, restarting...')
+          setTimeout(() => {
+            if (shouldListenRef.current && recognitionRef.current) {
+              try {
+                recognitionRef.current.start()
+              } catch (e) {
+                console.error('Failed to restart after abort:', e)
+              }
+            }
+          }, 50)
         }
       } else if (event.error === 'network') {
         console.warn('Network error in speech recognition, will retry')
+        // Don't stop on network errors - let onend handle restart
       } else {
         console.warn('Speech recognition error (non-permission):', event.error)
+        // Only stop on critical errors
         if (event.error === 'audio-capture' || event.error === 'bad-grammar') {
           shouldListenRef.current = false
           setIsListening(false)
         }
+        // For other errors, try to continue
       }
     }
 
     recognition.onend = () => {
-      console.log('Speech recognition ended')
-      // If we're still supposed to be listening, create a NEW instance and start it
+      console.log('Speech recognition ended - restarting immediately if still listening')
+      // If we're still supposed to be listening, IMMEDIATELY create a NEW instance and start it
       if (shouldListenRef.current) {
-        // Create a fresh recognition instance
+        // Keep isListening true - don't set it to false
+        // Create a fresh recognition instance immediately
         const newRecognition = createRecognitionInstance()
         if (newRecognition) {
           recognitionRef.current = newRecognition
-          setTimeout(() => {
+          // Use requestAnimationFrame for immediate restart (faster than setTimeout)
+          requestAnimationFrame(() => {
             if (shouldListenRef.current && recognitionRef.current) {
               try {
-                console.log('Starting new recognition instance...')
+                console.log('Immediately restarting recognition instance...')
                 recognitionRef.current.start()
               } catch (error: any) {
+                // Handle "already started" error - this means recognition is already running
+                if (error.message && (error.message.includes('already started') || error.message.includes('started'))) {
+                  console.log('Recognition already running, this is fine')
+                  return
+                }
                 console.error('Failed to start new recognition instance:', error)
-                // Try one more time
+                // If immediate start fails, try with a minimal delay
                 setTimeout(() => {
-                  if (shouldListenRef.current) {
-                    const retryRecognition = createRecognitionInstance()
-                    if (retryRecognition) {
-                      recognitionRef.current = retryRecognition
-                      try {
-                        retryRecognition.start()
-                      } catch (retryError) {
-                        console.error('Failed to start after retry:', retryError)
-                        shouldListenRef.current = false
-                        setIsListening(false)
+                  if (shouldListenRef.current && recognitionRef.current) {
+                    try {
+                      console.log('Retrying recognition start after delay...')
+                      recognitionRef.current.start()
+                    } catch (retryError: any) {
+                      console.error('Failed to start after retry:', retryError)
+                      // If it's "already started", that's fine
+                      if (retryError.message && (retryError.message.includes('already started') || retryError.message.includes('started'))) {
+                        console.log('Recognition already running after retry, continuing...')
+                        return
                       }
+                      // Try one more time with a fresh instance
+                      setTimeout(() => {
+                        if (shouldListenRef.current) {
+                          const finalRetry = createRecognitionInstance()
+                          if (finalRetry) {
+                            recognitionRef.current = finalRetry
+                            try {
+                              finalRetry.start()
+                            } catch (finalError: any) {
+                              console.error('Failed to start after final retry:', finalError)
+                              // Only stop if it's not "already started"
+                              if (!finalError.message || (!finalError.message.includes('already started') && !finalError.message.includes('started'))) {
+                                shouldListenRef.current = false
+                                setIsListening(false)
+                              }
+                            }
+                          }
+                        }
+                      }, 100)
                     }
                   }
-                }, 100)
+                }, 10) // Minimal delay
               }
             }
-          }, 10) // Very short delay
+          })
         } else {
           shouldListenRef.current = false
           setIsListening(false)
