@@ -104,7 +104,9 @@ export default function MessagesPage() {
         const response = await fetch(`/api/users/search?q=${encodeURIComponent(searchQuery.trim())}`)
         if (!response.ok) throw new Error('Search failed')
         
-        const users = await response.json()
+        const data = await response.json()
+        // Extract users array from paginated response
+        const users = Array.isArray(data) ? data : (data.users || [])
         setSearchResults(users)
       } catch (error) {
         console.error('User search error:', error)

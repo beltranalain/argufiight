@@ -63,7 +63,9 @@ export function UserSearchInput({
         const response = await fetch(`/api/users/search?q=${encodeURIComponent(searchQuery.trim())}`)
         if (!response.ok) throw new Error('Search failed')
         
-        const users = await response.json()
+        const data = await response.json()
+        // Extract users array from paginated response
+        const users = Array.isArray(data) ? data : (data.users || [])
         // Filter out already selected users
         const filtered = users.filter(
           (user: User) => !selectedUsers.some(selected => selected.id === user.id)
