@@ -100,3 +100,4 @@ The favicon 404 is harmless but to fix it:
 This is cosmetic only - doesn't affect functionality.
 
 
+

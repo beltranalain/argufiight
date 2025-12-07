@@ -52,3 +52,4 @@ Go to your Vercel project → **Settings** → **Environment Variables** and add
 After redeploying, we'll need to run the database migrations to create all the tables.
 
 
+

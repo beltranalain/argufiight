@@ -625,3 +625,4 @@ async function canCreateTournament(userId: string): Promise<boolean> {
 This tournament feature would be a **major differentiator** for Argu Fight, creating a competitive ecosystem that drives engagement and provides a clear monetization path. The $1/month price point is accessible while still generating meaningful revenue at scale.
 
 
+

@@ -117,3 +117,4 @@ APPEALED      // Verdict appealed, awaiting re-verdict
 - Community voting on appeals (future feature)
 
 
+

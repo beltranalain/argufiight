@@ -59,3 +59,4 @@ if (existsSync(binaryPath)) {
 console.log('✅ Prisma binary check complete!')
 
 
+

@@ -67,3 +67,4 @@ The view count appears in the debate interactions section:
 **Note**: If Prisma generate failed due to file lock, restart the dev server and it will pick up the new schema.
 
 
+

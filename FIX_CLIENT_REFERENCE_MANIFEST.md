@@ -87,3 +87,4 @@ After redeploying, check the logs:
 4. Consider using `output: 'standalone'` in next.config.js (if Railway supports it)
 
 
+

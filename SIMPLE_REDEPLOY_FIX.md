@@ -48,3 +48,4 @@ After deployment completes:
 **The key fix:** The build now verifies the schema file is PostgreSQL BEFORE generating Prisma Client. If it finds SQLite, it will fail the build immediately, preventing the wrong client from being generated.
 
 
+
