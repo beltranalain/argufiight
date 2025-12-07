@@ -149,6 +149,10 @@ export default function TournamentsPage() {
     )
   }
 
+  // Extract values with defaults for safe access
+  const limit = canCreate?.limit ?? 1
+  const currentUsage = canCreate?.currentUsage ?? 0
+
   return (
     <div className="min-h-screen bg-bg-primary">
       <TopNav currentPanel="TOURNAMENTS" />
@@ -174,12 +178,12 @@ export default function TournamentsPage() {
                   <div>
                     <p className="text-text-primary font-medium">Your Tournament Usage</p>
                     <p className="text-text-secondary text-sm">
-                      {canCreate.limit === -1
+                      {limit === -1
                         ? 'Unlimited tournaments (Pro member)'
-                        : `${canCreate.currentUsage || 0} / ${canCreate.limit} tournament${canCreate.limit === 1 ? '' : 's'} this month`}
+                        : `${currentUsage} / ${limit} tournament${limit === 1 ? '' : 's'} this month`}
                     </p>
                   </div>
-                  {canCreate.limit !== -1 && (canCreate.currentUsage || 0) >= canCreate.limit && (
+                  {limit !== -1 && currentUsage >= limit && (
                     <Button onClick={() => router.push('/upgrade')} variant="primary" size="sm">
                       Upgrade to Pro
                     </Button>
