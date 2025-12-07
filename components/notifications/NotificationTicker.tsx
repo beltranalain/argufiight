@@ -29,6 +29,7 @@ export function NotificationTicker() {
   const { user } = useAuth()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [tickerUpdates, setTickerUpdates] = useState<TickerUpdate[]>([])
+  const [yourTurnUpdate, setYourTurnUpdate] = useState<TickerUpdate | null>(null)
   const [allItems, setAllItems] = useState<(Notification | TickerUpdate)[]>([])
   const [isPaused, setIsPaused] = useState(false)
   const tickerRef = useRef<HTMLDivElement>(null)
@@ -42,14 +43,28 @@ export function NotificationTicker() {
 
     if (user) {
       fetchNotifications()
+      checkYourTurn()
       const notificationInterval = setInterval(() => {
         fetchNotifications()
       }, 30000) // Update notifications every 30 seconds
+      const yourTurnInterval = setInterval(() => {
+        checkYourTurn()
+      }, 30000) // Check turn status every 30 seconds
+
+      // Listen for statement submissions to update turn status immediately
+      const handleStatementSubmitted = () => {
+        checkYourTurn()
+      }
+      window.addEventListener('statement-submitted', handleStatementSubmitted)
 
       return () => {
         clearInterval(tickerInterval)
         clearInterval(notificationInterval)
+        clearInterval(yourTurnInterval)
+        window.removeEventListener('statement-submitted', handleStatementSubmitted)
       }
+    } else {
+      setYourTurnUpdate(null)
     }
 
     return () => clearInterval(tickerInterval)
@@ -58,6 +73,11 @@ export function NotificationTicker() {
   useEffect(() => {
     // Merge notifications and ticker updates, prioritizing unread notifications
     const merged: (Notification | TickerUpdate)[] = []
+    
+    // Add "Your Turn" update first (highest priority)
+    if (yourTurnUpdate) {
+      merged.push(yourTurnUpdate)
+    }
     
     // Add unread notifications first
     const unreadNotifications = notifications.filter(n => !n.read)
@@ -82,7 +102,7 @@ export function NotificationTicker() {
     })
     
     setAllItems(merged)
-  }, [notifications, tickerUpdates])
+  }, [notifications, tickerUpdates, yourTurnUpdate])
 
   useEffect(() => {
     if (!contentRef.current || allItems.length === 0) return
@@ -164,12 +184,86 @@ export function NotificationTicker() {
     }
   }
 
+  const checkYourTurn = async () => {
+    if (!user) {
+      setYourTurnUpdate(null)
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/debates?userId=${user.id}&status=ACTIVE`)
+      if (response.ok) {
+        const data = await response.json()
+        const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
+        const activeDebate = debates.find((d: any) => d.status === 'ACTIVE')
+        
+        if (activeDebate) {
+          // Fetch full debate details to check statements
+          const detailResponse = await fetch(`/api/debates/${activeDebate.id}`)
+          if (detailResponse.ok) {
+            const fullDebate = await detailResponse.json()
+            
+            // Check if it's user's turn
+            const currentRoundStatements = (fullDebate.statements || []).filter(
+              (s: any) => s.round === fullDebate.currentRound
+            )
+            const challengerSubmitted = currentRoundStatements.some(
+              (s: any) => s.author.id === fullDebate.challenger.id
+            )
+            const opponentSubmitted = fullDebate.opponent && currentRoundStatements.some(
+              (s: any) => s.author.id === fullDebate.opponent.id
+            )
+            const userSubmitted = currentRoundStatements.some(
+              (s: any) => s.author.id === user.id
+            )
+            const isChallenger = user.id === fullDebate.challenger.id
+            const isOpponent = fullDebate.opponent && user.id === fullDebate.opponent.id
+            
+            // Determine if it's user's turn
+            let turnStatus = false
+            if (currentRoundStatements.length === 0 && isChallenger) {
+              turnStatus = true
+            } else if (isChallenger && opponentSubmitted && !challengerSubmitted) {
+              turnStatus = true
+            } else if (isOpponent && challengerSubmitted && !opponentSubmitted) {
+              turnStatus = true
+            }
+            
+            // Only show "Your Turn" if it's their turn AND they haven't submitted
+            if (turnStatus && !userSubmitted) {
+              setYourTurnUpdate({
+                id: `your-turn-${activeDebate.id}-${fullDebate.currentRound}`,
+                type: 'BIG_BATTLE', // Use existing type for orange color
+                title: 'YOUR TURN',
+                message: `Round ${fullDebate.currentRound}/${fullDebate.totalRounds} • ${fullDebate.topic.substring(0, 60)}${fullDebate.topic.length > 60 ? '...' : ''}`,
+                debateId: activeDebate.id,
+                priority: 'high',
+                createdAt: new Date().toISOString(),
+              })
+            } else {
+              setYourTurnUpdate(null)
+            }
+          }
+        } else {
+          setYourTurnUpdate(null)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check turn status:', error)
+      setYourTurnUpdate(null)
+    }
+  }
+
   const getItemColor = (item: Notification | TickerUpdate): string => {
     // Handle ticker updates
     if ('priority' in item && !('read' in item)) {
       const tickerUpdate = item as TickerUpdate
       switch (tickerUpdate.type) {
         case 'BIG_BATTLE':
+          // Check if this is a "Your Turn" update
+          if (tickerUpdate.title === 'YOUR TURN') {
+            return 'text-neon-orange font-bold'
+          }
           return 'text-neon-orange'
         case 'HIGH_VIEWS':
           return 'text-electric-blue'
@@ -274,7 +368,7 @@ export function NotificationTicker() {
               <Link
                 key={item.id}
                 href={getItemUrl(item)}
-                className={`flex items-center gap-2 px-3 py-1 transition-colors hover:opacity-80 whitespace-nowrap ${getItemColor(item)}`}
+                className={`flex items-center gap-2 px-3 py-1 transition-colors hover:opacity-80 whitespace-nowrap ${getItemColor(item)} ${('priority' in item && item.priority === 'high' && item.title === 'YOUR TURN') ? 'animate-pulse' : ''}`}
                 onClick={async () => {
                   if ('read' in item && !item.read && user) {
                     try {
@@ -286,6 +380,10 @@ export function NotificationTicker() {
                       console.error('Failed to mark notification as read:', error)
                     }
                   }
+                  // Refresh turn status when clicked
+                  if ('priority' in item && item.title === 'YOUR TURN') {
+                    checkYourTurn()
+                  }
                 }}
               >
                 <span className="text-xs font-semibold">
@@ -294,7 +392,10 @@ export function NotificationTicker() {
                 <span className="text-[10px] opacity-70">
                   {item.message}
                 </span>
-                {'read' in item && !item.read && (
+                {('priority' in item && item.priority === 'high' && item.title === 'YOUR TURN') && (
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 bg-neon-orange" />
+                )}
+                {'read' in item && !item.read && !('priority' in item && item.title === 'YOUR TURN') && (
                   <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 bg-current" />
                 )}
               </Link>
@@ -305,7 +406,7 @@ export function NotificationTicker() {
               <Link
                 key={`${item.id}-duplicate`}
                 href={getItemUrl(item)}
-                className={`flex items-center gap-2 px-3 py-1 transition-colors hover:opacity-80 whitespace-nowrap ${getItemColor(item)}`}
+                className={`flex items-center gap-2 px-3 py-1 transition-colors hover:opacity-80 whitespace-nowrap ${getItemColor(item)} ${('priority' in item && item.priority === 'high' && item.title === 'YOUR TURN') ? 'animate-pulse' : ''}`}
               >
                 <span className="text-xs font-semibold">
                   {item.title}
@@ -313,7 +414,10 @@ export function NotificationTicker() {
                 <span className="text-[10px] opacity-70">
                   {item.message}
                 </span>
-                {'read' in item && !item.read && (
+                {('priority' in item && item.priority === 'high' && item.title === 'YOUR TURN') && (
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 bg-neon-orange" />
+                )}
+                {'read' in item && !item.read && !('priority' in item && item.title === 'YOUR TURN') && (
                   <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 bg-current" />
                 )}
               </Link>
