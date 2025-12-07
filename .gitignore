@@ -52,3 +52,6 @@ public/uploads/
 *.swo
 *~
 
+# Sensitive files
+USER_PASSWORDS.md
+
