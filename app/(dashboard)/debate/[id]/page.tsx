@@ -376,31 +376,6 @@ export default function DebatePage() {
       
       <div className="pt-16 md:pt-20 px-4 md:px-8 pb-8">
         <div className="max-w-7xl mx-auto">
-          {/* Your Turn Banner */}
-          {isMyTurn && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-neon-orange/20 to-neon-orange/10 border-2 border-neon-orange rounded-lg animate-pulse">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 bg-neon-orange rounded-full animate-ping" />
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-neon-orange">It's Your Turn!</h3>
-                  <p className="text-sm text-text-secondary">
-                    Submit your argument for Round {debate.currentRound} before the deadline.
-                  </p>
-                </div>
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    const submitForm = document.getElementById('submit-argument-form')
-                    submitForm?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                  }}
-                  className="bg-neon-orange hover:bg-neon-orange/90 text-black"
-                >
-                  Submit Now
-                </Button>
-              </div>
-            </div>
-          )}
-          
           {/* Header */}
           <div className="flex items-center gap-4 mb-6">
             <Button variant="ghost" onClick={() => router.push('/')}>

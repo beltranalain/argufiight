@@ -198,6 +198,19 @@ body {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+@keyframes slow-blink-orange {
+  0%, 100% {
+    background-color: var(--color-bg-primary);
+  }
+  50% {
+    background-color: rgba(255, 140, 0, 0.15);
+  }
+}
+
+.slow-blink-orange {
+  animation: slow-blink-orange 2s ease-in-out infinite;
+}
+
 /* Hide scrollbar */
 .scrollbar-hide {
   -ms-overflow-style: none;

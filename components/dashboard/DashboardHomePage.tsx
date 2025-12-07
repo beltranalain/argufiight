@@ -1,18 +1,134 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { TopNav } from '@/components/layout/TopNav'
 import { ArenaPanel } from '@/components/panels/ArenaPanel'
 import { LiveBattlePanel } from '@/components/panels/LiveBattlePanel'
 import { ChallengesPanel } from '@/components/panels/ChallengesPanel'
 import { ProfilePanel } from '@/components/panels/ProfilePanel'
 import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 export function DashboardHomePage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isMyTurn, setIsMyTurn] = useState(false)
+  const [showBlink, setShowBlink] = useState(false)
+  const { user } = useAuth()
+
+  // Check if it's user's turn in an active debate
+  useEffect(() => {
+    if (!user) {
+      setIsMyTurn(false)
+      setShowBlink(false)
+      return
+    }
+
+    let blinkTimeout: NodeJS.Timeout | null = null
+
+    const checkMyTurn = async () => {
+      try {
+        const response = await fetch(`/api/debates?userId=${user.id}&status=ACTIVE`)
+        if (response.ok) {
+          const data = await response.json()
+          const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
+          const activeDebate = debates.find((d: any) => d.status === 'ACTIVE')
+          
+          if (activeDebate) {
+            // Fetch full debate details to check statements
+            const detailResponse = await fetch(`/api/debates/${activeDebate.id}`)
+            if (detailResponse.ok) {
+              const fullDebate = await detailResponse.json()
+              
+              // Check if it's user's turn
+              const currentRoundStatements = (fullDebate.statements || []).filter(
+                (s: any) => s.round === fullDebate.currentRound
+              )
+              const challengerSubmitted = currentRoundStatements.some(
+                (s: any) => s.author.id === fullDebate.challenger.id
+              )
+              const opponentSubmitted = fullDebate.opponent && currentRoundStatements.some(
+                (s: any) => s.author.id === fullDebate.opponent.id
+              )
+              const userSubmitted = currentRoundStatements.some(
+                (s: any) => s.author.id === user.id
+              )
+              const isChallenger = user.id === fullDebate.challenger.id
+              const isOpponent = fullDebate.opponent && user.id === fullDebate.opponent.id
+              
+              // Determine if it's user's turn
+              let turnStatus = false
+              if (currentRoundStatements.length === 0 && isChallenger) {
+                turnStatus = true
+              } else if (isChallenger && opponentSubmitted && !challengerSubmitted) {
+                turnStatus = true
+              } else if (isOpponent && challengerSubmitted && !opponentSubmitted) {
+                turnStatus = true
+              }
+              
+              // Only show blink if it's their turn AND they haven't submitted
+              if (turnStatus && !userSubmitted) {
+                setIsMyTurn(true)
+                // Start blinking
+                setShowBlink(true)
+                // Clear any existing timeout
+                if (blinkTimeout) {
+                  clearTimeout(blinkTimeout)
+                }
+                // Stop blinking after 5 seconds
+                blinkTimeout = setTimeout(() => {
+                  setShowBlink(false)
+                }, 5000)
+              } else {
+                setIsMyTurn(false)
+                setShowBlink(false)
+                if (blinkTimeout) {
+                  clearTimeout(blinkTimeout)
+                }
+              }
+            }
+          } else {
+            setIsMyTurn(false)
+            setShowBlink(false)
+            if (blinkTimeout) {
+              clearTimeout(blinkTimeout)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check turn status:', error)
+        setIsMyTurn(false)
+        setShowBlink(false)
+        if (blinkTimeout) {
+          clearTimeout(blinkTimeout)
+        }
+      }
+    }
+
+    checkMyTurn()
+    
+    // Listen for debate updates (e.g., when user submits)
+    const handleDebateUpdate = () => {
+      checkMyTurn()
+    }
+    
+    window.addEventListener('debate-updated', handleDebateUpdate)
+    window.addEventListener('statement-submitted', handleDebateUpdate)
+    
+    // Check every 30 seconds
+    const interval = setInterval(checkMyTurn, 30000)
+    
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('debate-updated', handleDebateUpdate)
+      window.removeEventListener('statement-submitted', handleDebateUpdate)
+      if (blinkTimeout) {
+        clearTimeout(blinkTimeout)
+      }
+    }
+  }, [user])
 
   return (
-    <div className="min-h-screen bg-bg-primary">
+    <div className={`min-h-screen bg-bg-primary relative ${showBlink ? 'slow-blink-orange' : ''}`}>
       <TopNav currentPanel="THE ARENA" />
       
       <div className="pt-16 md:pt-20 px-4 md:px-8 pb-8">

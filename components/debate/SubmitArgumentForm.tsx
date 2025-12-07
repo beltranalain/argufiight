@@ -93,6 +93,12 @@ export function SubmitArgumentForm({
       })
 
       setContent('')
+      
+      // Dispatch event to notify other components (e.g., homepage blink effect)
+      window.dispatchEvent(new CustomEvent('statement-submitted', {
+        detail: { debateId, round: currentRound }
+      }))
+      
       onSuccess?.()
     } catch (error: any) {
       showToast({
