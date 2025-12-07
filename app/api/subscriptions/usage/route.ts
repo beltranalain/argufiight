@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
           limit: tournamentsLimit,
         },
       },
-      usage: usageArray, // Array format for easy lookup
+      usageArray: usageArray, // Array format for easy lookup
       limits: {
         APPEALS: appealsLimit,
         THATS_THE_ONE: thatsTheOneLimit,

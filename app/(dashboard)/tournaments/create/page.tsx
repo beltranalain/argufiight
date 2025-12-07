@@ -43,8 +43,8 @@ export default function CreateTournamentPage() {
       if (response.ok) {
         const data = await response.json()
         // Check both formats: array and object
-        const tournamentUsage = Array.isArray(data.usage)
-          ? data.usage.find((u: any) => u.featureType === 'tournaments')
+        const tournamentUsage = data.usageArray
+          ? data.usageArray.find((u: any) => u.featureType === 'tournaments')
           : data.usage?.tournaments
         const limit = data.limits?.TOURNAMENTS || 1
         const currentUsage = tournamentUsage?.count || tournamentUsage?.current || 0
