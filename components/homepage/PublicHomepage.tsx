@@ -124,7 +124,6 @@ export function PublicHomepage() {
       <div className="pt-20 pb-32">
         {sortedSections
           .filter(s => s.key !== 'hero' && s.key !== 'footer' && s.key !== 'app-download' && s.isVisible)
-          .slice(0, 3) // Only show first 3 sections for the 3-block layout
           .map((section, index) => (
             <HomepageSectionComponent key={section.id} section={section} index={index} />
           ))}
