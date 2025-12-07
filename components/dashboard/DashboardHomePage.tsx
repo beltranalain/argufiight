@@ -142,7 +142,7 @@ export function DashboardHomePage() {
               <ArenaPanel />
               
               {/* Tournaments - Moved under ELO Leaderboard */}
-              <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
+              <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary mb-20">
                 <TournamentsPanel />
               </div>
             </div>
