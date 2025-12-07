@@ -81,11 +81,13 @@ export async function generateVerdict(
           role: 'user',
           content: `${debateSummary}
 
-Analyze both debaters' complete arguments and provide your verdict in the following JSON format:
+IMPORTANT: This debate may be incomplete due to time expiration. Judge based on whatever arguments are available, even if not all rounds were completed. If a debater missed a round, consider that in your evaluation.
+
+Analyze the available arguments and provide your verdict in the following JSON format:
 
 {
   "winner": "CHALLENGER" | "OPPONENT" | "TIE",
-  "reasoning": "Your detailed explanation of why you reached this decision",
+  "reasoning": "Your detailed explanation of why you reached this decision. If the debate is incomplete, mention this in your reasoning.",
   "challengerScore": 0-100,
   "opponentScore": 0-100
 }

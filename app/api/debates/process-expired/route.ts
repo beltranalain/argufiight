@@ -174,9 +174,13 @@ export async function POST(request: NextRequest) {
 
         // Case 1: Both submitted - should have already advanced, but check anyway
         if (challengerSubmitted && opponentSubmitted) {
-          // Both submitted, advance round (safety check in case something went wrong)
-          if (debate.currentRound >= debate.totalRounds) {
-            // Final round complete
+          // Both submitted, check if we should end debate or advance
+          const halfwayPoint = Math.ceil(debate.totalRounds / 2)
+          const isHalfwayThrough = debate.currentRound >= halfwayPoint
+          const isFinalRound = debate.currentRound >= debate.totalRounds
+
+          if (isFinalRound || isHalfwayThrough) {
+            // End debate and trigger AI judgment
             await prisma.debate.update({
               where: { id: debate.id },
               data: {
@@ -187,7 +191,6 @@ export async function POST(request: NextRequest) {
             })
 
             // Trigger verdict generation
-            // Trigger verdict generation automatically (direct function call)
             import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
               try {
                 await generateModule.generateInitialVerdicts(debate.id)
@@ -302,16 +305,26 @@ async function handleMissingSubmission(
     }
   }
 
-    // Advance round or end debate
-    if (debate.currentRound >= debate.totalRounds) {
-      // Final round - end debate
+    // Check if debate is halfway through (at least 50% of rounds completed)
+    const halfwayPoint = Math.ceil(debate.totalRounds / 2)
+    const isHalfwayThrough = debate.currentRound >= halfwayPoint
+    const isFinalRound = debate.currentRound >= debate.totalRounds
+
+    // End debate and trigger AI judgment if:
+    // 1. It's the final round, OR
+    // 2. It's at least halfway through and time expired
+    if (isFinalRound || isHalfwayThrough) {
+      // End debate - AI will judge whatever arguments exist
       await prisma.$executeRaw`
         UPDATE debates
         SET status = ${'COMPLETED'}, ended_at = ${now}, round_deadline = NULL
         WHERE id = ${debate.id}
       `
 
+      console.log(`[Process Expired] Ending debate ${debate.id} - Round ${debate.currentRound}/${debate.totalRounds} ${isHalfwayThrough && !isFinalRound ? '(halfway through)' : '(final round)'}`)
+
       // Trigger verdict generation automatically (direct function call)
+      // AI will judge whatever arguments are available, even if incomplete
       import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
         try {
           await generateModule.generateInitialVerdicts(debate.id)
@@ -326,13 +339,14 @@ async function handleMissingSubmission(
         console.error('❌ [Process Expired] Failed to import generate module:', importError.message)
       })
     } else {
-      // Advance to next round
+      // Not halfway through yet - advance to next round
       const newDeadline = new Date(now.getTime() + debate.roundDuration)
       await prisma.$executeRaw`
         UPDATE debates
         SET current_round = ${debate.currentRound + 1}, round_deadline = ${newDeadline}
         WHERE id = ${debate.id}
       `
+      console.log(`[Process Expired] Advancing debate ${debate.id} to round ${debate.currentRound + 1}/${debate.totalRounds}`)
     }
 }
 
@@ -388,9 +402,16 @@ async function handleBothMissing(debate: any, now: Date) {
     console.error('Failed to create notifications:', error)
   }
 
-  // Advance round or end debate
-  if (debate.currentRound >= debate.totalRounds) {
-    // Final round - end debate (tie)
+  // Check if debate is halfway through (at least 50% of rounds completed)
+  const halfwayPoint = Math.ceil(debate.totalRounds / 2)
+  const isHalfwayThrough = debate.currentRound >= halfwayPoint
+  const isFinalRound = debate.currentRound >= debate.totalRounds
+
+  // End debate and trigger AI judgment if:
+  // 1. It's the final round, OR
+  // 2. It's at least halfway through and time expired
+  if (isFinalRound || isHalfwayThrough) {
+    // End debate - AI will judge whatever arguments exist (even if incomplete)
     await prisma.debate.update({
       where: { id: debate.id },
       data: {
@@ -400,9 +421,9 @@ async function handleBothMissing(debate: any, now: Date) {
       },
     })
 
-    // Trigger verdict generation (will result in a tie)
-    let baseUrl = 'http://localhost:3000'
-    // Trigger verdict generation automatically (direct function call)
+    console.log(`[Process Expired] Ending debate ${debate.id} (both missing) - Round ${debate.currentRound}/${debate.totalRounds} ${isHalfwayThrough && !isFinalRound ? '(halfway through)' : '(final round)'}`)
+
+    // Trigger verdict generation (AI will judge whatever arguments exist)
     import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
       try {
         await generateModule.generateInitialVerdicts(debate.id)
@@ -417,7 +438,7 @@ async function handleBothMissing(debate: any, now: Date) {
       console.error('❌ [Process Expired] Failed to import generate module:', importError.message)
     })
   } else {
-    // Advance to next round
+    // Not halfway through yet - advance to next round
     const newDeadline = new Date(now.getTime() + debate.roundDuration)
     await prisma.debate.update({
       where: { id: debate.id },
@@ -426,6 +447,7 @@ async function handleBothMissing(debate: any, now: Date) {
         roundDeadline: newDeadline,
       },
     })
+    console.log(`[Process Expired] Advancing debate ${debate.id} (both missing) to round ${debate.currentRound + 1}/${debate.totalRounds}`)
   }
 }
 
