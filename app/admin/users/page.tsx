@@ -77,11 +77,12 @@ export default function AdminUsersPage() {
       const response = await fetch('/api/admin/users')
       if (response.ok) {
         const data = await response.json()
-        setUserData(data)
+        const users = data.users || []
+        setUserData(users)
         // Separate users into categories
-        const ai = data.filter((u: any) => u.isAI)
-        const emp = data.filter((u: any) => u.isAdmin || u.employeeRole)
-        const regular = data.filter((u: any) => !u.isAI && !u.isAdmin && !u.employeeRole)
+        const ai = users.filter((u: any) => u.isAI)
+        const emp = users.filter((u: any) => u.isAdmin || u.employeeRole)
+        const regular = users.filter((u: any) => !u.isAI && !u.isAdmin && !u.employeeRole)
         setAiUsers(ai)
         setEmployees(emp)
         setRegularUsers(regular)

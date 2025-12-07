@@ -46,7 +46,7 @@ export default function AdminUsersPage() {
       const response = await fetch('/api/admin/users')
       if (response.ok) {
         const data = await response.json()
-        setUserData(data)
+        setUserData(data.users || [])
       }
     } catch (error) {
       console.error('Failed to fetch users:', error)
