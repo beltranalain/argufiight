@@ -5,6 +5,9 @@
  * Usage: tsx scripts/process-expired-rounds.ts
  */
 
+// Make this file a module to avoid variable name conflicts
+export {}
+
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 const CRON_SECRET = process.env.CRON_SECRET
 

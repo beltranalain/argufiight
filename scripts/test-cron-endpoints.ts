@@ -3,6 +3,9 @@
  * Usage: tsx scripts/test-cron-endpoints.ts
  */
 
+// Make this file a module to avoid variable name conflicts
+export {}
+
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
 const CRON_SECRET = process.env.CRON_SECRET
 
