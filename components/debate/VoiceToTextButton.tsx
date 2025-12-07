@@ -18,6 +18,8 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   const [testMessage, setTestMessage] = useState('')
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const testRecognitionRef = useRef<SpeechRecognition | null>(null)
+  const streamRef = useRef<MediaStream | null>(null) // Keep microphone stream open
+  const shouldListenRef = useRef(false) // Track if we should be listening (for immediate restart)
 
   useEffect(() => {
     // Check if browser supports Web Speech API
@@ -62,49 +64,73 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
 
       recognition.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error, event.message)
-        setIsListening(false)
         
         // Handle common errors - only show modal for actual permission errors
         if (event.error === 'no-speech') {
-          // User didn't speak, just stop listening - don't show modal
-          setIsListening(false)
+          // No speech detected - but keep trying if we should be listening
+          // Don't stop, just let onend handle the restart
+          console.log('No speech detected, will restart if still listening')
+          return // Don't stop listening on no-speech
         } else if (event.error === 'not-allowed' || event.error === 'permission-denied') {
           // Permission was denied - show modal to help user enable it
-          // This error only fires AFTER the browser has already tried and been denied
+          shouldListenRef.current = false
+          setIsListening(false)
           console.log('Permission denied by browser, showing help modal')
           setShowPermissionModal(true)
         } else if (event.error === 'service-not-allowed') {
           // Service not allowed usually means the speech recognition service itself is blocked
-          // This is different from microphone permission - don't show the permission modal
+          shouldListenRef.current = false
+          setIsListening(false)
           console.warn('Speech recognition service not allowed (might be blocked by browser settings)')
-          setIsListening(false)
         } else if (event.error === 'aborted') {
-          // User or system aborted - don't show modal, just stop
-          setIsListening(false)
+          // User or system aborted - only stop if user explicitly stopped
+          if (!shouldListenRef.current) {
+            setIsListening(false)
+          }
+          // Otherwise, let onend handle restart
         } else if (event.error === 'network') {
-          // Network error - don't show permission modal
-          console.warn('Network error in speech recognition')
-          setIsListening(false)
+          // Network error - try to restart if still listening
+          console.warn('Network error in speech recognition, will retry')
+          // Don't stop, let onend handle restart
         } else {
-          // Other errors - log but don't show modal
+          // Other errors - log but try to continue if we should be listening
           console.warn('Speech recognition error (non-permission):', event.error)
-          setIsListening(false)
+          // Only stop if it's a critical error
+          if (event.error === 'audio-capture' || event.error === 'bad-grammar') {
+            shouldListenRef.current = false
+            setIsListening(false)
+          }
         }
       }
 
       recognition.onend = () => {
         console.log('Speech recognition ended')
-        // If we're still supposed to be listening, restart it
-        // This handles cases where recognition stops due to silence but user wants to continue
-        if (isListening && recognitionRef.current) {
-          try {
-            console.log('Restarting speech recognition...')
-            recognitionRef.current.start()
-          } catch (error: any) {
-            // If restart fails, stop listening
-            console.error('Failed to restart speech recognition:', error)
-            setIsListening(false)
-          }
+        // If we're still supposed to be listening, restart immediately
+        // Use ref instead of state to avoid stale closure issues
+        if (shouldListenRef.current && recognitionRef.current) {
+          // Small delay to avoid immediate restart issues
+          setTimeout(() => {
+            if (shouldListenRef.current && recognitionRef.current) {
+              try {
+                console.log('Restarting speech recognition immediately...')
+                recognitionRef.current.start()
+              } catch (error: any) {
+                // If restart fails, try again after a brief delay
+                console.warn('Restart failed, retrying...', error)
+                setTimeout(() => {
+                  if (shouldListenRef.current && recognitionRef.current) {
+                    try {
+                      recognitionRef.current.start()
+                    } catch (retryError) {
+                      console.error('Failed to restart after retry:', retryError)
+                      shouldListenRef.current = false
+                      setIsListening(false)
+                    }
+                  }
+                }, 100)
+              }
+            }
+          }, 50) // Small delay to ensure clean restart
         } else {
           setIsListening(false)
         }
@@ -116,6 +142,8 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     }
 
     return () => {
+      shouldListenRef.current = false
+      
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop()
@@ -129,6 +157,12 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
         } catch (e) {
           // Ignore errors when stopping
         }
+      }
+      
+      // Clean up microphone stream
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+        streamRef.current = null
       }
     }
   }, [onTranscript])
@@ -144,23 +178,23 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       return
     }
 
+    // Set flag that we should be listening
+    shouldListenRef.current = true
+
     // Reset accumulated transcript when starting fresh
-    // We'll use a ref to track this across renders
     const recognition = recognitionRef.current as any
     if (recognition) {
       recognition._accumulatedTranscript = ''
     }
 
-    // NEW APPROACH: Explicitly request microphone permission first using getUserMedia
-    // This is more reliable than relying on SpeechRecognition to trigger the prompt
+    // NEW APPROACH: Keep microphone stream open while listening
+    // This prevents the browser from stopping recognition due to stream closure
     try {
-      console.log('Step 1: Requesting microphone permission explicitly...')
+      console.log('Step 1: Requesting microphone permission and keeping stream open...')
       
-      // Request microphone access explicitly - this will show the browser's permission prompt
+      // Request microphone access and KEEP IT OPEN
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      
-      // Permission granted! Stop the stream (we don't need it, just needed permission)
-      stream.getTracks().forEach(track => track.stop())
+      streamRef.current = stream // Store reference to keep it alive
       
       console.log('Step 2: Microphone permission granted, starting speech recognition...')
       
@@ -169,6 +203,7 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       
     } catch (error: any) {
       console.error('Failed to get microphone permission or start speech recognition:', error)
+      shouldListenRef.current = false
       setIsListening(false)
       
       // Handle permission denial
@@ -193,9 +228,25 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   }
 
   const stopListening = () => {
+    // Set flag to stop listening
+    shouldListenRef.current = false
+    
+    // Stop speech recognition
     if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop()
+      try {
+        recognitionRef.current.stop()
+      } catch (e) {
+        // Ignore errors
+      }
     }
+    
+    // Close microphone stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    
+    setIsListening(false)
   }
 
   // Test microphone function - uses getUserMedia to explicitly request permission
