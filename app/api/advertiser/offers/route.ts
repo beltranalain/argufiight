@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
+import { Prisma } from '@prisma/client'
 
 // POST /api/advertiser/offers - Create a new offer to a creator
 export async function POST(request: NextRequest) {
@@ -58,9 +59,24 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate required fields
-    if (!creatorId || !campaignId || !placement || !duration || !paymentType || !amount) {
+    if (!creatorId || !campaignId || !placement || !paymentType) {
       return NextResponse.json(
-        { error: 'Missing required fields: creatorId, campaignId, placement, duration, paymentType, amount' },
+        { error: 'Missing required fields: creatorId, campaignId, placement, paymentType' },
+        { status: 400 }
+      )
+    }
+    
+    // Validate numeric fields
+    if (!duration || typeof duration !== 'number' || duration <= 0) {
+      return NextResponse.json(
+        { error: 'Duration must be a positive number' },
+        { status: 400 }
+      )
+    }
+    
+    if (!amount || typeof amount !== 'number' || amount <= 0) {
+      return NextResponse.json(
+        { error: 'Amount must be a positive number' },
         { status: 400 }
       )
     }
@@ -111,11 +127,11 @@ export async function POST(request: NextRequest) {
         campaignId: campaign.id,
         creatorId: creatorId,
         placement,
-        duration,
+        duration: parseInt(String(duration)),
         paymentType,
-        amount: amount,
-        cpcRate: cpcRate ? cpcRate : null,
-        cpmRate: cpmRate ? cpmRate : null,
+        amount: new Prisma.Decimal(amount),
+        cpcRate: cpcRate ? new Prisma.Decimal(cpcRate) : null,
+        cpmRate: cpmRate ? new Prisma.Decimal(cpmRate) : null,
         message: message || null,
         expiresAt,
         status: 'PENDING',

@@ -129,22 +129,53 @@ export default function CreatorDiscoveryPage() {
 
     try {
       setIsSubmittingOffer(true)
+      
+      // Validate and parse numeric values
+      const durationNum = parseInt(offerForm.duration)
+      const amountNum = parseFloat(offerForm.amount)
+      
+      if (isNaN(durationNum) || durationNum <= 0) {
+        showToast({
+          type: 'error',
+          title: 'Validation Error',
+          description: 'Duration must be a valid positive number',
+        })
+        setIsSubmittingOffer(false)
+        return
+      }
+      
+      if (isNaN(amountNum) || amountNum <= 0) {
+        showToast({
+          type: 'error',
+          title: 'Validation Error',
+          description: 'Amount must be a valid positive number',
+        })
+        setIsSubmittingOffer(false)
+        return
+      }
+      
+      const requestBody = {
+        creatorId: selectedCreator.id,
+        campaignId: offerForm.campaignId,
+        placement: offerForm.placement,
+        duration: durationNum,
+        paymentType: offerForm.paymentType,
+        amount: amountNum,
+        message: offerForm.message || null,
+      }
+      
+      console.log('Submitting offer:', requestBody)
+      
       const response = await fetch('/api/advertiser/offers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          creatorId: selectedCreator.id,
-          campaignId: offerForm.campaignId,
-          placement: offerForm.placement,
-          duration: parseInt(offerForm.duration),
-          paymentType: offerForm.paymentType,
-          amount: parseFloat(offerForm.amount),
-          message: offerForm.message || null,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
+      const responseData = await response.json().catch(() => ({ error: 'Failed to parse response' }))
+      
       if (response.ok) {
         showToast({
           type: 'success',
@@ -153,19 +184,19 @@ export default function CreatorDiscoveryPage() {
         })
         handleCloseOfferModal()
       } else {
-        const error = await response.json()
+        console.error('Offer submission failed:', response.status, responseData)
         showToast({
           type: 'error',
           title: 'Error',
-          description: error.error || 'Failed to send offer',
+          description: responseData.error || `Failed to send offer (${response.status})`,
         })
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to submit offer:', error)
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Failed to send offer',
+        description: error.message || 'Failed to send offer',
       })
     } finally {
       setIsSubmittingOffer(false)
