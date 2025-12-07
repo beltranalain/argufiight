@@ -4,6 +4,80 @@ import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { Prisma } from '@prisma/client'
 
+// GET /api/advertiser/offers - Get advertiser's sent offers
+export async function GET(request: NextRequest) {
+  try {
+    const session = await verifySession()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const userId = getUserIdFromSession(session)
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get user's email
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Find advertiser by email
+    const advertiser = await prisma.advertiser.findUnique({
+      where: { contactEmail: user.email },
+    })
+
+    if (!advertiser) {
+      return NextResponse.json({ error: 'Advertiser account not found' }, { status: 404 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status')
+    const campaignId = searchParams.get('campaignId')
+
+    const where: any = { advertiserId: advertiser.id }
+    if (status) {
+      where.status = status
+    }
+    if (campaignId) {
+      where.campaignId = campaignId
+    }
+
+    const offers = await prisma.offer.findMany({
+      where,
+      include: {
+        creator: {
+          select: {
+            id: true,
+            username: true,
+            avatarUrl: true,
+          },
+        },
+        campaign: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return NextResponse.json({ offers })
+  } catch (error: any) {
+    console.error('Failed to fetch offers:', error)
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch offers' },
+      { status: 500 }
+    )
+  }
+}
+
 // POST /api/advertiser/offers - Create a new offer to a creator
 export async function POST(request: NextRequest) {
   try {

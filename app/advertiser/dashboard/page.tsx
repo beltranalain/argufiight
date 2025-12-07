@@ -29,12 +29,33 @@ interface Advertiser {
   paymentReady: boolean
 }
 
+interface Offer {
+  id: string
+  placement: string
+  duration: number
+  paymentType: string
+  amount: string
+  status: string
+  createdAt: string
+  expiresAt: string
+  creator: {
+    id: string
+    username: string
+    avatarUrl: string | null
+  }
+  campaign: {
+    id: string
+    name: string
+  }
+}
+
 export default function AdvertiserDashboardPage() {
   const router = useRouter()
   const { showToast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
   const [advertiser, setAdvertiser] = useState<Advertiser | null>(null)
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [offers, setOffers] = useState<Offer[]>([])
   const [stats, setStats] = useState({
     activeCampaigns: 0,
     totalImpressions: 0,
@@ -49,9 +70,10 @@ export default function AdvertiserDashboardPage() {
   const fetchData = async () => {
     try {
       setIsLoading(true)
-      const [advertiserRes, campaignsRes] = await Promise.all([
+      const [advertiserRes, campaignsRes, offersRes] = await Promise.all([
         fetch('/api/advertiser/me'),
         fetch('/api/advertiser/campaigns'),
+        fetch('/api/advertiser/offers'),
       ])
 
       if (advertiserRes.ok) {
@@ -93,6 +115,11 @@ export default function AdvertiserDashboardPage() {
           totalSpent,
         })
       }
+
+      if (offersRes.ok) {
+        const offersData = await offersRes.json()
+        setOffers(offersData.offers || [])
+      }
     } catch (error) {
       console.error('Failed to fetch data:', error)
     } finally {
@@ -110,6 +137,14 @@ export default function AdvertiserDashboardPage() {
         return 'bg-neon-orange/20 text-neon-orange'
       case 'PENDING_REVIEW':
         return 'bg-yellow-500/20 text-yellow-500'
+      case 'PENDING':
+        return 'bg-yellow-500/20 text-yellow-500'
+      case 'ACCEPTED':
+        return 'bg-cyber-green/20 text-cyber-green'
+      case 'DECLINED':
+        return 'bg-red-500/20 text-red-500'
+      case 'EXPIRED':
+        return 'bg-gray-500/20 text-gray-400'
       default:
         return 'bg-gray-500/20 text-gray-400'
     }
@@ -228,6 +263,53 @@ export default function AdvertiserDashboardPage() {
                   >
                     Connect Stripe
                   </Button>
+                </div>
+              </CardBody>
+            </Card>
+          )}
+
+          {/* Sent Offers */}
+          {offers.length > 0 && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-text-primary">Sent Offers ({offers.length})</h2>
+                  <Link href="/advertiser/creators">
+                    <Button variant="secondary" size="sm">Make New Offer</Button>
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-4">
+                  {offers.slice(0, 5).map((offer) => (
+                    <div
+                      key={offer.id}
+                      className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg font-bold text-text-primary">@{offer.creator.username}</h3>
+                          <Badge className={getStatusColor(offer.status)}>
+                            {offer.status}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-text-secondary space-y-1">
+                          <p>Campaign: {offer.campaign.name}</p>
+                          <p>
+                            ${Number(offer.amount).toLocaleString()} for {offer.duration} days • {offer.placement}
+                          </p>
+                          <p>Expires: {new Date(offer.expiresAt).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {offers.length > 5 && (
+                    <div className="text-center pt-2">
+                      <Link href="/advertiser/offers">
+                        <Button variant="secondary" size="sm">View All Offers</Button>
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </CardBody>
             </Card>
