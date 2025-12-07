@@ -50,6 +50,7 @@ export async function hasFeatureAccess(
     FEATURES.WATCH_DEBATES,
     FEATURES.BASIC_STATS,
     FEATURES.FREE_TOURNAMENTS,
+    FEATURES.TOURNAMENTS, // Tournament creation (with limits)
   ]
 
   if (freeFeatures.includes(feature as any)) {

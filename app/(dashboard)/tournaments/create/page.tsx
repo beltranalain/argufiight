@@ -115,12 +115,31 @@ export default function CreateTournamentPage() {
       const data = await response.json()
 
       if (response.ok) {
+        // Verify tournament ID exists in response
+        const tournamentId = data.tournament?.id || data.id
+        if (!tournamentId) {
+          console.error('Tournament ID missing from response:', data)
+          showToast({
+            type: 'error',
+            title: 'Error',
+            description: 'Tournament created but ID not found. Redirecting to tournaments page.',
+          })
+          setTimeout(() => {
+            window.location.href = '/tournaments'
+          }, 2000)
+          return
+        }
+
         showToast({
           type: 'success',
           title: 'Tournament Created!',
           description: 'Your tournament has been created successfully',
         })
-        router.push(`/tournaments/${data.tournament.id}`)
+        
+        // Use window.location for full page reload to ensure session is maintained
+        setTimeout(() => {
+          window.location.href = `/tournaments/${tournamentId}`
+        }, 500)
       } else {
         // Check if it's a limit error with redirect
         if (data.redirectTo || response.status === 403) {
