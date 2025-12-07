@@ -35,8 +35,15 @@ export function TopNav({ currentPanel }: TopNavProps) {
       const response = await fetch('/api/advertiser/me')
       if (response.ok) {
         setIsAdvertiser(true)
+      } else if (response.status === 404) {
+        // 404 is expected if user is not an advertiser - not an error
+        setIsAdvertiser(false)
+      } else {
+        // Other errors (401, 403, 500, etc.) - user is not an advertiser
+        setIsAdvertiser(false)
       }
     } catch (error) {
+      // Network error - assume not an advertiser
       setIsAdvertiser(false)
     }
   }
