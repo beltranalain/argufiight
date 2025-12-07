@@ -27,6 +27,7 @@ interface HomepageSection {
     caption: string | null
     linkUrl: string | null
     order: number
+    imagePosition: string | null
   }>
   buttons: Array<{
     id: string
@@ -53,6 +54,7 @@ export default function ContentManagerPage() {
   const [selectedSection, setSelectedSection] = useState<HomepageSection | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
+  const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false)
   const [mediaLibrary, setMediaLibrary] = useState<any[]>([])
   const [socialLinks, setSocialLinks] = useState<SocialMediaLink[]>([])
   const [isLoadingSocial, setIsLoadingSocial] = useState(true)
@@ -267,6 +269,12 @@ export default function ContentManagerPage() {
               Media Library
             </Button>
             <Button
+              variant="secondary"
+              onClick={() => setIsAddSectionModalOpen(true)}
+            >
+              Add Section
+            </Button>
+            <Button
               onClick={() => {
                 // Open public homepage in a new tab
                 window.open('/home', '_blank')
@@ -310,6 +318,17 @@ export default function ContentManagerPage() {
             media={mediaLibrary}
             onClose={() => setIsMediaModalOpen(false)}
             onUpload={fetchMediaLibrary}
+          />
+        )}
+
+        {/* Add Section Modal */}
+        {isAddSectionModalOpen && (
+          <AddSectionModal
+            onClose={() => setIsAddSectionModalOpen(false)}
+            onSave={async () => {
+              await fetchSections()
+              setIsAddSectionModalOpen(false)
+            }}
           />
         )}
 
@@ -634,6 +653,7 @@ function SectionImagesManager({
 }) {
   const { showToast } = useToast()
   const [isUploading, setIsUploading] = useState(false)
+  const [imagePosition, setImagePosition] = useState<string>('left')
 
   const handleImageUpload = async (file: File) => {
     setIsUploading(true)
@@ -663,6 +683,7 @@ function SectionImagesManager({
       const formData = new FormData()
       formData.append('image', file)
       formData.append('sectionId', sectionId)
+      formData.append('imagePosition', imagePosition)
 
       const response = await fetch('/api/admin/content/images', {
         method: 'POST',
@@ -698,128 +719,54 @@ function SectionImagesManager({
       <label className="block text-sm font-medium text-white mb-2">Section Images</label>
       <div className="space-y-4">
         {(images || []).map((image) => (
-          <div key={image.id} className="flex items-center gap-4 p-4 bg-bg-tertiary rounded-lg">
-            <div className="relative w-24 h-24 rounded overflow-hidden">
-              {image.url.startsWith('data:') ? (
-                <img
-                  src={image.url}
-                  alt={image.alt || ''}
-                  className="w-full h-full object-cover"
-                />
-              ) : image.url.includes('blob.vercel-storage.com') ? (
-                <img
-                  src={image.url}
-                  alt={image.alt || ''}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <Image src={image.url} alt={image.alt || ''} fill className="object-cover" unoptimized={image.url.includes('blob.vercel-storage.com')} />
-              )}
-            </div>
-            <div className="flex-1 space-y-2">
-              <input
-                type="text"
-                defaultValue={image.alt || ''}
-                placeholder="Alt text"
-                onBlur={(e) => {
-                  fetch(`/api/admin/content/images/${image.id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ alt: e.target.value }),
-                  }).catch(console.error)
-                }}
-                className="w-full px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded text-white text-sm"
-              />
-              <input
-                type="text"
-                defaultValue={image.caption || ''}
-                placeholder="Caption"
-                onBlur={(e) => {
-                  fetch(`/api/admin/content/images/${image.id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ caption: e.target.value }),
-                  }).catch(console.error)
-                }}
-                className="w-full px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded text-white text-sm"
-              />
-              <input
-                type="url"
-                defaultValue={(image as any).linkUrl || ''}
-                placeholder="Link URL (e.g., https://apps.apple.com/...)"
-                onBlur={(e) => {
-                  fetch(`/api/admin/content/images/${image.id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ linkUrl: e.target.value || null }),
-                  }).catch(console.error)
-                }}
-                className="w-full px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded text-white text-sm"
-              />
-            </div>
-            <Button
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  const response = await fetch(`/api/admin/content/images/${image.id}`, {
-                    method: 'DELETE',
-                  })
-
-                  if (!response.ok) {
-                    const error = await response.json().catch(() => ({ error: 'Delete failed' }))
-                    throw new Error(error.error || 'Failed to delete image')
-                  }
-
-                  showToast({
-                    type: 'success',
-                    title: 'Image Deleted',
-                    description: 'Image removed from section successfully',
-                  })
-                  onUpdate()
-                } catch (error: any) {
-                  console.error('Delete image error:', error)
-                  showToast({
-                    type: 'error',
-                    title: 'Delete Failed',
-                    description: error.message || 'Failed to delete image. Please try again.',
-                  })
-                }
-              }}
-              className="text-sm px-3 py-1.5"
-            >
-              Delete
-            </Button>
-          </div>
-        ))}
-        <div className="border-2 border-dashed border-bg-tertiary rounded-lg p-4 text-center">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) {
-                handleImageUpload(file)
-              }
-              // Reset input so same file can be selected again
-              e.target.value = ''
-            }}
-            className="hidden"
-            id={`image-upload-${sectionId}`}
-            disabled={isUploading}
+          <ImageItemComponent
+            key={image.id}
+            image={image}
+            onUpdate={onUpdate}
           />
-          <label
-            htmlFor={`image-upload-${sectionId}`}
-            className={`cursor-pointer text-electric-blue hover:text-[#00B8E6] transition-colors ${
-              isUploading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {isUploading ? 'Uploading...' : '+ Add Image'}
-          </label>
-          {isUploading && (
-            <div className="mt-2">
-              <div className="inline-block w-4 h-4 border-2 border-electric-blue border-t-transparent rounded-full animate-spin" />
-            </div>
-          )}
+        ))}
+        <div className="border-2 border-dashed border-bg-tertiary rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2 justify-center">
+            <label className="text-sm text-text-secondary">Image Position:</label>
+            <select
+              value={imagePosition}
+              onChange={(e) => setImagePosition(e.target.value)}
+              className="px-3 py-1.5 bg-bg-secondary border border-bg-tertiary rounded text-white text-sm"
+            >
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+          <div className="text-center">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  handleImageUpload(file)
+                }
+                // Reset input so same file can be selected again
+                e.target.value = ''
+              }}
+              className="hidden"
+              id={`image-upload-${sectionId}`}
+              disabled={isUploading}
+            />
+            <label
+              htmlFor={`image-upload-${sectionId}`}
+              className={`cursor-pointer text-electric-blue hover:text-[#00B8E6] transition-colors ${
+                isUploading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              {isUploading ? 'Uploading...' : '+ Add Image'}
+            </label>
+            {isUploading && (
+              <div className="mt-2">
+                <div className="inline-block w-4 h-4 border-2 border-electric-blue border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -1111,4 +1058,347 @@ function MediaLibraryModal({
     </Modal>
   )
 }
+
+
+function ImageItemComponent({
+  image,
+  onUpdate,
+}: {
+  image: HomepageSection['images'][0]
+  onUpdate: () => Promise<void>
+}) {
+  const { showToast } = useToast()
+  const [altText, setAltText] = useState(image.alt || '')
+  const [caption, setCaption] = useState(image.caption || '')
+  const [position, setPosition] = useState(image.imagePosition || 'left')
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      const response = await fetch(`/api/admin/content/images/${image.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          alt: altText,
+          caption,
+          imagePosition: position,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update image')
+      }
+
+      showToast({
+        type: 'success',
+        title: 'Image Updated',
+        description: 'Image details saved successfully',
+      })
+      onUpdate()
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Update Failed',
+        description: error.message || 'Failed to update image',
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    try {
+      const response = await fetch(`/api/admin/content/images/${image.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Delete failed' }))
+        throw new Error(error.error || 'Failed to delete image')
+      }
+
+      showToast({
+        type: 'success',
+        title: 'Image Deleted',
+        description: 'Image removed from section successfully',
+      })
+      onUpdate()
+    } catch (error: any) {
+      console.error('Delete image error:', error)
+      showToast({
+        type: 'error',
+        title: 'Delete Failed',
+        description: error.message || 'Failed to delete image. Please try again.',
+      })
+    }
+  }
+
+  return (
+    <div className="flex items-start gap-4 p-4 bg-bg-tertiary rounded-lg">
+      <div className="relative w-24 h-24 rounded overflow-hidden flex-shrink-0">
+        <Image src={image.url} alt={image.alt || ''} fill className="object-cover" />
+      </div>
+      <div className="flex-1 space-y-2">
+        <input
+          type="text"
+          value={altText}
+          onChange={(e) => setAltText(e.target.value)}
+          placeholder="Alt text"
+          className="w-full px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded text-white text-sm"
+        />
+        <input
+          type="text"
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          placeholder="Caption"
+          className="w-full px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded text-white text-sm"
+        />
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-text-secondary">Position:</label>
+          <select
+            value={position}
+            onChange={(e) => setPosition(e.target.value)}
+            className="px-3 py-1.5 bg-bg-secondary border border-bg-tertiary rounded text-white text-sm"
+          >
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+          <Button
+            onClick={handleSave}
+            isLoading={isSaving}
+            className="text-sm px-3 py-1.5 ml-auto"
+          >
+            Save
+          </Button>
+        </div>
+      </div>
+      <Button
+        variant="secondary"
+        onClick={handleDelete}
+        className="text-sm px-3 py-1.5"
+      >
+        Delete
+      </Button>
+    </div>
+  )
+}
+
+function AddSectionModal({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void
+  onSave: () => Promise<void>
+}) {
+  const { showToast } = useToast()
+  const [key, setKey] = useState('')
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [order, setOrder] = useState<number | ''>('')
+  const [isVisible, setIsVisible] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!key.trim()) {
+      showToast({
+        type: 'error',
+        title: 'Validation Error',
+        description: 'Section key is required',
+      })
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const response = await fetch('/api/admin/content/sections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: key.trim().toLowerCase().replace(/\s+/g, '-'),
+          title: title || null,
+          content: content || null,
+          order: order !== '' ? Number(order) : undefined,
+          isVisible,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to create section' }))
+        throw new Error(error.error || 'Failed to create section')
+      }
+
+      showToast({
+        type: 'success',
+        title: 'Section Created',
+        description: 'New section added successfully',
+      })
+      await onSave()
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Creation Failed',
+        description: error.message || 'Failed to create section',
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="Add New Section" size="lg">
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-white mb-2">
+            Section Key <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="e.g., new-feature, about-us"
+            className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
+          />
+          <p className="text-xs text-text-secondary mt-1">
+            Unique identifier (lowercase, hyphens only). This cannot be changed later.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-white mb-2">Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Section title"
+            className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-white mb-2">Content</label>
+          <RichTextEditor
+            value={content}
+            onChange={setContent}
+            placeholder="Enter section content here..."
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Order</label>
+            <input
+              type="number"
+              value={order}
+              onChange={(e) => setOrder(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+              placeholder="Auto"
+              className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
+            />
+            <p className="text-xs text-text-secondary mt-1">Leave empty for auto-assignment</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Visibility</label>
+            <div className="flex items-center gap-4 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isVisible}
+                  onChange={(e) => setIsVisible(e.target.checked)}
+                  className="w-4 h-4 rounded bg-bg-tertiary border-bg-tertiary text-electric-blue focus:ring-electric-blue"
+                />
+                <span className="text-sm text-white">Visible</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-4 pt-4 border-t border-bg-tertiary">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} isLoading={isSaving}>
+            Create Section
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function MediaLibraryModal({
+  media,
+  onClose,
+  onUpload,
+}: {
+  media: any[]
+  onClose: () => void
+  onUpload: () => void
+}) {
+  const { showToast } = useToast()
+  const [isUploading, setIsUploading] = useState(false)
+
+  const handleUpload = async (file: File) => {
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/admin/content/media', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Image Uploaded',
+          description: 'Image added to media library',
+        })
+        onUpload()
+      }
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Upload Failed',
+        description: 'Failed to upload image',
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="Media Library" size="lg">
+      <div className="space-y-4">
+        <div className="border-2 border-dashed border-bg-tertiary rounded-lg p-8 text-center">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handleUpload(file)
+            }}
+            className="hidden"
+            id="media-upload"
+          />
+          <label
+            htmlFor="media-upload"
+            className="cursor-pointer text-electric-blue hover:text-[#00B8E6]"
+          >
+            {isUploading ? 'Uploading...' : '+ Upload Image'}
+          </label>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+          {media.map((item) => (
+            <div key={item.id} className="relative aspect-square rounded-lg overflow-hidden">
+              <Image src={item.url} alt={item.alt || ''} fill className="object-cover" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 

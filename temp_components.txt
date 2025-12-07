@@ -1,0 +1,250 @@
+          placeholder="Caption"
+          className="w-full px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded text-white text-sm"
+        />
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-text-secondary">Position:</label>
+          <select
+            value={position}
+            onChange={(e) => setPosition(e.target.value)}
+            className="px-3 py-1.5 bg-bg-secondary border border-bg-tertiary rounded text-white text-sm"
+          >
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+          <Button
+            onClick={handleSave}
+            isLoading={isSaving}
+            className="text-sm px-3 py-1.5 ml-auto"
+          >
+            Save
+          </Button>
+        </div>
+      </div>
+      <Button
+        variant="secondary"
+        onClick={handleDelete}
+        className="text-sm px-3 py-1.5"
+      >
+        Delete
+      </Button>
+    </div>
+  )
+}
+
+function AddSectionModal({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void
+  onSave: () => void
+}) {
+  const { showToast } = useToast()
+  const [key, setKey] = useState('')
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [order, setOrder] = useState<number | ''>('')
+  const [isVisible, setIsVisible] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!key.trim()) {
+      showToast({
+        type: 'error',
+        title: 'Validation Error',
+        description: 'Section key is required',
+      })
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const response = await fetch('/api/admin/content/sections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: key.trim().toLowerCase().replace(/\s+/g, '-'),
+          title: title || null,
+          content: content || null,
+          order: order !== '' ? Number(order) : undefined,
+          isVisible,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Failed to create section' }))
+        throw new Error(error.error || 'Failed to create section')
+      }
+
+      showToast({
+        type: 'success',
+        title: 'Section Created',
+        description: 'New section added successfully',
+      })
+      onSave()
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Creation Failed',
+        description: error.message || 'Failed to create section',
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="Add New Section" size="lg">
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-white mb-2">
+            Section Key <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder="e.g., new-feature, about-us"
+            className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
+          />
+          <p className="text-xs text-text-secondary mt-1">
+            Unique identifier (lowercase, hyphens only). This cannot be changed later.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-white mb-2">Title</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Section title"
+            className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-white mb-2">Content</label>
+          <RichTextEditor
+            value={content}
+            onChange={setContent}
+            placeholder="Enter section content here..."
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Order</label>
+            <input
+              type="number"
+              value={order}
+              onChange={(e) => setOrder(e.target.value === '' ? '' : parseInt(e.target.value) || '')}
+              placeholder="Auto"
+              className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
+            />
+            <p className="text-xs text-text-secondary mt-1">Leave empty for auto-assignment</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">Visibility</label>
+            <div className="flex items-center gap-4 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isVisible}
+                  onChange={(e) => setIsVisible(e.target.checked)}
+                  className="w-4 h-4 rounded bg-bg-tertiary border-bg-tertiary text-electric-blue focus:ring-electric-blue"
+                />
+                <span className="text-sm text-white">Visible</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-4 pt-4 border-t border-bg-tertiary">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} isLoading={isSaving}>
+            Create Section
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function MediaLibraryModal({
+  media,
+  onClose,
+  onUpload,
+}: {
+  media: any[]
+  onClose: () => void
+  onUpload: () => void
+}) {
+  const { showToast } = useToast()
+  const [isUploading, setIsUploading] = useState(false)
+
+  const handleUpload = async (file: File) => {
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/admin/content/media', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Image Uploaded',
+          description: 'Image added to media library',
+        })
+        onUpload()
+      }
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Upload Failed',
+        description: 'Failed to upload image',
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="Media Library" size="lg">
+      <div className="space-y-4">
+        <div className="border-2 border-dashed border-bg-tertiary rounded-lg p-8 text-center">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handleUpload(file)
+            }}
+            className="hidden"
+            id="media-upload"
+          />
+          <label
+            htmlFor="media-upload"
+            className="cursor-pointer text-electric-blue hover:text-[#00B8E6]"
+          >
+            {isUploading ? 'Uploading...' : '+ Upload Image'}
+          </label>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+          {media.map((item) => (
+            <div key={item.id} className="relative aspect-square rounded-lg overflow-hidden">
+              <Image src={item.url} alt={item.alt || ''} fill className="object-cover" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
