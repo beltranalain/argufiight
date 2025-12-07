@@ -81,6 +81,8 @@ export async function getFeatureLimit(
       return limits.THATS_THE_ONE
     case FEATURES.TOURNAMENT_CREDITS:
       return limits.TOURNAMENT_CREDITS
+    case FEATURES.TOURNAMENTS:
+      return limits.TOURNAMENTS
     default:
       return -1 // Unlimited
   }

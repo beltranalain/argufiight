@@ -6,6 +6,7 @@ import { ArenaPanel } from '@/components/panels/ArenaPanel'
 import { LiveBattlePanel } from '@/components/panels/LiveBattlePanel'
 import { ChallengesPanel } from '@/components/panels/ChallengesPanel'
 import { ProfilePanel } from '@/components/panels/ProfilePanel'
+import { TournamentsPanel } from '@/components/panels/TournamentsPanel'
 import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
 import { useAuth } from '@/lib/hooks/useAuth'
 
@@ -155,6 +156,11 @@ export function DashboardHomePage() {
                 <h2 className="text-2xl font-bold text-text-primary mb-2">Open Challenges</h2>
                 <p className="text-text-secondary text-sm mb-4">Debates waiting for opponents</p>
                 <ChallengesPanel />
+              </div>
+
+              {/* Tournaments */}
+              <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
+                <TournamentsPanel />
               </div>
 
               {/* Your Profile */}

@@ -25,6 +25,16 @@ export async function GET(request: NextRequest) {
     const tournamentCreditsUsage = await getFeatureUsage(userId, FEATURES.TOURNAMENT_CREDITS)
     const tournamentCreditsLimit = await getFeatureLimit(userId, FEATURES.TOURNAMENT_CREDITS)
 
+    const tournamentsUsage = await getFeatureUsage(userId, FEATURES.TOURNAMENTS)
+    const tournamentsLimit = await getFeatureLimit(userId, FEATURES.TOURNAMENTS)
+
+    // Get all usage for formatted response
+    const allUsage = await getAllUsage(userId)
+    const usageArray = allUsage.map((u) => ({
+      featureType: u.featureType,
+      count: u.count,
+    }))
+
     return NextResponse.json({
       usage: {
         appeals: {
@@ -39,6 +49,17 @@ export async function GET(request: NextRequest) {
           current: tournamentCreditsUsage,
           limit: tournamentCreditsLimit,
         },
+        tournaments: {
+          current: tournamentsUsage,
+          limit: tournamentsLimit,
+        },
+      },
+      usage: usageArray, // Array format for easy lookup
+      limits: {
+        APPEALS: appealsLimit,
+        THATS_THE_ONE: thatsTheOneLimit,
+        TOURNAMENT_CREDITS: tournamentCreditsLimit,
+        TOURNAMENTS: tournamentsLimit,
       },
     })
   } catch (error: any) {

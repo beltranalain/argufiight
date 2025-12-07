@@ -11,6 +11,7 @@ export const FEATURES = {
   WATCH_DEBATES: 'watch_debates',
   BASIC_STATS: 'basic_stats',
   FREE_TOURNAMENTS: 'free_tournaments',
+  TOURNAMENTS: 'tournaments', // Tournament creation
   THATS_THE_ONE: 'thats_the_one', // 10/month for Free
   
   // Pro Tier Only Features
@@ -42,11 +43,13 @@ export const FEATURE_LIMITS = {
     APPEALS: 4,
     THATS_THE_ONE: 10,
     TOURNAMENT_CREDITS: 0,
+    TOURNAMENTS: 1, // 1 tournament per month for free users
   },
   PRO: {
     APPEALS: 12,
     THATS_THE_ONE: -1, // -1 means unlimited
     TOURNAMENT_CREDITS: 4, // per month, max 12 rollover
+    TOURNAMENTS: -1, // -1 means unlimited for Pro
   },
 } as const
 
