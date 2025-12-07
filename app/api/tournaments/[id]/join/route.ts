@@ -58,19 +58,22 @@ export async function POST(
       )
     }
 
-    // Check ELO requirement
-    if (tournament.minElo) {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { eloRating: true },
-      })
+    // Get user's ELO rating
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { eloRating: true },
+    })
 
-      if (!user || user.eloRating < tournament.minElo) {
-        return NextResponse.json(
-          { error: `This tournament requires a minimum ELO of ${tournament.minElo}. Your ELO: ${user?.eloRating || 0}` },
-          { status: 400 }
-        )
-      }
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Check ELO requirement
+    if (tournament.minElo && user.eloRating < tournament.minElo) {
+      return NextResponse.json(
+        { error: `This tournament requires a minimum ELO of ${tournament.minElo}. Your ELO: ${user.eloRating}` },
+        { status: 400 }
+      )
     }
 
     // Get current participant count for seeding
@@ -82,6 +85,7 @@ export async function POST(
         tournamentId,
         userId,
         seed: participantCount + 1, // Temporary seed, will be reseeded when tournament starts
+        eloAtStart: user.eloRating, // Required field - store ELO at time of registration
         status: 'REGISTERED',
       },
     })
