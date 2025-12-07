@@ -31,17 +31,19 @@ If you need AI tasks to run more frequently (e.g., every 5-10 minutes), you have
 ### Option 1: Use External Cron Service (Recommended)
 
 Use a free external cron service like:
-- **cron-job.org** (free tier available)
+- **cron-job.org** (free tier available) - [Setup Guide](./CRON_JOB_SETUP_GUIDE.md)
 - **EasyCron** (free tier available)
 - **UptimeRobot** (free tier available)
 
-**Setup Steps:**
-1. Sign up for a free account
+**Quick Setup for cron-job.org:**
+1. Sign up at https://cron-job.org
 2. Create a new cron job
-3. Set the URL to: `https://your-domain.com/api/cron/ai-tasks`
-4. Add Authorization header: `Bearer YOUR_CRON_SECRET`
+3. Set the URL to: `https://www.argufight.com/api/cron/ai-auto-accept`
+4. Add Authorization header: `Bearer YOUR_CRON_SECRET` (if CRON_SECRET is set)
 5. Set frequency: Every 5-10 minutes
 6. Save and activate
+
+**Note**: The web interface doesn't count against API rate limits. See [CRON_JOB_SETUP_GUIDE.md](./CRON_JOB_SETUP_GUIDE.md) for detailed instructions.
 
 **Environment Variable:**
 Make sure `CRON_SECRET` is set in your Vercel environment variables for security.
