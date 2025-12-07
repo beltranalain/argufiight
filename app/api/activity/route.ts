@@ -24,15 +24,17 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50); // Max 50 per page
+    const cursor = searchParams.get('cursor'); // Cursor for pagination
     const type = searchParams.get('type'); // 'all', 'debates', 'comments', 'likes'
 
     const userId = session.user.id;
 
-    // Get user's followed users
+    // Get user's followed users (limit to 1000 to prevent performance issues)
     const following = await prisma.follow.findMany({
       where: { followerId: userId },
       select: { followingId: true },
+      take: 1000, // Limit following list size
     });
     const followingIds = following.map((f) => f.followingId);
 
@@ -43,10 +45,17 @@ export async function GET(request: NextRequest) {
 
     // Get recent debates created by followed users or user
     if (!type || type === 'all' || type === 'debates') {
+      const debateWhere: any = {
+        challengerId: { in: allUserIds },
+      };
+      if (cursor) {
+        // Cursor-based pagination: fetch debates created before the cursor date
+        const cursorDate = new Date(cursor);
+        debateWhere.createdAt = { lt: cursorDate };
+      }
+
       const recentDebates = await prisma.debate.findMany({
-        where: {
-          challengerId: { in: allUserIds },
-        },
+        where: debateWhere,
         include: {
           challenger: {
             select: {
@@ -57,7 +66,7 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: { createdAt: 'desc' },
-        take: 20,
+        take: limit + 1, // Fetch one extra to check if there's more
       });
 
       recentDebates.forEach((debate) => {
@@ -79,11 +88,17 @@ export async function GET(request: NextRequest) {
 
     // Get recent comments by followed users or user
     if (!type || type === 'all' || type === 'comments') {
+      const commentWhere: any = {
+        userId: { in: allUserIds },
+        deleted: false,
+      };
+      if (cursor) {
+        const cursorDate = new Date(cursor);
+        commentWhere.createdAt = { lt: cursorDate };
+      }
+
       const recentComments = await prisma.debateComment.findMany({
-        where: {
-          userId: { in: allUserIds },
-          deleted: false,
-        },
+        where: commentWhere,
         include: {
           user: {
             select: {
@@ -101,7 +116,7 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: { createdAt: 'desc' },
-        take: 20,
+        take: limit + 1,
       });
 
       recentComments.forEach((comment) => {
@@ -120,10 +135,16 @@ export async function GET(request: NextRequest) {
 
     // Get recent likes by followed users or user
     if (!type || type === 'all' || type === 'likes') {
+      const likeWhere: any = {
+        userId: { in: allUserIds },
+      };
+      if (cursor) {
+        const cursorDate = new Date(cursor);
+        likeWhere.createdAt = { lt: cursorDate };
+      }
+
       const recentLikes = await prisma.debateLike.findMany({
-        where: {
-          userId: { in: allUserIds },
-        },
+        where: likeWhere,
         include: {
           user: {
             select: {
@@ -141,7 +162,7 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: { createdAt: 'desc' },
-        take: 20,
+        take: limit + 1,
       });
 
       recentLikes.forEach((like) => {
@@ -159,14 +180,20 @@ export async function GET(request: NextRequest) {
 
     // Get recent debate completions
     if (!type || type === 'all' || type === 'debates') {
+      const completedWhere: any = {
+        OR: [
+          { challengerId: { in: allUserIds } },
+          { opponentId: { in: allUserIds } },
+        ],
+        status: 'COMPLETED',
+      };
+      if (cursor) {
+        const cursorDate = new Date(cursor);
+        completedWhere.endedAt = { lt: cursorDate };
+      }
+
       const completedDebates = await prisma.debate.findMany({
-        where: {
-          OR: [
-            { challengerId: { in: allUserIds } },
-            { opponentId: { in: allUserIds } },
-          ],
-          status: 'COMPLETED',
-        },
+        where: completedWhere,
         include: {
           challenger: {
             select: {
@@ -184,7 +211,7 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: { endedAt: 'desc' },
-        take: 10,
+        take: limit + 1,
       });
 
       completedDebates.forEach((debate) => {
@@ -210,8 +237,12 @@ export async function GET(request: NextRequest) {
     // Sort all activities by timestamp
     activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
-    // Take top N
-    const limitedActivities = activities.slice(0, limit);
+    // Check if there are more activities (cursor-based pagination)
+    const hasMore = activities.length > limit;
+    const limitedActivities = hasMore ? activities.slice(0, limit) : activities;
+    const nextCursor = hasMore && limitedActivities.length > 0
+      ? limitedActivities[limitedActivities.length - 1].timestamp.toISOString()
+      : null;
 
     // Format response
     const formatted = limitedActivities.map((activity) => ({
@@ -228,7 +259,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       activities: formatted,
-      total: activities.length,
+      pagination: {
+        hasMore,
+        nextCursor,
+        limit,
+      },
     });
   } catch (error) {
     console.error('Failed to fetch activity:', error);

@@ -87,6 +87,14 @@ export async function GET(request: NextRequest) {
       search: where.username,
     })
 
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50) // Max 50 per page
+    const skip = (page - 1) * limit
+
+    // Get total count for pagination
+    const total = await prisma.user.count({ where })
+
     const creators = await prisma.user.findMany({
       where,
       select: {
@@ -107,10 +115,11 @@ export async function GET(request: NextRequest) {
         debateWidgetAvailable: true,
       },
       orderBy: { eloRating: 'desc' },
-      take: 50,
+      skip,
+      take: limit,
     })
 
-    console.log('[API] Found creators:', creators.length)
+    console.log('[API] Found creators:', creators.length, 'Page:', page, 'Total:', total)
     if (creators.length > 0) {
       console.log('[API] Sample creator usernames:', creators.slice(0, 5).map(c => c.username))
     }
@@ -118,7 +127,15 @@ export async function GET(request: NextRequest) {
     // Filter by category if provided (would need debate history analysis)
     // For now, return all matching creators
 
-    return NextResponse.json({ creators })
+    return NextResponse.json({
+      creators,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
   } catch (error: any) {
     console.error('Failed to fetch creators:', error)
     return NextResponse.json(

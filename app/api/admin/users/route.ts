@@ -27,8 +27,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100) // Max 100 per page
+    const skip = (page - 1) * limit
+    const search = searchParams.get('search')?.trim()
+
+    const where: any = {}
+    if (search) {
+      where.OR = [
+        { username: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+
+    // Get total count for pagination
+    const total = await prisma.user.count({ where })
+
     const users = await prisma.user.findMany({
-      take: 50,
+      where,
+      skip,
+      take: limit,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -53,7 +72,15 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(users)
+    return NextResponse.json({
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
   } catch (error) {
     console.error('Failed to fetch users:', error)
     return NextResponse.json(

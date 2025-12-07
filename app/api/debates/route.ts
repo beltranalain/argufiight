@@ -21,6 +21,9 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')
     const userId = searchParams.get('userId')
     const shareToken = searchParams.get('shareToken') // For accessing private debates
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100) // Max 100 per page
+    const skip = (page - 1) * limit
     
     // Get current user session for access control
     const session = await verifySession()
@@ -63,6 +66,9 @@ export async function GET(request: NextRequest) {
       // User viewing their own debates - show all (public and private)
       // No additional filter needed
     }
+
+    // Get total count for pagination
+    const total = await prisma.debate.count({ where })
 
     const debates = await prisma.debate.findMany({
       where,
@@ -125,10 +131,19 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: 'desc',
       },
-      take: 50,
+      skip,
+      take: limit,
     })
 
-    return NextResponse.json(debates)
+    return NextResponse.json({
+      debates,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    })
   } catch (error) {
     console.error('Failed to fetch debates:', error)
     return NextResponse.json(
