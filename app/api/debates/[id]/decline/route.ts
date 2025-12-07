@@ -84,16 +84,17 @@ export async function POST(
         })
       }
 
-      // Send notification to challenger
-      await prisma.notification.create({
-        data: {
-          userId: debate.challengerId,
-          type: 'CHALLENGE_DECLINED',
-          title: 'Challenge Declined',
-          message: `Your challenge "${debate.topic}" was declined`,
-          debateId: debateId,
-        },
-      })
+      // Send notification to challenger using raw SQL
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO notifications (id, user_id, type, title, message, debate_id, created_at)
+        VALUES (gen_random_uuid(), $1, $2::"NotificationType", $3, $4, $5, NOW())
+      `,
+        debate.challengerId,
+        'DEBATE_ACCEPTED', // Using existing enum value
+        'Challenge Declined',
+        `Your challenge "${debate.topic}" was declined`,
+        debateId
+      )
 
       return NextResponse.json({ 
         success: true,

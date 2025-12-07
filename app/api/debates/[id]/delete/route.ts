@@ -68,19 +68,21 @@ export async function DELETE(
     if ((debate.challengeType === 'DIRECT' || debate.challengeType === 'GROUP') && debate.invitedUserIds) {
       const invitedIds = JSON.parse(debate.invitedUserIds) as string[]
       
-      // Create notifications for all invited users
-      const notifications = invitedIds.map((invitedUserId) => ({
-        userId: invitedUserId,
-        type: 'CHALLENGE_CANCELLED' as const,
-        title: 'Challenge Cancelled',
-        message: `The challenge "${debate.topic}" has been cancelled`,
-        debateId: debateId,
-      }))
-
-      if (notifications.length > 0) {
-        await prisma.notification.createMany({
-          data: notifications,
-        })
+      // Create notifications for all invited users using raw SQL
+      if (invitedIds.length > 0) {
+        const message = `The challenge "${debate.topic}" has been cancelled`
+        for (const invitedUserId of invitedIds) {
+          await prisma.$executeRawUnsafe(`
+            INSERT INTO notifications (id, user_id, type, title, message, debate_id, created_at)
+            VALUES (gen_random_uuid(), $1, $2::"NotificationType", $3, $4, $5, NOW())
+          `,
+            invitedUserId,
+            'NEW_CHALLENGE', // Using existing enum value
+            'Challenge Cancelled',
+            message,
+            debateId
+          )
+        }
       }
     }
 
