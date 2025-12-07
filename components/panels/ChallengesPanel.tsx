@@ -199,6 +199,75 @@ export function ChallengesPanel() {
     }
   }
 
+  const handleDeclineChallenge = async (debateId: string) => {
+    if (!confirm('Are you sure you want to decline this challenge?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/debates/${debateId}/decline`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to decline challenge')
+      }
+
+      showToast({
+        title: 'Challenge Declined',
+        description: 'You have declined this challenge',
+        type: 'success',
+      })
+
+      // Refresh challenges
+      fetchChallenges()
+    } catch (error: any) {
+      showToast({
+        title: 'Error',
+        description: error.message || 'Failed to decline challenge',
+        type: 'error',
+      })
+    }
+  }
+
+  const handleDeleteChallenge = async (debateId: string) => {
+    if (!confirm('Are you sure you want to delete this challenge? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/debates/${debateId}/delete`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete challenge')
+      }
+
+      showToast({
+        title: 'Challenge Deleted',
+        description: 'Your challenge has been deleted',
+        type: 'success',
+      })
+
+      // Refresh challenges
+      fetchChallenges()
+      
+      // Dispatch event to refresh debate pages
+      if (document.readyState === 'complete') {
+        window.dispatchEvent(new CustomEvent('debate-created'))
+      }
+    } catch (error: any) {
+      showToast({
+        title: 'Error',
+        description: error.message || 'Failed to delete challenge',
+        type: 'error',
+      })
+    }
+  }
+
   const [pendingRematches, setPendingRematches] = useState<any[]>([])
 
   useEffect(() => {
@@ -364,13 +433,24 @@ export function ChallengesPanel() {
                         <span className="text-text-muted text-xs">•</span>
                         <span className="text-text-secondary text-xs">ELO: {challenge.challenger?.eloRating}</span>
                       </div>
-                      <Button 
-                        variant="primary" 
-                        className="w-full text-sm py-1.5"
-                        onClick={() => handleAcceptChallenge(challenge.id)}
-                      >
-                        Accept Challenge
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="primary" 
+                          className="flex-1 text-sm py-1.5"
+                          onClick={() => handleAcceptChallenge(challenge.id)}
+                        >
+                          Accept Challenge
+                        </Button>
+                        {user && (isDirect || isGroup) && invitedIds.includes(user.id) && (
+                          <Button 
+                            variant="secondary" 
+                            className="text-sm py-1.5 px-3"
+                            onClick={() => handleDeclineChallenge(challenge.id)}
+                          >
+                            Decline
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
@@ -480,9 +560,19 @@ export function ChallengesPanel() {
                         </div>
                       )}
                       
-                      <p className="text-text-secondary text-xs">
-                        Waiting for opponent...
-                      </p>
+                      <div className="flex items-center justify-between mt-3">
+                        <p className="text-text-secondary text-xs">
+                          Waiting for opponent...
+                        </p>
+                        <Button 
+                          variant="secondary" 
+                          size="sm"
+                          className="text-xs py-1 px-3"
+                          onClick={() => handleDeleteChallenge(challenge.id)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
