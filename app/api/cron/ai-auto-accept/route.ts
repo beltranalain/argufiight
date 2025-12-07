@@ -6,13 +6,16 @@ import { headers } from 'next/headers'
 // This should be called periodically (e.g., every 5-10 minutes)
 export async function GET(request: NextRequest) {
   try {
-    // Verify this is a cron request (add your cron secret check here)
+    // Verify this is a cron request (optional - only if CRON_SECRET is set)
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
     
+    // Only require auth if CRON_SECRET is set (allows manual testing without auth)
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    
+    console.log('[AI Auto-Accept] Starting auto-accept check at:', new Date().toISOString())
 
     // Get all active, non-paused AI users
     const aiUsers = await prisma.user.findMany({
@@ -35,8 +38,10 @@ export async function GET(request: NextRequest) {
 
     // For each AI user, find open challenges that are older than their response delay
     for (const aiUser of aiUsers) {
-      const delayMs = aiUser.aiResponseDelay || 3600000 // Default 1 hour
+      const delayMs = aiUser.aiResponseDelay || 3600000 // Default 1 hour (600000 = 10 minutes)
       const cutoffTime = new Date(Date.now() - delayMs)
+
+      console.log(`[AI Auto-Accept] Checking ${aiUser.username} (delay: ${delayMs}ms = ${Math.floor(delayMs / 60000)} minutes)`)
 
       // Find open challenges that:
       // 1. Are waiting for an opponent (status = WAITING)
@@ -66,9 +71,20 @@ export async function GET(request: NextRequest) {
         take: 5, // Limit to 5 per AI user per run
       })
 
+      console.log(`[AI Auto-Accept] ${aiUser.username} found ${openChallenges.length} eligible challenge(s)`)
+      
+      // Log details about each challenge
+      openChallenges.forEach((challenge) => {
+        const ageMs = Date.now() - new Date(challenge.createdAt).getTime()
+        const ageMinutes = Math.floor(ageMs / 60000)
+        console.log(`  - "${challenge.topic}" from ${challenge.challenger.username} (age: ${ageMinutes}m)`)
+      })
+
       // Accept challenges
       for (const challenge of openChallenges) {
         try {
+          console.log(`[AI Auto-Accept] ${aiUser.username} accepting: "${challenge.topic}"`)
+          
           // Update debate to set AI user as opponent
           await prisma.debate.update({
             where: { id: challenge.id },
@@ -95,17 +111,22 @@ export async function GET(request: NextRequest) {
               debateId: challenge.id,
             },
           })
-        } catch (error) {
-          console.error(`Failed to accept challenge ${challenge.id} for AI user ${aiUser.id}:`, error)
+          
+          console.log(`[AI Auto-Accept] ✅ ${aiUser.username} successfully accepted challenge ${challenge.id}`)
+        } catch (error: any) {
+          console.error(`[AI Auto-Accept] ❌ Failed to accept challenge ${challenge.id} for AI user ${aiUser.id}:`, error)
           // Continue with next challenge
         }
       }
     }
 
+    console.log(`[AI Auto-Accept] Completed: ${acceptedCount} challenge(s) accepted by ${aiUsers.length} AI user(s)`)
+    
     return NextResponse.json({
       message: 'Auto-accept completed',
       accepted: acceptedCount,
       aiUsersChecked: aiUsers.length,
+      timestamp: new Date().toISOString(),
     })
   } catch (error: any) {
     console.error('Failed to auto-accept challenges:', error)
