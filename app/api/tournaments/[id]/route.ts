@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db/prisma'
 // GET /api/tournaments/[id] - Get tournament details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession()
@@ -15,7 +15,7 @@ export async function GET(
     }
 
     const userId = getUserIdFromSession(session)
-    const tournamentId = params.id
+    const { id: tournamentId } = await params
 
     const tournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },

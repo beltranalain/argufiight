@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db/prisma'
 // POST /api/tournaments/[id]/join - Join a tournament
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySession()
@@ -19,7 +19,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const tournamentId = params.id
+    const { id: tournamentId } = await params
 
     // Get tournament
     const tournament = await prisma.tournament.findUnique({
