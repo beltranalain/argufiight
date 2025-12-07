@@ -26,7 +26,9 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id;
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const limit = parseInt(searchParams.get('limit') || '50', 10);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 50); // Max 50 per page
+    const skip = (page - 1) * limit;
 
     const where: any = {
       OR: [
@@ -38,6 +40,9 @@ export async function GET(request: NextRequest) {
     if (status && status !== 'ALL') {
       where.status = status;
     }
+
+    // Get total count for pagination
+    const total = await prisma.debate.count({ where });
 
     const debates = await prisma.debate.findMany({
       where,
@@ -62,6 +67,7 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: 'desc',
       },
+      skip,
       take: limit,
     });
 
@@ -94,7 +100,15 @@ export async function GET(request: NextRequest) {
       userWon: debate.winnerId === userId,
     }));
 
-    return NextResponse.json(formatted);
+    return NextResponse.json({
+      debates: formatted,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     console.error('Failed to fetch debate history:', error);
     return NextResponse.json(

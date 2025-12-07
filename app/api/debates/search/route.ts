@@ -11,8 +11,9 @@ export async function GET(request: NextRequest) {
     const minElo = searchParams.get('minElo');
     const maxElo = searchParams.get('maxElo');
     const sortBy = searchParams.get('sortBy') || 'relevance'; // relevance, recent, trending, engagement
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50); // Max 50 per page
+    const skip = (page - 1) * limit;
 
     // Build where clause
     const where: any = {};
@@ -70,9 +71,12 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      take: limit * 2, // Get more to calculate scores
-      skip: offset,
+      take: limit * 2, // Get more to calculate scores for sorting
+      skip: skip,
     });
+
+    // Get total count for pagination (before filtering/sorting)
+    const total = await prisma.debate.count({ where });
 
     // Calculate scores for sorting
     const debatesWithScores = debates.map((debate) => {
@@ -172,9 +176,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       debates: formattedDebates,
-      total: sortedDebates.length,
-      limit,
-      offset,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error('Failed to search debates:', error);
