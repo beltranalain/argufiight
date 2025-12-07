@@ -70,10 +70,13 @@ If you want to use the REST API to manage jobs programmatically:
      - Find the **"Headers"** section (it will show "No custom headers defined.")
      - Click the **"+ ADD"** button on the right side of the Headers section
      - This will add a new header row with two fields
-     - In the header fields:
-       - **First field (Header Name)**: Type `Authorization`
-       - **Second field (Header Value)**: Type `Bearer YOUR_CRON_SECRET`
-       - (Replace `YOUR_CRON_SECRET` with your actual CRON_SECRET from Vercel environment variables)
+   - In the header fields:
+     - **First field (Header Name)**: Type `Authorization`
+     - **Second field (Header Value)**: Type `Bearer YOUR_CRON_SECRET`
+     - **Important**: `CRON_SECRET` is NOT your cron-job.org API key!
+     - `CRON_SECRET` is a separate secret stored in Vercel environment variables
+     - **To find it**: Go to Vercel Dashboard → Your Project → Settings → Environment Variables → Look for `CRON_SECRET`
+     - **If CRON_SECRET is not set**: You can skip the Authorization header - the endpoint will work without it (but it's recommended to set it for security)
 
 4. **Click "Create Cronjob"**
 
