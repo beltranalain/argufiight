@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       try {
         await prisma.$executeRaw`
           UPDATE debates
-          SET status = ${'CANCELLED'}, ended_at = ${now}
+          SET status = ${'CANCELLED'}::"DebateStatus", ended_at = ${now}
           WHERE id = ${debate.id}
         `
 
@@ -317,7 +317,7 @@ async function handleMissingSubmission(
       // End debate - AI will judge whatever arguments exist
       await prisma.$executeRaw`
         UPDATE debates
-        SET status = ${'COMPLETED'}, ended_at = ${now}, round_deadline = NULL
+        SET status = ${'COMPLETED'}::"DebateStatus", ended_at = ${now}, round_deadline = NULL
         WHERE id = ${debate.id}
       `
 
