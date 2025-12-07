@@ -140,6 +140,11 @@ export function DashboardHomePage() {
             {/* Left Column - Arena (8 columns) */}
             <div className="lg:col-span-8 space-y-6">
               <ArenaPanel />
+              
+              {/* Tournaments - Moved under ELO Leaderboard */}
+              <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
+                <TournamentsPanel />
+              </div>
             </div>
 
             {/* Right Column - Sidebar (4 columns) */}
@@ -156,11 +161,6 @@ export function DashboardHomePage() {
                 <h2 className="text-2xl font-bold text-text-primary mb-2">Open Challenges</h2>
                 <p className="text-text-secondary text-sm mb-4">Debates waiting for opponents</p>
                 <ChallengesPanel />
-              </div>
-
-              {/* Tournaments */}
-              <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
-                <TournamentsPanel />
               </div>
 
               {/* Your Profile */}
