@@ -1,8 +1,12 @@
-# Cron-Job.org Setup Guide for AI Auto-Accept
+# Cron-Job.org Setup Guide for AI Auto-Accept and Expired Rounds Processing
 
 ## Overview
 
-cron-job.org is a free external cron service that can call your API endpoints at regular intervals. This is perfect for the AI auto-accept feature since Vercel Hobby plan only allows daily cron jobs.
+cron-job.org is a free external cron service that can call your API endpoints at regular intervals. This is perfect for:
+1. **AI Auto-Accept** - Auto-accepting open challenges (every 5-10 minutes)
+2. **Process Expired Rounds** - Processing debates with expired deadlines (every 5-10 minutes)
+
+Since Vercel Hobby plan only allows daily cron jobs, external services are needed for frequent tasks.
 
 ## Setup Steps
 
@@ -41,6 +45,32 @@ If you want to use the REST API to manage jobs programmatically:
    - (Replace `YOUR_CRON_SECRET` with your actual CRON_SECRET from Vercel environment variables)
 
 5. **Click "Create Cronjob"**
+
+### 3b. Create Process Expired Rounds Cron Job
+
+**IMPORTANT**: This is critical for debates to end when time expires!
+
+1. **Click "Create Cronjob"** again
+2. **Fill in the form:**
+   - **Title**: "Process Expired Debate Rounds"
+   - **Address (URL)**: `https://www.argufight.com/api/debates/process-expired`
+   - **Request Method**: POST
+   - **Schedule**: 
+     - Select "Every X minutes"
+     - Set to **10 minutes** (or 5 minutes if you prefer)
+   - **Request Timeout**: 300 seconds (5 minutes)
+   - **Save Responses**: Optional (helps with debugging)
+
+3. **Add Authorization Header** (if CRON_SECRET is set):
+   - Click "Request Options" or "Advanced"
+   - Add Header:
+     - **Name**: `Authorization`
+     - **Value**: `Bearer YOUR_CRON_SECRET`
+   - (Replace `YOUR_CRON_SECRET` with your actual CRON_SECRET from Vercel environment variables)
+
+4. **Click "Create Cronjob"**
+
+**Why this is needed**: Without this cron job, debates with expired deadlines won't automatically end and trigger AI judgment. They'll only be processed when someone views the debates page.
 
 ### 4. Alternative: Create via REST API
 
@@ -146,6 +176,13 @@ For AI auto-accept, **every 10 minutes** is a good balance:
 - Check AI user configuration (`isAI: true`, `aiPaused: false`)
 - Verify `aiResponseDelay` is set correctly (600000 = 10 minutes)
 - Check application logs for detailed logging
+
+### Debates not ending when time expires
+- **CRITICAL**: Make sure you've set up the "Process Expired Debate Rounds" cron job
+- Check if the debate deadline has actually passed (server time vs local time)
+- Verify the debate is in ACTIVE status
+- Check if the debate is at least halfway through (will end automatically)
+- Manually trigger: `POST https://www.argufight.com/api/debates/process-expired`
 
 ## Alternative Services
 
