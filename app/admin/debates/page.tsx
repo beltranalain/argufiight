@@ -53,7 +53,7 @@ export default function AdminDebatesPage() {
       const response = await fetch('/api/debates?limit=50')
       if (response.ok) {
         const data = await response.json()
-        setDebates(data)
+        setDebates(data.debates || [])
       }
     } catch (error) {
       console.error('Failed to fetch debates:', error)

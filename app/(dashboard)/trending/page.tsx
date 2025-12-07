@@ -123,7 +123,8 @@ export default function TrendingTopicsPage() {
         throw new Error(`Failed to fetch debates: ${response.statusText}`)
       }
       
-      const allDebates: Debate[] = await response.json()
+      const data = await response.json()
+      const allDebates: Debate[] = data.debates || []
       
       // Group debates by topic - match debates to topics based on topic title similarity
       // and category match

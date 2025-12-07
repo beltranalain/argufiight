@@ -79,7 +79,7 @@ export default function DebatesHistoryPage() {
       const response = await fetch(`/api/debates?${params.toString()}`)
       if (response.ok) {
         const data = await response.json()
-        setDebates(data)
+        setDebates(data.debates || [])
       }
     } catch (error) {
       console.error('Failed to fetch debates:', error)

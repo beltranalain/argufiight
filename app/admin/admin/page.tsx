@@ -150,11 +150,7 @@ export default function AdminDashboard() {
 
       if (debatesRes.ok) {
         const debatesData = await debatesRes.json()
-        // Handle both array and object response formats
-        const debates = Array.isArray(debatesData) 
-          ? debatesData 
-          : (debatesData?.debates || debatesData?.data || [])
-        setRecentDebates(Array.isArray(debates) ? debates : [])
+        setRecentDebates(debatesData.debates || [])
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)

@@ -66,7 +66,7 @@ export default function AdminDashboard() {
 
       if (debatesRes.ok) {
         const debatesData = await debatesRes.json()
-        setRecentDebates(debatesData)
+        setRecentDebates(debatesData.debates || [])
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)

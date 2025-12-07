@@ -85,7 +85,8 @@ export default function UserProfilePage() {
     try {
       const response = await fetch(`/api/debates?userId=${userId}&status=COMPLETED,VERDICT_READY`)
       if (response.ok) {
-        const debates = await response.json()
+        const data = await response.json()
+        const debates = data.debates || []
         // Ensure debates is an array before calling slice
         if (Array.isArray(debates)) {
           setRecentDebates(debates.slice(0, 5))
