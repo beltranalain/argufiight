@@ -29,8 +29,8 @@ If you want to use the REST API to manage jobs programmatically:
 2. **Click "Create Cronjob"**
 3. **Fill in the form:**
    - **Title**: "AI Auto-Accept Challenges"
-   - **Address (URL)**: `https://www.argufight.com/api/cron/ai-auto-accept`
-   - **Request Method**: GET
+   - **URL**: `https://www.argufight.com/api/cron/ai-auto-accept`
+   - **Note**: Request Method will be set in ADVANCED tab (GET for this endpoint)
    - **Schedule**: 
      - Select "Every X minutes"
      - Set to **5 minutes** (or 10 minutes if you prefer)
@@ -55,26 +55,25 @@ If you want to use the REST API to manage jobs programmatically:
 **IMPORTANT**: This is critical for debates to end when time expires!
 
 1. **Click "Create Cronjob"** again
-2. **Fill in the form:**
+2. **Fill in the form on COMMON tab:**
    - **Title**: "Process Expired Debate Rounds"
-   - **Address (URL)**: `https://www.argufight.com/api/debates/process-expired`
-   - **Request Method**: POST
+   - **URL**: `https://www.argufight.com/api/debates/process-expired`
    - **Schedule**: 
      - Select "Every X minutes"
      - Set to **10 minutes** (or 5 minutes if you prefer)
-   - **Request Timeout**: 300 seconds (5 minutes)
    - **Save Responses**: Optional (helps with debugging)
 
 3. **Add Authorization Header** (if CRON_SECRET is set):
    - **Click the "ADVANCED" tab** at the top of the form (next to "COMMON")
-   - Scroll down to find **"Request Options"** or **"HTTP Headers"** section
-   - Look for **"Add Header"** or **"Add Custom Header"** button/link
-   - Click it to add a new header row
-   - In the header fields:
-     - **Header Name** or **Name**: `Authorization`
-     - **Header Value** or **Value**: `Bearer YOUR_CRON_SECRET`
-     - (Replace `YOUR_CRON_SECRET` with your actual CRON_SECRET from Vercel environment variables)
-   - **Note**: If you don't see a headers section in ADVANCED, the interface may have changed. Look for any section related to "Request", "HTTP", "Headers", or "Custom" options
+   - **Change Request Method**: In the "Request method" dropdown, change from "GET" to **"POST"** (required for process-expired endpoint)
+   - **Add Header**: 
+     - Find the **"Headers"** section (it will show "No custom headers defined.")
+     - Click the **"+ ADD"** button on the right side of the Headers section
+     - This will add a new header row with two fields
+     - In the header fields:
+       - **First field (Header Name)**: Type `Authorization`
+       - **Second field (Header Value)**: Type `Bearer YOUR_CRON_SECRET`
+       - (Replace `YOUR_CRON_SECRET` with your actual CRON_SECRET from Vercel environment variables)
 
 4. **Click "Create Cronjob"**
 
