@@ -37,12 +37,16 @@ If you want to use the REST API to manage jobs programmatically:
    - **Request Timeout**: 300 seconds (5 minutes)
    - **Save Responses**: Optional (helps with debugging)
 
-4. **Add Authorization Header** (if CRON_SECRET is set:
-   - Click "Request Options" or "Advanced"
-   - Add Header:
-     - **Name**: `Authorization`
-     - **Value**: `Bearer YOUR_CRON_SECRET`
-   - (Replace `YOUR_CRON_SECRET` with your actual CRON_SECRET from Vercel environment variables)
+4. **Add Authorization Header** (if CRON_SECRET is set):
+   - **Click the "ADVANCED" tab** at the top of the form (next to "COMMON")
+   - Scroll down to find **"Request Options"** or **"HTTP Headers"** section
+   - Look for **"Add Header"** or **"Add Custom Header"** button/link
+   - Click it to add a new header row
+   - In the header fields:
+     - **Header Name** or **Name**: `Authorization`
+     - **Header Value** or **Value**: `Bearer YOUR_CRON_SECRET`
+     - (Replace `YOUR_CRON_SECRET` with your actual CRON_SECRET from Vercel environment variables)
+   - **Note**: If you don't see a headers section in ADVANCED, the interface may have changed. Look for any section related to "Request", "HTTP", "Headers", or "Custom" options
 
 5. **Click "Create Cronjob"**
 
@@ -62,11 +66,15 @@ If you want to use the REST API to manage jobs programmatically:
    - **Save Responses**: Optional (helps with debugging)
 
 3. **Add Authorization Header** (if CRON_SECRET is set):
-   - Click "Request Options" or "Advanced"
-   - Add Header:
-     - **Name**: `Authorization`
-     - **Value**: `Bearer YOUR_CRON_SECRET`
-   - (Replace `YOUR_CRON_SECRET` with your actual CRON_SECRET from Vercel environment variables)
+   - **Click the "ADVANCED" tab** at the top of the form (next to "COMMON")
+   - Scroll down to find **"Request Options"** or **"HTTP Headers"** section
+   - Look for **"Add Header"** or **"Add Custom Header"** button/link
+   - Click it to add a new header row
+   - In the header fields:
+     - **Header Name** or **Name**: `Authorization`
+     - **Header Value** or **Value**: `Bearer YOUR_CRON_SECRET`
+     - (Replace `YOUR_CRON_SECRET` with your actual CRON_SECRET from Vercel environment variables)
+   - **Note**: If you don't see a headers section in ADVANCED, the interface may have changed. Look for any section related to "Request", "HTTP", "Headers", or "Custom" options
 
 4. **Click "Create Cronjob"**
 
