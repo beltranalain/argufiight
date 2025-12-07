@@ -93,12 +93,32 @@ export async function POST(
     }
 
     // Check if debate already has an opponent
+    // For DIRECT challenges, opponentId is set when created but debate is still WAITING
+    // So we need to check if the opponentId matches the current user (they're accepting)
+    // or if it's a different user (already accepted by someone else)
     if (debate.opponentId) {
-      console.error('Debate already has an opponent:', debate.opponentId)
-      return NextResponse.json(
-        { error: 'This challenge has already been accepted by another user' },
-        { status: 400 }
-      )
+      if (debate.challengeType === 'DIRECT') {
+        // For DIRECT challenges, opponentId is the intended opponent
+        // If it matches the current user, they can accept
+        if (debate.opponentId !== userId) {
+          console.error('Direct challenge opponentId does not match current user:', {
+            opponentId: debate.opponentId,
+            userId,
+          })
+          return NextResponse.json(
+            { error: 'This challenge is not for you' },
+            { status: 403 }
+          )
+        }
+        // If opponentId matches, continue (they're accepting their own invitation)
+      } else {
+        // For OPEN or GROUP challenges, if opponentId exists, it's already accepted
+        console.error('Debate already has an opponent:', debate.opponentId)
+        return NextResponse.json(
+          { error: 'This challenge has already been accepted by another user' },
+          { status: 400 }
+        )
+      }
     }
 
     // For direct/group challenges, verify user is invited
