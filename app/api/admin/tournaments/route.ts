@@ -10,60 +10,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // For now, return empty array until tournament schema is added
-    // This prevents errors while the feature is being developed
-    const tournaments = await prisma.$queryRaw`
-      SELECT 
-        id,
-        name,
-        description,
-        status,
-        "maxParticipants" as "max_participants",
-        "currentRound" as "current_round",
-        "totalRounds" as "total_rounds",
-        "createdAt" as "created_at",
-        "creatorId" as "creator_id"
-      FROM tournaments
-      ORDER BY "createdAt" DESC
-      LIMIT 100
-    `.catch(() => [])
+    // Fetch all tournaments using Prisma
+    const tournaments = await prisma.tournament.findMany({
+      include: {
+        creator: {
+          select: {
+            username: true,
+            email: true,
+          },
+        },
+        participants: {
+          select: {
+            id: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 100,
+    })
 
-    // If tournaments table doesn't exist yet, return empty array
-    if (!Array.isArray(tournaments)) {
-      return NextResponse.json([])
-    }
+    // Format tournaments for response
+    const tournamentsWithCounts = tournaments.map((tournament) => ({
+      id: tournament.id,
+      name: tournament.name,
+      description: tournament.description,
+      status: tournament.status,
+      maxParticipants: tournament.maxParticipants,
+      currentRound: tournament.currentRound,
+      totalRounds: tournament.totalRounds,
+      participantCount: tournament.participants.length,
+      createdAt: tournament.createdAt.toISOString(),
+      creator: tournament.creator || { username: 'Unknown', email: '' },
+    }))
 
-    // Fetch creator info for each tournament
-    const tournamentsWithCreators = await Promise.all(
-      (tournaments as any[]).map(async (tournament: any) => {
-        const creator = await prisma.user.findUnique({
-          where: { id: tournament.creator_id },
-          select: { username: true, email: true },
-        })
-
-        // Count participants
-        const participantCount = await prisma.$queryRaw<[{ count: bigint }]>`
-          SELECT COUNT(*) as count
-          FROM tournament_participants
-          WHERE "tournamentId" = ${tournament.id}
-        `.catch(() => [{ count: BigInt(0) }])
-
-        return {
-          id: tournament.id,
-          name: tournament.name,
-          description: tournament.description,
-          status: tournament.status,
-          maxParticipants: tournament.max_participants || 16,
-          currentRound: tournament.current_round || 1,
-          totalRounds: tournament.total_rounds || 4,
-          participantCount: Number(participantCount[0]?.count || 0),
-          createdAt: tournament.created_at,
-          creator: creator || { username: 'Unknown', email: '' },
-        }
-      })
-    )
-
-    return NextResponse.json(tournamentsWithCreators)
+    return NextResponse.json(tournamentsWithCounts)
   } catch (error: any) {
     // If table doesn't exist, return empty array
     if (error.message?.includes('does not exist') || error.code === '42P01') {
