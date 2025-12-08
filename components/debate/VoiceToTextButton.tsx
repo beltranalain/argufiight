@@ -16,6 +16,8 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   const [showPermissionModal, setShowPermissionModal] = useState(false)
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle')
   const [testMessage, setTestMessage] = useState('')
+  const [isRestarting, setIsRestarting] = useState(false) // Track restart state
+  const [restartCount, setRestartCount] = useState(0) // Count auto-restarts
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const testRecognitionRef = useRef<SpeechRecognition | null>(null)
   const streamRef = useRef<MediaStream | null>(null) // Keep microphone stream open
@@ -112,6 +114,10 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       console.log('Speech recognition ended - restarting immediately if still listening')
       // If we're still supposed to be listening, IMMEDIATELY create a NEW instance and start it
       if (shouldListenRef.current) {
+        // Show restarting indicator
+        setIsRestarting(true)
+        setRestartCount(prev => prev + 1)
+        
         // Keep isListening true - don't set it to false
         // Create a fresh recognition instance immediately
         const newRecognition = createRecognitionInstance()
@@ -123,10 +129,13 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
               try {
                 console.log('Immediately restarting recognition instance...')
                 recognitionRef.current.start()
+                // Clear restarting indicator after a brief moment
+                setTimeout(() => setIsRestarting(false), 500)
               } catch (error: any) {
                 // Handle "already started" error - this means recognition is already running
                 if (error.message && (error.message.includes('already started') || error.message.includes('started'))) {
                   console.log('Recognition already running, this is fine')
+                  setIsRestarting(false)
                   return
                 }
                 console.error('Failed to start new recognition instance:', error)
@@ -136,11 +145,13 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
                     try {
                       console.log('Retrying recognition start after delay...')
                       recognitionRef.current.start()
+                      setIsRestarting(false)
                     } catch (retryError: any) {
                       console.error('Failed to start after retry:', retryError)
                       // If it's "already started", that's fine
                       if (retryError.message && (retryError.message.includes('already started') || retryError.message.includes('started'))) {
                         console.log('Recognition already running after retry, continuing...')
+                        setIsRestarting(false)
                         return
                       }
                       // Try one more time with a fresh instance
@@ -151,12 +162,16 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
                             recognitionRef.current = finalRetry
                             try {
                               finalRetry.start()
+                              setIsRestarting(false)
                             } catch (finalError: any) {
                               console.error('Failed to start after final retry:', finalError)
                               // Only stop if it's not "already started"
                               if (!finalError.message || (!finalError.message.includes('already started') && !finalError.message.includes('started'))) {
                                 shouldListenRef.current = false
                                 setIsListening(false)
+                                setIsRestarting(false)
+                              } else {
+                                setIsRestarting(false)
                               }
                             }
                           }
@@ -171,9 +186,11 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
         } else {
           shouldListenRef.current = false
           setIsListening(false)
+          setIsRestarting(false)
         }
       } else {
         setIsListening(false)
+        setIsRestarting(false)
       }
     }
 
@@ -231,8 +248,10 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     // Set flag that we should be listening
     shouldListenRef.current = true
 
-    // Reset accumulated transcript when starting fresh
+    // Reset accumulated transcript and restart count when starting fresh
     accumulatedTranscriptRef.current = ''
+    setRestartCount(0)
+    setIsRestarting(false)
 
     // NEW APPROACH: Keep microphone stream open while listening
     // This prevents the browser from stopping recognition due to stream closure
@@ -307,6 +326,37 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     }
     
     setIsListening(false)
+    setIsRestarting(false)
+    setRestartCount(0)
+  }
+
+  // Manual restart function
+  const restartListening = () => {
+    if (!isListening || !shouldListenRef.current) {
+      return
+    }
+    
+    // Stop current recognition
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop()
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+    
+    // Create new instance and start
+    const newRecognition = createRecognitionInstance()
+    if (newRecognition) {
+      recognitionRef.current = newRecognition
+      try {
+        newRecognition.start()
+        setRestartCount(0) // Reset count on manual restart
+        setIsRestarting(false)
+      } catch (error) {
+        console.error('Failed to manually restart:', error)
+      }
+    }
   }
 
   // Test microphone function - uses getUserMedia to explicitly request permission
@@ -404,29 +454,59 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
 
   return (
     <>
-      <Button
-        type="button"
-        variant={isListening ? "danger" : "secondary"}
-        onClick={isListening ? stopListening : startListening}
-        disabled={disabled}
-        className={className}
-      >
-        {isListening ? (
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant={isListening ? "danger" : "secondary"}
+          onClick={isListening ? stopListening : startListening}
+          disabled={disabled}
+          className={className}
+        >
+          {isListening ? (
+            <>
+              <svg className="w-4 h-4 mr-2 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+              </svg>
+              {isRestarting ? 'Restarting...' : 'Stop Listening'}
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+              </svg>
+              Voice Input
+            </>
+          )}
+        </Button>
+        
+        {isListening && (
           <>
-            <svg className="w-4 h-4 mr-2 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
-            </svg>
-            Stop Listening
-          </>
-        ) : (
-          <>
-            <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
-            </svg>
-            Voice Input
+            {isRestarting && (
+              <span className="text-xs text-neon-orange animate-pulse">
+                Restarting...
+              </span>
+            )}
+            {restartCount > 0 && !isRestarting && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={restartListening}
+                className="text-xs text-text-secondary hover:text-text-primary"
+                title="Voice input may pause during silence. Click to restart manually."
+              >
+                ↻ Restart
+              </Button>
+            )}
           </>
         )}
-      </Button>
+      </div>
+      
+      {isListening && restartCount > 2 && (
+        <div className="mt-2 p-2 bg-neon-orange/10 border border-neon-orange/30 rounded text-xs text-neon-orange">
+          💡 Voice input may pause during silence. Click "Restart" if it stops, or use the "Stop Listening" button to end.
+        </div>
+      )}
 
       {/* Permission Help Modal */}
       <Modal
