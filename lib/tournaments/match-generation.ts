@@ -268,7 +268,7 @@ export async function startTournament(tournamentId: string): Promise<void> {
         challengerPosition: 'FOR',
         opponentPosition: 'AGAINST',
         opponentId: participant2.id,
-        totalRounds: 5, // Default rounds, could use tournament setting
+        totalRounds: 3, // Tournament matches are 3 rounds
         roundDuration: tournament.roundDuration * 3600000, // Convert hours to milliseconds
         speedMode: false,
         allowCopyPaste: true,

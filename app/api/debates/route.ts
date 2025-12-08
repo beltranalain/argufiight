@@ -136,6 +136,24 @@ export async function GET(request: NextRequest) {
             authorId: true,
           },
         },
+        tournamentMatch: {
+          select: {
+            id: true,
+            tournament: {
+              select: {
+                id: true,
+                name: true,
+                currentRound: true,
+                totalRounds: true,
+              },
+            },
+            round: {
+              select: {
+                roundNumber: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',

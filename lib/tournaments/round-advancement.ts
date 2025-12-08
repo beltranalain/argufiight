@@ -153,7 +153,7 @@ export async function checkAndAdvanceTournamentRound(
           challengerPosition: 'FOR',
           opponentPosition: 'AGAINST',
           opponentId: participant2.id,
-          totalRounds: 5, // Default rounds
+          totalRounds: 3, // Tournament matches are 3 rounds
           roundDuration: nextRound.tournament.roundDuration * 3600000, // Convert hours to milliseconds
           speedMode: false,
           allowCopyPaste: true,
