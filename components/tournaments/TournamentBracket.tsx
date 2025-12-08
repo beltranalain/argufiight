@@ -60,6 +60,7 @@ interface BracketSlot {
   isWinner: boolean
   debateId: string | null
   matchStatus: string | null
+  score: number | null
 }
 
 export function TournamentBracket({
@@ -97,6 +98,7 @@ export function TournamentBracket({
             isWinner: match.winnerId ? match.winnerId === participant1?.userId : false,
             debateId: match.debate?.id || null,
             matchStatus: match.status,
+            score: match.participant1Score,
           },
           {
             participant: participant2,
@@ -104,6 +106,7 @@ export function TournamentBracket({
             isWinner: match.winnerId ? match.winnerId === participant2?.userId : false,
             debateId: match.debate?.id || null,
             matchStatus: match.status,
+            score: match.participant2Score,
           },
         ])
       }
@@ -224,8 +227,16 @@ export function TournamentBracket({
                                 <div className="flex-1 min-w-0">
                                   <p className="text-text-primary text-sm font-semibold truncate">
                                     ({slot1.participant.seed}) @{slot1.participant.user.username}
+                                    {slot1.isWinner && (
+                                      <span className="ml-2 text-cyber-green">✓ Winner</span>
+                                    )}
                                   </p>
                                   <p className="text-text-secondary text-xs">ELO: {slot1.participant.user.eloRating}</p>
+                                  {slot1.score !== null && (
+                                    <p className="text-electric-blue text-xs font-semibold mt-0.5">
+                                      Score: {slot1.score}/100
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                             ) : (
@@ -254,8 +265,16 @@ export function TournamentBracket({
                                 <div className="flex-1 min-w-0">
                                   <p className="text-text-primary text-sm font-semibold truncate">
                                     ({slot2.participant.seed}) @{slot2.participant.user.username}
+                                    {slot2.isWinner && (
+                                      <span className="ml-2 text-cyber-green">✓ Winner</span>
+                                    )}
                                   </p>
                                   <p className="text-text-secondary text-xs">ELO: {slot2.participant.user.eloRating}</p>
+                                  {slot2.score !== null && (
+                                    <p className="text-electric-blue text-xs font-semibold mt-0.5">
+                                      Score: {slot2.score}/100
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                             ) : (

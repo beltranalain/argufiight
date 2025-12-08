@@ -446,21 +446,105 @@ export default function TournamentDetailPage() {
             </CardBody>
           </Card>
 
-          {/* Bracket Visualization */}
+          {/* Bracket Visualization and Explanation */}
           {tournament.matches.length > 0 && (
-            <Card>
-              <CardHeader>
-                <h2 className="text-xl font-bold text-text-primary">Tournament Bracket</h2>
-              </CardHeader>
-              <CardBody>
-                <TournamentBracket
-                  participants={tournament.participants}
-                  matches={tournament.matches}
-                  totalRounds={tournament.totalRounds}
-                  currentRound={tournament.currentRound}
-                />
-              </CardBody>
-            </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <h2 className="text-xl font-bold text-text-primary">Tournament Bracket</h2>
+                  </CardHeader>
+                  <CardBody>
+                    <TournamentBracket
+                      participants={tournament.participants}
+                      matches={tournament.matches}
+                      totalRounds={tournament.totalRounds}
+                      currentRound={tournament.currentRound}
+                    />
+                  </CardBody>
+                </Card>
+              </div>
+              
+              {/* Finals Explanation Box */}
+              <div className="lg:col-span-1">
+                <Card>
+                  <CardHeader>
+                    <h2 className="text-xl font-bold text-text-primary">Finals Explanation</h2>
+                  </CardHeader>
+                  <CardBody>
+                    {tournament.currentRound >= tournament.totalRounds ? (
+                      <div className="space-y-4">
+                        {tournament.format === 'CHAMPIONSHIP' ? (
+                          <>
+                            <p className="text-text-primary">
+                              <strong>Championship Format:</strong> The two finalists advanced based on their individual scores from Round 1.
+                            </p>
+                            <p className="text-text-secondary text-sm">
+                              In Championship format, advancement is determined by individual performance scores, not just match wins. The top scorers from each position (PRO and CON) advance to the finals.
+                            </p>
+                            <div className="mt-4 p-3 bg-bg-secondary rounded-lg border border-bg-tertiary">
+                              <p className="text-text-primary font-semibold mb-2">Round 1 Scores:</p>
+                              {tournament.matches
+                                .filter(m => m.round === 1)
+                                .map((match) => {
+                                  const p1 = tournament.participants.find(p => p.id === match.participant1Id)
+                                  const p2 = tournament.participants.find(p => p.id === match.participant2Id)
+                                  return (
+                                    <div key={match.id} className="text-sm space-y-1 mb-3 last:mb-0">
+                                      <div className="flex justify-between">
+                                        <span className="text-text-secondary">@{p1?.user.username}</span>
+                                        <span className="text-electric-blue font-semibold">
+                                          {match.participant1Score !== null ? `${match.participant1Score}/100` : 'N/A'}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-text-secondary">@{p2?.user.username}</span>
+                                        <span className="text-electric-blue font-semibold">
+                                          {match.participant2Score !== null ? `${match.participant2Score}/100` : 'N/A'}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                            </div>
+                            <p className="text-text-secondary text-sm mt-3">
+                              The two highest-scoring participants from Round 1 advanced to the finals, regardless of whether they won their individual matches.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-text-primary">
+                              <strong>Bracket Format:</strong> The two finalists are the winners of the Round 1 matches.
+                            </p>
+                            <p className="text-text-secondary text-sm">
+                              In Bracket format, only the winners of each match advance to the next round. The two Round 1 winners face off in the finals.
+                            </p>
+                            <div className="mt-4 p-3 bg-bg-secondary rounded-lg border border-bg-tertiary">
+                              <p className="text-text-primary font-semibold mb-2">Round 1 Winners:</p>
+                              {tournament.matches
+                                .filter(m => m.round === 1 && m.winnerId)
+                                .map((match) => {
+                                  const winner = tournament.participants.find(p => p.id === match.winnerId)
+                                  return (
+                                    <div key={match.id} className="text-sm mb-2">
+                                      <span className="text-cyber-green font-semibold">✓</span>{' '}
+                                      <span className="text-text-primary">@{winner?.user.username}</span>
+                                    </div>
+                                  )
+                                })}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-text-secondary">
+                        Finals explanation will appear once the tournament reaches the final round.
+                      </p>
+                    )}
+                  </CardBody>
+                </Card>
+              </div>
+            </div>
           )}
         </div>
       </div>
