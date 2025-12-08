@@ -34,6 +34,17 @@ interface UserProfile {
   createdAt: string
 }
 
+interface TournamentStats {
+  totalTournaments: number
+  completedTournaments: number
+  activeTournaments: number
+  championships: number
+  totalTournamentWins: number
+  totalTournamentLosses: number
+  winRate: number
+  bestFinish: number
+}
+
 export default function ProfilePage() {
   const { user, refetch } = useAuth()
   const { showToast } = useToast()
@@ -48,10 +59,12 @@ export default function ProfilePage() {
   })
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [tournamentStats, setTournamentStats] = useState<TournamentStats | null>(null)
 
   useEffect(() => {
     if (user) {
       fetchProfile()
+      fetchTournamentStats()
     }
   }, [user])
 
@@ -72,6 +85,18 @@ export default function ProfilePage() {
       console.error('Failed to fetch profile:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const fetchTournamentStats = async () => {
+    try {
+      const response = await fetch('/api/profile/tournament-stats')
+      if (response.ok) {
+        const data = await response.json()
+        setTournamentStats(data.stats)
+      }
+    } catch (error) {
+      console.error('Failed to fetch tournament stats:', error)
     }
   }
 
@@ -356,6 +381,45 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Tournament Stats Section */}
+                  {tournamentStats && (
+                    <div className="mt-6 pt-6 border-t border-bg-tertiary">
+                      <h3 className="text-lg font-bold text-text-primary mb-4">Tournament Stats</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-bg-tertiary rounded-lg p-4 border border-bg-secondary">
+                          <p className="text-text-secondary text-sm mb-1">Total Tournaments</p>
+                          <p className="text-2xl font-bold text-text-primary">
+                            {tournamentStats.totalTournaments}
+                          </p>
+                          <p className="text-xs text-text-muted mt-1">Participated</p>
+                        </div>
+                        <div className="bg-bg-tertiary rounded-lg p-4 border border-bg-secondary">
+                          <p className="text-text-secondary text-sm mb-1">Championships</p>
+                          <p className="text-2xl font-bold text-cyber-green">
+                            {tournamentStats.championships}
+                          </p>
+                          <p className="text-xs text-text-muted mt-1">Tournaments won</p>
+                        </div>
+                        <div className="bg-bg-tertiary rounded-lg p-4 border border-bg-secondary">
+                          <p className="text-text-secondary text-sm mb-1">Tournament Win Rate</p>
+                          <p className="text-2xl font-bold text-electric-blue">
+                            {tournamentStats.winRate}%
+                          </p>
+                          <p className="text-xs text-text-muted mt-1">
+                            {tournamentStats.totalTournamentWins}W / {tournamentStats.totalTournamentLosses}L
+                          </p>
+                        </div>
+                        <div className="bg-bg-tertiary rounded-lg p-4 border border-bg-secondary">
+                          <p className="text-text-secondary text-sm mb-1">Active Tournaments</p>
+                          <p className="text-2xl font-bold text-neon-orange">
+                            {tournamentStats.activeTournaments}
+                          </p>
+                          <p className="text-xs text-text-muted mt-1">Currently playing</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardBody>

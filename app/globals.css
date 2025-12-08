@@ -211,6 +211,32 @@ body {
   animation: slow-blink-orange 2s ease-in-out infinite;
 }
 
+@keyframes winner-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 255, 148, 0.4);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 20px 5px rgba(0, 255, 148, 0.6);
+  }
+}
+
+@keyframes winner-glow {
+  0%, 100% {
+    border-color: rgba(0, 255, 148, 0.5);
+    background-color: rgba(0, 255, 148, 0.1);
+  }
+  50% {
+    border-color: rgba(0, 255, 148, 1);
+    background-color: rgba(0, 255, 148, 0.2);
+  }
+}
+
+.winner-animation {
+  animation: winner-pulse 2s ease-in-out infinite, winner-glow 2s ease-in-out infinite;
+}
+
 /* Hide scrollbar */
 .scrollbar-hide {
   -ms-overflow-style: none;

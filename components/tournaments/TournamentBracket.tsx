@@ -204,9 +204,9 @@ export function TournamentBracket({
                         >
                           {/* Participant 1 */}
                           <div
-                            className={`mb-2 p-2 rounded ${
+                            className={`mb-2 p-2 rounded transition-all ${
                               slot1.isWinner
-                                ? 'bg-cyber-green/20 border border-cyber-green'
+                                ? 'bg-cyber-green/20 border border-cyber-green winner-animation'
                                 : 'bg-bg-tertiary'
                             }`}
                           >
@@ -234,9 +234,9 @@ export function TournamentBracket({
 
                           {/* Participant 2 */}
                           <div
-                            className={`p-2 rounded ${
+                            className={`p-2 rounded transition-all ${
                               slot2.isWinner
-                                ? 'bg-cyber-green/20 border border-cyber-green'
+                                ? 'bg-cyber-green/20 border border-cyber-green winner-animation'
                                 : 'bg-bg-tertiary'
                             }`}
                           >
