@@ -643,8 +643,25 @@ export default function DebatePage() {
                   currentRound={debate.currentRound}
                   totalRounds={debate.totalRounds}
                   allowCopyPaste={debate.allowCopyPaste}
-                  onSuccess={fetchDebate}
+                  onSuccess={() => {
+                    // Refresh immediately after submission
+                    setTimeout(() => {
+                      fetchDebate(false)
+                    }, 500)
+                  }}
                 />
+              </CardBody>
+            </Card>
+          )}
+
+          {/* Debug: Show why form is not showing if user is participant but can't submit */}
+          {debate && user && isParticipant && debate.status === 'ACTIVE' && !canSubmit && (
+            <Card className="border-yellow-500">
+              <CardBody>
+                <p className="text-yellow-500 text-sm">
+                  Debug: Form not showing. isMyTurn: {String(isMyTurn)}, userSubmitted: {String(userSubmitted)}, 
+                  currentRound: {debate.currentRound}, statements in round: {currentRoundStatements.length}
+                </p>
               </CardBody>
             </Card>
           )}
