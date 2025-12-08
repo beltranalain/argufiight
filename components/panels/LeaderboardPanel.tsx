@@ -112,7 +112,7 @@ export function LeaderboardPanel() {
               return (
                 <Link
                   key={entry.id}
-                  href={`/${entry.username}`}
+                  href={`/profile/${entry.id}`}
                   className={`block p-5 rounded-xl border-2 transition-all hover:shadow-lg ${
                     isCurrentUser
                       ? 'bg-gradient-to-br from-electric-blue/20 to-electric-blue/5 border-electric-blue/50 hover:border-electric-blue shadow-electric-blue/20'

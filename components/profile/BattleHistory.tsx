@@ -70,7 +70,7 @@ export function BattleHistory({ userId }: BattleHistoryProps) {
         return (
           <Link
             key={opponent.id}
-            href={`/${opponent.username}`}
+            href={`/profile/${opponent.id}`}
             className="flex items-center gap-3 p-3 bg-bg-secondary border border-bg-tertiary rounded-lg hover:border-electric-blue/50 transition-colors"
           >
             <Avatar

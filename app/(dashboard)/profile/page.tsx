@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
@@ -36,7 +35,6 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
-  const router = useRouter()
   const { user, refetch } = useAuth()
   const { showToast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -56,18 +54,6 @@ export default function ProfilePage() {
       fetchProfile()
     }
   }, [user])
-
-  // Redirect to username-based URL immediately when user is available
-  useEffect(() => {
-    if (user?.username && typeof window !== 'undefined') {
-      const currentPath = window.location.pathname
-      // Only redirect if we're on /profile and haven't already redirected
-      if (currentPath === '/profile') {
-        // Use window.location.replace for immediate redirect without flicker
-        window.location.replace(`/${user.username}`)
-      }
-    }
-  }, [user?.username])
 
   const fetchProfile = async () => {
     try {
