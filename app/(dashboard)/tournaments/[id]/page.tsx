@@ -126,13 +126,64 @@ export default function TournamentDetailPage() {
       return
     }
 
+    if (!tournament) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Tournament data not loaded',
+      })
+      return
+    }
+
+    // Double-check eligibility before attempting to join
+    if (tournament.isParticipant) {
+      showToast({
+        type: 'warning',
+        title: 'Already Participating',
+        description: 'You are already registered for this tournament',
+      })
+      return
+    }
+
+    if (tournament.isCreator) {
+      showToast({
+        type: 'warning',
+        title: 'Cannot Join',
+        description: 'You cannot join a tournament you created',
+      })
+      return
+    }
+
+    if (tournament.status !== 'UPCOMING' && tournament.status !== 'REGISTRATION_OPEN') {
+      showToast({
+        type: 'error',
+        title: 'Registration Closed',
+        description: 'This tournament is not accepting new participants',
+      })
+      return
+    }
+
+    if (tournament.participants.length >= tournament.maxParticipants) {
+      showToast({
+        type: 'error',
+        title: 'Tournament Full',
+        description: 'This tournament has reached its maximum number of participants',
+      })
+      return
+    }
+
     setIsJoining(true)
     try {
+      console.log(`[Frontend] Attempting to join tournament ${params.id}`)
       const response = await fetch(`/api/tournaments/${params.id}/join`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       })
 
       const data = await response.json()
+      console.log(`[Frontend] Join response:`, { status: response.status, data })
 
       if (response.ok) {
         showToast({
@@ -140,20 +191,22 @@ export default function TournamentDetailPage() {
           title: 'Joined Tournament!',
           description: 'You have successfully joined the tournament',
         })
-        fetchTournament() // Refresh to update participant status
+        // Refresh to update participant status
+        await fetchTournament()
       } else {
+        console.error(`[Frontend] Join failed:`, data.error)
         showToast({
           type: 'error',
-          title: 'Error',
-          description: data.error || 'Failed to join tournament',
+          title: 'Failed to Join',
+          description: data.error || 'Failed to join tournament. Please try again.',
         })
       }
-    } catch (error) {
-      console.error('Failed to join tournament:', error)
+    } catch (error: any) {
+      console.error('[Frontend] Failed to join tournament:', error)
       showToast({
         type: 'error',
-        title: 'Error',
-        description: 'Failed to join tournament',
+        title: 'Network Error',
+        description: error.message || 'Failed to connect to server. Please check your connection and try again.',
       })
     } finally {
       setIsJoining(false)
@@ -254,16 +307,29 @@ export default function TournamentDetailPage() {
                   )}
                 </div>
               </div>
-              {canJoin && (
-                <Button onClick={handleJoin} variant="primary" isLoading={isJoining}>
-                  Join Tournament
-                </Button>
-              )}
-              {tournament.isParticipant && (
-                <Badge variant="default" className="bg-electric-blue text-black">
-                  You're Participating
-                </Badge>
-              )}
+              <div className="flex flex-col items-end gap-2">
+                {canJoin && (
+                  <Button 
+                    onClick={handleJoin} 
+                    variant="primary" 
+                    isLoading={isJoining}
+                    disabled={isJoining}
+                    className="min-w-[150px]"
+                  >
+                    {isJoining ? 'Joining...' : 'Join Tournament'}
+                  </Button>
+                )}
+                {tournament.isParticipant && (
+                  <Badge variant="default" className="bg-electric-blue text-black">
+                    You're Participating
+                  </Badge>
+                )}
+                {tournament.isCreator && (
+                  <Badge variant="default" className="bg-neon-orange text-black">
+                    You're the Creator
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
 
