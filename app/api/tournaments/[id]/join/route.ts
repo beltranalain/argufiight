@@ -160,8 +160,17 @@ export async function POST(
     })
 
     if (updatedTournament && updatedTournament.participants.length >= updatedTournament.maxParticipants) {
-      // Tournament is full - could auto-start here if desired
-      // For now, creator will need to manually start it
+      // Tournament is full - auto-start it
+      console.log(`[Join Tournament] Tournament "${updatedTournament.name}" is full (${updatedTournament.participants.length}/${updatedTournament.maxParticipants}) - auto-starting...`)
+      
+      try {
+        const { startTournament } = await import('@/lib/tournaments/match-generation')
+        await startTournament(tournamentId)
+        console.log(`[Join Tournament] Tournament "${updatedTournament.name}" started successfully`)
+      } catch (error: any) {
+        console.error(`[Join Tournament] Failed to auto-start tournament:`, error)
+        // Don't fail the join request if auto-start fails - creator can start manually
+      }
     }
 
     return NextResponse.json({ success: true, message: 'Successfully joined tournament' })
