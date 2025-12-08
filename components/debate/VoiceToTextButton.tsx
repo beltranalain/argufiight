@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
+import { DeepgramClient } from '@/lib/ai/deepgram-client'
 
 interface VoiceToTextButtonProps {
   onTranscript: (text: string) => void
@@ -26,6 +27,9 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   const lastResultTimeRef = useRef<number | null>(null) // Track when we last got a result
   const preemptiveRestartTimeoutRef = useRef<number | null>(null) // For preemptive restart
   const nextRecognitionRef = useRef<SpeechRecognition | null>(null) // Pre-create next instance
+  const deepgramClientRef = useRef<DeepgramClient | null>(null) // Deepgram client instance
+  const [useDeepgram, setUseDeepgram] = useState(false) // Whether to use Deepgram
+  const [deepgramAvailable, setDeepgramAvailable] = useState(false) // Whether Deepgram is configured
 
   // Function to create a new recognition instance
   const createRecognitionInstance = () => {
@@ -288,8 +292,8 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   }, [onTranscript])
 
   const startListening = async () => {
-    if (!isSupported) {
-      console.error('Speech recognition not supported')
+    if (!isSupported && !deepgramAvailable) {
+      console.error('Speech recognition not supported and Deepgram not available')
       return
     }
 
@@ -312,39 +316,58 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       clearTimeout(preemptiveRestartTimeoutRef.current)
       preemptiveRestartTimeoutRef.current = null
     }
-    
-    // Pre-create the first recognition instance
-    nextRecognitionRef.current = createRecognitionInstance()
 
-    // NEW APPROACH: Keep microphone stream open while listening
-    // This prevents the browser from stopping recognition due to stream closure
     try {
-      console.log('Step 1: Requesting microphone permission and keeping stream open...')
+      console.log('Step 1: Requesting microphone permission...')
       
-      // Request microphone access and KEEP IT OPEN
+      // Request microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream // Store reference to keep it alive
       
-      console.log('Step 2: Microphone permission granted, using pre-created recognition instance...')
-      
-      // Use pre-created instance or create new one
-      const recognition = nextRecognitionRef.current || createRecognitionInstance()
-      if (!recognition) {
-        throw new Error('Failed to create recognition instance')
+      // Try Deepgram first if available
+      if (useDeepgram && deepgramAvailable) {
+        try {
+          console.log('Step 2: Using Deepgram for voice input...')
+          const response = await fetch('/api/speech/transcribe')
+          if (response.ok) {
+            const data = await response.json()
+            if (data.apiKey) {
+              const client = new DeepgramClient(
+                data.apiKey,
+                (result) => {
+                  if (result.isFinal) {
+                    accumulatedTranscriptRef.current += result.transcript + ' '
+                    onTranscript(accumulatedTranscriptRef.current.trim())
+                  } else {
+                    onTranscript(accumulatedTranscriptRef.current + result.transcript)
+                  }
+                },
+                (error) => {
+                  console.error('Deepgram error:', error)
+                  // Fallback to Web Speech API
+                  console.log('Falling back to Web Speech API...')
+                  startWebSpeechRecognition(stream)
+                }
+              )
+              
+              deepgramClientRef.current = client
+              await client.start(stream)
+              setIsListening(true)
+              console.log('Deepgram started successfully')
+              return
+            }
+          }
+        } catch (deepgramError: any) {
+          console.error('Failed to start Deepgram, falling back to Web Speech API:', deepgramError)
+          // Fall through to Web Speech API
+        }
       }
       
-      recognitionRef.current = recognition
-      nextRecognitionRef.current = null // Clear it since we're using it
-      
-      // Pre-create next instance for faster restart
-      nextRecognitionRef.current = createRecognitionInstance()
-      
-      // Start recognition
-      console.log('Step 3: Starting speech recognition...')
-      recognition.start()
+      // Fallback to Web Speech API
+      startWebSpeechRecognition(stream)
       
     } catch (error: any) {
-      console.error('Failed to get microphone permission or start speech recognition:', error)
+      console.error('Failed to get microphone permission:', error)
       shouldListenRef.current = false
       setIsListening(false)
       
@@ -353,29 +376,49 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
           error.name === 'PermissionDeniedError' ||
           error.name === 'NotReadableError' ||
           (error.message && (error.message.includes('permission') || error.message.includes('not allowed') || error.message.includes('denied')))) {
-        // Permission was denied - show help modal
         console.log('Permission error detected, showing help modal')
         setShowPermissionModal(true)
-      } else {
-        // For other errors, try to start speech recognition anyway (might work)
-        console.warn('getUserMedia failed, trying speech recognition directly:', error.name, error.message)
-        try {
-          const recognition = createRecognitionInstance()
-          if (recognition) {
-            recognitionRef.current = recognition
-            recognition.start()
-          }
-        } catch (recognitionError: any) {
-          console.error('Speech recognition also failed:', recognitionError)
-          setShowPermissionModal(true)
-        }
       }
     }
+  }
+
+  const startWebSpeechRecognition = (stream: MediaStream) => {
+    if (!isSupported) {
+      console.error('Web Speech API not supported')
+      return
+    }
+
+    console.log('Step 2: Using Web Speech API for voice input...')
+    
+    // Pre-create the first recognition instance
+    nextRecognitionRef.current = createRecognitionInstance()
+    
+    // Use pre-created instance or create new one
+    const recognition = nextRecognitionRef.current || createRecognitionInstance()
+    if (!recognition) {
+      throw new Error('Failed to create recognition instance')
+    }
+    
+    recognitionRef.current = recognition
+    nextRecognitionRef.current = null // Clear it since we're using it
+    
+    // Pre-create next instance for faster restart
+    nextRecognitionRef.current = createRecognitionInstance()
+    
+    // Start recognition
+    console.log('Step 3: Starting Web Speech recognition...')
+    recognition.start()
   }
 
   const stopListening = () => {
     // Set flag to stop listening
     shouldListenRef.current = false
+    
+    // Stop Deepgram if active
+    if (deepgramClientRef.current) {
+      deepgramClientRef.current.stop()
+      deepgramClientRef.current = null
+    }
     
     // Clear preemptive restart timeout
     if (preemptiveRestartTimeoutRef.current) {

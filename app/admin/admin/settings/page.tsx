@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 export default function AdminSettingsPage() {
   const { showToast } = useToast()
   const [deepseekKey, setDeepseekKey] = useState('')
+  const [deepgramKey, setDeepgramKey] = useState('')
   const [resendKey, setResendKey] = useState('')
   const [googleAnalyticsKey, setGoogleAnalyticsKey] = useState('')
   const [googleAnalyticsPropertyId, setGoogleAnalyticsPropertyId] = useState('')
@@ -29,6 +30,7 @@ export default function AdminSettingsPage() {
       if (response.ok) {
         const data = await response.json()
         setDeepseekKey(data.DEEPSEEK_API_KEY || '')
+        setDeepgramKey(data.DEEPGRAM_API_KEY || '')
         setResendKey(data.RESEND_API_KEY || '')
         setGoogleAnalyticsKey(data.GOOGLE_ANALYTICS_API_KEY || '')
         setGoogleAnalyticsPropertyId(data.GOOGLE_ANALYTICS_PROPERTY_ID || '')
@@ -49,6 +51,7 @@ export default function AdminSettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           DEEPSEEK_API_KEY: deepseekKey,
+          DEEPGRAM_API_KEY: deepgramKey,
           RESEND_API_KEY: resendKey,
           GOOGLE_ANALYTICS_API_KEY: googleAnalyticsKey,
           GOOGLE_ANALYTICS_PROPERTY_ID: googleAnalyticsPropertyId,
@@ -240,6 +243,43 @@ export default function AdminSettingsPage() {
                     className="underline hover:text-neon-orange"
                   >
                     platform.deepseek.com
+                  </a>
+                </p>
+              </div>
+            </div>
+
+            {/* Deepgram API Key */}
+            <div>
+              <div className="flex items-end gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Deepgram API Key
+                  </label>
+                  <input
+                    type="password"
+                    value={deepgramKey}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDeepgramKey(e.target.value)}
+                    placeholder="651d1c58..."
+                    className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                  />
+                  <p className="text-xs text-text-secondary mt-1">
+                    Required for reliable voice input (12,000 free minutes/month)
+                  </p>
+                </div>
+              </div>
+              <div className="mt-2 p-3 bg-electric-blue/10 border border-electric-blue/30 rounded-lg">
+                <p className="text-sm text-electric-blue">
+                  <strong>Free Tier:</strong> 12,000 minutes/month = ~4,000-6,000 arguments/month
+                </p>
+                <p className="text-xs text-text-secondary mt-1">
+                  Get your API key at{' '}
+                  <a
+                    href="https://console.deepgram.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-neon-orange"
+                  >
+                    console.deepgram.com
                   </a>
                 </p>
               </div>
