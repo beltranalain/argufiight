@@ -166,13 +166,15 @@ export function ArenaPanel() {
           />
         </div>
       ) : (
-        <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {debates.map((debate: any) => (
-            <StaggerItem key={debate.id}>
-              <DebateCard debate={debate} />
-            </StaggerItem>
-          ))}
-        </StaggerContainer>
+        <div className={`${debates.length > 4 ? 'max-h-[800px] overflow-y-auto pr-2' : ''}`}>
+          <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {debates.map((debate: any) => (
+              <StaggerItem key={debate.id}>
+                <DebateCard debate={debate} />
+              </StaggerItem>
+            ))}
+          </StaggerContainer>
+        </div>
       )}
       </div>
 
