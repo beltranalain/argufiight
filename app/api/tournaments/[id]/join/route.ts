@@ -37,9 +37,11 @@ export async function POST(
 
     // Check if tournament is private and user is invited
     if (tournament.isPrivate) {
+      console.log(`[Join Tournament] Tournament "${tournament.name}" is private. Creator: ${tournament.creatorId}, User: ${userId}`)
       if (tournament.creatorId !== userId) {
         // User is not the creator, check if they're invited
         if (!tournament.invitedUserIds) {
+          console.log(`[Join Tournament] Private tournament has no invited users`)
           return NextResponse.json(
             { error: 'This is a private tournament and you are not invited' },
             { status: 403 }
@@ -58,16 +60,24 @@ export async function POST(
         }
 
         if (!Array.isArray(invitedIds) || !invitedIds.includes(userId)) {
+          console.log(`[Join Tournament] User ${userId} is not in invited list: ${invitedIds.join(', ')}`)
           return NextResponse.json(
             { error: 'This is a private tournament and you are not invited' },
             { status: 403 }
           )
         }
+        console.log(`[Join Tournament] User ${userId} is invited to private tournament`)
+      } else {
+        console.log(`[Join Tournament] User ${userId} is the creator of private tournament`)
       }
+    } else {
+      console.log(`[Join Tournament] Tournament "${tournament.name}" is public - allowing join`)
     }
 
     // Check if tournament is accepting registrations
+    console.log(`[Join Tournament] Tournament status: ${tournament.status}`)
     if (tournament.status !== 'UPCOMING' && tournament.status !== 'REGISTRATION_OPEN') {
+      console.log(`[Join Tournament] Tournament status "${tournament.status}" does not allow registrations`)
       return NextResponse.json(
         { error: 'Tournament is not accepting registrations' },
         { status: 400 }
