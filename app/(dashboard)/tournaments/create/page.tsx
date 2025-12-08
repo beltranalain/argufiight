@@ -143,6 +143,7 @@ export default function CreateTournamentPage() {
           description: 'Your tournament has been created successfully',
         })
         
+        // Redirect to tournament detail page
         // Use window.location for full page reload to ensure session is maintained
         setTimeout(() => {
           window.location.href = `/tournaments/${tournamentId}`

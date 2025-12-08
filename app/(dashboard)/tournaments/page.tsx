@@ -46,6 +46,20 @@ export default function TournamentsPage() {
     checkCanCreate()
   }, [filter, user])
 
+  // Refresh tournaments when page becomes visible (e.g., after creating a tournament)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchTournaments()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [filter])
+
   const fetchTournaments = async () => {
     try {
       setIsLoading(true)
@@ -57,7 +71,13 @@ export default function TournamentsPage() {
       const response = await fetch(`/api/tournaments?${params.toString()}`)
       if (response.ok) {
         const data = await response.json()
+        console.log('Fetched tournaments:', data) // Debug log
         setTournaments(data.tournaments || [])
+        
+        // Show message if no tournaments found
+        if (!data.tournaments || data.tournaments.length === 0) {
+          console.log('No tournaments found in response')
+        }
       } else if (response.status === 403) {
         const error = await response.json()
         if (error.error === 'Tournaments feature is disabled') {
@@ -67,9 +87,28 @@ export default function TournamentsPage() {
             description: 'Tournaments are currently disabled',
           })
         }
+      } else if (response.status === 401) {
+        showToast({
+          type: 'error',
+          title: 'Authentication Error',
+          description: 'Please log in to view tournaments',
+        })
+      } else {
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('Failed to fetch tournaments:', error)
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: error.error || 'Failed to load tournaments',
+        })
       }
     } catch (error) {
       console.error('Failed to fetch tournaments:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to load tournaments. Please try again.',
+      })
     } finally {
       setIsLoading(false)
     }
@@ -138,6 +177,28 @@ export default function TournamentsPage() {
     router.push('/tournaments/create')
   }
 
+  // Refresh tournaments list (can be called from other components)
+  const refreshTournaments = () => {
+    fetchTournaments()
+  }
+
+  // Expose refresh function to window for debugging and auto-refresh on focus
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).refreshTournaments = refreshTournaments
+      
+      // Refresh when window regains focus (e.g., user navigates back)
+      const handleFocus = () => {
+        fetchTournaments()
+      }
+      
+      window.addEventListener('focus', handleFocus)
+      return () => {
+        window.removeEventListener('focus', handleFocus)
+      }
+    }
+  }, [filter])
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-bg-primary">
@@ -193,21 +254,35 @@ export default function TournamentsPage() {
             </Card>
           )}
 
-          {/* Filters */}
-          <div className="flex gap-2 mb-6 flex-wrap">
-            {['ALL', 'UPCOMING', 'REGISTRATION_OPEN', 'IN_PROGRESS', 'COMPLETED'].map((status) => (
-              <button
-                key={status}
-                onClick={() => setFilter(status)}
-                className={`px-4 py-2 rounded-lg border-2 text-sm font-semibold transition-all ${
-                  filter === status
-                    ? 'border-electric-blue bg-electric-blue/10 text-electric-blue'
-                    : 'border-bg-tertiary text-text-secondary hover:border-text-secondary'
-                }`}
-              >
-                {status.replace('_', ' ')}
-              </button>
-            ))}
+          {/* Filters and Refresh */}
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            <div className="flex gap-2 flex-wrap">
+              {['ALL', 'UPCOMING', 'REGISTRATION_OPEN', 'IN_PROGRESS', 'COMPLETED'].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setFilter(status)}
+                  className={`px-4 py-2 rounded-lg border-2 text-sm font-semibold transition-all ${
+                    filter === status
+                      ? 'border-electric-blue bg-electric-blue/10 text-electric-blue'
+                      : 'border-bg-tertiary text-text-secondary hover:border-text-secondary'
+                  }`}
+                >
+                  {status.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshTournaments}
+              className="text-text-secondary hover:text-text-primary"
+              title="Refresh tournaments list"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </Button>
           </div>
 
           {/* Tournaments List */}
