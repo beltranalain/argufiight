@@ -14,8 +14,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = getUserIdFromSession(session)
     const { id: tournamentId } = await params
+    const userId = getUserIdFromSession(session)
 
     const tournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },
@@ -53,12 +53,13 @@ export async function GET(
         },
         matches: {
           include: {
-            debate: {
+            round: {
               select: {
-                id: true,
-                topic: true,
-                status: true,
-                winnerId: true,
+                roundNumber: true,
+              },
+            },
+            debate: {
+              include: {
                 challenger: {
                   select: {
                     id: true,
@@ -73,19 +74,11 @@ export async function GET(
                 },
               },
             },
-            round: {
-              select: {
-                roundNumber: true,
-              },
-            },
           },
-          orderBy: [
-            { round: { roundNumber: 'asc' } },
-          ],
-        },
-        rounds: {
           orderBy: {
-            roundNumber: 'asc',
+            round: {
+              roundNumber: 'asc',
+            },
           },
         },
       },
@@ -95,93 +88,35 @@ export async function GET(
       return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
     }
 
-    // Check if tournament is private and user has access
+    // Access control for private tournaments
     if (tournament.isPrivate) {
       if (tournament.creatorId !== userId) {
-        // User is not the creator, check if they're invited
-        if (!tournament.invitedUserIds) {
-          return NextResponse.json(
-            { error: 'This is a private tournament and you are not invited' },
-            { status: 403 }
-          )
+        let isInvited = false
+        if (userId && tournament.invitedUserIds) {
+          try {
+            const invitedIds = JSON.parse(tournament.invitedUserIds) as string[]
+            isInvited = Array.isArray(invitedIds) && invitedIds.includes(userId)
+          } catch (error) {
+            console.error('Failed to parse invitedUserIds for private tournament access:', tournament.invitedUserIds, error)
+          }
         }
-
-        let invitedIds: string[]
-        try {
-          invitedIds = JSON.parse(tournament.invitedUserIds) as string[]
-        } catch (error) {
-          console.error('Failed to parse invitedUserIds:', tournament.invitedUserIds, error)
-          return NextResponse.json(
-            { error: 'Invalid tournament invitation data' },
-            { status: 500 }
-          )
-        }
-
-        if (!Array.isArray(invitedIds) || !invitedIds.includes(userId || '')) {
-          return NextResponse.json(
-            { error: 'This is a private tournament and you are not invited' },
-            { status: 403 }
-          )
+        if (!isInvited) {
+          return NextResponse.json({ error: 'Unauthorized: This is a private tournament' }, { status: 403 })
         }
       }
     }
 
-    // Check if user is participant
-    const isParticipant = userId
-      ? tournament.participants.some((p) => p.userId === userId)
-      : false
-
-    // Check if user is creator
-    const isCreator = userId === tournament.creatorId
+    // Calculate match numbers
+    const matchesWithNumbers = tournament.matches.map((match, index) => ({
+      ...match,
+      matchNumber: index + 1,
+    }))
 
     return NextResponse.json({
-      tournament: {
-        id: tournament.id,
-        name: tournament.name,
-        description: tournament.description,
-        status: tournament.status,
-        maxParticipants: tournament.maxParticipants,
-        currentRound: tournament.currentRound,
-        totalRounds: tournament.totalRounds,
-        startDate: tournament.startDate,
-        endDate: tournament.endDate,
-        minElo: tournament.minElo,
-        roundDuration: tournament.roundDuration,
-        reseedAfterRound: tournament.reseedAfterRound,
-        reseedMethod: tournament.reseedMethod,
-        creator: tournament.creator,
-        judge: tournament.judge,
-        participants: tournament.participants.map((p) => ({
-          id: p.id,
-          userId: p.userId,
-          seed: p.seed,
-          status: p.status,
-          user: p.user,
-        })),
-        matches: tournament.matches.map((m, index, allMatches) => {
-          const roundNumber = m.round?.roundNumber || 0
-          // Calculate matchNumber within the round (1-indexed)
-          const matchesInRound = allMatches.filter(
-            (match) => (match.round?.roundNumber || 0) === roundNumber
-          )
-          const matchNumber = matchesInRound.findIndex((match) => match.id === m.id) + 1
-          
-          return {
-            id: m.id,
-            round: roundNumber,
-            matchNumber,
-            participant1Id: m.participant1Id,
-            participant2Id: m.participant2Id,
-            winnerId: m.winnerId,
-            status: m.status,
-            debate: m.debate,
-          }
-        }),
-        rounds: tournament.rounds,
-        isParticipant,
-        isCreator,
-        createdAt: tournament.createdAt,
-      },
+      ...tournament,
+      matches: matchesWithNumbers,
+      isParticipant: userId ? tournament.participants.some((p) => p.userId === userId) : false,
+      isCreator: tournament.creatorId === userId,
     })
   } catch (error: any) {
     console.error('Failed to fetch tournament:', error)
@@ -192,3 +127,66 @@ export async function GET(
   }
 }
 
+// DELETE /api/tournaments/[id] - Delete a tournament
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await verifySession()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id: tournamentId } = await params
+    const userId = getUserIdFromSession(session)
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get tournament to verify ownership and status
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      include: {
+        participants: true,
+        matches: {
+          include: {
+            debate: true,
+          },
+        },
+      },
+    })
+
+    if (!tournament) {
+      return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
+    }
+
+    // Only creator can delete
+    if (tournament.creatorId !== userId) {
+      return NextResponse.json({ error: 'Only the tournament creator can delete it' }, { status: 403 })
+    }
+
+    // Only allow deletion if tournament hasn't started or has no participants
+    // Allow deletion of UPCOMING tournaments even with participants (before it starts)
+    if (tournament.status === 'IN_PROGRESS' || tournament.status === 'COMPLETED') {
+      return NextResponse.json(
+        { error: 'Cannot delete a tournament that has started or completed' },
+        { status: 400 }
+      )
+    }
+
+    // Delete tournament (cascade will handle related records)
+    await prisma.tournament.delete({
+      where: { id: tournamentId },
+    })
+
+    return NextResponse.json({ success: true, message: 'Tournament deleted successfully' })
+  } catch (error: any) {
+    console.error('Failed to delete tournament:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete tournament' },
+      { status: 500 }
+    )
+  }
+}

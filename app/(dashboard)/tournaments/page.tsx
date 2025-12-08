@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
+import { Modal } from '@/components/ui/Modal'
 import Link from 'next/link'
 
 interface Tournament {
@@ -40,6 +41,10 @@ export default function TournamentsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState<string>('ALL')
   const [canCreate, setCanCreate] = useState<{ allowed: boolean; currentUsage?: number; limit?: number } | null>(null)
+  const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
 
   useEffect(() => {
     fetchTournaments()
@@ -180,6 +185,38 @@ export default function TournamentsPage() {
   // Refresh tournaments list (can be called from other components)
   const refreshTournaments = () => {
     fetchTournaments()
+  }
+
+  const handleDeleteTournament = async (tournamentId: string) => {
+    try {
+      setDeletingTournamentId(tournamentId)
+      const response = await fetch(`/api/tournaments/${tournamentId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete tournament')
+      }
+
+      showToast({
+        type: 'success',
+        title: 'Tournament Deleted',
+        description: 'The tournament has been deleted successfully',
+      })
+
+      // Refresh tournaments list
+      fetchTournaments()
+      setShowDeleteConfirm(null)
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Delete Failed',
+        description: error.message || 'Failed to delete tournament',
+      })
+    } finally {
+      setDeletingTournamentId(null)
+    }
   }
 
   // Expose refresh function to window for debugging and auto-refresh on focus
@@ -372,6 +409,24 @@ export default function TournamentsPage() {
                           {tournament.isParticipant ? 'View' : 'View Details'}
                         </Button>
                       </Link>
+                      {user && tournament.creator.id === user.id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowDeleteConfirm(tournament.id)}
+                          className="text-neon-orange hover:text-neon-orange hover:bg-neon-orange/10 border border-neon-orange/30"
+                          disabled={deletingTournamentId === tournament.id}
+                          title="Delete tournament"
+                        >
+                          {deletingTournamentId === tournament.id ? (
+                            <div className="w-4 h-4 border-2 border-neon-orange border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </CardBody>
                 </Card>
@@ -380,6 +435,41 @@ export default function TournamentsPage() {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <Modal
+          isOpen={true}
+          onClose={() => setShowDeleteConfirm(null)}
+          title="Delete Tournament"
+        >
+          <div className="space-y-4">
+            <p className="text-text-secondary">
+              Are you sure you want to delete this tournament? This action cannot be undone.
+            </p>
+            <p className="text-sm text-text-secondary">
+              Note: You can only delete tournaments that haven't started yet.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="ghost"
+                onClick={() => setShowDeleteConfirm(null)}
+                disabled={deletingTournamentId !== null}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => handleDeleteTournament(showDeleteConfirm)}
+                disabled={deletingTournamentId !== null}
+                className="bg-neon-orange hover:bg-neon-orange/90 text-black"
+              >
+                {deletingTournamentId ? 'Deleting...' : 'Delete Tournament'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
