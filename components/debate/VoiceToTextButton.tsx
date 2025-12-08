@@ -265,8 +265,41 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       console.warn('Speech Recognition API not supported in this browser')
     }
 
+    // Check if Deepgram is available
+    const checkDeepgram = async () => {
+      try {
+        const response = await fetch('/api/speech/transcribe')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.apiKey) {
+            setDeepgramAvailable(true)
+            setUseDeepgram(true) // Use Deepgram by default if available
+            console.log('Deepgram is available and will be used')
+          }
+        }
+      } catch (error) {
+        console.log('Deepgram not available, will use Web Speech API')
+      }
+    }
+    checkDeepgram()
+
+    // Handle page visibility changes - resume AudioContext if suspended
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isListening && streamRef.current) {
+        console.log('Page became visible, checking audio stream...')
+        // Stream should still be active, but check anyway
+        streamRef.current.getTracks().forEach(track => {
+          if (track.readyState === 'ended') {
+            console.warn('Track ended when page became visible')
+          }
+        })
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
       shouldListenRef.current = false
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       
       if (recognitionRef.current) {
         try {
@@ -283,13 +316,19 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
         }
       }
       
+      // Stop Deepgram if active
+      if (deepgramClientRef.current) {
+        deepgramClientRef.current.stop()
+        deepgramClientRef.current = null
+      }
+      
       // Clean up microphone stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop())
         streamRef.current = null
       }
     }
-  }, [onTranscript])
+  }, [onTranscript, isListening])
 
   const startListening = async () => {
     if (!isSupported && !deepgramAvailable) {
