@@ -178,6 +178,32 @@ export default function DebatePage() {
     return () => clearInterval(interval)
   }, [debate?.status, debate?.id, user])
 
+  // Auto-refresh if debate is ACTIVE (to catch round advancements)
+  useEffect(() => {
+    if (!debate || debate.status !== 'ACTIVE' || !user) return
+
+    const interval = setInterval(() => {
+      fetchDebate(false) // Don't show loading spinner on auto-refresh
+    }, 5000) // Check every 5 seconds for active debates
+
+    return () => clearInterval(interval)
+  }, [debate?.status, debate?.id, user])
+
+  // Listen for statement-submitted events to refresh debate data immediately
+  useEffect(() => {
+    const handleStatementSubmitted = () => {
+      // Small delay to ensure backend has processed the submission
+      setTimeout(() => {
+        fetchDebate(false)
+      }, 1000)
+    }
+
+    window.addEventListener('statement-submitted', handleStatementSubmitted)
+    return () => {
+      window.removeEventListener('statement-submitted', handleStatementSubmitted)
+    }
+  }, [])
+
   const fetchDebate = async (showLoading = true) => {
     if (!params.id) return
 
