@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { DeepgramClient } from '@/lib/ai/deepgram-client'
 
 interface VoiceToTextButtonProps {
   onTranscript: (text: string) => void
@@ -27,9 +26,6 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   const lastResultTimeRef = useRef<number | null>(null) // Track when we last got a result
   const preemptiveRestartTimeoutRef = useRef<number | null>(null) // For preemptive restart
   const nextRecognitionRef = useRef<SpeechRecognition | null>(null) // Pre-create next instance
-  const deepgramClientRef = useRef<DeepgramClient | null>(null) // Deepgram client instance
-  const [useDeepgram, setUseDeepgram] = useState(false) // Whether to use Deepgram
-  const [deepgramAvailable, setDeepgramAvailable] = useState(false) // Whether Deepgram is configured
 
   // Function to create a new recognition instance
   const createRecognitionInstance = () => {
@@ -265,24 +261,6 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       console.warn('Speech Recognition API not supported in this browser')
     }
 
-    // Check if Deepgram is available
-    const checkDeepgram = async () => {
-      try {
-        const response = await fetch('/api/speech/transcribe')
-        if (response.ok) {
-          const data = await response.json()
-          if (data.apiKey) {
-            setDeepgramAvailable(true)
-            setUseDeepgram(true) // Use Deepgram by default if available
-            console.log('Deepgram is available and will be used')
-          }
-        }
-      } catch (error) {
-        console.log('Deepgram not available, will use Web Speech API')
-      }
-    }
-    checkDeepgram()
-
     // Handle page visibility changes - resume AudioContext if suspended
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isListening && streamRef.current) {
@@ -316,12 +294,6 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
         }
       }
       
-      // Stop Deepgram if active
-      if (deepgramClientRef.current) {
-        deepgramClientRef.current.stop()
-        deepgramClientRef.current = null
-      }
-      
       // Clean up microphone stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop())
@@ -331,8 +303,8 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   }, [onTranscript, isListening])
 
   const startListening = async () => {
-    if (!isSupported && !deepgramAvailable) {
-      console.error('Speech recognition not supported and Deepgram not available')
+    if (!isSupported) {
+      console.error('Speech recognition not supported in this browser')
       return
     }
 
@@ -363,59 +335,19 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream // Store reference to keep it alive
       
-      // Try Deepgram first if available
-      if (useDeepgram && deepgramAvailable) {
-        try {
-          console.log('Step 2: Using Deepgram for voice input...')
-          const response = await fetch('/api/speech/transcribe')
-          if (response.ok) {
-            const data = await response.json()
-            if (data.apiKey) {
-              const client = new DeepgramClient(
-                data.apiKey,
-                (result) => {
-                  if (result.isFinal) {
-                    accumulatedTranscriptRef.current += result.transcript + ' '
-                    onTranscript(accumulatedTranscriptRef.current.trim())
-                  } else {
-                    onTranscript(accumulatedTranscriptRef.current + result.transcript)
-                  }
-                },
-                (error) => {
-                  console.error('Deepgram error:', error)
-                  // Fallback to Web Speech API
-                  console.log('Falling back to Web Speech API...')
-                  startWebSpeechRecognition(stream)
-                }
-              )
-              
-              deepgramClientRef.current = client
-              
-              // Ensure stream tracks are active before starting
-              stream.getTracks().forEach(track => {
-                if (track.readyState === 'ended') {
-                  console.error('Stream track ended before Deepgram start!')
-                }
-                // Add event listener to detect if track ends
-                track.onended = () => {
-                  console.error('Microphone track ended during Deepgram session!')
-                  stopListening()
-                }
-              })
-              
-              await client.start(stream)
-              setIsListening(true)
-              console.log('Deepgram started successfully')
-              return
-            }
-          }
-        } catch (deepgramError: any) {
-          console.error('Failed to start Deepgram, falling back to Web Speech API:', deepgramError)
-          // Fall through to Web Speech API
+      // Ensure stream tracks are active
+      stream.getTracks().forEach(track => {
+        if (track.readyState === 'ended') {
+          console.error('Stream track ended before starting recognition!')
         }
-      }
+        // Add event listener to detect if track ends
+        track.onended = () => {
+          console.error('Microphone track ended unexpectedly!')
+          stopListening()
+        }
+      })
       
-      // Fallback to Web Speech API
+      // Start Web Speech API recognition
       startWebSpeechRecognition(stream)
       
     } catch (error: any) {
@@ -465,12 +397,6 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   const stopListening = () => {
     // Set flag to stop listening
     shouldListenRef.current = false
-    
-    // Stop Deepgram if active
-    if (deepgramClientRef.current) {
-      deepgramClientRef.current.stop()
-      deepgramClientRef.current = null
-    }
     
     // Clear preemptive restart timeout
     if (preemptiveRestartTimeoutRef.current) {
