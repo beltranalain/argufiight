@@ -141,7 +141,7 @@ export default function TournamentsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-4xl font-bold text-white mb-2">Tournaments</h1>
-          <p className="text-text-secondary">Manage tournament feature and view all tournaments</p>
+          <p className="text-text-primary">Manage tournament feature and view all tournaments</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
@@ -158,7 +158,7 @@ export default function TournamentsPage() {
                 }`}
               />
             </button>
-            <span className={`text-sm font-medium ${isFeatureEnabled ? 'text-electric-blue' : 'text-text-secondary'}`}>
+            <span className={`text-sm font-medium ${isFeatureEnabled ? 'text-electric-blue' : 'text-text-primary'}`}>
               {isFeatureEnabled ? 'Enabled' : 'Disabled'}
             </span>
           </div>
@@ -175,7 +175,7 @@ export default function TournamentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-white font-medium">Tournaments Feature</p>
-                <p className="text-text-secondary text-sm">
+                <p className="text-text-primary text-sm">
                   {isFeatureEnabled
                     ? 'Users can create and participate in tournaments'
                     : 'Tournament feature is currently disabled for all users'}
@@ -204,7 +204,7 @@ export default function TournamentsPage() {
         </CardHeader>
         <CardBody>
           {tournaments.length === 0 ? (
-            <div className="text-center py-12 text-text-secondary">
+            <div className="text-center py-12 text-text-primary">
               <p className="text-lg mb-2">No tournaments yet</p>
               <p className="text-sm">
                 {isFeatureEnabled
@@ -228,27 +228,27 @@ export default function TournamentsPage() {
                         </Badge>
                       </div>
                       {tournament.description && (
-                        <p className="text-text-secondary mb-4">{tournament.description}</p>
+                        <p className="text-text-primary mb-4">{tournament.description}</p>
                       )}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
-                          <p className="text-text-secondary">Participants</p>
+                          <p className="text-text-primary">Participants</p>
                           <p className="text-white font-semibold">
                             {tournament.participantCount} / {tournament.maxParticipants}
                           </p>
                         </div>
                         <div>
-                          <p className="text-text-secondary">Round</p>
+                          <p className="text-text-primary">Round</p>
                           <p className="text-white font-semibold">
                             {tournament.currentRound} / {tournament.totalRounds}
                           </p>
                         </div>
                         <div>
-                          <p className="text-text-secondary">Creator</p>
+                          <p className="text-text-primary">Creator</p>
                           <p className="text-white font-semibold">{tournament.creator.username}</p>
                         </div>
                         <div>
-                          <p className="text-text-secondary">Created</p>
+                          <p className="text-text-primary">Created</p>
                           <p className="text-white font-semibold">
                             {new Date(tournament.createdAt).toLocaleDateString()}
                           </p>
