@@ -120,18 +120,22 @@ export async function POST(
     }
 
     // Get current participant count for seeding
+    // Note: Creator is always seed 1, so new participants start at seed 2
     const participantCount = tournament.participants.length
+    const nextSeed = participantCount + 1
 
     // Add participant
     await prisma.tournamentParticipant.create({
       data: {
         tournamentId,
         userId,
-        seed: participantCount + 1, // Temporary seed, will be reseeded when tournament starts
+        seed: nextSeed, // Temporary seed, will be reseeded when tournament starts
         eloAtStart: user.eloRating, // Required field - store ELO at time of registration
         status: 'REGISTERED',
       },
     })
+
+    console.log(`[Join Tournament] User ${userId} added as participant with seed ${nextSeed}`)
 
     // Update tournament status if needed
     // When status changes from UPCOMING to REGISTRATION_OPEN, record usage

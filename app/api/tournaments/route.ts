@@ -244,6 +244,24 @@ export async function POST(request: NextRequest) {
     // Calculate total rounds (log2 of maxParticipants)
     const totalRounds = Math.log2(maxParticipants)
 
+    // Get creator's ELO rating for automatic participant registration
+    const creator = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        avatarUrl: true,
+        eloRating: true,
+      },
+    })
+
+    if (!creator) {
+      return NextResponse.json(
+        { error: 'Creator not found' },
+        { status: 404 }
+      )
+    }
+
     // Create tournament
     const tournament = await prisma.tournament.create({
       data: {
@@ -264,6 +282,15 @@ export async function POST(request: NextRequest) {
         invitedUserIds: isPrivate && invitedUserIds && Array.isArray(invitedUserIds)
           ? JSON.stringify(invitedUserIds)
           : null,
+        // Automatically add creator as first participant (seed 1)
+        participants: {
+          create: {
+            userId: creator.id,
+            seed: 1, // Creator is always seed #1
+            eloAtStart: creator.eloRating,
+            status: 'REGISTERED',
+          },
+        },
       },
       include: {
         creator: {
@@ -275,6 +302,8 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+
+    console.log(`Tournament "${tournament.name}" created with creator ${creator.username} (${creator.id}) as automatic participant (seed 1)`)
 
     // Don't record usage yet - only record when tournament starts (status changes from UPCOMING)
     // This allows users to delete UPCOMING tournaments without it counting against their limit
