@@ -226,7 +226,13 @@ export default function DebatePage() {
         ? `/api/debates/${params.id}?shareToken=${shareToken}&t=${Date.now()}`
         : `/api/debates/${params.id}?t=${Date.now()}`
       
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        }
+      })
       if (response.ok) {
         const data = await response.json()
         const previousStatus = debate?.status
