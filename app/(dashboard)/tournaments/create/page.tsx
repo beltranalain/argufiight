@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/Toast'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { UserSearchInput } from '@/components/debate/UserSearchInput'
+import { getEasternTimeLocal, fromEasternDateTimeLocal, getMinEasternDateTimeLocal } from '@/lib/utils/eastern-timezone'
 
 export default function CreateTournamentPage() {
   const router = useRouter()
@@ -127,7 +128,8 @@ export default function CreateTournamentPage() {
           name: formData.name,
           description: formData.description || null,
           maxParticipants: parseInt(String(formData.maxParticipants)),
-          startDate: formData.startDate,
+          // Convert Eastern time datetime-local string to ISO string for API
+          startDate: formData.startDate ? fromEasternDateTimeLocal(formData.startDate).toISOString() : null,
           minElo: formData.minElo ? parseInt(String(formData.minElo)) : null,
           roundDuration: parseInt(String(formData.roundDuration)),
           reseedAfterRound: formData.reseedAfterRound,
@@ -424,7 +426,7 @@ export default function CreateTournamentPage() {
                 {/* Start Date */}
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
-                    Start Date *
+                    Start Date * (Eastern Time)
                   </label>
                   <div className="flex gap-2">
                     <Input
@@ -432,23 +434,25 @@ export default function CreateTournamentPage() {
                       value={formData.startDate}
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                       required
-                      min={new Date().toISOString().slice(0, 16)}
+                      min={getMinEasternDateTimeLocal()}
                       className="flex-1"
                     />
                     <Button
                       type="button"
                       variant="secondary"
                       onClick={() => {
-                        const now = new Date()
-                        // Format as YYYY-MM-DDTHH:mm for datetime-local input
-                        const formatted = now.toISOString().slice(0, 16)
-                        setFormData({ ...formData, startDate: formatted })
+                        // Set to current Eastern time
+                        const easternTime = getEasternTimeLocal()
+                        setFormData({ ...formData, startDate: easternTime })
                       }}
                       className="whitespace-nowrap"
                     >
                       Start Now
                     </Button>
                   </div>
+                  <p className="text-text-secondary text-sm mt-1">
+                    All times are in Eastern Time (ET)
+                  </p>
                 </div>
 
                 {/* Min ELO */}
