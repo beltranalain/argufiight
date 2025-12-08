@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { formatStatus } from '@/lib/utils/format-status'
 import Link from 'next/link'
 
 interface DebateDetailsModalProps {
