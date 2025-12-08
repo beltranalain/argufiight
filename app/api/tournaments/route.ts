@@ -182,25 +182,98 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Format response
-    const formatted = tournaments.map((tournament) => ({
-      id: tournament.id,
-      name: tournament.name,
-      description: tournament.description,
-      status: tournament.status,
-      maxParticipants: tournament.maxParticipants,
-      currentRound: tournament.currentRound,
-      totalRounds: tournament.totalRounds,
-      participantCount: tournament._count.participants,
-      matchCount: tournament._count.matches,
-      startDate: tournament.startDate,
-      endDate: tournament.endDate,
-      minElo: tournament.minElo,
-      creator: tournament.creator,
-      isParticipant: userId ? tournament.participants.some((p) => p.userId === userId) : false,
-      isPrivate: tournament.isPrivate,
-      format: (tournament as any).format || 'BRACKET', // Default to BRACKET for old tournaments or if migration not applied
-      createdAt: tournament.createdAt,
+    // Format response and find winners for completed tournaments
+    const formatted = await Promise.all(tournaments.map(async (tournament) => {
+      let winner = null
+      
+      // Find winner for completed tournaments
+      if (tournament.status === 'COMPLETED') {
+        // Get the final round match winner
+        const finalRound = await prisma.tournamentRound.findFirst({
+          where: {
+            tournamentId: tournament.id,
+            roundNumber: tournament.totalRounds,
+          },
+          include: {
+            matches: {
+              where: {
+                status: 'COMPLETED',
+              },
+              include: {
+                winner: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        avatarUrl: true,
+                      },
+                    },
+                  },
+                },
+              },
+              orderBy: {
+                completedAt: 'desc',
+              },
+              take: 1,
+            },
+          },
+        })
+        
+        if (finalRound?.matches[0]?.winner) {
+          winner = {
+            id: finalRound.matches[0].winner.user.id,
+            username: finalRound.matches[0].winner.user.username,
+            avatarUrl: finalRound.matches[0].winner.user.avatarUrl,
+          }
+        } else {
+          // Fallback: find active participant
+          const activeParticipant = await prisma.tournamentParticipant.findFirst({
+            where: {
+              tournamentId: tournament.id,
+              status: 'ACTIVE',
+            },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          })
+          
+          if (activeParticipant) {
+            winner = {
+              id: activeParticipant.user.id,
+              username: activeParticipant.user.username,
+              avatarUrl: activeParticipant.user.avatarUrl,
+            }
+          }
+        }
+      }
+      
+      return {
+        id: tournament.id,
+        name: tournament.name,
+        description: tournament.description,
+        status: tournament.status,
+        maxParticipants: tournament.maxParticipants,
+        currentRound: tournament.currentRound,
+        totalRounds: tournament.totalRounds,
+        participantCount: tournament._count.participants,
+        matchCount: tournament._count.matches,
+        startDate: tournament.startDate,
+        endDate: tournament.endDate,
+        minElo: tournament.minElo,
+        creator: tournament.creator,
+        isParticipant: userId ? tournament.participants.some((p) => p.userId === userId) : false,
+        isPrivate: tournament.isPrivate,
+        format: (tournament as any).format || 'BRACKET',
+        createdAt: tournament.createdAt,
+        winner: winner,
+      }
     }))
 
     return NextResponse.json({ tournaments: formatted })

@@ -33,6 +33,11 @@ interface Tournament {
   isParticipant: boolean
   isPrivate: boolean
   createdAt: string
+  winner: {
+    id: string
+    username: string
+    avatarUrl: string | null
+  } | null
 }
 
 export default function TournamentsPage() {
