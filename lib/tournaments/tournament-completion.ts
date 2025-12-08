@@ -163,13 +163,13 @@ async function createTournamentCompletionNotifications(
       }
     })
 
-    // Use raw SQL to insert notifications (since TOURNAMENT_WON might not be in enum)
+    // Use valid notification types from enum
     for (const notif of notifications) {
       try {
         await prisma.notification.create({
           data: {
             userId: notif.userId,
-            type: notif.type === 'TOURNAMENT_WON' ? 'DEBATE_WON' : 'DEBATE_COMPLETED', // Fallback to existing types
+            type: notif.type === 'TOURNAMENT_WON' ? 'DEBATE_WON' : 'DEBATE_TIED', // Fallback to existing types (DEBATE_TIED is valid)
             title: notif.title,
             message: notif.message,
           },
