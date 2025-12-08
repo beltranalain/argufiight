@@ -26,6 +26,37 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const userId = getUserIdFromSession(session)
 
+    // Check for tournaments that should auto-start (full but still REGISTRATION_OPEN)
+    // This handles cases where tournaments were created before auto-start logic was added
+    // or if auto-start failed during join
+    try {
+      const fullTournaments = await prisma.tournament.findMany({
+        where: {
+          status: 'REGISTRATION_OPEN',
+        },
+        include: {
+          participants: true,
+        },
+      })
+
+      for (const tournament of fullTournaments) {
+        if (tournament.participants.length >= tournament.maxParticipants) {
+          console.log(`[Tournaments API] Auto-starting full tournament "${tournament.name}" (${tournament.id})`)
+          try {
+            const { startTournament } = await import('@/lib/tournaments/match-generation')
+            await startTournament(tournament.id)
+            console.log(`[Tournaments API] Successfully auto-started tournament ${tournament.id}`)
+          } catch (error: any) {
+            console.error(`[Tournaments API] Failed to auto-start tournament ${tournament.id}:`, error)
+            // Continue with other tournaments
+          }
+        }
+      }
+    } catch (error: any) {
+      // Don't fail the entire request if auto-start check fails
+      console.error('[Tournaments API] Error checking for auto-start tournaments:', error)
+    }
+
     // Build where clause
     const where: any = {}
     if (status && status !== 'ALL') {
