@@ -346,7 +346,69 @@ export default function UsernameProfilePage() {
                 <h2 className="text-2xl font-bold text-text-primary">Recent Debates</h2>
               </CardHeader>
               <CardBody>
-                <BattleHistory debates={recentDebates} />
+                <div className="space-y-3">
+                  {recentDebates.map((debate: any) => {
+                    const opponent = debate.challengerId === profile.id ? debate.opponent : debate.challenger
+                    const isWinner = debate.winnerId === profile.id
+                    
+                    return (
+                      <Link
+                        key={debate.id}
+                        href={`/debate/${debate.id}`}
+                        className="block p-3 bg-bg-tertiary rounded-lg border border-bg-tertiary hover:border-electric-blue transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-text-primary truncate mb-1">
+                              {debate.topic}
+                            </p>
+                            <div className="flex items-center gap-2 text-xs text-text-secondary">
+                              <span>vs {opponent?.username || 'Unknown'}</span>
+                              {debate.category && (
+                                <>
+                                  <span>•</span>
+                                  <Badge variant="default" size="sm" className="text-xs">
+                                    {debate.category}
+                                  </Badge>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            {isWinner ? (
+                              <Badge variant="default" className="bg-cyber-green text-white">
+                                Won
+                              </Badge>
+                            ) : debate.winnerId ? (
+                              <Badge variant="default" className="bg-neon-orange text-white">
+                                Lost
+                              </Badge>
+                            ) : (
+                              <Badge variant="default" className="bg-gray-500 text-white">
+                                Tied
+                              </Badge>
+                            )}
+                            <span className="text-xs text-text-secondary">
+                              {new Date(debate.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </CardBody>
+            </Card>
+          )}
+
+          {/* Battle History */}
+          {profile && (
+            <Card className="mb-6">
+              <CardHeader>
+                <h2 className="text-2xl font-bold text-text-primary">Battle History</h2>
+              </CardHeader>
+              <CardBody>
+                <BattleHistory userId={profile.id} />
               </CardBody>
             </Card>
           )}
