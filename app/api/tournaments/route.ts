@@ -66,9 +66,24 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all tournaments first, then filter private ones
+    // Use select to explicitly get only the fields we need, including format
     const allTournaments = await prisma.tournament.findMany({
       where: status && status !== 'ALL' ? { status: status as any } : {},
-      include: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        status: true,
+        maxParticipants: true,
+        currentRound: true,
+        totalRounds: true,
+        startDate: true,
+        endDate: true,
+        minElo: true,
+        isPrivate: true,
+        invitedUserIds: true,
+        format: true, // Include format field
+        creatorId: true,
         creator: {
           select: {
             id: true,
@@ -87,6 +102,7 @@ export async function GET(request: NextRequest) {
             matches: true,
           },
         },
+        createdAt: true,
       },
       orderBy: {
         createdAt: 'desc',
