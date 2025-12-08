@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all tournaments using Prisma
+    console.log('[Admin Tournaments API] Fetching tournaments...')
     const tournaments = await prisma.tournament.findMany({
       include: {
         creator: {
@@ -31,6 +32,8 @@ export async function GET(request: NextRequest) {
       take: 100,
     })
 
+    console.log(`[Admin Tournaments API] Found ${tournaments.length} tournaments`)
+
     // Format tournaments for response
     const tournamentsWithCounts = tournaments.map((tournament) => ({
       id: tournament.id,
@@ -45,6 +48,7 @@ export async function GET(request: NextRequest) {
       creator: tournament.creator || { username: 'Unknown', email: '' },
     }))
 
+    console.log(`[Admin Tournaments API] Returning ${tournamentsWithCounts.length} formatted tournaments`)
     return NextResponse.json(tournamentsWithCounts)
   } catch (error: any) {
     // If table doesn't exist, return empty array

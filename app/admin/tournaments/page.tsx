@@ -49,13 +49,30 @@ export default function TournamentsPage() {
   const fetchTournaments = async () => {
     try {
       setIsLoading(true)
+      console.log('[Admin Tournaments] Fetching tournaments...')
       const response = await fetch('/api/admin/tournaments')
+      console.log('[Admin Tournaments] Response status:', response.status)
+      
       if (response.ok) {
         const data = await response.json()
-        setTournaments(Array.isArray(data) ? data : (data?.tournaments || []))
+        console.log('[Admin Tournaments] Response data:', data)
+        console.log('[Admin Tournaments] Is array?', Array.isArray(data))
+        console.log('[Admin Tournaments] Data length:', Array.isArray(data) ? data.length : 'not an array')
+        
+        const tournamentsList = Array.isArray(data) ? data : (data?.tournaments || [])
+        console.log('[Admin Tournaments] Setting tournaments:', tournamentsList.length)
+        setTournaments(tournamentsList)
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('[Admin Tournaments] API error:', response.status, errorData)
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: errorData.error || `Failed to load tournaments (${response.status})`,
+        })
       }
     } catch (error) {
-      console.error('Failed to fetch tournaments:', error)
+      console.error('[Admin Tournaments] Failed to fetch tournaments:', error)
       showToast({
         type: 'error',
         title: 'Error',
