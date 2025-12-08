@@ -11,9 +11,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all tournaments using Prisma
+    // Use select to avoid including format field if migration hasn't been applied
     console.log('[Admin Tournaments API] Fetching tournaments...')
     const tournaments = await prisma.tournament.findMany({
-      include: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        status: true,
+        maxParticipants: true,
+        currentRound: true,
+        totalRounds: true,
+        createdAt: true,
+        creatorId: true,
         creator: {
           select: {
             username: true,
