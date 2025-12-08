@@ -43,8 +43,6 @@ export default function TournamentsPage() {
   const [canCreate, setCanCreate] = useState<{ allowed: boolean; currentUsage?: number; limit?: number } | null>(null)
   const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
-  const [deletingTournamentId, setDeletingTournamentId] = useState<string | null>(null)
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
 
   useEffect(() => {
     fetchTournaments()
