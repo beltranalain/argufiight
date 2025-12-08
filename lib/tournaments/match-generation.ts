@@ -258,6 +258,7 @@ export async function startTournament(tournamentId: string): Promise<void> {
     const debateTopic = `${tournament.name} - Round ${round.roundNumber}, Match ${match.id.slice(0, 8)}`
 
     // Create debate
+    // Note: Judge is assigned when creating verdicts, not when creating the debate
     const debate = await prisma.debate.create({
       data: {
         topic: debateTopic,
@@ -272,7 +273,7 @@ export async function startTournament(tournamentId: string): Promise<void> {
         speedMode: false,
         allowCopyPaste: true,
         status: 'ACTIVE',
-        judgeId: tournament.judgeId,
+        // judgeId is not part of Debate model - judges are assigned in Verdict model
       },
     })
 
