@@ -35,7 +35,7 @@ export function LeaderboardPanel() {
   const fetchLeaderboard = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/leaderboard?limit=15')
+      const response = await fetch('/api/leaderboard?limit=3')
       if (response.ok) {
         const data = await response.json()
         // Ensure leaderboard is an array before setting
