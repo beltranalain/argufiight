@@ -37,10 +37,16 @@ export class DeepgramClient {
       const wsUrl = `wss://api.deepgram.com/v1/listen?language=en-US&punctuate=true&interim_results=true`
       this.ws = new WebSocket(wsUrl, ['token', this.apiKey])
 
-      this.ws.onopen = () => {
+      this.ws.onopen = async () => {
         console.log('Deepgram WebSocket connected')
         this.isConnected = true
-        this.startAudioStream(mediaStream)
+        
+        // Ensure AudioContext is running before starting stream
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+          await this.audioContext.resume()
+        }
+        
+        await this.startAudioStream(mediaStream)
       }
 
       this.ws.onmessage = (event) => {
@@ -73,10 +79,18 @@ export class DeepgramClient {
         this.onError(new Error('Deepgram connection error'))
       }
 
-      this.ws.onclose = () => {
-        console.log('Deepgram WebSocket closed')
+      this.ws.onclose = (event) => {
+        console.log('Deepgram WebSocket closed', { code: event.code, reason: event.reason, wasClean: event.wasClean })
         this.isConnected = false
-        this.cleanup()
+        
+        // Only cleanup if it was a clean close or user-initiated
+        // If it was an unexpected close, try to reconnect
+        if (event.code !== 1000 && event.code !== 1001) {
+          console.warn('Deepgram WebSocket closed unexpectedly, attempting to reconnect...')
+          // Don't cleanup immediately - let the error handler decide
+        } else {
+          this.cleanup()
+        }
       }
     } catch (error: any) {
       console.error('Failed to start Deepgram:', error)
@@ -84,20 +98,52 @@ export class DeepgramClient {
     }
   }
 
-  private startAudioStream(mediaStream: MediaStream): void {
+  private async startAudioStream(mediaStream: MediaStream): Promise<void> {
     try {
-      // Create AudioContext
+      // Create AudioContext and ensure it's running
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      
+      // Resume AudioContext if suspended (browsers suspend it by default)
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume()
+      }
+      
+      // Monitor AudioContext state changes
+      this.audioContext.onstatechange = () => {
+        console.log('AudioContext state changed to:', this.audioContext?.state)
+        if (this.audioContext?.state === 'suspended' && this.isConnected) {
+          // Auto-resume if suspended while connected
+          this.audioContext.resume().catch(err => {
+            console.error('Failed to resume AudioContext:', err)
+          })
+        }
+      }
+
+      // Ensure all tracks are active
+      mediaStream.getTracks().forEach(track => {
+        if (track.readyState === 'ended') {
+          console.warn('MediaStream track ended, this should not happen')
+        }
+        // Monitor track state
+        track.onended = () => {
+          console.error('MediaStream track ended unexpectedly!')
+          this.onError(new Error('Microphone track ended'))
+        }
+      })
+
       const source = this.audioContext.createMediaStreamSource(mediaStream)
 
       // Create script processor for audio chunks
-      // Note: ScriptProcessorNode is deprecated but works for this use case
-      // In production, you might want to use AudioWorkletNode
-      this.processor = this.audioContext.createScriptProcessor(4096, 1, 1)
+      // Use smaller buffer size for lower latency (2048 instead of 4096)
+      this.processor = this.audioContext.createScriptProcessor(2048, 1, 1)
 
+      let audioChunkCount = 0
       this.processor.onaudioprocess = (event) => {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN && this.audioContext?.state === 'running') {
           const inputData = event.inputBuffer.getChannelData(0)
+          
+          // Check if we're actually getting audio data (not just silence)
+          const hasAudio = inputData.some(sample => Math.abs(sample) > 0.001)
           
           // Convert Float32Array to Int16Array for Deepgram
           const int16Data = new Int16Array(inputData.length)
@@ -108,12 +154,38 @@ export class DeepgramClient {
           }
 
           // Send audio data to Deepgram
-          this.ws.send(int16Data.buffer)
+          try {
+            this.ws.send(int16Data.buffer)
+            audioChunkCount++
+            
+            // Log every 100 chunks (roughly every 2-3 seconds at 48kHz)
+            if (audioChunkCount % 100 === 0) {
+              console.log(`[Deepgram] Sent ${audioChunkCount} audio chunks, AudioContext state: ${this.audioContext?.state}`)
+            }
+          } catch (error) {
+            console.error('Failed to send audio chunk to Deepgram:', error)
+          }
+        } else {
+          // Log why we're not sending
+          if (!this.ws) {
+            console.warn('[Deepgram] WebSocket not initialized')
+          } else if (this.ws.readyState !== WebSocket.OPEN) {
+            console.warn(`[Deepgram] WebSocket not open (state: ${this.ws.readyState})`)
+          } else if (this.audioContext?.state !== 'running') {
+            console.warn(`[Deepgram] AudioContext not running (state: ${this.audioContext?.state}), attempting to resume...`)
+            this.audioContext?.resume().catch(err => {
+              console.error('Failed to resume AudioContext:', err)
+            })
+          }
         }
       }
 
       source.connect(this.processor)
+      // Connect to destination to keep the audio graph active
+      // This prevents the browser from suspending the AudioContext
       this.processor.connect(this.audioContext.destination)
+      
+      console.log('[Deepgram] Audio stream started, AudioContext state:', this.audioContext.state)
     } catch (error: any) {
       console.error('Failed to start audio stream:', error)
       this.onError(error)

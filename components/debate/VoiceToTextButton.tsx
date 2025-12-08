@@ -351,6 +351,19 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
               )
               
               deepgramClientRef.current = client
+              
+              // Ensure stream tracks are active before starting
+              stream.getTracks().forEach(track => {
+                if (track.readyState === 'ended') {
+                  console.error('Stream track ended before Deepgram start!')
+                }
+                // Add event listener to detect if track ends
+                track.onended = () => {
+                  console.error('Microphone track ended during Deepgram session!')
+                  stopListening()
+                }
+              })
+              
               await client.start(stream)
               setIsListening(true)
               console.log('Deepgram started successfully')
