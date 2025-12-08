@@ -187,8 +187,8 @@ export async function GET(request: NextRequest) {
     const winnersMap = new Map<string, { id: string; username: string; avatarUrl: string | null }>()
     
     if (completedTournamentIds.length > 0) {
-      // Get final round matches for all completed tournaments
-      const finalRounds = await prisma.tournamentRound.findMany({
+      // Get all rounds for completed tournaments to find final rounds
+      const allRounds = await prisma.tournamentRound.findMany({
         where: {
           tournamentId: { in: completedTournamentIds },
         },
@@ -202,12 +202,6 @@ export async function GET(request: NextRequest) {
           matches: {
             where: {
               status: 'COMPLETED',
-              round: {
-                roundNumber: {
-                  // Get matches from the final round
-                  // We'll filter by roundNumber matching tournament.totalRounds
-                },
-              },
             },
             include: {
               winner: {
@@ -230,8 +224,8 @@ export async function GET(request: NextRequest) {
         },
       })
       
-      // Process final rounds to find winners
-      for (const round of finalRounds) {
+      // Process rounds to find winners from final rounds
+      for (const round of allRounds) {
         if (round.roundNumber === round.tournament.totalRounds && round.matches[0]?.winner) {
           const winner = round.matches[0].winner
           winnersMap.set(round.tournamentId, {
