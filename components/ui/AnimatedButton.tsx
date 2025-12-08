@@ -23,7 +23,7 @@ export function AnimatedButton({
   const variants = {
     primary: 'bg-electric-blue text-black hover:bg-[#00B8E6] hover:shadow-[0_8px_24px_rgba(0,217,255,0.4)]',
     secondary: 'bg-transparent border-2 border-electric-blue text-electric-blue hover:bg-electric-blue hover:text-black',
-    ghost: 'bg-transparent text-text-secondary hover:text-white hover:bg-bg-tertiary'
+    ghost: 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-bg-tertiary'
   }
 
   return (

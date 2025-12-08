@@ -29,7 +29,7 @@ export function Button({
   const variants = {
     primary: 'bg-electric-blue text-black hover:bg-[#00B8E6] hover:shadow-[0_8px_24px_rgba(0,217,255,0.4)] hover:-translate-y-0.5',
     secondary: 'bg-transparent border-2 border-electric-blue text-electric-blue hover:bg-electric-blue hover:text-black',
-    ghost: 'bg-transparent text-text-secondary hover:text-white hover:bg-bg-tertiary',
+    ghost: 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-bg-tertiary',
     danger: 'bg-neon-orange text-black hover:bg-[#E55A2B] hover:shadow-[0_8px_24px_rgba(255,107,53,0.4)] hover:-translate-y-0.5',
     success: 'bg-green-500 text-white hover:bg-green-600 hover:shadow-[0_8px_24px_rgba(34,197,94,0.4)] hover:-translate-y-0.5'
   }
