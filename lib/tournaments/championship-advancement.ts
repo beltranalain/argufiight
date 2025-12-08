@@ -239,7 +239,16 @@ function applyTiebreakers(participants: ParticipantScoreData[]): ParticipantScor
     }
 
     // Tiebreaker 4: Earlier registration time
-    return a.registeredAt.getTime() - b.registeredAt.getTime() // Earlier registration wins
+    const timeDiff = a.registeredAt.getTime() - b.registeredAt.getTime()
+    if (timeDiff !== 0) {
+      return timeDiff // Earlier registration wins
+    }
+
+    // Ultimate fallback: Random selection (with logging)
+    console.warn(
+      `[Championship Tiebreaker] All tiebreakers exhausted for participants ${a.participantId} and ${b.participantId}. Using random selection.`
+    )
+    return Math.random() - 0.5 // Random order
   })
 }
 
