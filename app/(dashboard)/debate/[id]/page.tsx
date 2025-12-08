@@ -384,8 +384,9 @@ export default function DebatePage() {
   const noStatementsInRound = currentRoundStatements.length === 0
   
   // Determine if it's user's turn
+  // In each round: challenger goes first, then opponent responds
   const isMyTurn = debate && user && debate.status === 'ACTIVE' && (
-    // First round: challenger goes first if no statements yet
+    // New round (no statements yet): challenger goes first
     (noStatementsInRound && isChallenger) ||
     // Challenger's turn: opponent submitted but challenger hasn't
     (isChallenger && opponentSubmitted && !challengerSubmitted) ||
