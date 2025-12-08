@@ -499,30 +499,61 @@ export default function TournamentDetailPage() {
                       <div className="space-y-4">
                         {tournament.format === 'CHAMPIONSHIP' ? (
                           <>
-                            <p className="text-text-primary">
-                              <strong>Championship Format:</strong> The two finalists advanced based on their individual scores from Round 1.
-                            </p>
-                            <p className="text-text-secondary text-sm">
-                              In Championship format, advancement is determined by individual performance scores, not just match wins. The top scorers from each position (PRO and CON) advance to the finals.
-                            </p>
-                            <div className="mt-4 p-3 bg-bg-secondary rounded-lg border border-bg-tertiary">
-                              <p className="text-text-primary font-semibold mb-2">Round 1 Scores:</p>
+                            <div className="p-4 bg-bg-secondary rounded-lg border border-bg-tertiary">
+                              <p className="text-text-primary font-semibold mb-2">Championship Format</p>
+                              <p className="text-text-secondary text-sm">
+                                Advancement is based on individual performance scores, not just match wins. The top scorers from each position advance.
+                              </p>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              <p className="text-text-primary font-semibold text-sm">Round 1 Scores:</p>
                               {tournament.matches
                                 .filter(m => m.round === 1)
                                 .map((match) => {
                                   const p1 = tournament.participants.find(p => p.id === match.participant1Id)
                                   const p2 = tournament.participants.find(p => p.id === match.participant2Id)
                                   return (
-                                    <div key={match.id} className="text-sm space-y-1 mb-3 last:mb-0">
-                                      <div className="flex justify-between">
-                                        <span className="text-text-secondary">@{p1?.user.username}</span>
-                                        <span className="text-electric-blue font-semibold">
+                                    <div key={match.id} className="p-4 bg-bg-secondary rounded-lg border border-bg-tertiary space-y-2">
+                                      <div className="flex items-center justify-between p-2 bg-bg-tertiary rounded">
+                                        <div className="flex items-center gap-2">
+                                          {p1?.user.avatarUrl ? (
+                                            <img
+                                              src={p1.user.avatarUrl}
+                                              alt={p1.user.username}
+                                              className="w-6 h-6 rounded-full"
+                                            />
+                                          ) : (
+                                            <div className="w-6 h-6 rounded-full bg-bg-secondary flex items-center justify-center">
+                                              <span className="text-text-secondary text-xs">
+                                                {p1?.user.username[0].toUpperCase()}
+                                              </span>
+                                            </div>
+                                          )}
+                                          <span className="text-text-primary text-sm">@{p1?.user.username}</span>
+                                        </div>
+                                        <span className="text-electric-blue font-semibold text-sm">
                                           {match.participant1Score !== null ? `${match.participant1Score}/100` : 'N/A'}
                                         </span>
                                       </div>
-                                      <div className="flex justify-between">
-                                        <span className="text-text-secondary">@{p2?.user.username}</span>
-                                        <span className="text-electric-blue font-semibold">
+                                      <div className="flex items-center justify-between p-2 bg-bg-tertiary rounded">
+                                        <div className="flex items-center gap-2">
+                                          {p2?.user.avatarUrl ? (
+                                            <img
+                                              src={p2.user.avatarUrl}
+                                              alt={p2.user.username}
+                                              className="w-6 h-6 rounded-full"
+                                            />
+                                          ) : (
+                                            <div className="w-6 h-6 rounded-full bg-bg-secondary flex items-center justify-center">
+                                              <span className="text-text-secondary text-xs">
+                                                {p2?.user.username[0].toUpperCase()}
+                                              </span>
+                                            </div>
+                                          )}
+                                          <span className="text-text-primary text-sm">@{p2?.user.username}</span>
+                                        </div>
+                                        <span className="text-electric-blue font-semibold text-sm">
                                           {match.participant2Score !== null ? `${match.participant2Score}/100` : 'N/A'}
                                         </span>
                                       </div>
@@ -530,28 +561,50 @@ export default function TournamentDetailPage() {
                                   )
                                 })}
                             </div>
-                            <p className="text-text-secondary text-sm mt-3">
-                              The two highest-scoring participants from Round 1 advanced to the finals, regardless of whether they won their individual matches.
-                            </p>
+                            
+                            <div className="p-4 bg-cyber-green/10 rounded-lg border border-cyber-green/30">
+                              <p className="text-text-primary text-sm">
+                                <strong>Result:</strong> The two highest-scoring participants from Round 1 advanced to the finals, regardless of match wins.
+                              </p>
+                            </div>
                           </>
                         ) : (
                           <>
-                            <p className="text-text-primary">
-                              <strong>Bracket Format:</strong> The two finalists are the winners of the Round 1 matches.
-                            </p>
-                            <p className="text-text-secondary text-sm">
-                              In Bracket format, only the winners of each match advance to the next round. The two Round 1 winners face off in the finals.
-                            </p>
-                            <div className="mt-4 p-3 bg-bg-secondary rounded-lg border border-bg-tertiary">
-                              <p className="text-text-primary font-semibold mb-2">Round 1 Winners:</p>
+                            <div className="p-4 bg-bg-secondary rounded-lg border border-bg-tertiary">
+                              <p className="text-text-primary font-semibold mb-2">Bracket Format</p>
+                              <p className="text-text-secondary text-sm">
+                                Only the winners of each match advance to the next round. The two Round 1 winners face off in the finals.
+                              </p>
+                            </div>
+                            
+                            <div className="space-y-3">
+                              <p className="text-text-primary font-semibold text-sm">Round 1 Winners:</p>
                               {tournament.matches
                                 .filter(m => m.round === 1 && m.winnerId)
                                 .map((match) => {
                                   const winner = tournament.participants.find(p => p.id === match.winnerId)
                                   return (
-                                    <div key={match.id} className="text-sm mb-2">
-                                      <span className="text-cyber-green font-semibold">✓</span>{' '}
-                                      <span className="text-text-primary">@{winner?.user.username}</span>
+                                    <div key={match.id} className="p-4 bg-bg-secondary rounded-lg border border-bg-tertiary">
+                                      <div className="flex items-center gap-3">
+                                        {winner?.user.avatarUrl ? (
+                                          <img
+                                            src={winner.user.avatarUrl}
+                                            alt={winner.user.username}
+                                            className="w-8 h-8 rounded-full"
+                                          />
+                                        ) : (
+                                          <div className="w-8 h-8 rounded-full bg-bg-tertiary flex items-center justify-center">
+                                            <span className="text-text-secondary text-xs">
+                                              {winner?.user.username[0].toUpperCase()}
+                                            </span>
+                                          </div>
+                                        )}
+                                        <div className="flex-1">
+                                          <p className="text-text-primary font-semibold">@{winner?.user.username}</p>
+                                          <p className="text-text-secondary text-xs">ELO: {winner?.user.eloRating}</p>
+                                        </div>
+                                        <span className="text-cyber-green font-semibold">✓ Winner</span>
+                                      </div>
                                     </div>
                                   )
                                 })}
@@ -560,9 +613,11 @@ export default function TournamentDetailPage() {
                         )}
                       </div>
                     ) : (
-                      <p className="text-text-secondary">
-                        Finals explanation will appear once the tournament reaches the final round.
-                      </p>
+                      <div className="p-4 bg-bg-secondary rounded-lg border border-bg-tertiary text-center">
+                        <p className="text-text-secondary text-sm">
+                          Finals explanation will appear once the tournament reaches the final round.
+                        </p>
+                      </div>
                     )}
                   </CardBody>
                 </Card>
