@@ -185,6 +185,43 @@ export default function TournamentsPage() {
     fetchTournaments()
   }
 
+  const handleDeleteTournament = async () => {
+    if (!deleteConfirm) return
+
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/tournaments/${deleteConfirm.tournamentId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Tournament Deleted',
+          description: `"${deleteConfirm.tournamentName}" has been deleted`,
+        })
+        setDeleteConfirm(null)
+        fetchTournaments() // Refresh the list
+      } else {
+        const error = await response.json()
+        showToast({
+          type: 'error',
+          title: 'Delete Failed',
+          description: error.error || 'Failed to delete tournament',
+        })
+      }
+    } catch (error: any) {
+      console.error('Failed to delete tournament:', error)
+      showToast({
+        type: 'error',
+        title: 'Delete Failed',
+        description: 'An error occurred while deleting the tournament',
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   // Expose refresh function to window for debugging and auto-refresh on focus
   useEffect(() => {
     if (typeof window !== 'undefined') {
