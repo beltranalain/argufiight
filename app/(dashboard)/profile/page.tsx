@@ -50,7 +50,6 @@ export default function ProfilePage() {
   })
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
-  const hasRedirectedRef = useRef(false)
 
   useEffect(() => {
     if (user) {
@@ -58,17 +57,17 @@ export default function ProfilePage() {
     }
   }, [user])
 
-  // Redirect to username-based URL once profile is loaded (only once)
+  // Redirect to username-based URL immediately when user is available
   useEffect(() => {
-    if (profile && profile.username && !isLoading && user && !hasRedirectedRef.current) {
-      // Only redirect if we're on /profile (not already on /username)
+    if (user?.username && typeof window !== 'undefined') {
       const currentPath = window.location.pathname
-      if (currentPath === '/profile' && user.username === profile.username) {
-        hasRedirectedRef.current = true
-        router.replace(`/${profile.username}`)
+      // Only redirect if we're on /profile and haven't already redirected
+      if (currentPath === '/profile') {
+        // Use window.location.replace for immediate redirect without flicker
+        window.location.replace(`/${user.username}`)
       }
     }
-  }, [profile?.username, isLoading, user, router])
+  }, [user?.username])
 
   const fetchProfile = async () => {
     try {
