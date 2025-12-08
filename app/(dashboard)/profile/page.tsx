@@ -59,13 +59,14 @@ export default function ProfilePage() {
 
   // Redirect to username-based URL once profile is loaded
   useEffect(() => {
-    if (profile && profile.username) {
+    if (profile && profile.username && !isLoading) {
       // Only redirect if we're on /profile (not already on /username)
-      if (window.location.pathname === '/profile') {
+      const currentPath = window.location.pathname
+      if (currentPath === '/profile' && currentPath !== `/${profile.username}`) {
         router.replace(`/${profile.username}`)
       }
     }
-  }, [profile, router])
+  }, [profile?.username, isLoading, router])
 
   const fetchProfile = async () => {
     try {

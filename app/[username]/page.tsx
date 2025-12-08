@@ -208,12 +208,8 @@ export default function UsernameProfilePage() {
     }
   }
 
-  // Redirect to own profile if viewing own profile
-  useEffect(() => {
-    if (currentUser && profile && currentUser.id === profile.id) {
-      router.push('/profile')
-    }
-  }, [currentUser, profile, router])
+  // Don't redirect - allow users to view their own profile at /{username}
+  // This matches Instagram-style behavior where you can view your own profile
 
   if (isLoading) {
     return (
