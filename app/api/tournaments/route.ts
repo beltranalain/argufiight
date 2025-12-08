@@ -29,12 +29,12 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: any = {}
     if (status && status !== 'ALL') {
-      where.status = status
+      where.status = status as any // Cast to enum type
     }
 
     // Get all tournaments first, then filter private ones
     const allTournaments = await prisma.tournament.findMany({
-      where: status && status !== 'ALL' ? { status } : {},
+      where: status && status !== 'ALL' ? { status: status as any } : {},
       include: {
         creator: {
           select: {
