@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
+import { TournamentBracket } from '@/components/tournaments/TournamentBracket'
 import Link from 'next/link'
 
 interface Tournament {
@@ -384,91 +385,19 @@ export default function TournamentDetailPage() {
             </CardBody>
           </Card>
 
-          {/* Matches/Bracket */}
+          {/* Bracket Visualization */}
           {tournament.matches.length > 0 && (
             <Card>
               <CardHeader>
-                <h2 className="text-xl font-bold text-text-primary">Matches</h2>
+                <h2 className="text-xl font-bold text-text-primary">Tournament Bracket</h2>
               </CardHeader>
               <CardBody>
-                <div className="space-y-6">
-                  {Array.from({ length: tournament.totalRounds }).map((_, roundIndex) => {
-                    const round = roundIndex + 1
-                    const roundMatches = tournament.matches.filter((m) => m.round === round)
-
-                    if (roundMatches.length === 0) return null
-
-                    return (
-                      <div key={round}>
-                        <h3 className="text-lg font-semibold text-text-primary mb-4">
-                          Round {round}
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {roundMatches.map((match) => {
-                            const participant1 = tournament.participants.find(
-                              (p) => p.id === match.participant1Id
-                            )
-                            const participant2 = tournament.participants.find(
-                              (p) => p.id === match.participant2Id
-                            )
-
-                            return (
-                              <div
-                                key={match.id}
-                                className="p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
-                              >
-                                <div className="flex items-center justify-between mb-3">
-                                  <span className="text-text-secondary text-sm">
-                                    Match {match.matchNumber}
-                                  </span>
-                                  <Badge variant="default" size="sm">
-                                    {match.status}
-                                  </Badge>
-                                </div>
-                                <div className="space-y-2">
-                                  <div
-                                    className={`p-2 rounded ${
-                                      match.winnerId === participant1?.userId
-                                        ? 'bg-cyber-green/20 border border-cyber-green'
-                                        : 'bg-bg-tertiary'
-                                    }`}
-                                  >
-                                    <p className="text-text-primary text-sm font-semibold">
-                                      {participant1
-                                        ? `@${participant1.user.username}`
-                                        : 'TBD'}
-                                    </p>
-                                  </div>
-                                  <div className="text-center text-text-secondary text-xs">VS</div>
-                                  <div
-                                    className={`p-2 rounded ${
-                                      match.winnerId === participant2?.userId
-                                        ? 'bg-cyber-green/20 border border-cyber-green'
-                                        : 'bg-bg-tertiary'
-                                    }`}
-                                  >
-                                    <p className="text-text-primary text-sm font-semibold">
-                                      {participant2
-                                        ? `@${participant2.user.username}`
-                                        : 'TBD'}
-                                    </p>
-                                  </div>
-                                </div>
-                                {match.debate && (
-                                  <Link href={`/debate/${match.debate.id}`} className="mt-3 block">
-                                    <Button variant="secondary" size="sm" className="w-full">
-                                      View Debate
-                                    </Button>
-                                  </Link>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                <TournamentBracket
+                  participants={tournament.participants}
+                  matches={tournament.matches}
+                  totalRounds={tournament.totalRounds}
+                  currentRound={tournament.currentRound}
+                />
               </CardBody>
             </Card>
           )}
