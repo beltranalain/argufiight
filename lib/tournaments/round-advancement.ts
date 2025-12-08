@@ -7,6 +7,7 @@ import { prisma } from '@/lib/db/prisma'
 import { generateTournamentMatches } from './match-generation'
 import { reseedTournamentParticipants } from './reseed'
 import { completeTournament } from './tournament-completion'
+import { calculateChampionshipAdvancement } from './championship-advancement'
 
 /**
  * Check if all matches in a round are complete, and advance if needed
@@ -25,7 +26,12 @@ export async function checkAndAdvanceTournamentRound(
         },
       },
       include: {
-        matches: true,
+        matches: {
+          include: {
+            participant1: true,
+            participant2: true,
+          },
+        },
         tournament: {
           select: {
             id: true,
@@ -34,6 +40,8 @@ export async function checkAndAdvanceTournamentRound(
             status: true,
             reseedAfterRound: true,
             reseedMethod: true,
+            format: true,
+            maxParticipants: true,
           },
         },
       },
@@ -84,6 +92,52 @@ export async function checkAndAdvanceTournamentRound(
     // Not final round - generate next round
     const nextRoundNumber = roundNumber + 1
     console.log(`[Tournament Round] Generating next round ${nextRoundNumber} for tournament ${tournamentId}`)
+
+    // For Championship format Round 1, use score-based advancement
+    if (round.tournament.format === 'CHAMPIONSHIP' && roundNumber === 1) {
+      console.log(`[Championship] Round 1 complete - calculating score-based advancement`)
+
+      // Calculate which participants advance based on scores
+      const advancingParticipantIds = await calculateChampionshipAdvancement(tournamentId, roundNumber)
+
+      // Mark non-advancing participants as eliminated
+      const allParticipantIds = round.matches.flatMap((m) => [
+        m.participant1Id,
+        m.participant2Id,
+      ])
+      const eliminatedIds = allParticipantIds.filter((id) => !advancingParticipantIds.includes(id))
+
+      await Promise.all(
+        eliminatedIds.map((participantId) =>
+          prisma.tournamentParticipant.update({
+            where: { id: participantId },
+            data: {
+              status: 'ELIMINATED',
+              eliminatedAt: new Date(),
+            },
+          })
+        )
+      )
+
+      // Mark advancing participants as ACTIVE
+      await Promise.all(
+        advancingParticipantIds.map((participantId) =>
+          prisma.tournamentParticipant.update({
+            where: { id: participantId },
+            data: {
+              status: 'ACTIVE',
+            },
+          })
+        )
+      )
+
+      console.log(
+        `[Championship] ${advancingParticipantIds.length} participants advancing, ${eliminatedIds.length} eliminated`
+      )
+    } else {
+      // For Bracket format or Championship Round 2+, use standard winner-based advancement
+      // (Already handled by match completion logic marking winners/losers)
+    }
 
     // Reseed if enabled
     if (round.tournament.reseedAfterRound) {

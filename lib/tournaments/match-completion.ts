@@ -48,9 +48,73 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
       return
     }
 
-    // Check if debate has a winner
-    if (!match.debate || match.debate.status !== 'VERDICT_READY' || !match.debate.winnerId) {
+    // Check if debate has a winner or was forfeited
+    const isForfeited = match.debate?.status === 'CANCELLED' || match.debate?.status === 'FORFEITED'
+    const hasWinner = match.debate?.status === 'VERDICT_READY' && match.debate?.winnerId
+
+    if (!match.debate || (!hasWinner && !isForfeited)) {
       console.log(`[Tournament Match] Debate ${debateId} not ready for match completion (status: ${match.debate?.status}, winner: ${match.debate?.winnerId})`)
+      return
+    }
+
+    // Handle forfeit: assign 0/100 score to forfeiter, opponent gets win
+    if (isForfeited) {
+      console.log(`[Tournament Match] Handling forfeit for debate ${debateId}`)
+      
+      // Determine who forfeited (the one who didn't submit or cancelled)
+      // For now, mark both as having 0 score if forfeited
+      // The winner is determined by debate.winnerId if available, otherwise by who didn't forfeit
+      let forfeiterParticipantId: string | null = null
+      let winnerParticipantId: string | null = null
+
+      // If debate has a winnerId, use it
+      if (match.debate.winnerId) {
+        if (match.participant1.userId === match.debate.winnerId) {
+          winnerParticipantId = match.participant1Id
+          forfeiterParticipantId = match.participant2Id
+        } else {
+          winnerParticipantId = match.participant2Id
+          forfeiterParticipantId = match.participant1Id
+        }
+      } else {
+        // No clear winner - mark both as forfeited (shouldn't happen, but handle gracefully)
+        console.warn(`[Tournament Match] Forfeited debate ${debateId} has no winnerId`)
+        return
+      }
+
+      // Update match with forfeit scores
+      await prisma.tournamentMatch.update({
+        where: { id: match.id },
+        data: {
+          winnerId: winnerParticipantId,
+          status: 'FORFEITED',
+          completedAt: new Date(),
+          participant1Score: forfeiterParticipantId === match.participant1Id ? 0 : null,
+          participant2Score: forfeiterParticipantId === match.participant2Id ? 0 : null,
+        },
+      })
+
+      // Update participant stats
+      await Promise.all([
+        prisma.tournamentParticipant.update({
+          where: { id: winnerParticipantId },
+          data: {
+            wins: { increment: 1 },
+            status: 'ACTIVE',
+          },
+        }),
+        prisma.tournamentParticipant.update({
+          where: { id: forfeiterParticipantId },
+          data: {
+            losses: { increment: 1 },
+            status: 'ELIMINATED',
+            eliminatedAt: new Date(),
+          },
+        }),
+      ])
+
+      // Check if round is complete and advance if needed
+      await checkAndAdvanceTournamentRound(match.round.tournamentId, match.round.roundNumber)
       return
     }
 

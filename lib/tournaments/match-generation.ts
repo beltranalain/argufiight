@@ -126,7 +126,7 @@ export async function generateTournamentMatches(
       }
     }
   } else {
-    // Subsequent rounds: Get winners from previous round
+    // Subsequent rounds: Get advancing participants from previous round
     const previousRound = await prisma.tournamentRound.findUnique({
       where: {
         tournamentId_roundNumber: {
@@ -137,10 +137,9 @@ export async function generateTournamentMatches(
       include: {
         matches: {
           include: {
+            participant1: true,
+            participant2: true,
             winner: true,
-          },
-          where: {
-            status: 'COMPLETED',
           },
         },
       },
@@ -150,34 +149,66 @@ export async function generateTournamentMatches(
       throw new Error(`Previous round ${roundNumber - 1} not found`)
     }
 
-    const winners = previousRound.matches
-      .map((m) => m.winner)
-      .filter((w): w is NonNullable<typeof w> => w !== null)
-      .sort((a, b) => {
-        // Sort by original match order to maintain bracket structure
-        const matchA = previousRound.matches.find((m) => m.winnerId === a.id)
-        const matchB = previousRound.matches.find((m) => m.winnerId === b.id)
-        return (matchA?.id || '').localeCompare(matchB?.id || '')
-      })
+    // For Championship format Round 2+, use advancing participants (ACTIVE status)
+    // For Bracket format, use match winners
+    let advancingParticipants: typeof activeParticipants = []
 
-    if (winners.length < 2) {
-      throw new Error('Not enough winners from previous round')
+    if (tournament.format === 'CHAMPIONSHIP' && roundNumber === 2) {
+      // Round 2: Use participants who advanced from Round 1 (ACTIVE status)
+      advancingParticipants = activeParticipants.filter((p) => p.status === 'ACTIVE')
+    } else {
+      // Round 3+ or Bracket format: Use match winners
+      const winners = previousRound.matches
+        .map((m) => m.winner)
+        .filter((w): w is NonNullable<typeof w> => w !== null)
+        .sort((a, b) => {
+          // Sort by original match order to maintain bracket structure
+          const matchA = previousRound.matches.find((m) => m.winnerId === a.id)
+          const matchB = previousRound.matches.find((m) => m.winnerId === b.id)
+          return (matchA?.id || '').localeCompare(matchB?.id || '')
+        })
+
+      // Find participant records for winners
+      advancingParticipants = winners
+        .map((winner) => activeParticipants.find((p) => p.id === winner.id))
+        .filter((p): p is NonNullable<typeof p> => p !== undefined)
     }
 
-    // Pair winners: 1st vs 2nd, 3rd vs 4th, etc.
-    const numMatches = Math.floor(winners.length / 2)
-    for (let i = 0; i < numMatches; i++) {
-      const winner1 = winners[i * 2]
-      const winner2 = winners[i * 2 + 1]
-      
-      // Find participant records by matching the winner's participant ID
-      const p1 = activeParticipants.find((p) => p.id === winner1.id)
-      const p2 = activeParticipants.find((p) => p.id === winner2.id)
-      
-      if (p1 && p2) {
+    if (advancingParticipants.length < 2) {
+      throw new Error('Not enough advancing participants from previous round')
+    }
+
+    // For Championship Finals (last round), ensure opposite positions
+    if (tournament.format === 'CHAMPIONSHIP' && roundNumber === tournament.totalRounds) {
+      const proParticipants = advancingParticipants.filter((p) => p.selectedPosition === 'PRO')
+      const conParticipants = advancingParticipants.filter((p) => p.selectedPosition === 'CON')
+
+      if (proParticipants.length === 1 && conParticipants.length === 1) {
+        // Perfect: One PRO vs One CON
         matches.push({
-          participant1Id: p1.id,
-          participant2Id: p2.id,
+          participant1Id: proParticipants[0].id,
+          participant2Id: conParticipants[0].id,
+        })
+      } else {
+        // Fallback: Use bracket pairing (shouldn't happen if logic is correct)
+        console.warn(
+          `[Championship Finals] Expected 1 PRO and 1 CON, got ${proParticipants.length} PRO and ${conParticipants.length} CON. Using bracket pairing.`
+        )
+        const numMatches = Math.floor(advancingParticipants.length / 2)
+        for (let i = 0; i < numMatches; i++) {
+          matches.push({
+            participant1Id: advancingParticipants[i * 2].id,
+            participant2Id: advancingParticipants[i * 2 + 1].id,
+          })
+        }
+      }
+    } else {
+      // Standard bracket pairing: 1st vs 2nd, 3rd vs 4th, etc.
+      const numMatches = Math.floor(advancingParticipants.length / 2)
+      for (let i = 0; i < numMatches; i++) {
+        matches.push({
+          participant1Id: advancingParticipants[i * 2].id,
+          participant2Id: advancingParticipants[i * 2 + 1].id,
         })
       }
     }
@@ -231,6 +262,23 @@ export async function startTournament(tournamentId: string): Promise<void> {
 
   if (tournament.participants.length < 2) {
     throw new Error('Tournament needs at least 2 participants to start')
+  }
+
+  // For Championship format, check position balance
+  if (tournament.format === 'CHAMPIONSHIP') {
+    const proCount = tournament.participants.filter((p) => p.selectedPosition === 'PRO').length
+    const conCount = tournament.participants.filter((p) => p.selectedPosition === 'CON').length
+    const maxPerPosition = tournament.maxParticipants / 2
+
+    if (proCount !== conCount || proCount !== maxPerPosition) {
+      throw new Error(
+        `Championship format requires balanced positions. Current: ${proCount} PRO, ${conCount} CON. Required: ${maxPerPosition} each.`
+      )
+    }
+
+    if (proCount === 0 || conCount === 0) {
+      throw new Error('Championship format requires at least one participant in each position (PRO and CON)')
+    }
   }
 
   // For Championship format, assign 7 judges before starting

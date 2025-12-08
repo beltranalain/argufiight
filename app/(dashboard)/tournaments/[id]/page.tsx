@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { TournamentBracket } from '@/components/tournaments/TournamentBracket'
 import { PositionSelector } from '@/components/tournaments/PositionSelector'
+import { ChampionshipRulesModal } from '@/components/tournaments/ChampionshipRulesModal'
 import Link from 'next/link'
 
 interface Tournament {
@@ -62,6 +63,10 @@ interface Tournament {
     participant2Id: string | null
     winnerId: string | null
     status: string
+    participant1Score: number | null
+    participant2Score: number | null
+    participant1ScoreBreakdown: Record<string, number> | null
+    participant2ScoreBreakdown: Record<string, number> | null
     debate: {
       id: string
       topic: string
@@ -92,6 +97,7 @@ export default function TournamentDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isJoining, setIsJoining] = useState(false)
   const [showPositionSelector, setShowPositionSelector] = useState(false)
+  const [showRulesModal, setShowRulesModal] = useState(false)
 
   useEffect(() => {
     if (params.id) {
@@ -314,6 +320,16 @@ export default function TournamentDetailPage() {
                   >
                     {tournament.format === 'CHAMPIONSHIP' ? 'Championship' : 'Bracket'}
                   </Badge>
+                  {tournament.format === 'CHAMPIONSHIP' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowRulesModal(true)}
+                      className="text-text-secondary hover:text-text-primary text-xs"
+                    >
+                      How it works?
+                    </Button>
+                  )}
                 </div>
                 {tournament.description && (
                   <p className="text-text-secondary text-lg mb-4">{tournament.description}</p>
@@ -461,6 +477,12 @@ export default function TournamentDetailPage() {
           isLoading={isJoining}
         />
       )}
+
+      {/* Championship Rules Modal */}
+      <ChampionshipRulesModal
+        isOpen={showRulesModal}
+        onClose={() => setShowRulesModal(false)}
+      />
     </div>
   )
 }

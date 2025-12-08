@@ -11,6 +11,7 @@ interface Participant {
   userId: string
   seed: number
   status: string
+  selectedPosition: string | null
   user: {
     id: string
     username: string
@@ -27,6 +28,8 @@ interface Match {
   participant2Id: string | null
   winnerId: string | null
   status: string
+  participant1Score: number | null
+  participant2Score: number | null
   debate: {
     id: string
     topic: string

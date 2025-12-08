@@ -177,6 +177,10 @@ export async function GET(
             participant2Id: m.participant2Id,
             winnerId: m.winnerId,
             status: m.status,
+            participant1Score: m.participant1Score,
+            participant2Score: m.participant2Score,
+            participant1ScoreBreakdown: m.participant1ScoreBreakdown,
+            participant2ScoreBreakdown: m.participant2ScoreBreakdown,
             debate: m.debate,
           }
         }),
