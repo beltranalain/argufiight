@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
         minElo: true,
         isPrivate: true,
         invitedUserIds: true,
-        format: true, // Include format field
+        // format: true, // Don't include format - migration may not be applied yet
         creatorId: true,
         creator: {
           select: {
@@ -199,7 +199,7 @@ export async function GET(request: NextRequest) {
       creator: tournament.creator,
       isParticipant: userId ? tournament.participants.some((p) => p.userId === userId) : false,
       isPrivate: tournament.isPrivate,
-      format: tournament.format || 'BRACKET', // Default to BRACKET for old tournaments
+      format: (tournament as any).format || 'BRACKET', // Default to BRACKET for old tournaments or if migration not applied
       createdAt: tournament.createdAt,
     }))
 
