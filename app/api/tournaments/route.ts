@@ -63,8 +63,14 @@ export async function GET(request: NextRequest) {
 
     // Filter private tournaments - only show if user is creator or invited
     const tournaments = allTournaments.filter((tournament) => {
+      // Show all public tournaments
       if (!tournament.isPrivate) {
-        return true // Show all public tournaments
+        return true
+      }
+      
+      // If no userId, hide all private tournaments
+      if (!userId) {
+        return false
       }
       
       // Show private tournaments where user is creator
@@ -73,7 +79,7 @@ export async function GET(request: NextRequest) {
       }
       
       // Show private tournaments where user is invited
-      if (userId && tournament.invitedUserIds) {
+      if (tournament.invitedUserIds) {
         try {
           const invitedIds = JSON.parse(tournament.invitedUserIds) as string[]
           if (Array.isArray(invitedIds) && invitedIds.includes(userId)) {
@@ -86,6 +92,16 @@ export async function GET(request: NextRequest) {
       
       return false // Hide private tournaments user doesn't have access to
     }).slice(0, 50) // Limit to 50 after filtering
+
+    console.log(`Tournaments: Found ${allTournaments.length} total, ${tournaments.length} after filtering (userId: ${userId || 'none'})`)
+    if (allTournaments.length > 0) {
+      console.log('Sample tournament:', {
+        id: allTournaments[0].id,
+        name: allTournaments[0].name,
+        isPrivate: allTournaments[0].isPrivate,
+        creatorId: allTournaments[0].creatorId,
+      })
+    }
 
     // Format response
     const formatted = tournaments.map((tournament) => ({
