@@ -414,7 +414,7 @@ export default function UsernameProfilePage() {
           )}
 
           {/* Ad Display */}
-          <AdDisplay placement="profile" />
+          <AdDisplay placement="PROFILE_BANNER" userId={profile.id} />
         </div>
       </div>
     </div>
