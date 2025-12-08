@@ -30,7 +30,7 @@ export function Tabs({ tabs, defaultTab, onChange }: TabsProps) {
   return (
     <div>
       {/* Tab Headers */}
-      <div className="border-b border-white/20">
+      <div className="border-b border-bg-tertiary">
         <div className="flex gap-1 relative">
           {tabs.map((tab) => (
             <button
@@ -40,7 +40,7 @@ export function Tabs({ tabs, defaultTab, onChange }: TabsProps) {
                 'relative px-4 py-3 font-medium transition-colors flex items-center gap-2',
                 activeTab === tab.id
                   ? 'text-electric-blue'
-                  : 'text-white/70 hover:text-white'
+                  : 'text-text-secondary hover:text-text-primary'
               )}
             >
               {tab.icon}
