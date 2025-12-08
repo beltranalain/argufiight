@@ -116,6 +116,9 @@ export async function POST(request: NextRequest) {
       .sort(() => Math.random() - 0.5)
       .slice(0, Math.min(3, allJudges.length))
 
+    // Determine if debate is complete
+    const isComplete = debate.status === 'VERDICT_READY' || (debate.currentRound >= debate.totalRounds && debate.status === 'COMPLETED')
+    
     // Build debate context
     const debateContext: DebateContext = {
       topic: debate.topic,
@@ -123,6 +126,9 @@ export async function POST(request: NextRequest) {
       opponentPosition: debate.opponentPosition,
       challengerName: debate.challenger.username,
       opponentName: debate.opponent.username,
+      currentRound: debate.currentRound,
+      totalRounds: debate.totalRounds,
+      isComplete,
       statements: debate.statements.map((s) => ({
         round: s.round,
         author: s.author.username,
