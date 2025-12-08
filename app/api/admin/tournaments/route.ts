@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
         maxParticipants: true,
         currentRound: true,
         totalRounds: true,
+        format: true, // Include format field
         createdAt: true,
         creatorId: true,
         creator: {
@@ -53,6 +54,7 @@ export async function GET(request: NextRequest) {
       maxParticipants: tournament.maxParticipants,
       currentRound: tournament.currentRound,
       totalRounds: tournament.totalRounds,
+      format: tournament.format || 'BRACKET', // Default to BRACKET if not set
       participantCount: tournament.participants.length,
       createdAt: tournament.createdAt.toISOString(),
       creator: tournament.creator || { username: 'Unknown', email: '' },

@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
         minElo: true,
         isPrivate: true,
         invitedUserIds: true,
-        // format: true, // Don't include format - migration may not be applied yet
+        format: true, // Include format field (migration should be applied)
         creatorId: true,
         creator: {
           select: {
