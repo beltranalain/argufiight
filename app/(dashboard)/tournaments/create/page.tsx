@@ -426,13 +426,29 @@ export default function CreateTournamentPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Start Date *
                   </label>
-                  <Input
-                    type="datetime-local"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    required
-                    min={new Date().toISOString().slice(0, 16)}
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      type="datetime-local"
+                      value={formData.startDate}
+                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      required
+                      min={new Date().toISOString().slice(0, 16)}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        const now = new Date()
+                        // Format as YYYY-MM-DDTHH:mm for datetime-local input
+                        const formatted = now.toISOString().slice(0, 16)
+                        setFormData({ ...formData, startDate: formatted })
+                      }}
+                      className="whitespace-nowrap"
+                    >
+                      Start Now
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Min ELO */}
