@@ -414,12 +414,30 @@ export default function TournamentsPage() {
                           @{tournament.creator.username}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-text-secondary">Starts</span>
-                        <span className="text-text-primary font-semibold">
-                          {new Date(tournament.startDate).toLocaleDateString()}
-                        </span>
-                      </div>
+                      {tournament.status === 'COMPLETED' && tournament.winner ? (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-text-secondary">Winner</span>
+                          <div className="flex items-center gap-2">
+                            {tournament.winner.avatarUrl && (
+                              <img
+                                src={tournament.winner.avatarUrl}
+                                alt={tournament.winner.username}
+                                className="w-5 h-5 rounded-full"
+                              />
+                            )}
+                            <span className="text-cyber-green font-semibold">
+                              @{tournament.winner.username}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-text-secondary">Starts</span>
+                          <span className="text-text-primary font-semibold">
+                            {new Date(tournament.startDate).toLocaleDateString()}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <Link href={`/tournaments/${tournament.id}`} className="flex-1">
