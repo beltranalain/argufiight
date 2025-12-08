@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       where: {
         isAdmin: false,
         isBanned: false,
-        participants: {
+        tournamentParticipations: {
           some: {},
         },
       },
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         id: true,
         username: true,
         avatarUrl: true,
-        participants: {
+        tournamentParticipations: {
           include: {
             tournament: {
               select: {
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate tournament stats for each user
     const tournamentStats = users.map((user) => {
-      const participations = user.participants
+      const participations = user.tournamentParticipations
 
       // Count tournaments won (champion = only ACTIVE participant in COMPLETED tournament)
       const tournamentsWon = participations.filter((p) => {
