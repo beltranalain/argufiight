@@ -232,7 +232,7 @@ export function TournamentBracket({
                                   <p className="text-text-primary text-sm font-semibold truncate">
                                     ({slot1.participant.seed}) @{slot1.participant.user.username}
                                     {slot1.isWinner && isFinalWinner && (
-                                      <span className="ml-2 text-cyber-green font-bold">🏆 Champion</span>
+                                      <span className="ml-2 text-cyber-green font-bold">Champion</span>
                                     )}
                                     {slot1.isWinner && !isFinalWinner && (
                                       <span className="ml-2 text-cyber-green">✓ Winner</span>
@@ -275,7 +275,7 @@ export function TournamentBracket({
                                   <p className="text-text-primary text-sm font-semibold truncate">
                                     ({slot2.participant.seed}) @{slot2.participant.user.username}
                                     {slot2.isWinner && isFinalWinner && (
-                                      <span className="ml-2 text-cyber-green font-bold">🏆 Champion</span>
+                                      <span className="ml-2 text-cyber-green font-bold">Champion</span>
                                     )}
                                     {slot2.isWinner && !isFinalWinner && (
                                       <span className="ml-2 text-cyber-green">✓ Winner</span>

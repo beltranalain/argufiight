@@ -472,7 +472,7 @@ export default function TournamentDetailPage() {
                               </p>
                               {isChampion && (
                                 <Badge variant="default" className="bg-cyber-green text-black text-xs">
-                                  🏆 Champion
+                                  Champion
                                 </Badge>
                               )}
                             </div>
