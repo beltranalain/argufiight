@@ -408,6 +408,11 @@ export default function DebatePage() {
         totalRounds: debate.totalRounds,
         status: debate.status,
         userId: user.id,
+        username: user.username,
+        challengerId: debate.challenger.id,
+        challengerUsername: debate.challenger.username,
+        opponentId: debate.opponent?.id,
+        opponentUsername: debate.opponent?.username,
         isParticipant,
         isChallenger,
         isOpponent,
@@ -418,6 +423,12 @@ export default function DebatePage() {
         isMyTurn,
         canSubmit,
         currentRoundStatementsCount: currentRoundStatements.length,
+        // Break down isMyTurn calculation
+        isMyTurnBreakdown: {
+          condition1: noStatementsInRound && isChallenger,
+          condition2: isChallenger && opponentSubmitted && !challengerSubmitted,
+          condition3: isOpponent && challengerSubmitted && !opponentSubmitted,
+        }
       })
     }
   }, [debate, user, isParticipant, isChallenger, isOpponent, noStatementsInRound, challengerSubmitted, opponentSubmitted, userSubmitted, isMyTurn, canSubmit, currentRoundStatements.length])
