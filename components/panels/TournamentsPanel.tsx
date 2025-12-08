@@ -44,6 +44,31 @@ export function TournamentsPanel() {
     }
   }, [isFeatureEnabled])
 
+  // Refresh tournaments when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isFeatureEnabled && user) {
+        console.log('[TournamentsPanel] Page visible, refreshing tournaments...')
+        fetchTournaments()
+      }
+    }
+
+    const handleFocus = () => {
+      if (isFeatureEnabled && user) {
+        console.log('[TournamentsPanel] Window focused, refreshing tournaments...')
+        fetchTournaments()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [isFeatureEnabled, user])
+
   const checkFeatureStatus = async () => {
     try {
       // Try to fetch tournaments - if feature is disabled, API will return 403
