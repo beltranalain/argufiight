@@ -355,6 +355,21 @@ export default function DebatePage() {
   const currentRoundStatements = debate?.statements.filter(
     s => s.round === debate.currentRound
   ) || []
+  
+  // Debug: Log statement filtering
+  if (debate && user) {
+    console.log('[DebatePage] Statement filtering:', {
+      currentRound: debate.currentRound,
+      totalStatements: debate.statements.length,
+      statementsByRound: debate.statements.reduce((acc, s) => {
+        acc[s.round] = (acc[s.round] || 0) + 1
+        return acc
+      }, {} as Record<number, number>),
+      currentRoundStatementsCount: currentRoundStatements.length,
+      currentRoundStatementAuthors: currentRoundStatements.map(s => s.author.username),
+    })
+  }
+  
   const challengerSubmitted = debate && currentRoundStatements.some(
     s => s.author.id === debate.challenger.id
   )
