@@ -23,6 +23,9 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   const streamRef = useRef<MediaStream | null>(null) // Keep microphone stream open
   const shouldListenRef = useRef(false) // Track if we should be listening (for immediate restart)
   const accumulatedTranscriptRef = useRef('') // Store transcript separately from recognition instance
+  const lastResultTimeRef = useRef<number | null>(null) // Track when we last got a result
+  const preemptiveRestartTimeoutRef = useRef<number | null>(null) // For preemptive restart
+  const nextRecognitionRef = useRef<SpeechRecognition | null>(null) // Pre-create next instance
 
   // Function to create a new recognition instance
   const createRecognitionInstance = () => {
@@ -39,9 +42,40 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       console.log('Speech recognition started')
       setIsListening(true)
       setShowPermissionModal(false)
+      lastResultTimeRef.current = Date.now() // Reset timer when recognition starts
+      
+      // Set up preemptive restart - if no results for 2 seconds, restart proactively
+      if (preemptiveRestartTimeoutRef.current) {
+        clearTimeout(preemptiveRestartTimeoutRef.current)
+      }
+      preemptiveRestartTimeoutRef.current = window.setTimeout(() => {
+        if (shouldListenRef.current && lastResultTimeRef.current) {
+          const timeSinceLastResult = Date.now() - lastResultTimeRef.current
+          if (timeSinceLastResult > 2000) {
+            console.log('Preemptive restart: No results for 2+ seconds, restarting before timeout...')
+            // Stop current recognition to trigger onend, which will restart
+            if (recognitionRef.current) {
+              try {
+                recognitionRef.current.stop()
+              } catch (e) {
+                // Ignore errors
+              }
+            }
+          }
+        }
+      }, 2000) as any
     }
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
+      // Update last result time - this helps detect timeouts
+      lastResultTimeRef.current = Date.now()
+      
+      // Clear any preemptive restart timeout since we got a result
+      if (preemptiveRestartTimeoutRef.current) {
+        clearTimeout(preemptiveRestartTimeoutRef.current)
+        preemptiveRestartTimeoutRef.current = null
+      }
+      
       // Build transcript from all results
       let accumulated = accumulatedTranscriptRef.current
       let newTranscript = ''
@@ -59,6 +93,12 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
         }
       }
       onTranscript(newTranscript.trim())
+      
+      // Pre-create next recognition instance while we're still getting results
+      // This makes restart instant when current one stops
+      if (shouldListenRef.current && !nextRecognitionRef.current) {
+        nextRecognitionRef.current = createRecognitionInstance()
+      }
     }
 
     recognition.onerror = (event: any) => {
@@ -111,31 +151,41 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     }
 
     recognition.onend = () => {
-      console.log('Speech recognition ended - restarting immediately if still listening')
-      // If we're still supposed to be listening, IMMEDIATELY create a NEW instance and start it
+      const timeSinceLastResult = lastResultTimeRef.current 
+        ? Date.now() - lastResultTimeRef.current 
+        : null
+      console.log(`Speech recognition ended - restarting immediately if still listening (time since last result: ${timeSinceLastResult ? Math.floor(timeSinceLastResult / 1000) + 's' : 'N/A'})`)
+      
+      // If we're still supposed to be listening, IMMEDIATELY restart
       if (shouldListenRef.current) {
         // Show restarting indicator
         setIsRestarting(true)
         setRestartCount(prev => prev + 1)
         
-        // Keep isListening true - don't set it to false
-        // Create a fresh recognition instance immediately
-        const newRecognition = createRecognitionInstance()
+        // Use pre-created instance if available, otherwise create new one
+        const newRecognition = nextRecognitionRef.current || createRecognitionInstance()
+        nextRecognitionRef.current = null // Clear it since we're using it
+        
         if (newRecognition) {
           recognitionRef.current = newRecognition
-          // Use requestAnimationFrame for immediate restart (faster than setTimeout)
-          requestAnimationFrame(() => {
+          
+          // Start immediately with 0ms delay (faster than requestAnimationFrame)
+          setTimeout(() => {
             if (shouldListenRef.current && recognitionRef.current) {
               try {
-                console.log('Immediately restarting recognition instance...')
+                console.log('Immediately restarting recognition instance (0ms delay)...')
                 recognitionRef.current.start()
+                // Pre-create next instance for even faster restart
+                nextRecognitionRef.current = createRecognitionInstance()
                 // Clear restarting indicator after a brief moment
-                setTimeout(() => setIsRestarting(false), 500)
+                setTimeout(() => setIsRestarting(false), 300)
               } catch (error: any) {
                 // Handle "already started" error - this means recognition is already running
                 if (error.message && (error.message.includes('already started') || error.message.includes('started'))) {
                   console.log('Recognition already running, this is fine')
                   setIsRestarting(false)
+                  // Still pre-create next instance
+                  nextRecognitionRef.current = createRecognitionInstance()
                   return
                 }
                 console.error('Failed to start new recognition instance:', error)
@@ -145,12 +195,14 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
                     try {
                       console.log('Retrying recognition start after delay...')
                       recognitionRef.current.start()
+                      nextRecognitionRef.current = createRecognitionInstance()
                       setIsRestarting(false)
                     } catch (retryError: any) {
                       console.error('Failed to start after retry:', retryError)
                       // If it's "already started", that's fine
                       if (retryError.message && (retryError.message.includes('already started') || retryError.message.includes('started'))) {
                         console.log('Recognition already running after retry, continuing...')
+                        nextRecognitionRef.current = createRecognitionInstance()
                         setIsRestarting(false)
                         return
                       }
@@ -160,6 +212,7 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
                           const finalRetry = createRecognitionInstance()
                           if (finalRetry) {
                             recognitionRef.current = finalRetry
+                            nextRecognitionRef.current = createRecognitionInstance()
                             try {
                               finalRetry.start()
                               setIsRestarting(false)
@@ -176,13 +229,13 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
                             }
                           }
                         }
-                      }, 100)
+                      }, 50) // Reduced delay
                     }
                   }
-                }, 10) // Minimal delay
+                }, 5) // Reduced delay
               }
             }
-          })
+          }, 0) // 0ms delay - immediate
         } else {
           shouldListenRef.current = false
           setIsListening(false)
@@ -252,6 +305,16 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     accumulatedTranscriptRef.current = ''
     setRestartCount(0)
     setIsRestarting(false)
+    lastResultTimeRef.current = null
+    
+    // Clear any existing timeouts
+    if (preemptiveRestartTimeoutRef.current) {
+      clearTimeout(preemptiveRestartTimeoutRef.current)
+      preemptiveRestartTimeoutRef.current = null
+    }
+    
+    // Pre-create the first recognition instance
+    nextRecognitionRef.current = createRecognitionInstance()
 
     // NEW APPROACH: Keep microphone stream open while listening
     // This prevents the browser from stopping recognition due to stream closure
@@ -262,15 +325,19 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream // Store reference to keep it alive
       
-      console.log('Step 2: Microphone permission granted, creating new recognition instance...')
+      console.log('Step 2: Microphone permission granted, using pre-created recognition instance...')
       
-      // Create a fresh recognition instance
-      const recognition = createRecognitionInstance()
+      // Use pre-created instance or create new one
+      const recognition = nextRecognitionRef.current || createRecognitionInstance()
       if (!recognition) {
         throw new Error('Failed to create recognition instance')
       }
       
       recognitionRef.current = recognition
+      nextRecognitionRef.current = null // Clear it since we're using it
+      
+      // Pre-create next instance for faster restart
+      nextRecognitionRef.current = createRecognitionInstance()
       
       // Start recognition
       console.log('Step 3: Starting speech recognition...')
@@ -310,6 +377,12 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     // Set flag to stop listening
     shouldListenRef.current = false
     
+    // Clear preemptive restart timeout
+    if (preemptiveRestartTimeoutRef.current) {
+      clearTimeout(preemptiveRestartTimeoutRef.current)
+      preemptiveRestartTimeoutRef.current = null
+    }
+    
     // Stop speech recognition
     if (recognitionRef.current && isListening) {
       try {
@@ -317,6 +390,16 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
       } catch (e) {
         // Ignore errors
       }
+    }
+    
+    // Clean up pre-created instances
+    if (nextRecognitionRef.current) {
+      try {
+        nextRecognitionRef.current.stop()
+      } catch (e) {
+        // Ignore errors
+      }
+      nextRecognitionRef.current = null
     }
     
     // Close microphone stream
@@ -328,6 +411,7 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     setIsListening(false)
     setIsRestarting(false)
     setRestartCount(0)
+    lastResultTimeRef.current = null
   }
 
   // Manual restart function

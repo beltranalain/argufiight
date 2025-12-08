@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Input Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0052a3;
+        }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #000;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        .log-entry.error {
+            color: #ff6b6b;
+        }
+        .log-entry.success {
+            color: #51cf66;
+        }
+        .log-entry.info {
+            color: #74c0fc;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .status.listening {
+            background: #51cf66;
+        }
+        .status.stopped {
+            background: #ff6b6b;
+        }
+        .status.restarting {
+            background: #ffd43b;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <h1>Voice Input Deep Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Controls</h2>
+        <button id="startBtn">Start Listening</button>
+        <button id="stopBtn" disabled>Stop Listening</button>
+        <button id="clearLogBtn">Clear Log</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Status</h2>
+        <div id="status" class="status stopped">Stopped</div>
+        <div>
+            <strong>Restart Count:</strong> <span id="restartCount">0</span>
+            <strong>Total Time:</strong> <span id="totalTime">0s</span>
+            <strong>Last Result:</strong> <span id="lastResult">-</span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Transcript</h2>
+        <textarea id="transcript" style="width: 100%; min-height: 100px; background: #000; color: #fff; padding: 10px; border-radius: 4px;" readonly></textarea>
+    </div>
+
+    <div class="test-section">
+        <h2>Event Log</h2>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+            document.body.innerHTML = '<h1 style="color: red;">Web Speech API not supported in this browser</h1>';
+        }
+
+        let recognition = null;
+        let shouldListen = false;
+        let restartCount = 0;
+        let startTime = null;
+        let accumulatedTranscript = '';
+        let lastResultTime = null;
+
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+        const statusDiv = document.getElementById('status');
+        const transcriptArea = document.getElementById('transcript');
+        const logDiv = document.getElementById('log');
+        const restartCountSpan = document.getElementById('restartCount');
+        const totalTimeSpan = document.getElementById('totalTime');
+        const lastResultSpan = document.getElementById('lastResult');
+
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function updateStatus(status, text) {
+            statusDiv.className = `status ${status}`;
+            statusDiv.textContent = text;
+        }
+
+        function updateTime() {
+            if (startTime) {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                totalTimeSpan.textContent = `${elapsed}s`;
+            }
+        }
+
+        setInterval(updateTime, 1000);
+
+        function createRecognition() {
+            const rec = new SpeechRecognition();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = 'en-US';
+            rec.maxAlternatives = 1;
+
+            rec.onstart = () => {
+                log('Recognition started', 'success');
+                updateStatus('listening', 'Listening...');
+                lastResultTime = Date.now();
+            };
+
+            rec.onresult = (event) => {
+                lastResultTime = Date.now();
+                let newText = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const result = event.results[i];
+                    if (result.isFinal) {
+                        accumulatedTranscript += result[0].transcript + ' ';
+                        newText = accumulatedTranscript;
+                        log(`Final result: "${result[0].transcript}"`, 'success');
+                    } else {
+                        newText = accumulatedTranscript + result[0].transcript;
+                        log(`Interim result: "${result[0].transcript}"`, 'info');
+                    }
+                }
+                
+                transcriptArea.value = newText.trim();
+                lastResultSpan.textContent = new Date().toLocaleTimeString();
+            };
+
+            rec.onerror = (event) => {
+                log(`Error: ${event.error} - ${event.message || ''}`, 'error');
+                
+                if (event.error === 'no-speech') {
+                    log('No speech detected (this is normal)', 'info');
+                    // Don't stop on no-speech, let onend handle restart
+                    return;
+                }
+                
+                if (event.error === 'aborted') {
+                    if (shouldListen) {
+                        log('Recognition aborted but should continue - will restart', 'info');
+                    }
+                    return;
+                }
+                
+                if (event.error === 'network') {
+                    log('Network error - will retry', 'error');
+                    return;
+                }
+                
+                if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+                    log('Permission denied - stopping', 'error');
+                    shouldListen = false;
+                    updateStatus('stopped', 'Permission Denied');
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                }
+            };
+
+            rec.onend = () => {
+                const timeSinceLastResult = lastResultTime ? Date.now() - lastResultTime : 0;
+                log(`Recognition ended. Time since last result: ${Math.floor(timeSinceLastResult / 1000)}s`, 'info');
+                
+                if (shouldListen) {
+                    restartCount++;
+                    restartCountSpan.textContent = restartCount;
+                    log(`Auto-restarting (attempt #${restartCount})...`, 'info');
+                    updateStatus('restarting', `Restarting... (${restartCount})`);
+                    
+                    // Create new instance immediately
+                    recognition = createRecognition();
+                    
+                    // Try to start immediately
+                    try {
+                        recognition.start();
+                        log('Restart attempt successful', 'success');
+                    } catch (error) {
+                        log(`Restart failed: ${error.message}`, 'error');
+                        
+                        // If "already started", that's fine
+                        if (error.message && error.message.includes('started')) {
+                            log('Recognition already running (this is fine)', 'info');
+                            return;
+                        }
+                        
+                        // Retry after short delay
+                        setTimeout(() => {
+                            if (shouldListen && recognition) {
+                                try {
+                                    recognition.start();
+                                    log('Restart retry successful', 'success');
+                                } catch (retryError) {
+                                    log(`Restart retry failed: ${retryError.message}`, 'error');
+                                    if (!retryError.message || !retryError.message.includes('started')) {
+                                        shouldListen = false;
+                                        updateStatus('stopped', 'Failed to Restart');
+                                        startBtn.disabled = false;
+                                        stopBtn.disabled = true;
+                                    }
+                                }
+                            }
+                        }, 50);
+                    }
+                } else {
+                    log('Recognition ended (user stopped)', 'info');
+                    updateStatus('stopped', 'Stopped');
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                }
+            };
+
+            return rec;
+        }
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                log('Requesting microphone permission...', 'info');
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+                log('Microphone permission granted', 'success');
+                
+                shouldListen = true;
+                restartCount = 0;
+                accumulatedTranscript = '';
+                transcriptArea.value = '';
+                startTime = Date.now();
+                lastResultTime = Date.now();
+                
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                
+                recognition = createRecognition();
+                recognition.start();
+                
+                log('Started listening', 'success');
+            } catch (error) {
+                log(`Failed to start: ${error.message}`, 'error');
+                updateStatus('stopped', 'Failed to Start');
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            shouldListen = false;
+            if (recognition) {
+                try {
+                    recognition.stop();
+                } catch (e) {
+                    // Ignore
+                }
+            }
+            log('Stopped by user', 'info');
+            updateStatus('stopped', 'Stopped');
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+        });
+
+        clearLogBtn.addEventListener('click', () => {
+            logDiv.innerHTML = '';
+            log('Log cleared', 'info');
+        });
+
+        // Monitor for timeout issues
+        setInterval(() => {
+            if (shouldListen && lastResultTime) {
+                const timeSinceLastResult = Date.now() - lastResultTime;
+                if (timeSinceLastResult > 5000) {
+                    log(`WARNING: No results for ${Math.floor(timeSinceLastResult / 1000)}s - recognition may have stopped`, 'error');
+                }
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
+
