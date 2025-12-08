@@ -106,6 +106,24 @@ export async function GET(
             createdAt: 'asc',
           }
         },
+        tournamentMatch: {
+          select: {
+            id: true,
+            tournament: {
+              select: {
+                id: true,
+                name: true,
+                currentRound: true,
+                totalRounds: true,
+              },
+            },
+            round: {
+              select: {
+                roundNumber: true,
+              },
+            },
+          },
+        },
       },
     })
 

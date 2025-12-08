@@ -107,6 +107,18 @@ interface Debate {
   images?: DebateImage[]
   viewCount: number
   createdAt: Date
+  tournamentMatch?: {
+    id: string
+    tournament: {
+      id: string
+      name: string
+      currentRound: number
+      totalRounds: number
+    }
+    round: {
+      roundNumber: number
+    }
+  } | null
 }
 
 export default function DebatePage() {
@@ -730,7 +742,7 @@ export default function DebatePage() {
                 originalWinnerId={debate.originalWinnerId}
                 appealRejectionReason={debate.appealRejectionReason}
               />
-              {user && (
+              {user && !debate.tournamentMatch && (
                 <>
                   <AppealButton
                     debateId={debate.id}
