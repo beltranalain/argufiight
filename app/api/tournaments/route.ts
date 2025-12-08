@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
+    const limitParam = searchParams.get('limit')
+    const limit = limitParam ? parseInt(limitParam, 10) : 50
     const userId = getUserIdFromSession(session)
 
     // Check for tournaments that should auto-start (full but still REGISTRATION_OPEN)
@@ -122,7 +124,7 @@ export async function GET(request: NextRequest) {
       }
       
       return false // Hide private tournaments user doesn't have access to
-    }).slice(0, 50) // Limit to 50 after filtering
+    }).slice(0, limit) // Limit after filtering
 
     console.log(`[API /tournaments] Found ${allTournaments.length} total tournaments, ${tournaments.length} after filtering (userId: ${userId || 'none'})`)
     if (allTournaments.length > 0) {
@@ -181,6 +183,7 @@ export async function GET(request: NextRequest) {
       creator: tournament.creator,
       isParticipant: userId ? tournament.participants.some((p) => p.userId === userId) : false,
       isPrivate: tournament.isPrivate,
+      format: tournament.format || 'BRACKET', // Default to BRACKET for old tournaments
       createdAt: tournament.createdAt,
     }))
 
