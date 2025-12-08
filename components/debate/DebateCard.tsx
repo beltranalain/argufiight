@@ -28,6 +28,18 @@ interface DebateCardProps {
     status: string
     roundDeadline: Date | string | null
     spectatorCount: number
+    tournamentMatch?: {
+      id: string
+      tournament: {
+        id: string
+        name: string
+        currentRound: number
+        totalRounds: number
+      }
+      round: {
+        roundNumber: number
+      }
+    } | null
     images?: Array<{
       id: string
       url: string
@@ -51,14 +63,24 @@ export function DebateCard({ debate }: DebateCardProps) {
         href={`/debate/${debate.id}`}
         className="block bg-bg-secondary border border-bg-tertiary rounded-2xl p-6 hover:border-electric-blue hover:shadow-[0_8px_32px_rgba(0,217,255,0.15)] transition-all"
       >
-      {/* Category Badge */}
-      <Badge 
-        variant={debate.category.toLowerCase() as any}
-        size="md"
-        className="mb-4"
-      >
-        {debate.category}
-      </Badge>
+      {/* Category and Tournament Badges */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <Badge 
+          variant={debate.category.toLowerCase() as any}
+          size="md"
+        >
+          {debate.category}
+        </Badge>
+        {debate.tournamentMatch && (
+          <Badge 
+            variant="default"
+            size="md"
+            className="bg-purple-600 text-white border-purple-500"
+          >
+            🏆 Tournament: Round {debate.tournamentMatch.round.roundNumber}/{debate.tournamentMatch.tournament.totalRounds}
+          </Badge>
+        )}
+      </div>
 
       {/* Topic */}
       <h4 className="text-xl font-bold text-white mb-5 group-hover:text-electric-blue transition-colors">
