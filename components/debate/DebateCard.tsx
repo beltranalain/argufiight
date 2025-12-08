@@ -77,7 +77,7 @@ export function DebateCard({ debate }: DebateCardProps) {
             size="md"
             className="bg-purple-600 text-white border-purple-500"
           >
-            🏆 Tournament: Round {debate.tournamentMatch.round.roundNumber}/{debate.tournamentMatch.tournament.totalRounds}
+            Tournament: Round {debate.tournamentMatch.round.roundNumber}/{debate.tournamentMatch.tournament.totalRounds}
           </Badge>
         )}
       </div>

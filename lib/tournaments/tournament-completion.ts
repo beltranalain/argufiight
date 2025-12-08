@@ -155,7 +155,7 @@ async function createTournamentCompletionNotifications(
       return {
         userId: participant.userId,
         type: isChampion ? 'TOURNAMENT_WON' : 'TOURNAMENT_COMPLETED',
-        title: isChampion ? '🏆 Tournament Champion!' : 'Tournament Completed',
+        title: isChampion ? 'Tournament Champion!' : 'Tournament Completed',
         message: isChampion
           ? `Congratulations! You won "${tournament.name}"!`
           : `The tournament "${tournament.name}" has completed.`,
