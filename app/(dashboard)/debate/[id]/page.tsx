@@ -377,6 +377,29 @@ export default function DebatePage() {
     !userSubmitted &&
     isMyTurn
 
+  // Debug logging for submit form visibility
+  useEffect(() => {
+    if (debate && user) {
+      console.log('[DebatePage] Submit form debug:', {
+        debateId: debate.id,
+        currentRound: debate.currentRound,
+        totalRounds: debate.totalRounds,
+        status: debate.status,
+        userId: user.id,
+        isParticipant,
+        isChallenger,
+        isOpponent,
+        noStatementsInRound,
+        challengerSubmitted,
+        opponentSubmitted,
+        userSubmitted,
+        isMyTurn,
+        canSubmit,
+        currentRoundStatementsCount: currentRoundStatements.length,
+      })
+    }
+  }, [debate, user, isParticipant, isChallenger, isOpponent, noStatementsInRound, challengerSubmitted, opponentSubmitted, userSubmitted, isMyTurn, canSubmit, currentRoundStatements.length])
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-bg-primary">
