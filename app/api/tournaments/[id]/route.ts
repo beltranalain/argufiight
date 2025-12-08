@@ -182,6 +182,7 @@ export async function GET(
         rounds: tournament.rounds,
         isParticipant,
         isCreator,
+        isPrivate: tournament.isPrivate,
         createdAt: tournament.createdAt,
       },
     })

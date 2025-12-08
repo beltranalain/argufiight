@@ -74,6 +74,7 @@ interface Tournament {
   }>
   isParticipant: boolean
   isCreator: boolean
+  isPrivate: boolean
   createdAt: string
 }
 
@@ -215,6 +216,12 @@ export default function TournamentDetailPage() {
                   <h1 className="text-4xl font-bold text-text-primary">{tournament.name}</h1>
                   <Badge variant="default" className={getStatusColor(tournament.status)}>
                     {tournament.status.replace('_', ' ')}
+                  </Badge>
+                  <Badge 
+                    variant="default" 
+                    className={tournament.isPrivate ? 'bg-neon-orange text-black' : 'bg-electric-blue text-black'}
+                  >
+                    {tournament.isPrivate ? 'Private' : 'Public'}
                   </Badge>
                 </div>
                 {tournament.description && (

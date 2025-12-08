@@ -30,6 +30,7 @@ interface Tournament {
     avatarUrl: string | null
   }
   isParticipant: boolean
+  isPrivate: boolean
   createdAt: string
 }
 
@@ -362,9 +363,17 @@ export default function TournamentsPage() {
                         <h3 className="text-xl font-bold text-text-primary mb-2 line-clamp-2">
                           {tournament.name}
                         </h3>
-                        <Badge variant="default" className={getStatusColor(tournament.status)}>
-                          {tournament.status.replace('_', ' ')}
-                        </Badge>
+                        <div className="flex gap-2 flex-wrap">
+                          <Badge variant="default" className={getStatusColor(tournament.status)}>
+                            {tournament.status.replace('_', ' ')}
+                          </Badge>
+                          <Badge 
+                            variant="default" 
+                            className={tournament.isPrivate ? 'bg-neon-orange text-black' : 'bg-electric-blue text-black'}
+                          >
+                            {tournament.isPrivate ? 'Private' : 'Public'}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                     {tournament.description && (

@@ -149,6 +149,7 @@ export async function GET(request: NextRequest) {
       minElo: tournament.minElo,
       creator: tournament.creator,
       isParticipant: userId ? tournament.participants.some((p) => p.userId === userId) : false,
+      isPrivate: tournament.isPrivate,
       createdAt: tournament.createdAt,
     }))
 
