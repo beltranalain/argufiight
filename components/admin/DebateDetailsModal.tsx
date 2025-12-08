@@ -140,7 +140,7 @@ export function DebateDetailsModal({ debateId, isOpen, onClose }: DebateDetailsM
                 {debate.category}
               </Badge>
               <Badge variant="default" size="sm" className={getStatusBadge(debate.status)}>
-                {debate.status.replace(/_/g, ' ')}
+                {formatStatus(debate.status)}
               </Badge>
             </div>
             <h2 className="text-2xl font-bold text-white">{debate.topic}</h2>
