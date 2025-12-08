@@ -49,6 +49,8 @@ interface Tournament {
     seed: number
     status: string
     selectedPosition: string | null
+    wins: number
+    losses: number
     user: {
       id: string
       username: string
@@ -477,6 +479,16 @@ export default function TournamentDetailPage() {
                               )}
                             </div>
                             <p className="text-text-secondary text-xs">ELO: {participant.user.eloRating}</p>
+                            {(participant.wins > 0 || participant.losses > 0) && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-cyber-green text-xs font-semibold">
+                                  {participant.wins}W
+                                </span>
+                                <span className="text-neon-orange text-xs font-semibold">
+                                  {participant.losses}L
+                                </span>
+                              </div>
+                            )}
                             {averageScore !== null && (
                               <p className="text-electric-blue text-xs font-semibold mt-0.5">
                                 Avg Score: {averageScore}/100

@@ -159,6 +159,8 @@ export async function GET(
           seed: p.seed,
           status: p.status,
           selectedPosition: p.selectedPosition,
+          wins: p.wins,
+          losses: p.losses,
           user: p.user,
         })),
         matches: tournament.matches.map((m, index, allMatches) => {

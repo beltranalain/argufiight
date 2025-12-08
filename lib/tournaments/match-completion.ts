@@ -52,8 +52,9 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
     // Note: DebateStatus enum doesn't have FORFEITED or CANCELLED
     // Forfeits are handled by checking if debate is COMPLETED but has no winner
     // or if we need to handle timeouts differently
-    const hasWinner = match.debate?.status === 'VERDICT_READY' && match.debate?.winnerId
-    const isCompleted = match.debate?.status === 'COMPLETED'
+    // Accept both VERDICT_READY and COMPLETED statuses (debate can be COMPLETED after verdict)
+    const hasWinner = match.debate?.winnerId && 
+      (match.debate?.status === 'VERDICT_READY' || match.debate?.status === 'COMPLETED')
 
     if (!match.debate || !hasWinner) {
       console.log(`[Tournament Match] Debate ${debateId} not ready for match completion (status: ${match.debate?.status}, winner: ${match.debate?.winnerId})`)
