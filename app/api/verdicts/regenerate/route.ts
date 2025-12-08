@@ -306,7 +306,8 @@ export async function POST(request: NextRequest) {
     })
 
     // Determine if debate is complete
-    const isComplete = debate.status === 'VERDICT_READY' || (debate.currentRound >= debate.totalRounds && debate.status === 'COMPLETED')
+    // For appealed debates, they were already completed, so check round completion
+    const isComplete = debate.currentRound >= debate.totalRounds || debate.status === 'VERDICT_READY' || debate.status === 'COMPLETED'
     
     // Build debate context
     const debateContext: DebateContext = {
