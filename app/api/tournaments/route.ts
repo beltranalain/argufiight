@@ -245,12 +245,22 @@ export async function POST(request: NextRequest) {
       reseedMethod = 'ELO_BASED',
       isPrivate = false,
       invitedUserIds = null,
+      format = 'BRACKET', // 'BRACKET' or 'CHAMPIONSHIP'
+      selectedPosition = null, // 'PRO' or 'CON' (required for Championship format)
     } = body
 
     // Validate required fields
     if (!name || !startDate) {
       return NextResponse.json(
         { error: 'Name and start date are required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate format
+    if (format !== 'BRACKET' && format !== 'CHAMPIONSHIP') {
+      return NextResponse.json(
+        { error: 'Format must be BRACKET or CHAMPIONSHIP' },
         { status: 400 }
       )
     }
@@ -262,6 +272,16 @@ export async function POST(request: NextRequest) {
         { error: 'Max participants must be 4, 8, 16, 32, or 64' },
         { status: 400 }
       )
+    }
+
+    // For Championship format, require position selection
+    if (format === 'CHAMPIONSHIP') {
+      if (!selectedPosition || (selectedPosition !== 'PRO' && selectedPosition !== 'CON')) {
+        return NextResponse.json(
+          { error: 'Championship format requires selecting a position (PRO or CON)' },
+          { status: 400 }
+        )
+      }
     }
 
     // Validate private tournament has invited users
@@ -313,6 +333,8 @@ export async function POST(request: NextRequest) {
         invitedUserIds: isPrivate && invitedUserIds && Array.isArray(invitedUserIds)
           ? JSON.stringify(invitedUserIds)
           : null,
+        format: format as any, // 'BRACKET' or 'CHAMPIONSHIP'
+        assignedJudges: null, // Will be set when tournament starts (Championship only)
         // Automatically add creator as first participant (seed 1)
         participants: {
           create: {
@@ -320,6 +342,7 @@ export async function POST(request: NextRequest) {
             seed: 1, // Creator is always seed #1
             eloAtStart: creator.eloRating,
             status: 'REGISTERED',
+            selectedPosition: format === 'CHAMPIONSHIP' ? selectedPosition : null, // Store creator's position for Championship
           },
         },
       },

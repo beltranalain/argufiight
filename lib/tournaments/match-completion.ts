@@ -54,6 +54,84 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
       return
     }
 
+    // For Championship format, extract scores from verdicts
+    let participant1Score: number | null = null
+    let participant2Score: number | null = null
+    let participant1ScoreBreakdown: Record<string, number> | null = null
+    let participant2ScoreBreakdown: Record<string, number> | null = null
+
+    if (match.round.tournament.format === 'CHAMPIONSHIP') {
+      // Get all verdicts for this debate
+      const verdicts = await prisma.verdict.findMany({
+        where: { debateId },
+        select: {
+          id: true,
+          judgeId: true,
+          challengerScore: true,
+          opponentScore: true,
+        },
+      })
+
+      if (verdicts.length > 0) {
+        // Determine which participant is challenger and which is opponent
+        const isParticipant1Challenger = match.participant1.userId === match.debate.challengerId
+        const isParticipant2Challenger = match.participant2.userId === match.debate.challengerId
+
+        // Extract scores and build breakdown
+        const p1Scores: number[] = []
+        const p2Scores: number[] = []
+        const p1Breakdown: Record<string, number> = {}
+        const p2Breakdown: Record<string, number> = {}
+
+        for (const verdict of verdicts) {
+          if (isParticipant1Challenger) {
+            // Participant 1 is challenger
+            if (verdict.challengerScore !== null) {
+              p1Scores.push(verdict.challengerScore)
+              if (verdict.judgeId) {
+                p1Breakdown[verdict.judgeId] = verdict.challengerScore
+              }
+            }
+            if (verdict.opponentScore !== null) {
+              p2Scores.push(verdict.opponentScore)
+              if (verdict.judgeId) {
+                p2Breakdown[verdict.judgeId] = verdict.opponentScore
+              }
+            }
+          } else if (isParticipant2Challenger) {
+            // Participant 2 is challenger
+            if (verdict.challengerScore !== null) {
+              p2Scores.push(verdict.challengerScore)
+              if (verdict.judgeId) {
+                p2Breakdown[verdict.judgeId] = verdict.challengerScore
+              }
+            }
+            if (verdict.opponentScore !== null) {
+              p1Scores.push(verdict.opponentScore)
+              if (verdict.judgeId) {
+                p1Breakdown[verdict.judgeId] = verdict.opponentScore
+              }
+            }
+          }
+        }
+
+        // Calculate averages (0-100 scale)
+        if (p1Scores.length > 0) {
+          participant1Score = Math.round(p1Scores.reduce((a, b) => a + b, 0) / p1Scores.length)
+        }
+        if (p2Scores.length > 0) {
+          participant2Score = Math.round(p2Scores.reduce((a, b) => a + b, 0) / p2Scores.length)
+        }
+
+        participant1ScoreBreakdown = Object.keys(p1Breakdown).length > 0 ? p1Breakdown : null
+        participant2ScoreBreakdown = Object.keys(p2Breakdown).length > 0 ? p2Breakdown : null
+
+        console.log(
+          `[Championship] Extracted scores for match ${match.id}: P1=${participant1Score}, P2=${participant2Score}`
+        )
+      }
+    }
+
     // Determine which participant won
     let winningParticipantId: string | null = null
     let losingParticipantId: string | null = null
@@ -90,6 +168,11 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
         winnerId: winningParticipantId,
         status: 'COMPLETED',
         completedAt: new Date(),
+        // Store scores for Championship format
+        participant1Score: participant1Score,
+        participant2Score: participant2Score,
+        participant1ScoreBreakdown: participant1ScoreBreakdown,
+        participant2ScoreBreakdown: participant2ScoreBreakdown,
       },
     })
 

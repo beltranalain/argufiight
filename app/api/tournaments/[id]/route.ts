@@ -158,6 +158,7 @@ export async function GET(
           userId: p.userId,
           seed: p.seed,
           status: p.status,
+          selectedPosition: p.selectedPosition,
           user: p.user,
         })),
         matches: tournament.matches.map((m, index, allMatches) => {
@@ -183,6 +184,8 @@ export async function GET(
         isParticipant,
         isCreator,
         isPrivate: tournament.isPrivate,
+        format: tournament.format,
+        assignedJudges: tournament.assignedJudges ? JSON.parse(tournament.assignedJudges) : null,
         createdAt: tournament.createdAt,
       },
     })

@@ -89,15 +89,41 @@ export async function generateTournamentMatches(
   }> = []
 
   if (roundNumber === 1) {
-    // First round: Standard bracket seeding
-    const numMatches = activeParticipants.length / 2
-    for (let i = 0; i < numMatches; i++) {
-      const participant1 = activeParticipants[i]
-      const participant2 = activeParticipants[activeParticipants.length - 1 - i]
-      matches.push({
-        participant1Id: participant1.id,
-        participant2Id: participant2.id,
-      })
+    // First round: Different logic for Championship vs Bracket format
+    if (tournament.format === 'CHAMPIONSHIP') {
+      // Championship format: Pair PRO vs CON only
+      const proParticipants = activeParticipants.filter((p) => p.selectedPosition === 'PRO')
+      const conParticipants = activeParticipants.filter((p) => p.selectedPosition === 'CON')
+
+      // Ensure positions are balanced
+      if (proParticipants.length !== conParticipants.length) {
+        throw new Error(
+          `Championship format requires balanced positions. PRO: ${proParticipants.length}, CON: ${conParticipants.length}`
+        )
+      }
+
+      // Shuffle or pair randomly within PRO vs CON constraint
+      // For now, pair by seed order: highest PRO seed vs highest CON seed, etc.
+      const sortedPro = [...proParticipants].sort((a, b) => (a.seed || 0) - (b.seed || 0))
+      const sortedCon = [...conParticipants].sort((a, b) => (a.seed || 0) - (b.seed || 0))
+
+      for (let i = 0; i < sortedPro.length; i++) {
+        matches.push({
+          participant1Id: sortedPro[i].id,
+          participant2Id: sortedCon[i].id,
+        })
+      }
+    } else {
+      // Bracket format: Standard bracket seeding
+      const numMatches = activeParticipants.length / 2
+      for (let i = 0; i < numMatches; i++) {
+        const participant1 = activeParticipants[i]
+        const participant2 = activeParticipants[activeParticipants.length - 1 - i]
+        matches.push({
+          participant1Id: participant1.id,
+          participant2Id: participant2.id,
+        })
+      }
     }
   } else {
     // Subsequent rounds: Get winners from previous round
@@ -205,6 +231,33 @@ export async function startTournament(tournamentId: string): Promise<void> {
 
   if (tournament.participants.length < 2) {
     throw new Error('Tournament needs at least 2 participants to start')
+  }
+
+  // For Championship format, assign 7 judges before starting
+  let assignedJudges: string[] | null = null
+  if (tournament.format === 'CHAMPIONSHIP') {
+    // Get all available judges
+    const allJudges = await prisma.judge.findMany({
+      select: { id: true },
+    })
+
+    if (allJudges.length < 7) {
+      throw new Error('Championship format requires at least 7 judges, but only ${allJudges.length} are available')
+    }
+
+    // Randomly select 7 judges
+    const shuffled = [...allJudges].sort(() => Math.random() - 0.5)
+    assignedJudges = shuffled.slice(0, 7).map((j) => j.id)
+
+    // Store assigned judges in tournament
+    await prisma.tournament.update({
+      where: { id: tournamentId },
+      data: {
+        assignedJudges: JSON.stringify(assignedJudges),
+      },
+    })
+
+    console.log(`[Championship] Assigned ${assignedJudges.length} judges: ${assignedJudges.join(', ')}`)
   }
 
   // Update tournament status

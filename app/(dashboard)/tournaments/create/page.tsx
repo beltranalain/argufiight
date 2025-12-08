@@ -27,6 +27,8 @@ export default function CreateTournamentPage() {
     roundDuration: 24,
     reseedAfterRound: true,
     isPrivate: false,
+    format: 'BRACKET' as 'BRACKET' | 'CHAMPIONSHIP',
+    selectedPosition: null as 'PRO' | 'CON' | null,
   })
   const [invitedUsers, setInvitedUsers] = useState<Array<{ id: string; username: string; avatarUrl: string | null; eloRating: number }>>([])
 
@@ -103,6 +105,16 @@ export default function CreateTournamentPage() {
       return
     }
 
+    // Validate Championship format requires position selection
+    if (formData.format === 'CHAMPIONSHIP' && !formData.selectedPosition) {
+      showToast({
+        type: 'error',
+        title: 'Validation Error',
+        description: 'Championship format requires selecting a position (PRO or CON)',
+      })
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -123,6 +135,8 @@ export default function CreateTournamentPage() {
           invitedUserIds: formData.isPrivate && invitedUsers.length > 0 
             ? invitedUsers.map(u => u.id) 
             : null,
+          format: formData.format,
+          selectedPosition: formData.format === 'CHAMPIONSHIP' ? formData.selectedPosition : null,
         }),
       })
 
@@ -286,6 +300,102 @@ export default function CreateTournamentPage() {
                   />
                 </div>
 
+                {/* Tournament Format */}
+                <div>
+                  <label className="block text-sm font-medium text-text-primary mb-2">
+                    Tournament Format *
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, format: 'BRACKET', selectedPosition: null })
+                      }}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        formData.format === 'BRACKET'
+                          ? 'border-electric-blue bg-electric-blue/10'
+                          : 'border-bg-tertiary bg-bg-secondary hover:border-electric-blue/50'
+                      }`}
+                    >
+                      <div className="text-left">
+                        <h3 className="font-semibold text-text-primary mb-1">Bracket Format</h3>
+                        <p className="text-sm text-text-secondary">
+                          Traditional elimination bracket. Winners advance to next round.
+                        </p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, format: 'CHAMPIONSHIP', selectedPosition: null })
+                      }}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        formData.format === 'CHAMPIONSHIP'
+                          ? 'border-electric-blue bg-electric-blue/10'
+                          : 'border-bg-tertiary bg-bg-secondary hover:border-electric-blue/50'
+                      }`}
+                    >
+                      <div className="text-left">
+                        <h3 className="font-semibold text-text-primary mb-1">Championship Format</h3>
+                        <p className="text-sm text-text-secondary">
+                          Position-based. Advance by individual scores, not just match wins.
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                  {formData.format === 'CHAMPIONSHIP' && (
+                    <div className="mt-3 p-3 bg-cyber-green/10 border border-cyber-green/30 rounded-lg">
+                      <p className="text-sm text-text-primary">
+                        <strong>How it works:</strong> Players choose PRO or CON position. Advancement is based on individual scores within your position group. You can lose your match but still advance if you score higher than peers on your side!
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Position Selection (Championship only) */}
+                {formData.format === 'CHAMPIONSHIP' && (
+                  <div>
+                    <label className="block text-sm font-medium text-text-primary mb-2">
+                      Your Position * (Championship Format)
+                    </label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, selectedPosition: 'PRO' })}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          formData.selectedPosition === 'PRO'
+                            ? 'border-cyber-green bg-cyber-green/10'
+                            : 'border-bg-tertiary bg-bg-secondary hover:border-cyber-green/50'
+                        }`}
+                      >
+                        <div className="text-center">
+                          <h3 className="font-semibold text-text-primary mb-1">PRO</h3>
+                          <p className="text-xs text-text-secondary">Argue in favor</p>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, selectedPosition: 'CON' })}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          formData.selectedPosition === 'CON'
+                            ? 'border-neon-orange bg-neon-orange/10'
+                            : 'border-bg-tertiary bg-bg-secondary hover:border-neon-orange/50'
+                        }`}
+                      >
+                        <div className="text-center">
+                          <h3 className="font-semibold text-text-primary mb-1">CON</h3>
+                          <p className="text-xs text-text-secondary">Argue against</p>
+                        </div>
+                      </button>
+                    </div>
+                    {!formData.selectedPosition && (
+                      <p className="text-text-secondary text-sm mt-2">
+                        Please select which position you want to argue
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Max Participants */}
                 <div>
                   <label className="block text-sm font-medium text-text-primary mb-2">
@@ -304,7 +414,10 @@ export default function CreateTournamentPage() {
                     <option value={64}>64 participants</option>
                   </select>
                   <p className="text-text-secondary text-sm mt-1">
-                    Tournament will have {Math.log2(formData.maxParticipants)} rounds
+                    {formData.format === 'CHAMPIONSHIP' 
+                      ? `${formData.maxParticipants / 2} PRO + ${formData.maxParticipants / 2} CON positions`
+                      : `Tournament will have ${Math.log2(formData.maxParticipants)} rounds`
+                    }
                   </p>
                 </div>
 

@@ -1683,6 +1683,11 @@ enum TournamentStatus {
   CANCELLED
 }
 
+enum TournamentFormat {
+  BRACKET // Traditional bracket elimination (current system)
+  CHAMPIONSHIP // Position-based, score-advancement format (new)
+}
+
 enum ReseedMethod {
   ELO_BASED
   TOURNAMENT_WINS
@@ -1747,6 +1752,10 @@ model Tournament {
   reseedAfterRound Boolean      @default(true) @map("reseed_after_round")
   reseedMethod     ReseedMethod @default(ELO_BASED) @map("reseed_method")
 
+  // Format (Championship vs Bracket)
+  format         TournamentFormat @default(BRACKET)
+  assignedJudges String?          @map("assigned_judges") // JSON array of judge IDs (Championship format only)
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -1772,6 +1781,9 @@ model TournamentParticipant {
   wins        Int  @default(0)
   losses      Int  @default(0)
   eloAtStart  Int  @map("elo_at_start")
+
+  // Position selection (Championship format only)
+  selectedPosition String? @map("selected_position") // 'PRO' or 'CON'
 
   // Status
   status       ParticipantStatus @default(REGISTERED)
@@ -1826,6 +1838,12 @@ model TournamentMatch {
   winnerId String?                @map("winner_id")
   winner   TournamentParticipant? @relation("MatchWinner", fields: [winnerId], references: [id])
   status   MatchStatus            @default(SCHEDULED)
+
+  // Individual scores (Championship format)
+  participant1Score          Int?  @map("participant1_score") // 0-100 average score
+  participant2Score          Int?  @map("participant2_score") // 0-100 average score
+  participant1ScoreBreakdown Json? @map("participant1_score_breakdown") // { judgeId: score } for all judges
+  participant2ScoreBreakdown Json? @map("participant2_score_breakdown") // { judgeId: score } for all judges
 
   scheduledAt DateTime? @map("scheduled_at")
   completedAt DateTime? @map("completed_at")

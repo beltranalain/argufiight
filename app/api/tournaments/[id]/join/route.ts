@@ -23,11 +23,19 @@ export async function POST(
 
     const { id: tournamentId } = await params
 
+    // Get request body for position selection (Championship format)
+    const body = await request.json().catch(() => ({}))
+    const { selectedPosition } = body
+
     // Get tournament
     const tournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },
       include: {
-        participants: true,
+        participants: {
+          include: {
+            user: true,
+          },
+        },
       },
     })
 
@@ -119,6 +127,36 @@ export async function POST(
       )
     }
 
+    // For Championship format, require position selection and check balance
+    if (tournament.format === 'CHAMPIONSHIP') {
+      if (!selectedPosition || (selectedPosition !== 'PRO' && selectedPosition !== 'CON')) {
+        return NextResponse.json(
+          { error: 'Championship format requires selecting a position (PRO or CON)' },
+          { status: 400 }
+        )
+      }
+
+      // Count participants by position
+      const proCount = tournament.participants.filter((p) => p.selectedPosition === 'PRO').length
+      const conCount = tournament.participants.filter((p) => p.selectedPosition === 'CON').length
+      const maxPerPosition = tournament.maxParticipants / 2
+
+      // Check if the selected position is full
+      if (selectedPosition === 'PRO' && proCount >= maxPerPosition) {
+        return NextResponse.json(
+          { error: `PRO position is full (${proCount}/${maxPerPosition}). Please select CON.` },
+          { status: 400 }
+        )
+      }
+
+      if (selectedPosition === 'CON' && conCount >= maxPerPosition) {
+        return NextResponse.json(
+          { error: `CON position is full (${conCount}/${maxPerPosition}). Please select PRO.` },
+          { status: 400 }
+        )
+      }
+    }
+
     // Get current participant count for seeding
     // Note: Creator is always seed 1, so new participants start at seed 2
     const participantCount = tournament.participants.length
@@ -132,6 +170,7 @@ export async function POST(
         seed: nextSeed, // Temporary seed, will be reseeded when tournament starts
         eloAtStart: user.eloRating, // Required field - store ELO at time of registration
         status: 'REGISTERED',
+        selectedPosition: tournament.format === 'CHAMPIONSHIP' ? selectedPosition : null,
       },
     })
 

@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { TournamentBracket } from '@/components/tournaments/TournamentBracket'
+import { PositionSelector } from '@/components/tournaments/PositionSelector'
 import Link from 'next/link'
 
 interface Tournament {
@@ -26,6 +27,8 @@ interface Tournament {
   roundDuration: number
   reseedAfterRound: boolean
   reseedMethod: string
+  format: 'BRACKET' | 'CHAMPIONSHIP'
+  assignedJudges: string[] | null
   creator: {
     id: string
     username: string
@@ -43,6 +46,7 @@ interface Tournament {
     userId: string
     seed: number
     status: string
+    selectedPosition: string | null
     user: {
       id: string
       username: string
@@ -87,6 +91,7 @@ export default function TournamentDetailPage() {
   const [tournament, setTournament] = useState<Tournament | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isJoining, setIsJoining] = useState(false)
+  const [showPositionSelector, setShowPositionSelector] = useState(false)
 
   useEffect(() => {
     if (params.id) {
@@ -173,14 +178,30 @@ export default function TournamentDetailPage() {
       return
     }
 
+    // If Championship format, show position selector first
+    if (tournament.format === 'CHAMPIONSHIP') {
+      setShowPositionSelector(true)
+      return
+    }
+
+    // For Bracket format, join directly
+    await handleJoinTournament(null)
+  }
+
+  const handleJoinTournament = async (selectedPosition: 'PRO' | 'CON' | null) => {
+    if (!tournament) return
+
     setIsJoining(true)
     try {
-      console.log(`[Frontend] Attempting to join tournament ${params.id}`)
+      console.log(`[Frontend] Attempting to join tournament ${params.id} with position: ${selectedPosition}`)
       const response = await fetch(`/api/tournaments/${params.id}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          selectedPosition: selectedPosition || undefined,
+        }),
       })
 
       const data = await response.json()
@@ -192,6 +213,7 @@ export default function TournamentDetailPage() {
           title: 'Joined Tournament!',
           description: 'You have successfully joined the tournament',
         })
+        setShowPositionSelector(false)
         // Refresh to update participant status
         await fetchTournament()
       } else {
@@ -253,6 +275,15 @@ export default function TournamentDetailPage() {
     (tournament.status === 'UPCOMING' || tournament.status === 'REGISTRATION_OPEN') &&
     tournament.participants.length < tournament.maxParticipants
 
+  // Calculate position counts for Championship format
+  const proCount = tournament.format === 'CHAMPIONSHIP' 
+    ? tournament.participants.filter((p) => p.selectedPosition === 'PRO').length 
+    : 0
+  const conCount = tournament.format === 'CHAMPIONSHIP' 
+    ? tournament.participants.filter((p) => p.selectedPosition === 'CON').length 
+    : 0
+  const maxPerPosition = tournament.format === 'CHAMPIONSHIP' ? tournament.maxParticipants / 2 : 0
+
   return (
     <div className="min-h-screen bg-bg-primary">
       <TopNav currentPanel="TOURNAMENTS" />
@@ -276,6 +307,12 @@ export default function TournamentDetailPage() {
                     className={tournament.isPrivate ? 'bg-neon-orange text-black' : 'bg-electric-blue text-black'}
                   >
                     {tournament.isPrivate ? 'Private' : 'Public'}
+                  </Badge>
+                  <Badge 
+                    variant="default" 
+                    className={tournament.format === 'CHAMPIONSHIP' ? 'bg-cyber-green text-black' : 'bg-bg-tertiary text-text-primary'}
+                  >
+                    {tournament.format === 'CHAMPIONSHIP' ? 'Championship' : 'Bracket'}
                   </Badge>
                 </div>
                 {tournament.description && (
@@ -376,6 +413,14 @@ export default function TournamentDetailPage() {
                             @{participant.user.username}
                           </p>
                           <p className="text-text-secondary text-xs">ELO: {participant.user.eloRating}</p>
+                          {tournament.format === 'CHAMPIONSHIP' && participant.selectedPosition && (
+                            <Badge 
+                              variant="default" 
+                              className={participant.selectedPosition === 'PRO' ? 'bg-cyber-green text-black text-xs mt-1' : 'bg-neon-orange text-black text-xs mt-1'}
+                            >
+                              {participant.selectedPosition}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -403,6 +448,19 @@ export default function TournamentDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Position Selector Modal */}
+      {tournament && tournament.format === 'CHAMPIONSHIP' && (
+        <PositionSelector
+          isOpen={showPositionSelector}
+          onClose={() => setShowPositionSelector(false)}
+          onSelect={handleJoinTournament}
+          proCount={proCount}
+          conCount={conCount}
+          maxPerPosition={maxPerPosition}
+          isLoading={isJoining}
+        />
+      )}
     </div>
   )
 }
