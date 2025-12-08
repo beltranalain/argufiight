@@ -7,22 +7,30 @@ import { cn } from '@/lib/utils'
 interface Tab {
   id: string
   label: string
-  content: React.ReactNode
+  content?: React.ReactNode
   icon?: React.ReactNode
 }
 
 interface TabsProps {
   tabs: Tab[]
   defaultTab?: string
-  onChange?: (tabId: string) => void
+  activeTab?: string
+  onTabChange?: (tabId: string) => void
+  onChange?: (tabId: string) => void // Legacy support
 }
 
-export function Tabs({ tabs, defaultTab, onChange }: TabsProps) {
-  const [activeTab, setActiveTab] = useState(defaultTab || tabs[0]?.id)
+export function Tabs({ tabs, defaultTab, activeTab: controlledActiveTab, onTabChange, onChange }: TabsProps) {
+  const [internalActiveTab, setInternalActiveTab] = useState(defaultTab || tabs[0]?.id)
+  
+  // Use controlled activeTab if provided, otherwise use internal state
+  const activeTab = controlledActiveTab !== undefined ? controlledActiveTab : internalActiveTab
 
   const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId)
-    onChange?.(tabId)
+    if (controlledActiveTab === undefined) {
+      setInternalActiveTab(tabId)
+    }
+    onTabChange?.(tabId)
+    onChange?.(tabId) // Legacy support
   }
 
   const activeTabContent = tabs.find(tab => tab.id === activeTab)?.content
@@ -58,10 +66,12 @@ export function Tabs({ tabs, defaultTab, onChange }: TabsProps) {
         </div>
       </div>
 
-      {/* Tab Content */}
-      <div className="p-6">
-        {activeTabContent}
-      </div>
+      {/* Tab Content - Only render if content is provided */}
+      {activeTabContent && (
+        <div className="p-6">
+          {activeTabContent}
+        </div>
+      )}
     </div>
   )
 }
