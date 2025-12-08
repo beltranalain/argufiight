@@ -70,9 +70,12 @@ export function TournamentsPanel() {
       const response = await fetch('/api/tournaments?limit=3')
       if (response.ok) {
         const data = await response.json()
-        // Filter for active tournaments
+        // Filter for active tournaments (include UPCOMING, REGISTRATION_OPEN, and IN_PROGRESS)
         const activeTournaments = (data.tournaments || []).filter(
-          (t: Tournament) => t.status === 'REGISTRATION_OPEN' || t.status === 'IN_PROGRESS'
+          (t: Tournament) => 
+            t.status === 'UPCOMING' || 
+            t.status === 'REGISTRATION_OPEN' || 
+            t.status === 'IN_PROGRESS'
         )
         setTournaments(activeTournaments.slice(0, 3))
       } else if (response.status === 403) {
