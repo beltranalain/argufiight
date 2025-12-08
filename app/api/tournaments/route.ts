@@ -93,14 +93,44 @@ export async function GET(request: NextRequest) {
       return false // Hide private tournaments user doesn't have access to
     }).slice(0, 50) // Limit to 50 after filtering
 
-    console.log(`Tournaments: Found ${allTournaments.length} total, ${tournaments.length} after filtering (userId: ${userId || 'none'})`)
+    console.log(`[API /tournaments] Found ${allTournaments.length} total tournaments, ${tournaments.length} after filtering (userId: ${userId || 'none'})`)
     if (allTournaments.length > 0) {
-      console.log('Sample tournament:', {
+      console.log('[API /tournaments] Sample tournament:', {
         id: allTournaments[0].id,
         name: allTournaments[0].name,
+        status: allTournaments[0].status,
         isPrivate: allTournaments[0].isPrivate,
         creatorId: allTournaments[0].creatorId,
+        invitedUserIds: allTournaments[0].invitedUserIds,
       })
+    }
+    if (tournaments.length > 0) {
+      console.log('[API /tournaments] Filtered tournaments:', tournaments.map(t => ({
+        id: t.id,
+        name: t.name,
+        status: t.status,
+        isPrivate: t.isPrivate,
+      })))
+    } else {
+      console.log('[API /tournaments] No tournaments after filtering - checking why...')
+      if (allTournaments.length > 0) {
+        console.log('[API /tournaments] All tournaments were filtered out. Reasons:')
+        allTournaments.forEach(t => {
+          if (t.isPrivate) {
+            console.log(`  - Tournament "${t.name}" (${t.id}) is private`)
+            console.log(`    Creator: ${t.creatorId}, User: ${userId || 'none'}`)
+            if (t.invitedUserIds) {
+              try {
+                const invitedIds = JSON.parse(t.invitedUserIds) as string[]
+                console.log(`    Invited users: ${invitedIds.join(', ')}`)
+                console.log(`    User is invited: ${userId && invitedIds.includes(userId)}`)
+              } catch (e) {
+                console.log(`    Failed to parse invitedUserIds: ${t.invitedUserIds}`)
+              }
+            }
+          }
+        })
+      }
     }
 
     // Format response

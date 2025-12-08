@@ -67,9 +67,16 @@ export function TournamentsPanel() {
 
     try {
       setIsLoading(true)
+      console.log('[TournamentsPanel] Fetching tournaments...')
       const response = await fetch('/api/tournaments?limit=3')
+      console.log('[TournamentsPanel] Response status:', response.status)
+      
       if (response.ok) {
         const data = await response.json()
+        console.log('[TournamentsPanel] Full API response:', data)
+        console.log('[TournamentsPanel] Tournaments array:', data.tournaments)
+        console.log('[TournamentsPanel] Number of tournaments:', data.tournaments?.length || 0)
+        
         // Filter for active tournaments (include UPCOMING, REGISTRATION_OPEN, and IN_PROGRESS)
         const activeTournaments = (data.tournaments || []).filter(
           (t: Tournament) => 
@@ -77,12 +84,20 @@ export function TournamentsPanel() {
             t.status === 'REGISTRATION_OPEN' || 
             t.status === 'IN_PROGRESS'
         )
+        console.log('[TournamentsPanel] Active tournaments after filter:', activeTournaments)
+        console.log('[TournamentsPanel] Active tournaments count:', activeTournaments.length)
+        
         setTournaments(activeTournaments.slice(0, 3))
+        console.log('[TournamentsPanel] Final tournaments set:', activeTournaments.slice(0, 3))
       } else if (response.status === 403) {
+        console.log('[TournamentsPanel] Feature disabled (403)')
         setIsFeatureEnabled(false)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('[TournamentsPanel] API error:', response.status, errorData)
       }
     } catch (error) {
-      console.error('Failed to fetch tournaments:', error)
+      console.error('[TournamentsPanel] Failed to fetch tournaments:', error)
     } finally {
       setIsLoading(false)
     }
