@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
+import { formatStatus } from '@/lib/utils/format-status'
 import Link from 'next/link'
 
 interface Tournament {
@@ -308,7 +309,7 @@ export default function TournamentsPage() {
                       : 'border-bg-tertiary text-text-secondary hover:border-text-secondary'
                   }`}
                 >
-                  {status.replace('_', ' ')}
+                  {formatStatus(status)}
                 </button>
               ))}
             </div>
@@ -365,7 +366,7 @@ export default function TournamentsPage() {
                         </h3>
                         <div className="flex gap-2 flex-wrap">
                           <Badge variant="default" className={getStatusColor(tournament.status)}>
-                            {tournament.status.replace('_', ' ')}
+                            {formatStatus(tournament.status)}
                           </Badge>
                           <Badge 
                             variant="default" 

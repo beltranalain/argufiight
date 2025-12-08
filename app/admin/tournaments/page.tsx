@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { Badge } from '@/components/ui/Badge'
+import { formatStatus } from '@/lib/utils/format-status'
 
 interface Tournament {
   id: string
@@ -223,7 +224,7 @@ export default function TournamentsPage() {
                       <div className="flex items-center gap-3 mb-3">
                         <h3 className="text-xl font-bold text-white">{tournament.name}</h3>
                         <Badge variant="default" className={getStatusColor(tournament.status)}>
-                          {tournament.status.replace('_', ' ')}
+                          {formatStatus(tournament.status)}
                         </Badge>
                       </div>
                       {tournament.description && (

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
+import { formatStatus } from '@/lib/utils/format-status'
 
 interface Participant {
   id: string
@@ -207,7 +208,7 @@ export function TournamentBracket({
                         >
                           {/* Participant 1 */}
                           <div
-                            className={`mb-2 p-2 rounded transition-all ${
+                            className={`mb-3 p-3 rounded transition-all ${
                               slot1.isWinner
                                 ? 'bg-cyber-green/20 border border-cyber-green winner-animation'
                                 : 'bg-bg-tertiary'
@@ -233,11 +234,11 @@ export function TournamentBracket({
                           </div>
 
                           {/* VS divider */}
-                          <div className="text-center text-text-secondary text-xs my-1">VS</div>
+                          <div className="text-center text-text-secondary text-xs my-2">VS</div>
 
                           {/* Participant 2 */}
                           <div
-                            className={`p-2 rounded transition-all ${
+                            className={`p-3 rounded transition-all ${
                               slot2.isWinner
                                 ? 'bg-cyber-green/20 border border-cyber-green winner-animation'
                                 : 'bg-bg-tertiary'
@@ -263,7 +264,7 @@ export function TournamentBracket({
                           </div>
 
                           {/* Match Status & View Debate Button */}
-                          <div className="mt-2 flex items-center justify-between">
+                          <div className="mt-3 flex items-center justify-between gap-3">
                             <Badge
                               variant="default"
                               size="sm"
@@ -275,10 +276,10 @@ export function TournamentBracket({
                                   : 'bg-bg-tertiary text-text-secondary'
                               }
                             >
-                              {slot1.matchStatus || 'PENDING'}
+                              {formatStatus(slot1.matchStatus)}
                             </Badge>
                             {slot1.debateId && (
-                              <Link href={`/debate/${slot1.debateId}`}>
+                              <Link href={`/debate/${slot1.debateId}`} className="flex-shrink-0">
                                 <Button variant="secondary" size="sm">
                                   View
                                 </Button>

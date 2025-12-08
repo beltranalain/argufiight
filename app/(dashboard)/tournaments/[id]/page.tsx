@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/Toast'
 import { TournamentBracket } from '@/components/tournaments/TournamentBracket'
 import { PositionSelector } from '@/components/tournaments/PositionSelector'
 import { ChampionshipRulesModal } from '@/components/tournaments/ChampionshipRulesModal'
+import { formatStatus } from '@/lib/utils/format-status'
 import Link from 'next/link'
 
 interface Tournament {
@@ -302,11 +303,11 @@ export default function TournamentDetailPage() {
               ← Back to Tournaments
             </Button>
             <div className="space-y-4">
-              <div className="flex items-center gap-3 mb-3">
-                <h1 className="text-4xl font-bold text-text-primary">{tournament.name}</h1>
-                <Badge variant="default" className={getStatusColor(tournament.status)}>
-                  {tournament.status.replace('_', ' ')}
-                </Badge>
+                <div className="flex items-center gap-3 mb-3">
+                  <h1 className="text-4xl font-bold text-text-primary">{tournament.name}</h1>
+                  <Badge variant="default" className={getStatusColor(tournament.status)}>
+                    {formatStatus(tournament.status)}
+                  </Badge>
                 <Badge 
                   variant="default" 
                   className={tournament.isPrivate ? 'bg-neon-orange text-black' : 'bg-electric-blue text-black'}
@@ -406,7 +407,7 @@ export default function TournamentDetailPage() {
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-text-secondary text-sm">Seed #{participant.seed}</span>
                         <Badge variant="default" size="sm">
-                          {participant.status}
+                          {formatStatus(participant.status)}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2">
