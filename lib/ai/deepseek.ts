@@ -40,6 +40,9 @@ export interface DebateContext {
   opponentPosition: string
   challengerName: string
   opponentName: string
+  currentRound: number
+  totalRounds: number
+  isComplete: boolean
   statements: Array<{
     round: number
     author: string
@@ -69,6 +72,12 @@ export async function generateVerdict(
   // Build debate summary for the judge
   const debateSummary = buildDebateSummary(debateContext)
 
+  // Determine if debate is complete
+  const isComplete = debateContext.isComplete && debateContext.currentRound >= debateContext.totalRounds
+  const completionNote = isComplete 
+    ? 'This debate has been completed with all rounds finished. Judge based on the full set of arguments presented.'
+    : `This debate is incomplete (Round ${debateContext.currentRound}/${debateContext.totalRounds}). Judge based on whatever arguments are available, even if not all rounds were completed. If a debater missed a round, consider that in your evaluation.`
+
   try {
     const completion = await client.chat.completions.create({
       model: 'deepseek-chat',
@@ -81,13 +90,13 @@ export async function generateVerdict(
           role: 'user',
           content: `${debateSummary}
 
-IMPORTANT: This debate may be incomplete due to time expiration. Judge based on whatever arguments are available, even if not all rounds were completed. If a debater missed a round, consider that in your evaluation.
+${completionNote}
 
 Analyze the available arguments and provide your verdict in the following JSON format:
 
 {
   "winner": "CHALLENGER" | "OPPONENT" | "TIE",
-  "reasoning": "Your detailed explanation of why you reached this decision. If the debate is incomplete, mention this in your reasoning.",
+  "reasoning": "Your detailed explanation of why you reached this decision. ${isComplete ? 'Do not mention that the debate is incomplete, as it has been fully completed.' : 'Mention if the incomplete nature of the debate affected your evaluation.'}",
   "challengerScore": 0-100,
   "opponentScore": 0-100
 }
@@ -162,12 +171,13 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include any text outside the JSO
 }
 
 function buildDebateSummary(context: DebateContext): string {
-  const { topic, challengerName, opponentName, challengerPosition, opponentPosition, statements } = context
+  const { topic, challengerName, opponentName, challengerPosition, opponentPosition, statements, currentRound, totalRounds, isComplete } = context
 
   let summary = `DEBATE TOPIC: "${topic}"\n\n`
   summary += `DEBATERS:\n`
   summary += `- ${challengerName}: Arguing ${challengerPosition}\n`
   summary += `- ${opponentName}: Arguing ${opponentPosition}\n\n`
+  summary += `DEBATE STATUS: ${isComplete && currentRound >= totalRounds ? 'COMPLETED' : `IN PROGRESS - Round ${currentRound} of ${totalRounds}`}\n\n`
   summary += `ARGUMENTS BY ROUND:\n\n`
 
   // Group statements by round
