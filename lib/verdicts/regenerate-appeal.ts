@@ -287,6 +287,10 @@ export async function regenerateAppealVerdicts(debateId: string) {
       },
     })
 
+    // Determine if debate is complete
+    // For appealed debates, they were already completed, so check round completion
+    const isComplete = debate.currentRound >= debate.totalRounds
+
     // Build debate context
     const debateContext: DebateContext = {
       topic: debate.topic,
@@ -300,6 +304,9 @@ export async function regenerateAppealVerdicts(debateId: string) {
         position: s.author.id === debate.challengerId ? debate.challengerPosition : debate.opponentPosition,
         content: s.content,
       })),
+      currentRound: debate.currentRound,
+      totalRounds: debate.totalRounds,
+      isComplete,
     }
 
     // Generate verdicts from new judges in parallel (faster)
