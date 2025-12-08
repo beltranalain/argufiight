@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
+import { recordFeatureUsage } from '@/lib/subscriptions/subscription-utils'
+import { FEATURES } from '@/lib/subscriptions/features'
 
 // POST /api/tournaments/[id]/join - Join a tournament
 export async function POST(
@@ -122,11 +124,17 @@ export async function POST(
     })
 
     // Update tournament status if needed
+    // When status changes from UPCOMING to REGISTRATION_OPEN, record usage
     if (tournament.status === 'UPCOMING') {
       await prisma.tournament.update({
         where: { id: tournamentId },
         data: { status: 'REGISTRATION_OPEN' },
       })
+      
+      // Record usage now that tournament has started (status changed from UPCOMING)
+      // This is when it counts against the user's limit
+      await recordFeatureUsage(tournament.creatorId, FEATURES.TOURNAMENTS)
+      console.log(`Tournament "${tournament.name}" status changed to REGISTRATION_OPEN - usage recorded for creator ${tournament.creatorId}`)
     }
 
     // Check if tournament is now full and should auto-start

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
+import { decrementFeatureUsage, recordFeatureUsage } from '@/lib/subscriptions/subscription-utils'
+import { FEATURES } from '@/lib/subscriptions/features'
 
 // GET /api/tournaments/[id] - Get tournament details
 export async function GET(
@@ -241,12 +243,16 @@ export async function DELETE(
       )
     }
 
+    // If tournament is UPCOMING, decrement usage (it shouldn't have counted yet, but check just in case)
+    // This ensures that if usage was recorded when status changed, we refund it
+    await decrementFeatureUsage(userId, FEATURES.TOURNAMENTS)
+
     // Delete tournament (cascade will handle related records)
     await prisma.tournament.delete({
       where: { id: tournamentId },
     })
 
-    console.log(`Tournament "${tournament.name}" (${tournamentId}) deleted by creator ${userId}`)
+    console.log(`Tournament "${tournament.name}" (${tournamentId}) deleted by creator ${userId} - usage decremented`)
 
     return NextResponse.json({ success: true, message: 'Tournament deleted successfully' })
   } catch (error: any) {

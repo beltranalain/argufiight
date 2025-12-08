@@ -275,8 +275,8 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Record usage
-    await recordFeatureUsage(userId, FEATURES.TOURNAMENTS)
+    // Don't record usage yet - only record when tournament starts (status changes from UPCOMING)
+    // This allows users to delete UPCOMING tournaments without it counting against their limit
 
     return NextResponse.json({ 
       success: true,

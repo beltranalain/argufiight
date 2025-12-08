@@ -157,6 +157,44 @@ export async function canUseFeature(
 }
 
 /**
+ * Decrement feature usage (for refunds/cancellations)
+ */
+export async function decrementFeatureUsage(
+  userId: string,
+  feature: string,
+  amount: number = 1
+): Promise<void> {
+  const now = new Date()
+  const periodStart = new Date(now.getFullYear(), now.getMonth(), 1)
+
+  const usage = await prisma.usageTracking.findUnique({
+    where: {
+      userId_featureType_periodStart: {
+        userId,
+        featureType: feature,
+        periodStart,
+      },
+    },
+  })
+
+  if (usage && usage.count > 0) {
+    const newCount = Math.max(0, usage.count - amount)
+    await prisma.usageTracking.update({
+      where: {
+        userId_featureType_periodStart: {
+          userId,
+          featureType: feature,
+          periodStart,
+        },
+      },
+      data: {
+        count: newCount,
+      },
+    })
+  }
+}
+
+/**
  * Record feature usage
  */
 export async function recordFeatureUsage(
