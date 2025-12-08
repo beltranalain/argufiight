@@ -33,6 +33,37 @@ export async function POST(
       return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
     }
 
+    // Check if tournament is private and user is invited
+    if (tournament.isPrivate) {
+      if (tournament.creatorId !== userId) {
+        // User is not the creator, check if they're invited
+        if (!tournament.invitedUserIds) {
+          return NextResponse.json(
+            { error: 'This is a private tournament and you are not invited' },
+            { status: 403 }
+          )
+        }
+
+        let invitedIds: string[]
+        try {
+          invitedIds = JSON.parse(tournament.invitedUserIds) as string[]
+        } catch (error) {
+          console.error('Failed to parse invitedUserIds:', tournament.invitedUserIds, error)
+          return NextResponse.json(
+            { error: 'Invalid tournament invitation data' },
+            { status: 500 }
+          )
+        }
+
+        if (!Array.isArray(invitedIds) || !invitedIds.includes(userId)) {
+          return NextResponse.json(
+            { error: 'This is a private tournament and you are not invited' },
+            { status: 403 }
+          )
+        }
+      }
+    }
+
     // Check if tournament is accepting registrations
     if (tournament.status !== 'UPCOMING' && tournament.status !== 'REGISTRATION_OPEN') {
       return NextResponse.json(

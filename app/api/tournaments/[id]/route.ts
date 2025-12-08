@@ -95,6 +95,37 @@ export async function GET(
       return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
     }
 
+    // Check if tournament is private and user has access
+    if (tournament.isPrivate) {
+      if (tournament.creatorId !== userId) {
+        // User is not the creator, check if they're invited
+        if (!tournament.invitedUserIds) {
+          return NextResponse.json(
+            { error: 'This is a private tournament and you are not invited' },
+            { status: 403 }
+          )
+        }
+
+        let invitedIds: string[]
+        try {
+          invitedIds = JSON.parse(tournament.invitedUserIds) as string[]
+        } catch (error) {
+          console.error('Failed to parse invitedUserIds:', tournament.invitedUserIds, error)
+          return NextResponse.json(
+            { error: 'Invalid tournament invitation data' },
+            { status: 500 }
+          )
+        }
+
+        if (!Array.isArray(invitedIds) || !invitedIds.includes(userId || '')) {
+          return NextResponse.json(
+            { error: 'This is a private tournament and you are not invited' },
+            { status: 403 }
+          )
+        }
+      }
+    }
+
     // Check if user is participant
     const isParticipant = userId
       ? tournament.participants.some((p) => p.userId === userId)

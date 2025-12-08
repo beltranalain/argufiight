@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/Toast'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { UserSearchInput } from '@/components/debate/UserSearchInput'
 
 export default function CreateTournamentPage() {
   const router = useRouter()
@@ -25,7 +26,9 @@ export default function CreateTournamentPage() {
     minElo: '',
     roundDuration: 24,
     reseedAfterRound: true,
+    isPrivate: false,
   })
+  const [invitedUsers, setInvitedUsers] = useState<Array<{ id: string; username: string; avatarUrl: string | null; eloRating: number }>>([])
 
   useEffect(() => {
     // Wait for auth to finish loading before checking user
@@ -116,6 +119,10 @@ export default function CreateTournamentPage() {
           minElo: formData.minElo ? parseInt(String(formData.minElo)) : null,
           roundDuration: parseInt(String(formData.roundDuration)),
           reseedAfterRound: formData.reseedAfterRound,
+          isPrivate: formData.isPrivate,
+          invitedUserIds: formData.isPrivate && invitedUsers.length > 0 
+            ? invitedUsers.map(u => u.id) 
+            : null,
         }),
       })
 
@@ -361,6 +368,69 @@ export default function CreateTournamentPage() {
                   <label htmlFor="reseed" className="text-text-primary">
                     Reseed participants after each round (by ELO)
                   </label>
+                </div>
+
+                {/* Privacy & Invitations */}
+                <div className="border-t border-bg-tertiary pt-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="isPrivate"
+                      checked={formData.isPrivate}
+                      onChange={(e) => setFormData({ ...formData, isPrivate: e.target.checked })}
+                      className="w-4 h-4 rounded border-bg-tertiary bg-bg-secondary text-electric-blue focus:ring-electric-blue"
+                    />
+                    <label htmlFor="isPrivate" className="text-text-primary font-medium">
+                      Make this tournament private (invite-only)
+                    </label>
+                  </div>
+                  <p className="text-text-secondary text-sm ml-7">
+                    Private tournaments are only visible to invited users and the creator. Only invited users can join.
+                  </p>
+
+                  {formData.isPrivate && (
+                    <div className="ml-7">
+                      <label className="block text-sm font-medium text-text-primary mb-2">
+                        Invite Users
+                      </label>
+                      <UserSearchInput
+                        selectedUsers={invitedUsers}
+                        onUsersChange={setInvitedUsers}
+                        maxUsers={formData.maxParticipants}
+                        placeholder="Search for users to invite..."
+                        allowMultiple={true}
+                      />
+                      {invitedUsers.length > 0 && (
+                        <div className="mt-3">
+                          <p className="text-text-secondary text-sm mb-2">
+                            Invited users ({invitedUsers.length}):
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {invitedUsers.map((user) => (
+                              <div
+                                key={user.id}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-bg-secondary border border-bg-tertiary rounded-lg"
+                              >
+                                <span className="text-text-primary text-sm">@{user.username}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => setInvitedUsers(invitedUsers.filter(u => u.id !== user.id))}
+                                  className="text-text-secondary hover:text-text-primary"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {formData.isPrivate && invitedUsers.length === 0 && (
+                        <p className="text-neon-orange text-sm mt-2">
+                          ⚠️ You must invite at least one user for a private tournament
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Submit Button */}

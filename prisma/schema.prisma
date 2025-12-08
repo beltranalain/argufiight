@@ -86,14 +86,14 @@ model User {
   aiPaused        Boolean @default(false) @map("ai_paused")
 
   // Google OAuth fields (for advertisers and employees only)
-  googleId          String?  @unique @map("google_id")
-  googleEmail       String?  @map("google_email")
-  googlePicture     String?  @map("google_picture")
-  googleAuthEnabled Boolean  @default(false) @map("google_auth_enabled")
+  googleId          String? @unique @map("google_id")
+  googleEmail       String? @map("google_email")
+  googlePicture     String? @map("google_picture")
+  googleAuthEnabled Boolean @default(false) @map("google_auth_enabled")
 
   // Google Authenticator 2FA (for employees and advertisers)
-  totpSecret    String? @map("totp_secret") // Secret key for TOTP
-  totpEnabled   Boolean @default(false) @map("totp_enabled") // Whether 2FA is enabled
+  totpSecret      String? @map("totp_secret") // Secret key for TOTP
+  totpEnabled     Boolean @default(false) @map("totp_enabled") // Whether 2FA is enabled
   totpBackupCodes String? @map("totp_backup_codes") // JSON array of backup codes
 
   // Relations
@@ -698,13 +698,13 @@ model SocialMediaPost {
 
 // Session model for authentication
 model Session {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  expiresAt DateTime @map("expires_at")
-  twoFactorVerified Boolean @default(false) @map("two_factor_verified") // Whether 2FA has been verified for this session
-  createdAt DateTime @default(now()) @map("created_at")
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token             String   @unique
+  expiresAt         DateTime @map("expires_at")
+  twoFactorVerified Boolean  @default(false) @map("two_factor_verified") // Whether 2FA has been verified for this session
+  createdAt         DateTime @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([token])
@@ -1564,11 +1564,11 @@ model HomepageImage {
   sectionId String          @map("section_id")
   section   HomepageSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
-  url     String // Image URL or path
-  alt     String? // Alt text
-  caption String? // Image caption
-  linkUrl String? @map("link_url") // Optional link URL for clickable images (e.g., App Store/Google Play links)
-  order   Int     @default(0) // Display order within section
+  url           String // Image URL or path
+  alt           String? // Alt text
+  caption       String? // Image caption
+  linkUrl       String? @map("link_url") // Optional link URL for clickable images (e.g., App Store/Google Play links)
+  order         Int     @default(0) // Display order within section
   imagePosition String? @default("left") @map("image_position") // "left" or "right" - where image appears relative to content
 
   // Metadata
@@ -1728,6 +1728,10 @@ model Tournament {
   currentRound    Int              @default(1) @map("current_round")
   totalRounds     Int              @map("total_rounds")
   status          TournamentStatus @default(UPCOMING)
+
+  // Privacy & Invitations
+  isPrivate      Boolean @default(false) @map("is_private")
+  invitedUserIds String? @map("invited_user_ids") // JSON array of user IDs
 
   // Requirements
   minElo  Int?    @map("min_elo")

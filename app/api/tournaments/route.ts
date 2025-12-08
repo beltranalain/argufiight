@@ -32,9 +32,9 @@ export async function GET(request: NextRequest) {
       where.status = status
     }
 
-    // Get tournaments
-    const tournaments = await prisma.tournament.findMany({
-      where,
+    // Get all tournaments first, then filter private ones
+    const allTournaments = await prisma.tournament.findMany({
+      where: status && status !== 'ALL' ? { status } : {},
       include: {
         creator: {
           select: {
@@ -58,8 +58,34 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: 'desc',
       },
-      take: 50,
+      take: 100, // Get more to filter
     })
+
+    // Filter private tournaments - only show if user is creator or invited
+    const tournaments = allTournaments.filter((tournament) => {
+      if (!tournament.isPrivate) {
+        return true // Show all public tournaments
+      }
+      
+      // Show private tournaments where user is creator
+      if (tournament.creatorId === userId) {
+        return true
+      }
+      
+      // Show private tournaments where user is invited
+      if (userId && tournament.invitedUserIds) {
+        try {
+          const invitedIds = JSON.parse(tournament.invitedUserIds) as string[]
+          if (Array.isArray(invitedIds) && invitedIds.includes(userId)) {
+            return true
+          }
+        } catch (error) {
+          console.error('Failed to parse invitedUserIds:', tournament.invitedUserIds, error)
+        }
+      }
+      
+      return false // Hide private tournaments user doesn't have access to
+    }).slice(0, 50) // Limit to 50 after filtering
 
     // Format response
     const formatted = tournaments.map((tournament) => ({
@@ -139,6 +165,8 @@ export async function POST(request: NextRequest) {
       roundDuration = 24, // hours
       reseedAfterRound = true,
       reseedMethod = 'ELO_BASED',
+      isPrivate = false,
+      invitedUserIds = null,
     } = body
 
     // Validate required fields
@@ -154,6 +182,14 @@ export async function POST(request: NextRequest) {
     if (!validSizes.includes(maxParticipants)) {
       return NextResponse.json(
         { error: 'Max participants must be 4, 8, 16, 32, or 64' },
+        { status: 400 }
+      )
+    }
+
+    // Validate private tournament has invited users
+    if (isPrivate && (!invitedUserIds || !Array.isArray(invitedUserIds) || invitedUserIds.length === 0)) {
+      return NextResponse.json(
+        { error: 'Private tournaments must have at least one invited user' },
         { status: 400 }
       )
     }
@@ -177,6 +213,10 @@ export async function POST(request: NextRequest) {
         roundDuration,
         reseedAfterRound,
         reseedMethod: reseedMethod as any,
+        isPrivate: isPrivate || false,
+        invitedUserIds: isPrivate && invitedUserIds && Array.isArray(invitedUserIds)
+          ? JSON.stringify(invitedUserIds)
+          : null,
       },
       include: {
         creator: {
