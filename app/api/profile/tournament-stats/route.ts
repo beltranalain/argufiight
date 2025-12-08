@@ -39,17 +39,14 @@ export async function GET() {
       (p) => p.tournament.status === 'IN_PROGRESS'
     ).length
 
-    // Get tournament wins (champion)
-    const tournamentsWon = await prisma.tournament.findMany({
+    // Get tournament wins (champion) - find tournaments where user is the only ACTIVE participant
+    const championships = await prisma.tournament.findMany({
       where: {
         status: 'COMPLETED',
         participants: {
           some: {
             userId,
             status: 'ACTIVE', // Champion is still ACTIVE at the end
-            wins: {
-              gte: 1, // Has at least one win
-            },
           },
         },
       },
@@ -68,8 +65,8 @@ export async function GET() {
       },
     })
 
-    // Filter to only tournaments where this user is the champion
-    const championships = tournamentsWon.filter(
+    // Filter to only tournaments where this user is the ONLY active participant (champion)
+    const userChampionships = championships.filter(
       (t) => t.participants.length === 1 && t.participants[0].userId === userId
     )
 
@@ -96,7 +93,7 @@ export async function GET() {
         totalTournaments,
         completedTournaments,
         activeTournaments,
-        championships: championships.length,
+        championships: userChampionships.length,
         totalTournamentWins,
         totalTournamentLosses,
         winRate:
