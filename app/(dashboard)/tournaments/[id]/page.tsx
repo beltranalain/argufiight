@@ -399,48 +399,71 @@ export default function TournamentDetailPage() {
                 </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {tournament.participants.map((participant) => (
-                    <div
-                      key={participant.id}
-                      className="p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-text-secondary text-sm">Seed #{participant.seed}</span>
-                        <Badge variant="default" size="sm">
-                          {formatStatus(participant.status)}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {participant.user.avatarUrl ? (
-                          <img
-                            src={participant.user.avatarUrl}
-                            alt={participant.user.username}
-                            className="w-8 h-8 rounded-full"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-bg-tertiary flex items-center justify-center">
-                            <span className="text-text-secondary text-xs">
-                              {participant.user.username[0].toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                        <div>
-                          <p className="text-text-primary font-semibold">
-                            @{participant.user.username}
-                          </p>
-                          <p className="text-text-secondary text-xs">ELO: {participant.user.eloRating}</p>
-                          {tournament.format === 'CHAMPIONSHIP' && participant.selectedPosition && (
-                            <Badge 
-                              variant="default" 
-                              className={participant.selectedPosition === 'PRO' ? 'bg-cyber-green text-black text-xs mt-1' : 'bg-neon-orange text-black text-xs mt-1'}
-                            >
-                              {participant.selectedPosition}
-                            </Badge>
+                  {tournament.participants.map((participant) => {
+                    // Calculate total score for this participant
+                    const totalScore = tournament.matches.reduce((sum, match) => {
+                      if (match.participant1Id === participant.id && match.participant1Score !== null) {
+                        return sum + match.participant1Score
+                      }
+                      if (match.participant2Id === participant.id && match.participant2Score !== null) {
+                        return sum + match.participant2Score
+                      }
+                      return sum
+                    }, 0)
+                    const matchCount = tournament.matches.filter(m => 
+                      (m.participant1Id === participant.id && m.participant1Score !== null) ||
+                      (m.participant2Id === participant.id && m.participant2Score !== null)
+                    ).length
+                    const averageScore = matchCount > 0 ? Math.round(totalScore / matchCount) : null
+
+                    return (
+                      <div
+                        key={participant.id}
+                        className="p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-text-secondary text-sm">Seed #{participant.seed}</span>
+                          <Badge variant="default" size="sm">
+                            {formatStatus(participant.status)}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {participant.user.avatarUrl ? (
+                            <img
+                              src={participant.user.avatarUrl}
+                              alt={participant.user.username}
+                              className="w-8 h-8 rounded-full"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-bg-tertiary flex items-center justify-center">
+                              <span className="text-text-secondary text-xs">
+                                {participant.user.username[0].toUpperCase()}
+                              </span>
+                            </div>
                           )}
+                          <div className="flex-1">
+                            <p className="text-text-primary font-semibold">
+                              @{participant.user.username}
+                            </p>
+                            <p className="text-text-secondary text-xs">ELO: {participant.user.eloRating}</p>
+                            {averageScore !== null && (
+                              <p className="text-electric-blue text-xs font-semibold mt-0.5">
+                                Avg Score: {averageScore}/100
+                              </p>
+                            )}
+                            {tournament.format === 'CHAMPIONSHIP' && participant.selectedPosition && (
+                              <Badge 
+                                variant="default" 
+                                className={participant.selectedPosition === 'PRO' ? 'bg-cyber-green text-black text-xs mt-1' : 'bg-neon-orange text-black text-xs mt-1'}
+                              >
+                                {participant.selectedPosition}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </CardBody>
