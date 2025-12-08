@@ -10,19 +10,36 @@ import { prisma } from '@/lib/db/prisma'
  */
 export async function completeTournament(tournamentId: string): Promise<void> {
   try {
+    // First get tournament to know totalRounds
+    const tournamentInfo = await prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      select: {
+        id: true,
+        totalRounds: true,
+        status: true,
+      },
+    })
+
+    if (!tournamentInfo) {
+      throw new Error(`Tournament ${tournamentId} not found`)
+    }
+
     const tournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },
       include: {
         participants: {
-          where: {
-            status: 'ACTIVE',
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+              },
+            },
           },
         },
         rounds: {
           where: {
-            roundNumber: {
-              // Get the final round
-            },
+            roundNumber: tournamentInfo.totalRounds, // Get the final round
           },
           include: {
             matches: {
@@ -47,10 +64,6 @@ export async function completeTournament(tournamentId: string): Promise<void> {
               take: 1, // Get the last completed match (should be the final)
             },
           },
-          orderBy: {
-            roundNumber: 'desc',
-          },
-          take: 1,
         },
       },
     })
@@ -69,7 +82,7 @@ export async function completeTournament(tournamentId: string): Promise<void> {
 
     // If no active participant, try to find from final match winner
     if (!champion) {
-      const finalRound = tournament.rounds.find((r) => r.roundNumber === tournament.totalRounds)
+      const finalRound = tournament.rounds.find((r) => r.roundNumber === tournamentInfo.totalRounds)
       if (finalRound && finalRound.matches.length > 0) {
         const finalMatch = finalRound.matches[0]
         if (finalMatch.winner) {
