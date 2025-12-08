@@ -159,6 +159,8 @@ export function TournamentBracket({
                     const slot2 = match[1]
                     const isActive = slot1.matchStatus === 'IN_PROGRESS' || slot2.matchStatus === 'IN_PROGRESS'
                     const isCompleted = slot1.matchStatus === 'COMPLETED' || slot2.matchStatus === 'COMPLETED'
+                    const isFinalRound = roundNum === totalRounds
+                    const isFinalWinner = isFinalRound && isCompleted && (slot1.isWinner || slot2.isWinner)
 
                     return (
                       <div
@@ -212,7 +214,9 @@ export function TournamentBracket({
                           {/* Participant 1 */}
                           <div
                             className={`mb-3 p-3 rounded transition-all ${
-                              slot1.isWinner
+                              slot1.isWinner && isFinalWinner
+                                ? 'bg-cyber-green/30 border-2 border-cyber-green winner-animation'
+                                : slot1.isWinner
                                 ? 'bg-cyber-green/20 border border-cyber-green winner-animation'
                                 : 'bg-bg-tertiary'
                             }`}
@@ -227,7 +231,10 @@ export function TournamentBracket({
                                 <div className="flex-1 min-w-0">
                                   <p className="text-text-primary text-sm font-semibold truncate">
                                     ({slot1.participant.seed}) @{slot1.participant.user.username}
-                                    {slot1.isWinner && (
+                                    {slot1.isWinner && isFinalWinner && (
+                                      <span className="ml-2 text-cyber-green font-bold">🏆 Champion</span>
+                                    )}
+                                    {slot1.isWinner && !isFinalWinner && (
                                       <span className="ml-2 text-cyber-green">✓ Winner</span>
                                     )}
                                   </p>
@@ -250,7 +257,9 @@ export function TournamentBracket({
                           {/* Participant 2 */}
                           <div
                             className={`p-3 rounded transition-all ${
-                              slot2.isWinner
+                              slot2.isWinner && isFinalWinner
+                                ? 'bg-cyber-green/30 border-2 border-cyber-green winner-animation'
+                                : slot2.isWinner
                                 ? 'bg-cyber-green/20 border border-cyber-green winner-animation'
                                 : 'bg-bg-tertiary'
                             }`}
@@ -265,7 +274,10 @@ export function TournamentBracket({
                                 <div className="flex-1 min-w-0">
                                   <p className="text-text-primary text-sm font-semibold truncate">
                                     ({slot2.participant.seed}) @{slot2.participant.user.username}
-                                    {slot2.isWinner && (
+                                    {slot2.isWinner && isFinalWinner && (
+                                      <span className="ml-2 text-cyber-green font-bold">🏆 Champion</span>
+                                    )}
+                                    {slot2.isWinner && !isFinalWinner && (
                                       <span className="ml-2 text-cyber-green">✓ Winner</span>
                                     )}
                                   </p>

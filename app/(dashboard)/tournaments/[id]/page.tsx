@@ -291,6 +291,24 @@ export default function TournamentDetailPage() {
     : 0
   const maxPerPosition = tournament.format === 'CHAMPIONSHIP' ? tournament.maxParticipants / 2 : 0
 
+  // Find the tournament champion (winner of final match or active participant when completed)
+  const getTournamentChampion = () => {
+    if (tournament.status !== 'COMPLETED') return null
+    
+    // Find the winner of the final round match
+    const finalRound = tournament.totalRounds
+    const finalMatch = tournament.matches.find(m => m.round === finalRound && m.winnerId)
+    if (finalMatch?.winnerId) {
+      return tournament.participants.find(p => p.id === finalMatch.winnerId)?.userId || null
+    }
+    
+    // Fallback: find active participant
+    const activeParticipant = tournament.participants.find(p => p.status === 'ACTIVE')
+    return activeParticipant?.userId || null
+  }
+
+  const championUserId = getTournamentChampion()
+
   return (
     <div className="min-h-screen bg-bg-primary">
       <TopNav currentPanel="TOURNAMENTS" />
@@ -416,10 +434,16 @@ export default function TournamentDetailPage() {
                     ).length
                     const averageScore = matchCount > 0 ? Math.round(totalScore / matchCount) : null
 
+                    const isChampion = tournament.status === 'COMPLETED' && participant.user.id === championUserId
+
                     return (
                       <div
                         key={participant.id}
-                        className="p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          isChampion
+                            ? 'bg-cyber-green/20 border-cyber-green winner-animation'
+                            : 'bg-bg-secondary border-bg-tertiary'
+                        }`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-text-secondary text-sm">Seed #{participant.seed}</span>
@@ -442,9 +466,16 @@ export default function TournamentDetailPage() {
                             </div>
                           )}
                           <div className="flex-1">
-                            <p className="text-text-primary font-semibold">
-                              @{participant.user.username}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-text-primary font-semibold">
+                                @{participant.user.username}
+                              </p>
+                              {isChampion && (
+                                <Badge variant="default" className="bg-cyber-green text-black text-xs">
+                                  🏆 Champion
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-text-secondary text-xs">ELO: {participant.user.eloRating}</p>
                             {averageScore !== null && (
                               <p className="text-electric-blue text-xs font-semibold mt-0.5">
