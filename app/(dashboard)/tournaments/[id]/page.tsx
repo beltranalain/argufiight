@@ -301,67 +301,66 @@ export default function TournamentDetailPage() {
             <Button variant="ghost" onClick={() => router.push('/tournaments')} className="mb-4">
               ← Back to Tournaments
             </Button>
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
-                  <h1 className="text-4xl font-bold text-text-primary">{tournament.name}</h1>
-                  <Badge variant="default" className={getStatusColor(tournament.status)}>
-                    {tournament.status.replace('_', ' ')}
-                  </Badge>
-                  <Badge 
-                    variant="default" 
-                    className={tournament.isPrivate ? 'bg-neon-orange text-black' : 'bg-electric-blue text-black'}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 mb-3">
+                <h1 className="text-4xl font-bold text-text-primary">{tournament.name}</h1>
+                <Badge variant="default" className={getStatusColor(tournament.status)}>
+                  {tournament.status.replace('_', ' ')}
+                </Badge>
+                <Badge 
+                  variant="default" 
+                  className={tournament.isPrivate ? 'bg-neon-orange text-black' : 'bg-electric-blue text-black'}
+                >
+                  {tournament.isPrivate ? 'Private' : 'Public'}
+                </Badge>
+                <Badge 
+                  variant="default" 
+                  className={tournament.format === 'CHAMPIONSHIP' ? 'bg-cyber-green text-black' : 'bg-bg-tertiary text-text-primary'}
+                >
+                  {tournament.format === 'CHAMPIONSHIP' ? 'Championship' : 'Bracket'}
+                </Badge>
+                {tournament.format === 'CHAMPIONSHIP' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowRulesModal(true)}
+                    className="text-text-secondary hover:text-text-primary text-xs"
                   >
-                    {tournament.isPrivate ? 'Private' : 'Public'}
-                  </Badge>
-                  <Badge 
-                    variant="default" 
-                    className={tournament.format === 'CHAMPIONSHIP' ? 'bg-cyber-green text-black' : 'bg-bg-tertiary text-text-primary'}
-                  >
-                    {tournament.format === 'CHAMPIONSHIP' ? 'Championship' : 'Bracket'}
-                  </Badge>
-                  {tournament.format === 'CHAMPIONSHIP' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowRulesModal(true)}
-                      className="text-text-secondary hover:text-text-primary text-xs"
-                    >
-                      How it works?
-                    </Button>
-                  )}
-                </div>
-                {tournament.description && (
-                  <p className="text-text-secondary text-lg mb-4">{tournament.description}</p>
+                    How it works?
+                  </Button>
                 )}
-                <div className="flex flex-wrap gap-4 text-sm">
-                  <div>
-                    <span className="text-text-secondary">Created by: </span>
-                    <span className="text-text-primary font-semibold">
-                      @{tournament.creator.username}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-text-secondary">Participants: </span>
-                    <span className="text-text-primary font-semibold">
-                      {tournament.participants.length} / {tournament.maxParticipants}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-text-secondary">Rounds: </span>
-                    <span className="text-text-primary font-semibold">
-                      {tournament.currentRound} / {tournament.totalRounds}
-                    </span>
-                  </div>
-                  {tournament.minElo && (
-                    <div>
-                      <span className="text-text-secondary">Min ELO: </span>
-                      <span className="text-text-primary font-semibold">{tournament.minElo}</span>
-                    </div>
-                  )}
-                </div>
               </div>
-              <div className="flex flex-col items-end gap-2">
+              {tournament.description && (
+                <p className="text-text-secondary text-lg mb-4">{tournament.description}</p>
+              )}
+              <div className="flex flex-wrap gap-4 text-sm">
+                <div>
+                  <span className="text-text-secondary">Created by: </span>
+                  <span className="text-text-primary font-semibold">
+                    @{tournament.creator.username}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-text-secondary">Participants: </span>
+                  <span className="text-text-primary font-semibold">
+                    {tournament.participants.length} / {tournament.maxParticipants}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-text-secondary">Rounds: </span>
+                  <span className="text-text-primary font-semibold">
+                    {tournament.currentRound} / {tournament.totalRounds}
+                  </span>
+                </div>
+                {tournament.minElo && (
+                  <div>
+                    <span className="text-text-secondary">Min ELO: </span>
+                    <span className="text-text-primary font-semibold">{tournament.minElo}</span>
+                  </div>
+                )}
+              </div>
+              {/* Join Button - Centered */}
+              <div className="flex justify-center items-center gap-3 pt-2">
                 {canJoin && (
                   <Button 
                     onClick={handleJoin} 
