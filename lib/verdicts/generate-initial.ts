@@ -468,6 +468,23 @@ export async function generateInitialVerdicts(debateId: string) {
       })
     }
 
+    // Check if this is a tournament debate and update tournament match
+    // This is non-blocking - we don't want tournament updates to break verdict generation
+    import('@/lib/tournaments/match-completion')
+      .then(async (module) => {
+        try {
+          await module.updateTournamentMatchOnDebateComplete(debateId)
+          console.log(`[Generate Verdicts] Tournament match updated for debate ${debateId}`)
+        } catch (error: any) {
+          console.error(`[Generate Verdicts] Error updating tournament match:`, error)
+          // Don't throw - tournament updates shouldn't break verdict generation
+        }
+      })
+      .catch((importError: any) => {
+        // If import fails, it's not a tournament debate - that's fine
+        console.log(`[Generate Verdicts] Not a tournament debate or import failed:`, importError.message)
+      })
+
     return {
       success: true,
       debate: updatedDebate,
