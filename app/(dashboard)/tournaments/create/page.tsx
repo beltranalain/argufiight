@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 
 export default function CreateTournamentPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const { showToast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [canCreate, setCanCreate] = useState<{ allowed: boolean; currentUsage?: number; limit?: number } | null>(null)
@@ -28,13 +28,20 @@ export default function CreateTournamentPage() {
   })
 
   useEffect(() => {
+    // Wait for auth to finish loading before checking user
+    if (authLoading) {
+      return
+    }
+
+    // If auth finished loading and no user, redirect to login
     if (!user) {
       router.push('/login')
       return
     }
 
+    // User is loaded, check if they can create tournaments
     checkCanCreate()
-  }, [user, router])
+  }, [user, authLoading, router])
 
   const checkCanCreate = async () => {
     try {
@@ -170,11 +177,8 @@ export default function CreateTournamentPage() {
     }
   }
 
-  if (!user) {
-    return null
-  }
-
-  if (isChecking) {
+  // Show loading while auth is loading or while checking permissions
+  if (authLoading || isChecking) {
     return (
       <div className="min-h-screen bg-bg-primary">
         <TopNav currentPanel="TOURNAMENTS" />
@@ -183,6 +187,11 @@ export default function CreateTournamentPage() {
         </div>
       </div>
     )
+  }
+
+  // If auth finished loading and no user, don't render (redirect will happen)
+  if (!user) {
+    return null
   }
 
   if (!canCreate?.allowed) {
