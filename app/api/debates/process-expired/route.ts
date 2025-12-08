@@ -174,13 +174,12 @@ export async function POST(request: NextRequest) {
 
         // Case 1: Both submitted - should have already advanced, but check anyway
         if (challengerSubmitted && opponentSubmitted) {
-          // Both submitted, check if we should end debate or advance
-          const halfwayPoint = Math.ceil(debate.totalRounds / 2)
-          const isHalfwayThrough = debate.currentRound >= halfwayPoint
+          // Both submitted - only end if it's the final round
+          // Don't end early at halfway point if both submitted - let them continue
           const isFinalRound = debate.currentRound >= debate.totalRounds
 
-          if (isFinalRound || isHalfwayThrough) {
-            // End debate and trigger AI judgment
+          if (isFinalRound) {
+            // Final round completed - end debate and trigger AI judgment
             await prisma.debate.update({
               where: { id: debate.id },
               data: {
@@ -207,7 +206,7 @@ export async function POST(request: NextRequest) {
 
             results.completed++
           } else {
-            // Advance to next round
+            // Advance to next round (both submitted, so continue normally)
             const newDeadline = new Date(now.getTime() + debate.roundDuration)
             await prisma.debate.update({
               where: { id: debate.id },
