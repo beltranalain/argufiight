@@ -208,12 +208,8 @@ export default function DebatePage() {
     if (!params.id) return
 
     try {
-      // Process expired rounds in background before fetching (non-blocking)
-      fetch('/api/debates/process-expired', {
-        method: 'POST',
-      }).catch(() => {
-        // Silently fail - background task
-      })
+      // Note: Expired rounds are processed by cron jobs, not from frontend
+      // Frontend calls would fail with 401 if CRON_SECRET is set
 
       // Save scroll position before loading (only if showing loading)
       if (showLoading) {
