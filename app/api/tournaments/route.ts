@@ -182,98 +182,117 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Format response and find winners for completed tournaments
-    const formatted = await Promise.all(tournaments.map(async (tournament) => {
-      let winner = null
-      
-      // Find winner for completed tournaments
-      if (tournament.status === 'COMPLETED') {
-        // Get the final round match winner
-        const finalRound = await prisma.tournamentRound.findFirst({
-          where: {
-            tournamentId: tournament.id,
-            roundNumber: tournament.totalRounds,
+    // Get winners for all completed tournaments in one query
+    const completedTournamentIds = tournaments.filter(t => t.status === 'COMPLETED').map(t => t.id)
+    const winnersMap = new Map<string, { id: string; username: string; avatarUrl: string | null }>()
+    
+    if (completedTournamentIds.length > 0) {
+      // Get final round matches for all completed tournaments
+      const finalRounds = await prisma.tournamentRound.findMany({
+        where: {
+          tournamentId: { in: completedTournamentIds },
+        },
+        include: {
+          tournament: {
+            select: {
+              id: true,
+              totalRounds: true,
+            },
           },
-          include: {
-            matches: {
-              where: {
-                status: 'COMPLETED',
+          matches: {
+            where: {
+              status: 'COMPLETED',
+              round: {
+                roundNumber: {
+                  // Get matches from the final round
+                  // We'll filter by roundNumber matching tournament.totalRounds
+                },
               },
-              include: {
-                winner: {
-                  include: {
-                    user: {
-                      select: {
-                        id: true,
-                        username: true,
-                        avatarUrl: true,
-                      },
+            },
+            include: {
+              winner: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      username: true,
+                      avatarUrl: true,
                     },
                   },
                 },
               },
-              orderBy: {
-                completedAt: 'desc',
+            },
+            orderBy: {
+              completedAt: 'desc',
+            },
+            take: 1,
+          },
+        },
+      })
+      
+      // Process final rounds to find winners
+      for (const round of finalRounds) {
+        if (round.roundNumber === round.tournament.totalRounds && round.matches[0]?.winner) {
+          const winner = round.matches[0].winner
+          winnersMap.set(round.tournamentId, {
+            id: winner.user.id,
+            username: winner.user.username,
+            avatarUrl: winner.user.avatarUrl,
+          })
+        }
+      }
+      
+      // Fallback: find active participants for tournaments without final match winners
+      const tournamentsWithoutWinners = completedTournamentIds.filter(id => !winnersMap.has(id))
+      if (tournamentsWithoutWinners.length > 0) {
+        const activeParticipants = await prisma.tournamentParticipant.findMany({
+          where: {
+            tournamentId: { in: tournamentsWithoutWinners },
+            status: 'ACTIVE',
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
               },
-              take: 1,
             },
           },
         })
         
-        if (finalRound?.matches[0]?.winner) {
-          winner = {
-            id: finalRound.matches[0].winner.user.id,
-            username: finalRound.matches[0].winner.user.username,
-            avatarUrl: finalRound.matches[0].winner.user.avatarUrl,
-          }
-        } else {
-          // Fallback: find active participant
-          const activeParticipant = await prisma.tournamentParticipant.findFirst({
-            where: {
-              tournamentId: tournament.id,
-              status: 'ACTIVE',
-            },
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  username: true,
-                  avatarUrl: true,
-                },
-              },
-            },
-          })
-          
-          if (activeParticipant) {
-            winner = {
-              id: activeParticipant.user.id,
-              username: activeParticipant.user.username,
-              avatarUrl: activeParticipant.user.avatarUrl,
-            }
+        for (const participant of activeParticipants) {
+          if (!winnersMap.has(participant.tournamentId)) {
+            winnersMap.set(participant.tournamentId, {
+              id: participant.user.id,
+              username: participant.user.username,
+              avatarUrl: participant.user.avatarUrl,
+            })
           }
         }
       }
-      
-      return {
-        id: tournament.id,
-        name: tournament.name,
-        description: tournament.description,
-        status: tournament.status,
-        maxParticipants: tournament.maxParticipants,
-        currentRound: tournament.currentRound,
-        totalRounds: tournament.totalRounds,
-        participantCount: tournament._count.participants,
-        matchCount: tournament._count.matches,
-        startDate: tournament.startDate,
-        endDate: tournament.endDate,
-        minElo: tournament.minElo,
-        creator: tournament.creator,
-        isParticipant: userId ? tournament.participants.some((p) => p.userId === userId) : false,
-        isPrivate: tournament.isPrivate,
-        format: (tournament as any).format || 'BRACKET',
-        createdAt: tournament.createdAt,
-        winner: winner,
-      }
+    }
+    
+    // Format response
+    const formatted = tournaments.map((tournament) => ({
+      id: tournament.id,
+      name: tournament.name,
+      description: tournament.description,
+      status: tournament.status,
+      maxParticipants: tournament.maxParticipants,
+      currentRound: tournament.currentRound,
+      totalRounds: tournament.totalRounds,
+      participantCount: tournament._count.participants,
+      matchCount: tournament._count.matches,
+      startDate: tournament.startDate,
+      endDate: tournament.endDate,
+      minElo: tournament.minElo,
+      creator: tournament.creator,
+      isParticipant: userId ? tournament.participants.some((p) => p.userId === userId) : false,
+      isPrivate: tournament.isPrivate,
+      format: (tournament as any).format || 'BRACKET',
+      createdAt: tournament.createdAt,
+      winner: tournament.status === 'COMPLETED' ? winnersMap.get(tournament.id) || null : null,
     }))
 
     return NextResponse.json({ tournaments: formatted })
