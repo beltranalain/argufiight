@@ -182,8 +182,8 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
         // Store scores for Championship format
         participant1Score: participant1Score,
         participant2Score: participant2Score,
-        participant1ScoreBreakdown: participant1ScoreBreakdown,
-        participant2ScoreBreakdown: participant2ScoreBreakdown,
+        participant1ScoreBreakdown: participant1ScoreBreakdown || undefined,
+        participant2ScoreBreakdown: participant2ScoreBreakdown || undefined,
       },
     })
 
