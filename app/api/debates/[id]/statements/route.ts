@@ -159,7 +159,20 @@ export async function POST(
       console.error('Failed to update user analytics:', err)
     })
 
-    // Check if both participants have submitted for this round
+    // Get all statements for this round (for both 2-person and group debates)
+    const roundStatements = await prisma.statement.findMany({
+      where: {
+        debateId: id,
+        round: statementRound,
+      },
+      select: {
+        authorId: true,
+      },
+    })
+
+    const submittedAuthorIds = new Set(roundStatements.map(s => s.authorId))
+
+    // Check if both participants have submitted for this round (for 2-person debates)
     const challengerStatement = await prisma.statement.findUnique({
       where: {
         debateId_authorId_round: {
@@ -180,9 +193,33 @@ export async function POST(
       },
     }) : null;
 
-    // If both have submitted, advance to next round or complete
+    // Check if all participants have submitted (for both 2-person and group debates)
+    let allParticipantsSubmitted = false
+    if (debate.challengeType === 'GROUP') {
+      // For GROUP challenges, check all active participants
+      const activeParticipants = await prisma.debateParticipant.findMany({
+        where: {
+          debateId: id,
+          status: 'ACTIVE',
+        },
+        select: {
+          userId: true,
+        },
+      })
+
+      const activeParticipantIds = new Set(activeParticipants.map(p => p.userId))
+      allParticipantsSubmitted = activeParticipantIds.size > 0 && 
+        Array.from(activeParticipantIds).every(id => submittedAuthorIds.has(id))
+    } else {
+      // For 2-person debates, check if both challenger and opponent submitted
+      const challengerSubmitted = submittedAuthorIds.has(debate.challengerId)
+      const opponentSubmitted = debate.opponentId ? submittedAuthorIds.has(debate.opponentId) : false
+      allParticipantsSubmitted = challengerSubmitted && opponentSubmitted
+    }
+
+    // If all participants have submitted, advance to next round or complete
     let updatedDebate = debate;
-    if (challengerStatement && opponentStatement) {
+    if (allParticipantsSubmitted) {
       if (statementRound >= debate.totalRounds) {
         // Debate is complete - set to COMPLETED first (verdict generation will change to VERDICT_READY)
         updatedDebate = await prisma.debate.update({

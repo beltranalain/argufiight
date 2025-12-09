@@ -107,6 +107,19 @@ interface Debate {
   images?: DebateImage[]
   viewCount: number
   createdAt: Date
+  challengeType?: string
+  participants?: Array<{
+    id: string
+    userId: string
+    position: string
+    status: string
+    user: {
+      id: string
+      username: string
+      avatarUrl: string | null
+      eloRating: number
+    }
+  }>
   tournamentMatch?: {
     id: string
     tournament: {

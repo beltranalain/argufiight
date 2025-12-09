@@ -86,7 +86,7 @@ export async function sendPushNotificationForNotification(
         icon: '/favicon.ico',
         data: {
           type: notificationType,
-          debateId: debateId || null,
+          debateId: debateId || undefined,
           url,
         },
       }

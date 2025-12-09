@@ -259,7 +259,7 @@ export async function generateKingOfTheHillMatches(
         roundId: round.id,
         participant1Id: match.participant1Id,
         participant2Id: match.participant2Id,
-        status: 'UPCOMING',
+        status: 'SCHEDULED',
       },
     })
   }
