@@ -29,6 +29,8 @@ export default function TournamentsPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isFeatureEnabled, setIsFeatureEnabled] = useState(false)
+  const [freeTournamentLimit, setFreeTournamentLimit] = useState('1')
+  const [isSavingLimit, setIsSavingLimit] = useState(false)
 
   useEffect(() => {
     fetchFeatureStatus()
@@ -41,6 +43,7 @@ export default function TournamentsPage() {
       if (response.ok) {
         const data = await response.json()
         setIsFeatureEnabled(data.TOURNAMENTS_ENABLED === 'true')
+        setFreeTournamentLimit(data.FREE_TOURNAMENT_LIMIT || '1')
       }
     } catch (error) {
       console.error('Failed to fetch feature status:', error)
@@ -188,6 +191,64 @@ export default function TournamentsPage() {
                 {isFeatureEnabled ? 'Active' : 'Inactive'}
               </Badge>
             </div>
+            {isFeatureEnabled && (
+              <div className="pt-4 border-t border-bg-tertiary">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-white font-medium mb-1">Free Tournament Limit</p>
+                    <p className="text-text-primary text-sm">
+                      Number of tournaments free users can create per month
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={freeTournamentLimit}
+                      onChange={(e) => setFreeTournamentLimit(e.target.value)}
+                      className="w-20 px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded text-white focus:outline-none focus:border-electric-blue"
+                    />
+                    <Button
+                      onClick={async () => {
+                        setIsSavingLimit(true)
+                        try {
+                          const response = await fetch('/api/admin/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              FREE_TOURNAMENT_LIMIT: freeTournamentLimit,
+                            }),
+                          })
+                          if (response.ok) {
+                            showToast({
+                              type: 'success',
+                              title: 'Limit Updated',
+                              description: `Free tournament limit set to ${freeTournamentLimit} per month`,
+                            })
+                          } else {
+                            throw new Error('Failed to save')
+                          }
+                        } catch (error) {
+                          showToast({
+                            type: 'error',
+                            title: 'Error',
+                            description: 'Failed to update free tournament limit',
+                          })
+                        } finally {
+                          setIsSavingLimit(false)
+                        }
+                      }}
+                      variant="secondary"
+                      size="sm"
+                      disabled={isSavingLimit}
+                    >
+                      {isSavingLimit ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </CardBody>
       </Card>

@@ -70,16 +70,14 @@ export default function CreateTournamentPage() {
           limit,
         })
 
-        // If not allowed, redirect to upgrade
+        // If not allowed, show message but don't redirect
         if (!allowed) {
           showToast({
             type: 'warning',
             title: 'Tournament Limit Reached',
             description: `You've used your ${limit} tournament${limit === 1 ? '' : 's'} this month. Upgrade to Pro for unlimited tournaments!`,
           })
-          setTimeout(() => {
-            window.location.href = '/upgrade'
-          }, 2000)
+          // Don't auto-redirect - let user click the button
         }
       }
     } catch (error) {
@@ -93,7 +91,11 @@ export default function CreateTournamentPage() {
     e.preventDefault()
 
     if (!canCreate?.allowed) {
-      router.push('/upgrade')
+      showToast({
+        type: 'warning',
+        title: 'Tournament Limit Reached',
+        description: `You've used your ${canCreate.limit || 1} tournament${(canCreate.limit || 1) === 1 ? '' : 's'} this month. Upgrade to Pro for unlimited tournaments!`,
+      })
       return
     }
 

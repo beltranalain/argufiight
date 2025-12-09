@@ -83,6 +83,23 @@ export async function getFeatureLimit(
     case FEATURES.TOURNAMENT_CREDITS:
       return limits.TOURNAMENT_CREDITS
     case FEATURES.TOURNAMENTS:
+      // For free users, check admin setting for custom limit
+      if (tier === 'FREE') {
+        try {
+          const adminSetting = await prisma.adminSetting.findUnique({
+            where: { key: 'FREE_TOURNAMENT_LIMIT' },
+          })
+          if (adminSetting && adminSetting.value) {
+            const customLimit = parseInt(adminSetting.value, 10)
+            if (!isNaN(customLimit) && customLimit >= 0) {
+              return customLimit
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch FREE_TOURNAMENT_LIMIT setting:', error)
+          // Fall back to default
+        }
+      }
       return limits.TOURNAMENTS
     default:
       return -1 // Unlimited

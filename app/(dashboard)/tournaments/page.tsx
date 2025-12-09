@@ -173,12 +173,11 @@ export default function TournamentsPage() {
     }
 
     if (!canCreate?.allowed) {
-      // Redirect to upgrade page
+      // Show message but don't redirect - let user click the button
       const limit = canCreate?.limit || 1
-      router.push('/upgrade')
       showToast({
         type: 'warning',
-        title: 'Upgrade Required',
+        title: 'Tournament Limit Reached',
         description: `You've used your ${limit} tournament${limit === 1 ? '' : 's'} this month. Upgrade to Pro for unlimited tournaments!`,
       })
       return
