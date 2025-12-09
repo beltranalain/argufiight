@@ -209,7 +209,9 @@ function LoginForm() {
           </Button>
         </form>
 
-        {/* Divider */}
+        {/* Google Login Button - Temporarily disabled until OAuth credentials are properly configured */}
+        {/* TODO: Re-enable Google OAuth login once credentials are validated and working */}
+        {/* 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-bg-tertiary"></div>
@@ -219,7 +221,6 @@ function LoginForm() {
           </div>
         </div>
 
-        {/* Google Login Button */}
         <Button
           type="button"
           variant="secondary"
@@ -250,6 +251,7 @@ function LoginForm() {
           </svg>
           Continue with Google
         </Button>
+        */}
 
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-bg-tertiary text-center">

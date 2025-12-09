@@ -102,6 +102,18 @@ export async function GET(request: NextRequest) {
       tokens = tokenResponse.tokens
     } catch (error: any) {
       console.error('Failed to exchange code for tokens:', error)
+      console.error('OAuth Error Details:', {
+        message: error?.message,
+        code: error?.code,
+        status: error?.status,
+        response: error?.response?.data,
+        clientId: clientId?.substring(0, 20) + '...', // Log partial client ID for debugging
+        redirectUri,
+      })
+      // Check if it's an invalid_client error
+      if (error?.code === 401 || error?.message?.includes('invalid_client')) {
+        return NextResponse.redirect(new URL('/login?error=oauth_invalid_credentials', baseUrl))
+      }
       return NextResponse.redirect(new URL('/login?error=token_exchange_failed', baseUrl))
     }
     
