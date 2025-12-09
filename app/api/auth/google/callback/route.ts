@@ -279,14 +279,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Create session for the new account
-    let sessionCreated = false
+    let sessionJWT: string | null = null
     try {
       console.log('[Google OAuth Callback] Creating session for user:', user.id)
-      const cookieStore = await cookies()
-      console.log('[Google OAuth Callback] Cookie store obtained')
       
-      await createSession(user.id)
-      sessionCreated = true
+      // Create session - this sets the cookie internally
+      sessionJWT = await createSession(user.id)
       console.log(`[Google OAuth Callback] Google OAuth login successful for user: ${user.email}${isAddingAccount ? ' (adding account)' : ''}`)
     } catch (sessionError: any) {
       console.error('[Google OAuth Callback] Failed to create session:', {
@@ -302,7 +300,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Ensure session was created before proceeding
-    if (!sessionCreated) {
+    if (!sessionJWT) {
       console.error('[Google OAuth Callback] Session was not created, aborting')
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
       return NextResponse.redirect(new URL('/login?error=session_creation_failed', baseUrl))
@@ -327,18 +325,21 @@ export async function GET(request: NextRequest) {
           include: { user: { select: { id: true } } },
         })
         
-        if (originalSession) {
+        if (originalSession && originalSession.expiresAt > new Date()) {
           // Restore the original session
           const { SignJWT } = await import('jose')
-          const sessionJWT = await new SignJWT({ sessionToken: originalSession.token })
+          const restoredSessionJWT = await new SignJWT({ sessionToken: originalSession.token })
             .setProtectedHeader({ alg: 'HS256' })
             .setIssuedAt()
             .setExpirationTime(originalSession.expiresAt)
             .sign(encodedKey)
           
-          const cookieStore = await cookies()
           const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1'
-          cookieStore.set('session', sessionJWT, {
+          
+          console.log('[Google OAuth Callback] Original session restored, redirecting to dashboard')
+          // Create redirect response with restored session cookie
+          const response = NextResponse.redirect(new URL('/?accountAdded=true', baseUrl))
+          response.cookies.set('session', restoredSessionJWT, {
             httpOnly: true,
             secure: isProduction,
             sameSite: 'lax',
@@ -346,11 +347,9 @@ export async function GET(request: NextRequest) {
             path: '/',
           })
           
-          console.log('[Google OAuth Callback] Original session restored, redirecting to dashboard')
-          // Redirect back to dashboard - the new account is now in localStorage
-          return NextResponse.redirect(new URL('/?accountAdded=true', baseUrl))
+          return response
         } else {
-          console.warn('[Google OAuth Callback] Original session not found in database')
+          console.warn('[Google OAuth Callback] Original session not found or expired in database')
         }
       } catch (error: any) {
         console.error('[Google OAuth Callback] Failed to restore original session:', {
@@ -362,15 +361,39 @@ export async function GET(request: NextRequest) {
     }
 
     // Redirect based on user type
+    // IMPORTANT: Explicitly set the session cookie in the redirect response
+    // This ensures the cookie is included when the browser follows the redirect
     try {
+      const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1'
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      
+      // Determine redirect URL
+      let redirectUrl: string
       if (user.isAdmin) {
-        return NextResponse.redirect(new URL('/admin', baseUrl))
+        redirectUrl = '/admin'
       } else if (userType === 'advertiser') {
-        return NextResponse.redirect(new URL('/advertiser/dashboard', baseUrl))
+        redirectUrl = '/advertiser/dashboard'
       } else {
-        // Regular users go to dashboard/home
-        return NextResponse.redirect(new URL(returnTo || '/', baseUrl))
+        redirectUrl = returnTo || '/'
       }
+      
+      // Create redirect response
+      const response = NextResponse.redirect(new URL(redirectUrl, baseUrl))
+      
+      // Explicitly set the session cookie in the redirect response
+      // This ensures the cookie is sent with the redirect
+      if (sessionJWT) {
+        response.cookies.set('session', sessionJWT, {
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: 'lax',
+          expires: expiresAt,
+          path: '/',
+        })
+        console.log('[Google OAuth Callback] Session cookie set in redirect response')
+      }
+      
+      return response
     } catch (redirectError: any) {
       console.error('[Google OAuth Callback] Failed to redirect:', redirectError)
       // Fallback to simple redirect
