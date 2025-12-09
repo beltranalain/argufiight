@@ -6,21 +6,27 @@ import Link from 'next/link'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user } = useAuth()
   
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [userType, setUserType] = useState<string | null>(null)
+  const [isAddingAccount, setIsAddingAccount] = useState(false)
 
   useEffect(() => {
     // Check if this is an advertiser or employee login
     const type = searchParams.get('userType')
     const errorParam = searchParams.get('error')
+    const addAccount = searchParams.get('addAccount') === 'true'
+    
+    setIsAddingAccount(addAccount && !!user)
     
     // Also check referrer to detect if coming from admin or advertiser pages
     if (!type) {
@@ -70,7 +76,10 @@ function LoginForm() {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-add-account': isAddingAccount ? 'true' : 'false',
+        },
         body: JSON.stringify({ email, password }),
       })
 
@@ -103,10 +112,13 @@ function LoginForm() {
         throw new Error('Login failed: No user data received')
       }
 
-      // Wait a moment for session cookie to be set, then redirect
-      // Use window.location to ensure a full page reload so session is detected
+      // If adding account, just go back to dashboard (account is now linked)
+      // Otherwise, redirect normally
       setTimeout(() => {
-        if (data.user?.isAdmin) {
+        if (isAddingAccount) {
+          // Account added, go back to dashboard
+          window.location.href = '/'
+        } else if (data.user?.isAdmin) {
           window.location.href = '/admin'
         } else if (data.user?.isAdvertiser) {
           window.location.href = '/advertiser/dashboard'
@@ -128,7 +140,14 @@ function LoginForm() {
         {/* Gradient border on hover */}
         <div className="absolute inset-[-1px] bg-gradient-to-r from-electric-blue to-neon-orange rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-300 -z-10" />
 
-        <h2 className="text-2xl font-bold text-white mb-8">Sign In</h2>
+        <h2 className="text-2xl font-bold text-white mb-8">
+          {isAddingAccount ? 'Add Account' : 'Sign In'}
+        </h2>
+        {isAddingAccount && (
+          <p className="text-text-secondary text-sm mb-4">
+            Add another account to switch between accounts easily
+          </p>
+        )}
 
         {/* Error Message */}
         {error && (

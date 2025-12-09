@@ -130,9 +130,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Check if user wants to add account (not replace current session)
+    const addAccount = request.headers.get('x-add-account') === 'true'
+    
     // No 2FA required, create full session
     const sessionJWT = await createSession(user.id)
-    console.log(`Login successful for user: ${user.email}`)
+    console.log(`Login successful for user: ${user.email}${addAccount ? ' (adding account)' : ''}`)
 
     // Check if user is an approved advertiser (for redirect logic)
     let isApprovedAdvertiser = false

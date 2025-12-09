@@ -19,6 +19,35 @@ interface Session {
   }
 }
 
+// Store linked accounts in localStorage (browser-specific, like Twitter)
+const LINKED_ACCOUNTS_KEY = 'argufight_linked_accounts'
+
+function getLinkedAccounts(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const stored = localStorage.getItem(LINKED_ACCOUNTS_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+function addLinkedAccount(userId: string) {
+  if (typeof window === 'undefined') return
+  const accounts = getLinkedAccounts()
+  if (!accounts.includes(userId)) {
+    accounts.push(userId)
+    localStorage.setItem(LINKED_ACCOUNTS_KEY, JSON.stringify(accounts))
+  }
+}
+
+function removeLinkedAccount(userId: string) {
+  if (typeof window === 'undefined') return
+  const accounts = getLinkedAccounts()
+  const filtered = accounts.filter(id => id !== userId)
+  localStorage.setItem(LINKED_ACCOUNTS_KEY, JSON.stringify(filtered))
+}
+
 export function AccountSwitcher() {
   const { user, refetch } = useAuth()
   const [sessions, setSessions] = useState<Session[]>([])
@@ -27,13 +56,20 @@ export function AccountSwitcher() {
 
   useEffect(() => {
     if (user) {
+      // Add current user to linked accounts
+      addLinkedAccount(user.id)
       fetchSessions()
     }
   }, [user])
 
   const fetchSessions = async () => {
     try {
-      const response = await fetch('/api/auth/sessions')
+      const linkedAccountIds = getLinkedAccounts()
+      const response = await fetch('/api/auth/sessions', {
+        headers: {
+          'x-linked-accounts': JSON.stringify(linkedAccountIds),
+        },
+      })
       if (response.ok) {
         const data = await response.json()
         setSessions(data.sessions || [])
@@ -43,16 +79,25 @@ export function AccountSwitcher() {
     }
   }
 
-  const switchAccount = async (sessionToken: string) => {
+  const switchAccount = async (session: Session) => {
     setIsLoading(true)
     try {
+      // If session token is empty, the account needs re-login
+      if (!session.token || session.id.startsWith('temp-')) {
+        // Redirect to login with a flag to add account
+        window.location.href = `/login?addAccount=true&userId=${session.user.id}`
+        return
+      }
+
       const response = await fetch('/api/auth/switch-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionToken }),
+        body: JSON.stringify({ sessionToken: session.token }),
       })
 
       if (response.ok) {
+        // Add to linked accounts if not already there
+        addLinkedAccount(session.user.id)
         // Refresh user data
         await refetch()
         setIsOpen(false)
@@ -70,8 +115,13 @@ export function AccountSwitcher() {
     }
   }
 
+  const removeAccount = (userId: string) => {
+    removeLinkedAccount(userId)
+    fetchSessions()
+  }
+
   if (!user || sessions.length <= 1) {
-    // Don't show switcher if user has only one session
+    // Don't show switcher if user has only one account
     return null
   }
 
@@ -107,38 +157,74 @@ export function AccountSwitcher() {
             <div className="max-h-64 overflow-y-auto">
               {sessions.map((session) => {
                 const isCurrent = session.user.id === user.id
+                const needsLogin = !session.token || session.id.startsWith('temp-')
                 return (
-                  <button
+                  <div
                     key={session.id}
-                    onClick={() => {
-                      if (!isCurrent) {
-                        switchAccount(session.token)
-                      }
-                    }}
-                    disabled={isCurrent || isLoading}
                     className={`w-full p-3 flex items-center gap-3 hover:bg-bg-tertiary transition-colors ${
                       isCurrent ? 'bg-electric-blue/10' : ''
-                    } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    }`}
                   >
-                    <Avatar
-                      src={session.user.avatarUrl}
-                      alt={session.user.username}
-                      size="sm"
-                    />
-                    <div className="flex-1 text-left min-w-0">
-                      <p className="text-sm font-medium text-text-primary truncate">
-                        {session.user.username}
-                      </p>
-                      <p className="text-xs text-text-secondary truncate">
-                        {session.user.email}
-                      </p>
-                    </div>
-                    {isCurrent && (
-                      <span className="text-xs text-electric-blue">Current</span>
+                    <button
+                      onClick={() => {
+                        if (!isCurrent) {
+                          switchAccount(session)
+                        }
+                      }}
+                      disabled={isCurrent || isLoading}
+                      className={`flex-1 flex items-center gap-3 ${
+                        isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <Avatar
+                        src={session.user.avatarUrl}
+                        alt={session.user.username}
+                        size="sm"
+                      />
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">
+                          {session.user.username}
+                        </p>
+                        <p className="text-xs text-text-secondary truncate">
+                          {session.user.email}
+                        </p>
+                        {needsLogin && (
+                          <p className="text-xs text-neon-orange mt-1">
+                            Re-login required
+                          </p>
+                        )}
+                      </div>
+                      {isCurrent && (
+                        <span className="text-xs text-electric-blue">Current</span>
+                      )}
+                    </button>
+                    {!isCurrent && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (confirm(`Remove ${session.user.username} from linked accounts?`)) {
+                            removeAccount(session.user.id)
+                          }
+                        }}
+                        className="text-text-secondary hover:text-neon-orange p-1"
+                        title="Remove account"
+                      >
+                        ×
+                      </button>
                     )}
-                  </button>
+                  </div>
                 )
               })}
+            </div>
+            <div className="p-3 border-t border-bg-tertiary">
+              <button
+                onClick={() => {
+                  window.location.href = '/login?addAccount=true'
+                }}
+                className="w-full text-sm text-electric-blue hover:text-neon-orange text-center"
+              >
+                + Add another account
+              </button>
             </div>
           </div>
         </>

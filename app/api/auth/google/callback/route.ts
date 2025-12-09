@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { OAuth2Client } from 'google-auth-library'
+import { cookies } from 'next/headers'
 import { prisma } from '@/lib/db/prisma'
 import { createSession } from '@/lib/auth/session'
 
@@ -200,12 +201,21 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Check if user wants to add account (not replace current session)
+    // This is detected by checking if there's already a session cookie
+    const cookieStore = await cookies()
+    const existingSession = cookieStore.get('session')
+    const isAddingAccount = !!existingSession
+
     // Create session
     await createSession(user.id)
-    console.log(`Google OAuth login successful for user: ${user.email}`)
+    console.log(`Google OAuth login successful for user: ${user.email}${isAddingAccount ? ' (adding account)' : ''}`)
 
     // Redirect based on user type
-    if (user.isAdmin) {
+    if (isAddingAccount) {
+      // Account added, go back to dashboard
+      return NextResponse.redirect('/')
+    } else if (user.isAdmin) {
       return NextResponse.redirect('/admin')
     } else if (userType === 'advertiser') {
       return NextResponse.redirect('/advertiser/dashboard')

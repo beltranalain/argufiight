@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
-import { getUserSessions } from '@/lib/auth/session'
 
-// GET /api/auth/sessions - Get all active sessions for current user
+// GET /api/auth/sessions - Get all linked accounts (different users)
+// This returns all accounts that have been logged into from this browser
 export async function GET(request: NextRequest) {
   try {
     const session = await verifySession()
@@ -17,12 +17,26 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get all active sessions for this user
-    const sessions = await getUserSessions(userId)
+    // Get linked accounts from request header (stored in localStorage on client)
+    // The client sends all linked account IDs in a header
+    const linkedAccountIds = request.headers.get('x-linked-accounts')
+    
+    let accountIds: string[] = [userId] // Always include current user
+    
+    if (linkedAccountIds) {
+      try {
+        const parsed = JSON.parse(linkedAccountIds) as string[]
+        accountIds = [...new Set([userId, ...parsed])] // Remove duplicates, ensure current user is included
+      } catch (e) {
+        // Invalid JSON, just use current user
+      }
+    }
 
-    // Get user info for each session (they're all the same user, but we need basic info)
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    // Get user info for all linked accounts
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: accountIds },
+      },
       select: {
         id: true,
         email: true,
@@ -32,29 +46,73 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
+    // Get active sessions for all these users
+    const sessions = await prisma.session.findMany({
+      where: {
+        userId: { in: accountIds },
+        expiresAt: { gt: new Date() },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+            avatarUrl: true,
+            isAdmin: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    // Group sessions by user and get the most recent session for each user
+    const userSessions = new Map<string, typeof sessions[0]>()
+    for (const session of sessions) {
+      if (!userSessions.has(session.userId) || 
+          session.createdAt > userSessions.get(session.userId)!.createdAt) {
+        userSessions.set(session.userId, session)
+      }
     }
 
-    // Return sessions with user info
-    const sessionsWithUser = sessions.map((s) => ({
+    // Build response with one entry per user (their most recent active session)
+    const accounts = Array.from(userSessions.values()).map((s) => ({
       id: s.id,
       token: s.token,
       createdAt: s.createdAt,
       expiresAt: s.expiresAt,
       user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        avatarUrl: user.avatarUrl,
-        isAdmin: user.isAdmin,
+        id: s.user.id,
+        email: s.user.email,
+        username: s.user.username,
+        avatarUrl: s.user.avatarUrl,
+        isAdmin: s.user.isAdmin,
       },
     }))
 
-    return NextResponse.json({ sessions: sessionsWithUser })
+    // If a user doesn't have an active session, still include them if they're in the linked accounts
+    for (const user of users) {
+      if (!userSessions.has(user.id)) {
+        // Create a temporary entry (user will need to log in again)
+        accounts.push({
+          id: `temp-${user.id}`,
+          token: '',
+          createdAt: new Date(),
+          expiresAt: new Date(),
+          user: {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            avatarUrl: user.avatarUrl,
+            isAdmin: user.isAdmin,
+          },
+        })
+      }
+    }
+
+    return NextResponse.json({ sessions: accounts })
   } catch (error: any) {
     console.error('Failed to get sessions:', error)
     return NextResponse.json(
