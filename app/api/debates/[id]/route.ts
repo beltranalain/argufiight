@@ -17,130 +17,251 @@ export async function GET(
     const session = await verifySession()
     const currentUserId = session ? getUserIdFromSession(session) : null
     
-    const debate = await prisma.debate.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        topic: true,
-        description: true,
-        category: true,
-        status: true,
-        challengerId: true,
-        opponentId: true,
-        challengerPosition: true,
-        opponentPosition: true,
-        totalRounds: true,
-        currentRound: true,
-        roundDeadline: true,
-        speedMode: true,
-        allowCopyPaste: true,
-        isPrivate: true,
-        shareToken: true,
-        winnerId: true,
-        verdictReached: true,
-        verdictDate: true,
-        appealedAt: true,
-        appealStatus: true,
-        appealCount: true,
-        appealedBy: true,
-        originalWinnerId: true,
-        appealReason: true,
-        appealedStatements: true,
-        appealRejectionReason: true,
-        spectatorCount: true,
-        // viewCount fetched separately below (Prisma client may not have it)
-        challenger: {
-          select: {
-            id: true,
-            username: true,
-            avatarUrl: true,
-            eloRating: true,
-          }
-        },
-        opponent: {
-          select: {
-            id: true,
-            username: true,
-            avatarUrl: true,
-            eloRating: true,
-          }
-        },
-        statements: {
-          include: {
-            author: {
-              select: {
-                id: true,
-                username: true,
-                avatarUrl: true,
-              }
+    // Try to fetch debate with participants, but handle errors gracefully
+    let debate
+    try {
+      debate = await prisma.debate.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          topic: true,
+          description: true,
+          category: true,
+          status: true,
+          challengerId: true,
+          opponentId: true,
+          challengerPosition: true,
+          opponentPosition: true,
+          totalRounds: true,
+          currentRound: true,
+          roundDeadline: true,
+          speedMode: true,
+          allowCopyPaste: true,
+          isPrivate: true,
+          shareToken: true,
+          winnerId: true,
+          verdictReached: true,
+          verdictDate: true,
+          appealedAt: true,
+          appealStatus: true,
+          appealCount: true,
+          appealedBy: true,
+          originalWinnerId: true,
+          appealReason: true,
+          appealedStatements: true,
+          appealRejectionReason: true,
+          spectatorCount: true,
+          createdAt: true,
+          // viewCount fetched separately below (Prisma client may not have it)
+          challenger: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+              eloRating: true,
             }
           },
-          orderBy: {
-            round: 'asc',
-          }
-        },
-        images: {
-          select: {
-            id: true,
-            url: true,
-            alt: true,
-            caption: true,
-            order: true,
-          },
-          orderBy: {
-            order: 'asc',
-          }
-        },
-        verdicts: {
-          include: {
-            judge: {
-              select: {
-                id: true,
-                name: true,
-                emoji: true,
-                personality: true,
-              }
+          opponent: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+              eloRating: true,
             }
           },
-          orderBy: {
-            createdAt: 'asc',
-          }
-        },
-        tournamentMatch: {
-          select: {
-            id: true,
-            tournament: {
-              select: {
-                id: true,
-                name: true,
-                currentRound: true,
-                totalRounds: true,
+          statements: {
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  username: true,
+                  avatarUrl: true,
+                }
+              }
+            },
+            orderBy: {
+              round: 'asc',
+            }
+          },
+          images: {
+            select: {
+              id: true,
+              url: true,
+              alt: true,
+              caption: true,
+              order: true,
+            },
+            orderBy: {
+              order: 'asc',
+            }
+          },
+          verdicts: {
+            include: {
+              judge: {
+                select: {
+                  id: true,
+                  name: true,
+                  emoji: true,
+                  personality: true,
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'asc',
+            }
+          },
+          tournamentMatch: {
+            select: {
+              id: true,
+              tournament: {
+                select: {
+                  id: true,
+                  name: true,
+                  currentRound: true,
+                  totalRounds: true,
+                },
+              },
+              round: {
+                select: {
+                  roundNumber: true,
+                },
               },
             },
-            round: {
-              select: {
-                roundNumber: true,
+          },
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  avatarUrl: true,
+                  eloRating: true,
+                },
+              },
+            },
+            orderBy: {
+              joinedAt: 'asc',
+            },
+          },
+        },
+      })
+    } catch (queryError: any) {
+      // If participants relation fails, try without it
+      console.error('Error fetching debate with participants, retrying without:', queryError)
+      debate = await prisma.debate.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          topic: true,
+          description: true,
+          category: true,
+          status: true,
+          challengerId: true,
+          opponentId: true,
+          challengerPosition: true,
+          opponentPosition: true,
+          totalRounds: true,
+          currentRound: true,
+          roundDeadline: true,
+          speedMode: true,
+          allowCopyPaste: true,
+          isPrivate: true,
+          shareToken: true,
+          winnerId: true,
+          verdictReached: true,
+          verdictDate: true,
+          appealedAt: true,
+          appealStatus: true,
+          appealCount: true,
+          appealedBy: true,
+          originalWinnerId: true,
+          appealReason: true,
+          appealedStatements: true,
+          appealRejectionReason: true,
+          spectatorCount: true,
+          createdAt: true,
+          challenger: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+              eloRating: true,
+            }
+          },
+          opponent: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+              eloRating: true,
+            }
+          },
+          statements: {
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  username: true,
+                  avatarUrl: true,
+                }
+              }
+            },
+            orderBy: {
+              round: 'asc',
+            }
+          },
+          images: {
+            select: {
+              id: true,
+              url: true,
+              alt: true,
+              caption: true,
+              order: true,
+            },
+            orderBy: {
+              order: 'asc',
+            }
+          },
+          verdicts: {
+            include: {
+              judge: {
+                select: {
+                  id: true,
+                  name: true,
+                  emoji: true,
+                  personality: true,
+                }
+              }
+            },
+            orderBy: {
+              createdAt: 'asc',
+            }
+          },
+          tournamentMatch: {
+            select: {
+              id: true,
+              tournament: {
+                select: {
+                  id: true,
+                  name: true,
+                  currentRound: true,
+                  totalRounds: true,
+                },
+              },
+              round: {
+                select: {
+                  roundNumber: true,
+                },
               },
             },
           },
         },
-        participants: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                username: true,
-                avatarUrl: true,
-                eloRating: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'asc',
-          },
-        },
-      },
-    })
+      })
+      // Set participants to empty array if query failed
+      if (debate) {
+        (debate as any).participants = []
+      }
+    }
 
     if (!debate) {
       return NextResponse.json(
@@ -151,10 +272,11 @@ export async function GET(
 
     // Check access for private debates
     if (debate.isPrivate) {
+      const participants = (debate as any).participants || []
       const isParticipant = currentUserId && (
         debate.challengerId === currentUserId || 
         debate.opponentId === currentUserId ||
-        debate.participants?.some((p: any) => p.userId === currentUserId)
+        participants.some((p: any) => p.userId === currentUserId)
       )
       const hasValidToken = shareToken && debate.shareToken === shareToken
       
@@ -241,6 +363,7 @@ export async function GET(
       ...debate,
       viewCount,
       images: debate.images || [],
+      participants: (debate as any).participants || [],
       appealedByUser,
       ...rematchData,
     })
