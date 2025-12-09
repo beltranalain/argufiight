@@ -259,14 +259,24 @@ export async function GET(request: NextRequest) {
 
     // Check if user wants to add account (not replace current session)
     // This is detected by checking if there's already a session cookie OR if addAccount is in state
-    const cookieStore = await cookies()
-    const existingSession = cookieStore.get('session')
-    const isAddingAccount = !!existingSession || addAccount
-    console.log('[Google OAuth Callback] Account addition check:', { 
-      hasExistingSession: !!existingSession, 
-      addAccountFromState: addAccount, 
-      isAddingAccount 
-    })
+    let existingSession = null
+    let isAddingAccount = addAccount
+    try {
+      const cookieStore = await cookies()
+      existingSession = cookieStore.get('session')
+      isAddingAccount = !!existingSession || addAccount
+      console.log('[Google OAuth Callback] Account addition check:', { 
+        hasExistingSession: !!existingSession, 
+        addAccountFromState: addAccount, 
+        isAddingAccount 
+      })
+    } catch (cookieError: any) {
+      console.error('[Google OAuth Callback] Failed to read cookies:', {
+        message: cookieError?.message,
+        stack: cookieError?.stack,
+      })
+      // Continue without checking for existing session
+    }
 
     // Create session for the new account
     try {
