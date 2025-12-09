@@ -11,6 +11,7 @@ export interface FirebaseConfig {
   messagingSenderId: string
   appId: string
   vapidKey?: string
+  measurementId?: string
 }
 
 let cachedConfig: FirebaseConfig | null = null

@@ -13,6 +13,7 @@ export interface FirebaseConfig {
   messagingSenderId: string
   appId: string
   vapidKey?: string
+  measurementId?: string // Optional: for Google Analytics
 }
 
 /**
@@ -58,6 +59,7 @@ export async function getFirebaseConfig(): Promise<FirebaseConfig | null> {
         messagingSenderId: configMap.FIREBASE_MESSAGING_SENDER_ID,
         appId: configMap.FIREBASE_APP_ID,
         vapidKey: configMap.FIREBASE_VAPID_KEY || undefined,
+        measurementId: configMap.FIREBASE_MEASUREMENT_ID || undefined,
       }
     }
 
@@ -77,6 +79,7 @@ export async function getFirebaseConfig(): Promise<FirebaseConfig | null> {
         messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
         appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
         vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || undefined,
+        measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || undefined,
       }
     }
 
