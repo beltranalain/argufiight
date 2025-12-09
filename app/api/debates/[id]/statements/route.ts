@@ -266,7 +266,7 @@ export async function POST(
           await createDebateNotification(
             id,
             otherParticipantId,
-            'YOUR_TURN',
+            'DEBATE_TURN',
             "It's Your Turn",
             `Round ${updatedDebate.currentRound} has started. It's your turn to submit an argument.`
           );
@@ -292,7 +292,7 @@ export async function POST(
         await createDebateNotification(
           id,
           otherParticipantId,
-          'NEW_STATEMENT',
+          'OPPONENT_SUBMITTED',
           'New Argument Submitted',
           `${session.user.username} submitted their argument. It's your turn!`
         );
@@ -301,7 +301,7 @@ export async function POST(
       // Notify watchers
       await notifyDebateWatchers(
         id,
-        'NEW_STATEMENT',
+        'OPPONENT_SUBMITTED',
         'New Argument Submitted',
         `${session.user.username} submitted a new argument in round ${statementRound}`,
         session.user.id
