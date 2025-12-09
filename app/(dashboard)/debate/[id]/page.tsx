@@ -358,10 +358,15 @@ export default function DebatePage() {
     return `${hours}h ${minutes}m left`
   }
 
+  // Check if user is a participant (for both 2-person and group debates)
   const isParticipant = debate && user && (
     debate.challenger.id === user.id || 
-    (debate.opponent && debate.opponent.id === user.id)
+    (debate.opponent && debate.opponent.id === user.id) ||
+    (debate.participants && debate.participants.some((p: any) => p.userId === user.id && (p.status === 'ACCEPTED' || p.status === 'ACTIVE')))
   )
+  
+  // Check if this is a group challenge
+  const isGroupChallenge = debate?.challengeType === 'GROUP' && debate.participants && debate.participants.length > 0
 
   // Determine if it's user's turn and if they can submit
   const currentRoundStatements = debate?.statements.filter(
@@ -416,34 +421,22 @@ export default function DebatePage() {
     if (debate && user) {
       console.log('[DebatePage] Submit form debug:', {
         debateId: debate.id,
+        challengeType: debate.challengeType,
+        isGroupChallenge,
         currentRound: debate.currentRound,
         totalRounds: debate.totalRounds,
         status: debate.status,
         userId: user.id,
         username: user.username,
-        challengerId: debate.challenger.id,
-        challengerUsername: debate.challenger.username,
-        opponentId: debate.opponent?.id,
-        opponentUsername: debate.opponent?.username,
         isParticipant,
-        isChallenger,
-        isOpponent,
-        noStatementsInRound,
-        challengerSubmitted,
-        opponentSubmitted,
         userSubmitted,
         isMyTurn,
         canSubmit,
         currentRoundStatementsCount: currentRoundStatements.length,
-        // Break down isMyTurn calculation
-        isMyTurnBreakdown: {
-          condition1: noStatementsInRound && isChallenger,
-          condition2: isChallenger && opponentSubmitted && !challengerSubmitted,
-          condition3: isOpponent && challengerSubmitted && !opponentSubmitted,
-        }
+        participantsCount: debate.participants?.length || 0,
       })
     }
-  }, [debate, user, isParticipant, isChallenger, isOpponent, noStatementsInRound, challengerSubmitted, opponentSubmitted, userSubmitted, isMyTurn, canSubmit, currentRoundStatements.length])
+  }, [debate, user, isParticipant, userSubmitted, isMyTurn, canSubmit, currentRoundStatements.length, isGroupChallenge])
 
   if (isLoading) {
     return (

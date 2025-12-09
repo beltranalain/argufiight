@@ -256,20 +256,47 @@ export async function POST(
           },
         });
 
-        // Notify the other participant it's their turn
-        const userIsChallenger = debate.challengerId === session.user.id;
-        const otherParticipantId = userIsChallenger
-          ? updatedDebate.opponentId
-          : updatedDebate.challengerId;
-        
-        if (otherParticipantId) {
-          await createDebateNotification(
-            id,
-            otherParticipantId,
-            'DEBATE_TURN',
-            "It's Your Turn",
-            `Round ${updatedDebate.currentRound} has started. It's your turn to submit an argument.`
-          );
+        // Notify all participants of new round (for both 2-person and group debates)
+        if (debate.challengeType === 'GROUP') {
+          // For GROUP challenges, notify all active participants
+          const activeParticipants = await prisma.debateParticipant.findMany({
+            where: {
+              debateId: id,
+              status: 'ACTIVE',
+            },
+            select: {
+              userId: true,
+            },
+          })
+
+          // Notify all participants except the one who just submitted
+          for (const participant of activeParticipants) {
+            if (participant.userId !== session.user.id) {
+              await createDebateNotification(
+                id,
+                participant.userId,
+                'DEBATE_TURN',
+                "It's Your Turn",
+                `Round ${updatedDebate.currentRound} has started. It's your turn to submit an argument.`
+              )
+            }
+          }
+        } else {
+          // For 2-person debates, notify the other participant
+          const userIsChallenger = debate.challengerId === session.user.id
+          const otherParticipantId = userIsChallenger
+            ? updatedDebate.opponentId
+            : updatedDebate.challengerId
+          
+          if (otherParticipantId) {
+            await createDebateNotification(
+              id,
+              otherParticipantId,
+              'DEBATE_TURN',
+              "It's Your Turn",
+              `Round ${updatedDebate.currentRound} has started. It's your turn to submit an argument.`
+            )
+          }
         }
 
         // Notify watchers of new round
@@ -279,23 +306,49 @@ export async function POST(
           'New Round Started',
           `Round ${updatedDebate.currentRound} has begun!`,
           session.user.id
-        );
+        )
       }
     } else {
-      // Notify the other participant it's their turn
-      const userIsChallenger = debate.challengerId === session.user.id;
-      const otherParticipantId = userIsChallenger
-        ? debate.opponentId
-        : debate.challengerId;
-      
-      if (otherParticipantId) {
-        await createDebateNotification(
-          id,
-          otherParticipantId,
-          'OPPONENT_SUBMITTED',
-          'New Argument Submitted',
-          `${session.user.username} submitted their argument. It's your turn!`
-        );
+      // Not all participants have submitted yet - notify others it's their turn
+      if (debate.challengeType === 'GROUP') {
+        // For GROUP challenges, notify all active participants who haven't submitted
+        const activeParticipants = await prisma.debateParticipant.findMany({
+          where: {
+            debateId: id,
+            status: 'ACTIVE',
+          },
+          select: {
+            userId: true,
+          },
+        })
+
+        for (const participant of activeParticipants) {
+          if (participant.userId !== session.user.id && !submittedAuthorIds.has(participant.userId)) {
+            await createDebateNotification(
+              id,
+              participant.userId,
+              'OPPONENT_SUBMITTED',
+              'New Argument Submitted',
+              `${session.user.username} submitted their argument. It's your turn!`
+            )
+          }
+        }
+      } else {
+        // For 2-person debates, notify the other participant
+        const userIsChallenger = debate.challengerId === session.user.id
+        const otherParticipantId = userIsChallenger
+          ? debate.opponentId
+          : debate.challengerId
+        
+        if (otherParticipantId) {
+          await createDebateNotification(
+            id,
+            otherParticipantId,
+            'OPPONENT_SUBMITTED',
+            'New Argument Submitted',
+            `${session.user.username} submitted their argument. It's your turn!`
+          )
+        }
       }
 
       // Notify watchers

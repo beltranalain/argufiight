@@ -124,6 +124,21 @@ export async function GET(
             },
           },
         },
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+                eloRating: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
       },
     })
 
@@ -138,7 +153,8 @@ export async function GET(
     if (debate.isPrivate) {
       const isParticipant = currentUserId && (
         debate.challengerId === currentUserId || 
-        debate.opponentId === currentUserId
+        debate.opponentId === currentUserId ||
+        debate.participants?.some((p: any) => p.userId === currentUserId)
       )
       const hasValidToken = shareToken && debate.shareToken === shareToken
       

@@ -454,6 +454,34 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // For GROUP challenges, create DebateParticipant records for all invited users
+    if (challengeType === 'GROUP' && invitedUserIds && invitedUserIds.length > 0 && debate) {
+      // Assign positions: alternate between FOR and AGAINST
+      // Challenger is already FOR, so first invited user gets AGAINST, second gets FOR, etc.
+      const participantData = invitedUserIds.map((invitedUserId: string, index: number) => {
+        // Alternate positions: index 0 = AGAINST, index 1 = FOR, index 2 = AGAINST, etc.
+        const position = index % 2 === 0 ? 'AGAINST' : 'FOR'
+        return {
+          debateId: debate.id,
+          userId: invitedUserId,
+          position: position as any,
+          status: 'INVITED',
+        }
+      })
+
+      // Also add challenger as a participant
+      participantData.push({
+        debateId: debate.id,
+        userId: userId,
+        position: challengerPosition as any,
+        status: 'ACCEPTED', // Challenger automatically accepts
+      })
+
+      await prisma.debateParticipant.createMany({
+        data: participantData,
+      })
+    }
+
     // Create notifications for invited users
     if (invitedUserIds && invitedUserIds.length > 0 && debate) {
       const challenger = await prisma.user.findUnique({

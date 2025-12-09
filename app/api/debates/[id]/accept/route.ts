@@ -92,10 +92,128 @@ export async function POST(
       )
     }
 
+    // Handle GROUP challenges differently
+    if (debate.challengeType === 'GROUP') {
+      // Check if user is already a participant
+      const existingParticipant = await prisma.debateParticipant.findUnique({
+        where: {
+          debateId_userId: {
+            debateId: id,
+            userId: userId,
+          },
+        },
+      })
+
+      if (!existingParticipant) {
+        return NextResponse.json(
+          { error: 'You are not a participant in this group challenge' },
+          { status: 403 }
+        )
+      }
+
+      if (existingParticipant.status === 'ACCEPTED') {
+        return NextResponse.json(
+          { error: 'You have already accepted this challenge' },
+          { status: 400 }
+        )
+      }
+
+      if (existingParticipant.status === 'DECLINED') {
+        return NextResponse.json(
+          { error: 'You have already declined this challenge' },
+          { status: 400 }
+        )
+      }
+
+      // Update participant status to ACCEPTED
+      await prisma.debateParticipant.update({
+        where: { id: existingParticipant.id },
+        data: {
+          status: 'ACCEPTED',
+          joinedAt: new Date(),
+        },
+      })
+
+      // Check if all participants have accepted (or minimum threshold)
+      const allParticipants = await prisma.debateParticipant.findMany({
+        where: { debateId: id },
+      })
+
+      const acceptedCount = allParticipants.filter(p => p.status === 'ACCEPTED').length
+      const totalCount = allParticipants.length
+      const minimumToStart = Math.max(2, Math.ceil(totalCount * 0.5)) // At least 50% or minimum 2
+
+      // If enough participants have accepted, start the debate
+      if (acceptedCount >= minimumToStart && debate.status === 'WAITING') {
+        const now = new Date()
+        const deadline = new Date(now.getTime() + debate.roundDuration)
+
+        await prisma.debate.update({
+          where: { id },
+          data: {
+            status: 'ACTIVE',
+            startedAt: now,
+            currentRound: 1,
+            roundDeadline: deadline,
+          },
+        })
+
+        // Update all accepted participants to ACTIVE
+        await prisma.debateParticipant.updateMany({
+          where: {
+            debateId: id,
+            status: 'ACCEPTED',
+          },
+          data: {
+            status: 'ACTIVE',
+          },
+        })
+
+        // Notify all participants that debate has started
+        const participantIds = allParticipants.map(p => p.userId)
+        await prisma.notification.createMany({
+          data: participantIds.map(participantId => ({
+            userId: participantId,
+            type: 'DEBATE_ACCEPTED' as any,
+            title: 'Group Challenge Started',
+            message: `The group challenge "${debate.topic}" has started!`,
+            debateId: debate.id,
+          })),
+        })
+      }
+
+      // Fetch updated debate with participants
+      const updatedDebate = await prisma.debate.findUnique({
+        where: { id },
+        include: {
+          challenger: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+              eloRating: true,
+            },
+          },
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  avatarUrl: true,
+                  eloRating: true,
+                },
+              },
+            },
+          },
+        },
+      })
+
+      return NextResponse.json(updatedDebate)
+    }
+
+    // For DIRECT and OPEN challenges, use existing logic
     // Check if debate already has an opponent
-    // For DIRECT challenges, opponentId is set when created but debate is still WAITING
-    // So we need to check if the opponentId matches the current user (they're accepting)
-    // or if it's a different user (already accepted by someone else)
     if (debate.opponentId) {
       if (debate.challengeType === 'DIRECT') {
         // For DIRECT challenges, opponentId is the intended opponent
@@ -112,7 +230,7 @@ export async function POST(
         }
         // If opponentId matches, continue (they're accepting their own invitation)
       } else {
-        // For OPEN or GROUP challenges, if opponentId exists, it's already accepted
+        // For OPEN challenges, if opponentId exists, it's already accepted
         console.error('Debate already has an opponent:', debate.opponentId)
         return NextResponse.json(
           { error: 'This challenge has already been accepted by another user' },

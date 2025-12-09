@@ -47,6 +47,78 @@ export async function POST(
 
     // Check if user is invited (for DIRECT or GROUP challenges)
     if (debate.challengeType === 'DIRECT' || debate.challengeType === 'GROUP') {
+      // Handle GROUP challenges differently
+      if (debate.challengeType === 'GROUP') {
+        // Check if user is a participant
+        const participant = await prisma.debateParticipant.findUnique({
+          where: {
+            debateId_userId: {
+              debateId: debateId,
+              userId: userId,
+            },
+          },
+        })
+
+        if (!participant) {
+          return NextResponse.json(
+            { error: 'You are not a participant in this group challenge' },
+            { status: 403 }
+          )
+        }
+
+        if (participant.status === 'DECLINED') {
+          return NextResponse.json(
+            { error: 'You have already declined this challenge' },
+            { status: 400 }
+          )
+        }
+
+        // Update participant status to DECLINED
+        await prisma.debateParticipant.update({
+          where: { id: participant.id },
+          data: {
+            status: 'DECLINED',
+          },
+        })
+
+        // Check if enough participants remain (at least 2)
+        const allParticipants = await prisma.debateParticipant.findMany({
+          where: { debateId: debateId },
+        })
+
+        const activeCount = allParticipants.filter(
+          p => p.status === 'ACCEPTED' || p.status === 'ACTIVE'
+        ).length
+
+        // If less than 2 active participants, cancel the debate
+        if (activeCount < 2) {
+          await prisma.debate.update({
+            where: { id: debateId },
+            data: {
+              status: 'CANCELLED',
+            },
+          })
+        }
+
+        // Send notification to challenger
+        await prisma.$executeRawUnsafe(`
+          INSERT INTO notifications (id, user_id, type, title, message, debate_id, created_at)
+          VALUES (gen_random_uuid(), $1, $2::"NotificationType", $3, $4, $5, NOW())
+        `,
+          debate.challengerId,
+          'DEBATE_ACCEPTED', // Using existing enum value
+          'Challenge Declined',
+          `A participant declined your group challenge: "${debate.topic}"`,
+          debateId
+        )
+
+        return NextResponse.json({ 
+          success: true,
+          message: 'Challenge declined',
+        })
+      }
+
+      // Handle DIRECT challenges (existing logic)
       if (!debate.invitedUserIds) {
         return NextResponse.json(
           { error: 'This challenge has no invited users' },
