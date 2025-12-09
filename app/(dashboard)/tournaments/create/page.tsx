@@ -307,7 +307,7 @@ export default function CreateTournamentPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Tournament Format *
                   </label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <button
                       type="button"
                       onClick={() => {
@@ -341,6 +341,24 @@ export default function CreateTournamentPage() {
                         <h3 className="font-semibold text-text-primary mb-1">Championship Format</h3>
                         <p className="text-sm text-text-secondary">
                           Position-based. Advance by individual scores, not just match wins.
+                        </p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, format: 'KING_OF_THE_HILL', selectedPosition: null })
+                      }}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        formData.format === 'KING_OF_THE_HILL'
+                          ? 'border-electric-blue bg-electric-blue/10'
+                          : 'border-bg-tertiary bg-bg-secondary hover:border-electric-blue/50'
+                      }`}
+                    >
+                      <div className="text-left">
+                        <h3 className="font-semibold text-text-primary mb-1">King of the Hill</h3>
+                        <p className="text-sm text-text-secondary">
+                          Free-for-all format. Bottom 25% eliminated each round until champion.
                         </p>
                       </div>
                     </button>
