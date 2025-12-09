@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
 import { NotificationsModal } from '@/components/notifications/NotificationsModal'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { AccountSwitcher } from '@/components/auth/AccountSwitcher'
 
 interface TopNavProps {
   currentPanel: string
@@ -173,6 +174,9 @@ export function TopNav({ currentPanel }: TopNavProps) {
               )}
             </button>
           )}
+
+          {/* Account Switcher */}
+          {user && <AccountSwitcher />}
 
           {/* Profile */}
           {user ? (

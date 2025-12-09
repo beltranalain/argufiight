@@ -119,6 +119,9 @@ model User {
   tournamentParticipations TournamentParticipant[] @relation("TournamentParticipant")
   tournamentSubscription   TournamentSubscription?
 
+  // Multi-participant debate relations
+  debateParticipations DebateParticipant[] @relation("DebateParticipants")
+
   // Appeal limits
   appealLimit         AppealLimit?
   appealSubscriptions AppealSubscription[]
@@ -813,6 +816,7 @@ model Debate {
   tags              DebateTag[]
   tournamentMatch   TournamentMatch?   @relation("TournamentDebate")
   socialMediaPosts  SocialMediaPost[]
+  participants      DebateParticipant[] // Multi-participant support for group challenges
 
   @@index([status])
   @@index([category])
