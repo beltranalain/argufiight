@@ -26,7 +26,9 @@ function LoginForm() {
     const errorParam = searchParams.get('error')
     const addAccount = searchParams.get('addAccount') === 'true'
     
-    setIsAddingAccount(addAccount && !!user)
+    // Check if user is already logged in (either from useAuth or localStorage)
+    const hasLinkedAccounts = typeof window !== 'undefined' && localStorage.getItem('argufight_linked_accounts')
+    setIsAddingAccount(addAccount && (!!user || !!hasLinkedAccounts))
     
     // Also check referrer to detect if coming from admin or advertiser pages
     if (!type) {
@@ -112,12 +114,24 @@ function LoginForm() {
         throw new Error('Login failed: No user data received')
       }
 
-      // If adding account, just go back to dashboard (account is now linked)
+      // If adding account, add to localStorage and go back to dashboard
       // Otherwise, redirect normally
       setTimeout(() => {
-        if (isAddingAccount) {
+        if (isAddingAccount && data.user?.id) {
+          // Add new account to localStorage
+          try {
+            const linkedAccountsKey = 'argufight_linked_accounts'
+            const stored = localStorage.getItem(linkedAccountsKey)
+            const accounts = stored ? JSON.parse(stored) : []
+            if (!accounts.includes(data.user.id)) {
+              accounts.push(data.user.id)
+              localStorage.setItem(linkedAccountsKey, JSON.stringify(accounts))
+            }
+          } catch (e) {
+            console.error('Failed to add account to localStorage:', e)
+          }
           // Account added, go back to dashboard
-          window.location.href = '/'
+          window.location.href = '/?accountAdded=true'
         } else if (data.user?.isAdmin) {
           window.location.href = '/admin'
         } else if (data.user?.isAdvertiser) {
@@ -212,7 +226,8 @@ function LoginForm() {
           className="w-full py-3.5 text-base flex items-center justify-center gap-3"
           onClick={() => {
             const currentUserType = userType || 'user'
-            window.location.href = `/api/auth/google?userType=${currentUserType}`
+            const addAccountParam = isAddingAccount ? '&addAccount=true' : ''
+            window.location.href = `/api/auth/google?userType=${currentUserType}${addAccountParam}`
           }}
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">

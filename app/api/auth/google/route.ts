@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const returnTo = searchParams.get('returnTo') || '/'
   const userType = searchParams.get('userType') || 'user' // 'user', 'advertiser', or 'employee'
+  const addAccount = searchParams.get('addAccount') === 'true'
 
   // Build Google OAuth URL
   const params = new URLSearchParams({
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     scope: 'openid email profile',
     access_type: 'offline',
     prompt: 'consent',
-    state: JSON.stringify({ returnTo, userType }), // Store return URL and user type for CSRF protection
+    state: JSON.stringify({ returnTo, userType, addAccount }), // Store return URL, user type, and addAccount flag for CSRF protection
   })
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`

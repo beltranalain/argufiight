@@ -11,26 +11,32 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state')
     const error = searchParams.get('error')
 
+    console.log('[Google OAuth Callback] Received:', { code: !!code, state, error })
+
     // Handle OAuth errors
     if (error) {
-      console.error('Google OAuth error:', error)
+      console.error('[Google OAuth Callback] OAuth error:', error)
       return NextResponse.redirect('/login?error=oauth_denied')
     }
 
     if (!code) {
+      console.error('[Google OAuth Callback] No code received')
       return NextResponse.redirect('/login?error=oauth_failed')
     }
 
     // Parse state to get return URL and user type
     let returnTo = '/'
-    let userType = 'advertiser'
+    let userType = 'user'
+    let addAccount = false
     if (state) {
       try {
         const stateData = JSON.parse(state)
         returnTo = stateData.returnTo || '/'
-        userType = stateData.userType || 'advertiser'
+        userType = stateData.userType || 'user'
+        addAccount = stateData.addAccount === true
+        console.log('[Google OAuth Callback] Parsed state:', { returnTo, userType, addAccount })
       } catch (e) {
-        console.error('Failed to parse OAuth state:', e)
+        console.error('[Google OAuth Callback] Failed to parse OAuth state:', e, 'State:', state)
         // Use defaults
       }
     }
@@ -202,20 +208,66 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user wants to add account (not replace current session)
-    // This is detected by checking if there's already a session cookie
+    // This is detected by checking if there's already a session cookie OR if addAccount is in state
     const cookieStore = await cookies()
     const existingSession = cookieStore.get('session')
-    const isAddingAccount = !!existingSession
+    const isAddingAccount = !!existingSession || addAccount
+    console.log('[Google OAuth Callback] Account addition check:', { 
+      hasExistingSession: !!existingSession, 
+      addAccountFromState: addAccount, 
+      isAddingAccount 
+    })
 
-    // Create session
+    // Create session for the new account
     await createSession(user.id)
     console.log(`Google OAuth login successful for user: ${user.email}${isAddingAccount ? ' (adding account)' : ''}`)
 
+    // If adding account, we need to switch back to the original account
+    // The new account is now in localStorage via the session creation
+    // We'll redirect to a special endpoint that handles the account addition
+    if (isAddingAccount && existingSession) {
+      // Parse the existing session to get the original user
+      try {
+        const { jwtVerify } = await import('jose')
+        const secretKey = process.env.AUTH_SECRET || 'your-secret-key-change-in-production'
+        const encodedKey = new TextEncoder().encode(secretKey)
+        const { payload } = await jwtVerify(existingSession.value, encodedKey)
+        const originalSessionToken = (payload as any).sessionToken
+        
+        // Get the original session
+        const originalSession = await prisma.session.findUnique({
+          where: { token: originalSessionToken },
+          include: { user: { select: { id: true } } },
+        })
+        
+        if (originalSession) {
+          // Restore the original session
+          const { SignJWT } = await import('jose')
+          const sessionJWT = await new SignJWT({ sessionToken: originalSession.token })
+            .setProtectedHeader({ alg: 'HS256' })
+            .setIssuedAt()
+            .setExpirationTime(originalSession.expiresAt)
+            .sign(encodedKey)
+          
+          cookieStore.set('session', sessionJWT, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            expires: originalSession.expiresAt,
+            path: '/',
+          })
+          
+          // Redirect back to dashboard - the new account is now in localStorage
+          return NextResponse.redirect('/?accountAdded=true')
+        }
+      } catch (error) {
+        console.error('Failed to restore original session:', error)
+        // Fall through to normal redirect
+      }
+    }
+
     // Redirect based on user type
-    if (isAddingAccount) {
-      // Account added, go back to dashboard
-      return NextResponse.redirect('/')
-    } else if (user.isAdmin) {
+    if (user.isAdmin) {
       return NextResponse.redirect('/admin')
     } else if (userType === 'advertiser') {
       return NextResponse.redirect('/advertiser/dashboard')

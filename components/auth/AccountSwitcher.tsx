@@ -62,6 +62,19 @@ export function AccountSwitcher() {
     }
   }, [user])
 
+  // Check for account added notification
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      if (urlParams.get('accountAdded') === 'true') {
+        // Refresh the sessions list
+        fetchSessions()
+        // Remove the query parameter
+        window.history.replaceState({}, '', window.location.pathname)
+      }
+    }
+  }, [])
+
   const fetchSessions = async () => {
     try {
       const linkedAccountIds = getLinkedAccounts()
