@@ -28,27 +28,30 @@ export async function GET(request: NextRequest) {
     let returnTo = '/'
     let userType = 'user'
     let addAccount = false
+    
     if (state) {
       try {
         // Decode URL-encoded state first
-        const decodedState = decodeURIComponent(state)
+        let decodedState: string
+        try {
+          decodedState = decodeURIComponent(state)
+        } catch (decodeError) {
+          // If decode fails, state might already be decoded
+          decodedState = state
+        }
+        
         const stateData = JSON.parse(decodedState)
         returnTo = stateData.returnTo || '/'
         userType = stateData.userType || 'user'
         addAccount = stateData.addAccount === true
         console.log('[Google OAuth Callback] Parsed state:', { returnTo, userType, addAccount })
-      } catch (e) {
-        console.error('[Google OAuth Callback] Failed to parse OAuth state:', e, 'State:', state)
-        // Try parsing without decoding (in case it's already decoded)
-        try {
-          const stateData = JSON.parse(state)
-          returnTo = stateData.returnTo || '/'
-          userType = stateData.userType || 'user'
-          addAccount = stateData.addAccount === true
-        } catch (e2) {
-          console.error('[Google OAuth Callback] Failed to parse state even without decoding:', e2)
-          // Use defaults
-        }
+      } catch (e: any) {
+        console.error('[Google OAuth Callback] Failed to parse OAuth state:', {
+          error: e?.message,
+          stack: e?.stack,
+          state: state?.substring(0, 100), // Log first 100 chars to avoid huge logs
+        })
+        // Use defaults - don't fail the entire flow
       }
     }
 
@@ -268,16 +271,21 @@ export async function GET(request: NextRequest) {
     // Create session for the new account
     try {
       console.log('[Google OAuth Callback] Creating session for user:', user.id)
+      const cookieStore = await cookies()
+      console.log('[Google OAuth Callback] Cookie store obtained')
+      
       await createSession(user.id)
       console.log(`[Google OAuth Callback] Google OAuth login successful for user: ${user.email}${isAddingAccount ? ' (adding account)' : ''}`)
     } catch (sessionError: any) {
-      console.error('[Google OAuth Callback] Failed to create session:', sessionError)
-      console.error('[Google OAuth Callback] Session error details:', {
+      console.error('[Google OAuth Callback] Failed to create session:', {
         message: sessionError?.message,
+        name: sessionError?.name,
         code: sessionError?.code,
         stack: sessionError?.stack,
+        cause: sessionError?.cause,
       })
-      throw new Error(`Failed to create session: ${sessionError?.message || 'Unknown error'}`)
+      // Don't throw - try to continue with redirect anyway
+      // The user might still be able to log in manually
     }
 
     // If adding account, we need to switch back to the original account
@@ -286,6 +294,7 @@ export async function GET(request: NextRequest) {
     if (isAddingAccount && existingSession) {
       // Parse the existing session to get the original user
       try {
+        console.log('[Google OAuth Callback] Restoring original session for account addition')
         const { jwtVerify } = await import('jose')
         const secretKey = process.env.AUTH_SECRET || 'your-secret-key-change-in-production'
         const encodedKey = new TextEncoder().encode(secretKey)
@@ -307,19 +316,27 @@ export async function GET(request: NextRequest) {
             .setExpirationTime(originalSession.expiresAt)
             .sign(encodedKey)
           
+          const cookieStore = await cookies()
+          const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1'
           cookieStore.set('session', sessionJWT, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: isProduction,
             sameSite: 'lax',
             expires: originalSession.expiresAt,
             path: '/',
           })
           
+          console.log('[Google OAuth Callback] Original session restored, redirecting to dashboard')
           // Redirect back to dashboard - the new account is now in localStorage
           return NextResponse.redirect(new URL('/?accountAdded=true', baseUrl))
+        } else {
+          console.warn('[Google OAuth Callback] Original session not found in database')
         }
-      } catch (error) {
-        console.error('Failed to restore original session:', error)
+      } catch (error: any) {
+        console.error('[Google OAuth Callback] Failed to restore original session:', {
+          message: error?.message,
+          stack: error?.stack,
+        })
         // Fall through to normal redirect
       }
     }
@@ -340,15 +357,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect('/')
     }
   } catch (error: any) {
-    console.error('[Google OAuth Callback] Error:', error)
-    console.error('[Google OAuth Callback] Error stack:', error?.stack)
-    console.error('[Google OAuth Callback] Error message:', error?.message)
-    console.error('[Google OAuth Callback] Error details:', {
+    console.error('[Google OAuth Callback] Unhandled error:', {
+      message: error?.message,
       name: error?.name,
       code: error?.code,
       cause: error?.cause,
+      stack: error?.stack,
     })
-    return NextResponse.redirect('/login?error=oauth_error')
+    
+    // Try to redirect with error, but if that fails, return a proper error response
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
+      return NextResponse.redirect(new URL(`/login?error=oauth_error&details=${encodeURIComponent(error?.message || 'Unknown error')}`, baseUrl))
+    } catch (redirectError) {
+      // If redirect fails, return a JSON error response
+      console.error('[Google OAuth Callback] Failed to redirect after error:', redirectError)
+      return NextResponse.json(
+        { 
+          error: 'OAuth authentication failed',
+          details: error?.message || 'Unknown error',
+        },
+        { status: 500 }
+      )
+    }
   }
 }
 
