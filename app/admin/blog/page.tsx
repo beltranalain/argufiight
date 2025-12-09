@@ -12,8 +12,21 @@ interface BlogPost {
   slug: string
   title: string
   excerpt: string | null
+  content: string
+  metaTitle: string | null
+  metaDescription: string | null
+  keywords: string | null
+  ogImage: string | null
   status: 'DRAFT' | 'PUBLISHED' | 'SCHEDULED' | 'ARCHIVED'
   publishedAt: string | null
+  featuredImageId: string | null
+  featuredImage: {
+    id: string
+    url: string
+    alt: string | null
+  } | null
+  categoryIds: string[]
+  tagIds: string[]
   views: number
   featured: boolean
   author: {
@@ -21,11 +34,6 @@ interface BlogPost {
     username: string
     email: string
   }
-  featuredImage: {
-    id: string
-    url: string
-    alt: string | null
-  } | null
   categories: Array<{
     id: string
     name: string
@@ -286,7 +294,11 @@ export default function BlogManagementPage() {
       {/* Create/Edit Modal */}
       {(isCreateModalOpen || isEditModalOpen) && (
         <BlogPostEditor
-          post={selectedPost}
+          post={selectedPost ? {
+            ...selectedPost,
+            categoryIds: selectedPost.categories.map(c => c.id),
+            tagIds: selectedPost.tags.map(t => t.id),
+          } : null}
           onClose={() => {
             setIsCreateModalOpen(false)
             setIsEditModalOpen(false)
