@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { Avatar } from '@/components/ui/Avatar'
-import { Button } from '@/components/ui/Button'
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface Session {
   id: string
@@ -48,11 +48,14 @@ function removeLinkedAccount(userId: string) {
   localStorage.setItem(LINKED_ACCOUNTS_KEY, JSON.stringify(filtered))
 }
 
-export function AccountSwitcher() {
+interface AccountSwitcherProps {
+  onClose?: () => void
+}
+
+export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
   const { user, refetch } = useAuth()
   const [sessions, setSessions] = useState<Session[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -113,7 +116,7 @@ export function AccountSwitcher() {
         addLinkedAccount(session.user.id)
         // Refresh user data
         await refetch()
-        setIsOpen(false)
+        if (onClose) onClose()
         // Reload page to ensure all components update
         window.location.reload()
       } else {
@@ -133,116 +136,125 @@ export function AccountSwitcher() {
     fetchSessions()
   }
 
-  if (!user || sessions.length <= 1) {
-    // Don't show switcher if user has only one account
+  if (!user) {
     return null
   }
 
   return (
-    <div className="relative">
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2"
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/50"
+        onClick={onClose}
+      />
+
+      {/* Dropdown */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+        transition={{ duration: 0.15 }}
+        className="fixed right-4 top-20 mt-2 w-80 bg-bg-secondary border border-bg-tertiary rounded-lg shadow-xl z-50"
       >
-        <Avatar src={user.avatarUrl} alt={user.username} size="sm" />
-        <span className="text-xs">{sessions.length} accounts</span>
-      </Button>
+        <div className="p-4 border-b border-bg-tertiary">
+          <p className="text-sm font-semibold text-text-primary">Switch Account</p>
+          <p className="text-xs text-text-secondary mt-1">
+            {sessions.length} active session{sessions.length !== 1 ? 's' : ''}
+          </p>
+        </div>
 
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setIsOpen(false)}
-          />
-
-          {/* Dropdown */}
-          <div className="absolute right-0 mt-2 w-64 bg-bg-secondary border border-bg-tertiary rounded-lg shadow-lg z-50">
-            <div className="p-3 border-b border-bg-tertiary">
-              <p className="text-sm font-semibold text-text-primary">Switch Account</p>
-              <p className="text-xs text-text-secondary mt-1">
-                {sessions.length} active session{sessions.length !== 1 ? 's' : ''}
+        <div className="max-h-96 overflow-y-auto">
+          {sessions.length === 0 ? (
+            <div className="p-4 text-center">
+              <p className="text-text-secondary text-sm mb-3">
+                No linked accounts. Add an account to switch between them.
               </p>
+              <button
+                onClick={() => {
+                  window.location.href = '/login?addAccount=true'
+                }}
+                className="px-4 py-2 bg-electric-blue text-black font-semibold rounded-lg hover:bg-[#00B8E6] transition-colors text-sm"
+              >
+                Add an account
+              </button>
             </div>
-
-            <div className="max-h-64 overflow-y-auto">
+          ) : (
+            <>
               {sessions.map((session) => {
-                const isCurrent = session.user.id === user.id
-                const needsLogin = !session.token || session.id.startsWith('temp-')
-                return (
-                  <div
-                    key={session.id}
-                    className={`w-full p-3 flex items-center gap-3 hover:bg-bg-tertiary transition-colors ${
-                      isCurrent ? 'bg-electric-blue/10' : ''
+              const isCurrent = session.user.id === user.id
+              const needsLogin = !session.token || session.id.startsWith('temp-')
+              return (
+                <div
+                  key={session.id}
+                  className={`w-full p-3 flex items-center gap-3 hover:bg-bg-tertiary transition-colors ${
+                    isCurrent ? 'bg-electric-blue/10' : ''
+                  }`}
+                >
+                  <button
+                    onClick={() => {
+                      if (!isCurrent) {
+                        switchAccount(session)
+                      }
+                    }}
+                    disabled={isCurrent || isLoading}
+                    className={`flex-1 flex items-center gap-3 ${
+                      isLoading ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
+                    <Avatar
+                      src={session.user.avatarUrl}
+                      alt={session.user.username}
+                      size="sm"
+                    />
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm font-medium text-text-primary truncate">
+                        {session.user.username}
+                      </p>
+                      <p className="text-xs text-text-secondary truncate">
+                        {session.user.email}
+                      </p>
+                      {needsLogin && (
+                        <p className="text-xs text-neon-orange mt-1">
+                          Re-login required
+                        </p>
+                      )}
+                    </div>
+                    {isCurrent && (
+                      <span className="text-xs text-electric-blue font-medium">Current</span>
+                    )}
+                  </button>
+                  {!isCurrent && (
                     <button
-                      onClick={() => {
-                        if (!isCurrent) {
-                          switchAccount(session)
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (confirm(`Remove ${session.user.username} from linked accounts?`)) {
+                          removeAccount(session.user.id)
                         }
                       }}
-                      disabled={isCurrent || isLoading}
-                      className={`flex-1 flex items-center gap-3 ${
-                        isLoading ? 'opacity-50 cursor-not-allowed' : ''
-                      }`}
+                      className="text-text-secondary hover:text-neon-orange p-1 text-lg"
+                      title="Remove account"
                     >
-                      <Avatar
-                        src={session.user.avatarUrl}
-                        alt={session.user.username}
-                        size="sm"
-                      />
-                      <div className="flex-1 text-left min-w-0">
-                        <p className="text-sm font-medium text-text-primary truncate">
-                          {session.user.username}
-                        </p>
-                        <p className="text-xs text-text-secondary truncate">
-                          {session.user.email}
-                        </p>
-                        {needsLogin && (
-                          <p className="text-xs text-neon-orange mt-1">
-                            Re-login required
-                          </p>
-                        )}
-                      </div>
-                      {isCurrent && (
-                        <span className="text-xs text-electric-blue">Current</span>
-                      )}
+                      ×
                     </button>
-                    {!isCurrent && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (confirm(`Remove ${session.user.username} from linked accounts?`)) {
-                            removeAccount(session.user.id)
-                          }
-                        }}
-                        className="text-text-secondary hover:text-neon-orange p-1"
-                        title="Remove account"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                  )}
+                </div>
+              )
+            })}
             <div className="p-3 border-t border-bg-tertiary">
               <button
                 onClick={() => {
                   window.location.href = '/login?addAccount=true'
                 }}
-                className="w-full text-sm text-electric-blue hover:text-neon-orange text-center"
+                className="w-full text-sm text-electric-blue hover:text-neon-orange text-center py-2"
               >
                 + Add another account
               </button>
             </div>
-          </div>
-        </>
-      )}
-    </div>
+            </>
+          )}
+        </div>
+      </motion.div>
+    </>
   )
 }
 

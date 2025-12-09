@@ -8,6 +8,7 @@ import { DropdownMenu } from '@/components/ui/DropdownMenu'
 import { NotificationsModal } from '@/components/notifications/NotificationsModal'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher'
+import { AnimatePresence } from 'framer-motion'
 
 interface TopNavProps {
   currentPanel: string
@@ -16,6 +17,7 @@ interface TopNavProps {
 export function TopNav({ currentPanel }: TopNavProps) {
   const { user, logout } = useAuth()
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+  const [isAccountSwitcherOpen, setIsAccountSwitcherOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [userTier, setUserTier] = useState<'FREE' | 'PRO' | null>(null)
   const [isAdvertiser, setIsAdvertiser] = useState(false)
@@ -84,7 +86,13 @@ export function TopNav({ currentPanel }: TopNavProps) {
       onClick: () => window.location.href = '/advertiser/settings',
     },
     {
-      label: 'Logout',
+      label: 'Add an existing account',
+      onClick: () => {
+        setIsAccountSwitcherOpen(true)
+      },
+    },
+    {
+      label: `Log out @${user?.username || ''}`,
       variant: 'danger' as const,
       onClick: logout,
     },
@@ -120,7 +128,13 @@ export function TopNav({ currentPanel }: TopNavProps) {
       onClick: () => window.location.href = '/settings',
     },
     {
-      label: 'Logout',
+      label: 'Add an existing account',
+      onClick: () => {
+        setIsAccountSwitcherOpen(true)
+      },
+    },
+    {
+      label: `Log out @${user?.username || ''}`,
       variant: 'danger' as const,
       onClick: logout,
     },
@@ -175,9 +189,6 @@ export function TopNav({ currentPanel }: TopNavProps) {
             </button>
           )}
 
-          {/* Account Switcher */}
-          {user && <AccountSwitcher />}
-
           {/* Profile */}
           {user ? (
             <DropdownMenu
@@ -215,6 +226,15 @@ export function TopNav({ currentPanel }: TopNavProps) {
           }}
         />
       )}
+
+      {/* Account Switcher Modal */}
+      <AnimatePresence>
+        {isAccountSwitcherOpen && user && (
+          <AccountSwitcher
+            onClose={() => setIsAccountSwitcherOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </nav>
   )
 }
