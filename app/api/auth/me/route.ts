@@ -1,33 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
-import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
+import { getUserIdFromSession } from '@/lib/auth/session-utils'
 
-/**
- * GET /api/auth/me - Get current authenticated user
- * Returns the current user's information if authenticated
- */
 export async function GET(request: NextRequest) {
   try {
-    const session = await verifySession()
-    
+    // Check for session override in query params (for multi-session support)
+    const { searchParams } = new URL(request.url)
+    const sessionOverride = searchParams.get('session')
+
+    let session = await verifySession()
+
+    // If session override is provided, try to use that session
+    if (sessionOverride && !session) {
+      try {
+        const overrideSession = await prisma.session.findUnique({
+          where: { token: sessionOverride },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                username: true,
+                avatarUrl: true,
+                bio: true,
+                eloRating: true,
+                debatesWon: true,
+                debatesLost: true,
+                debatesTied: true,
+                totalDebates: true,
+                totalScore: true,
+                totalMaxScore: true,
+                isAdmin: true,
+                isBanned: true,
+                createdAt: true,
+                updatedAt: true,
+              },
+            },
+          },
+        })
+
+        if (overrideSession && overrideSession.expiresAt > new Date()) {
+          return NextResponse.json({ user: overrideSession.user })
+        }
+      } catch (error) {
+        // Invalid override, fall through to normal session check
+      }
+    }
+
     if (!session) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { user: null },
         { status: 401 }
       )
     }
 
+    // Always fetch full user data with stats (session.user only has basic fields)
     const userId = getUserIdFromSession(session)
-    
     if (!userId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { user: null },
         { status: 401 }
       )
     }
 
-    // Get user from database
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -35,33 +71,68 @@ export async function GET(request: NextRequest) {
         email: true,
         username: true,
         avatarUrl: true,
-        isAdmin: true,
-        isBanned: true,
-        bannedUntil: true,
+        bio: true,
         eloRating: true,
         debatesWon: true,
         debatesLost: true,
         debatesTied: true,
         totalDebates: true,
-        bio: true,
-        googleAuthEnabled: true,
-        totpEnabled: true,
+        totalScore: true,
+        totalMaxScore: true,
+        isAdmin: true,
+        isBanned: true,
+        isCreator: true,
+        createdAt: true,
+        updatedAt: true,
       },
     })
 
     if (!user) {
       return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
+        { user: null },
+        { status: 401 }
       )
     }
 
-    return NextResponse.json({ user })
-  } catch (error: any) {
-    console.error('[GET /api/auth/me] Error:', error)
+    // Return user with both camelCase and snake_case for compatibility
+    return NextResponse.json({ 
+      user: {
+        // camelCase (for web)
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+        bio: user.bio,
+        eloRating: user.eloRating,
+        debatesWon: user.debatesWon,
+        debatesLost: user.debatesLost,
+        debatesTied: user.debatesTied,
+        totalDebates: user.totalDebates,
+        totalScore: user.totalScore,
+        totalMaxScore: user.totalMaxScore,
+        isAdmin: user.isAdmin,
+        isBanned: user.isBanned,
+        isCreator: user.isCreator,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        // snake_case (for mobile compatibility)
+        avatar_url: user.avatarUrl || undefined,
+        elo_rating: user.eloRating,
+        debates_won: user.debatesWon,
+        debates_lost: user.debatesLost,
+        debates_tied: user.debatesTied,
+        total_debates: user.totalDebates,
+        total_score: user.totalScore,
+        total_max_score: user.totalMaxScore,
+        is_creator: user.isCreator,
+      }
+    })
+  } catch (error) {
+    console.error('Get user error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { user: null },
       { status: 500 }
     )
   }
 }
+

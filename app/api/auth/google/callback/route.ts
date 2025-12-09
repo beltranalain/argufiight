@@ -279,10 +279,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Create session for the new account
+    let sessionCreated = false
     try {
       console.log('[Google OAuth Callback] Creating session for user:', user.id)
+      const cookieStore = await cookies()
+      console.log('[Google OAuth Callback] Cookie store obtained')
       
       await createSession(user.id)
+      sessionCreated = true
       console.log(`[Google OAuth Callback] Google OAuth login successful for user: ${user.email}${isAddingAccount ? ' (adding account)' : ''}`)
     } catch (sessionError: any) {
       console.error('[Google OAuth Callback] Failed to create session:', {
@@ -292,9 +296,16 @@ export async function GET(request: NextRequest) {
         stack: sessionError?.stack,
         cause: sessionError?.cause,
       })
-      // If session creation fails, redirect with error
+      // If session creation fails, redirect to login with error
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
-      return NextResponse.redirect(new URL(`/login?error=session_creation_failed&details=${encodeURIComponent(sessionError?.message || 'Failed to create session')}`, baseUrl))
+      return NextResponse.redirect(new URL('/login?error=session_creation_failed', baseUrl))
+    }
+    
+    // Ensure session was created before proceeding
+    if (!sessionCreated) {
+      console.error('[Google OAuth Callback] Session was not created, aborting')
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
+      return NextResponse.redirect(new URL('/login?error=session_creation_failed', baseUrl))
     }
 
     // If adding account, we need to switch back to the original account

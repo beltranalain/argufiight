@@ -65,7 +65,6 @@ function LoginForm() {
         not_employee: 'This email is not associated with an employee account.',
         user_not_found: 'User account not found. Please contact support.',
         oauth_error: 'An error occurred during Google authentication.',
-        session_creation_failed: 'Failed to create session. Please try again.',
       }
       setError(errorMessages[errorParam] || 'Authentication error occurred.')
     }
