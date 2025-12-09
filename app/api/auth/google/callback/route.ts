@@ -281,8 +281,6 @@ export async function GET(request: NextRequest) {
     // Create session for the new account
     try {
       console.log('[Google OAuth Callback] Creating session for user:', user.id)
-      const cookieStore = await cookies()
-      console.log('[Google OAuth Callback] Cookie store obtained')
       
       await createSession(user.id)
       console.log(`[Google OAuth Callback] Google OAuth login successful for user: ${user.email}${isAddingAccount ? ' (adding account)' : ''}`)
@@ -294,8 +292,9 @@ export async function GET(request: NextRequest) {
         stack: sessionError?.stack,
         cause: sessionError?.cause,
       })
-      // Don't throw - try to continue with redirect anyway
-      // The user might still be able to log in manually
+      // If session creation fails, redirect with error
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
+      return NextResponse.redirect(new URL(`/login?error=session_creation_failed&details=${encodeURIComponent(sessionError?.message || 'Failed to create session')}`, baseUrl))
     }
 
     // If adding account, we need to switch back to the original account
