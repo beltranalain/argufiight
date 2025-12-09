@@ -122,28 +122,28 @@ export async function PublicHomepageServer({ sections }: PublicHomepageServerPro
                   ARGU FIGHT
                 </Link>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 md:gap-4">
                 <Link
                   href="/blog"
-                  className="px-4 py-2 text-text-primary hover:text-electric-blue transition-colors"
+                  className="px-3 py-2 md:px-4 md:py-2 text-sm md:text-base text-text-primary hover:text-electric-blue transition-colors font-medium"
                 >
                   Blog
                 </Link>
                 <Link
                   href="/leaderboard"
-                  className="px-4 py-2 text-text-primary hover:text-electric-blue transition-colors"
+                  className="px-3 py-2 md:px-4 md:py-2 text-sm md:text-base text-text-primary hover:text-electric-blue transition-colors font-medium"
                 >
                   Leaderboard
                 </Link>
                 <Link
                   href="/login"
-                  className="px-4 py-2 text-text-primary hover:text-electric-blue transition-colors"
+                  className="px-3 py-2 md:px-4 md:py-2 text-sm md:text-base text-text-primary hover:text-electric-blue transition-colors"
                 >
                   Login
                 </Link>
                 <Link
                   href="/signup"
-                  className="px-6 py-2 bg-electric-blue text-black rounded-lg font-semibold hover:bg-[#00B8E6] transition-colors"
+                  className="px-4 py-2 md:px-6 md:py-2 text-sm md:text-base bg-electric-blue text-black rounded-lg font-semibold hover:bg-[#00B8E6] transition-colors"
                 >
                   Sign Up
                 </Link>
