@@ -161,61 +161,90 @@ export async function GET(request: NextRequest) {
 
     // If user doesn't exist, create new user (for all user types now)
     if (!user) {
-      // Generate a unique username from email
-      const baseUsername = googleEmail.split('@')[0]
-      let username = baseUsername
-      let counter = 1
-      while (await prisma.user.findUnique({ where: { username } })) {
-        username = `${baseUsername}${counter}`
-        counter++
+      try {
+        // Generate a unique username from email
+        const baseUsername = googleEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') // Remove special chars
+        let username = baseUsername || 'user'
+        let counter = 1
+        const maxAttempts = 100 // Prevent infinite loop
+        while (counter < maxAttempts && await prisma.user.findUnique({ where: { username } })) {
+          username = `${baseUsername}${counter}`
+          counter++
+        }
+        
+        if (counter >= maxAttempts) {
+          // Fallback to timestamp-based username
+          username = `user${Date.now()}`
+        }
+
+        // Generate a placeholder password hash for OAuth users (they won't use it)
+        const crypto = require('crypto')
+        const placeholderHash = crypto.randomBytes(32).toString('hex')
+
+        console.log('[Google OAuth Callback] Creating new user:', { email: googleEmail, username })
+        
+        user = await prisma.user.create({
+          data: {
+            email: googleEmail,
+            username,
+            avatarUrl: googlePicture || null,
+            googleId,
+            googleEmail,
+            googlePicture: googlePicture || null,
+            googleAuthEnabled: true,
+            passwordHash: placeholderHash, // Placeholder hash for OAuth users
+            // Create FREE subscription for new user
+            subscription: {
+              create: {
+                tier: 'FREE',
+                status: 'ACTIVE',
+              },
+            },
+            // Create appeal limit
+            appealLimit: {
+              create: {
+                monthlyLimit: 4,
+                currentCount: 0,
+              },
+            },
+          },
+        })
+        
+        console.log('[Google OAuth Callback] User created successfully:', user.id)
+      } catch (createError: any) {
+        console.error('[Google OAuth Callback] Failed to create user:', createError)
+        console.error('[Google OAuth Callback] Create error details:', {
+          message: createError?.message,
+          code: createError?.code,
+          meta: createError?.meta,
+        })
+        throw new Error(`Failed to create user account: ${createError?.message || 'Unknown error'}`)
       }
-
-      // Generate a placeholder password hash for OAuth users (they won't use it)
-      const crypto = require('crypto')
-      const placeholderHash = crypto.randomBytes(32).toString('hex')
-
-      user = await prisma.user.create({
-        data: {
-          email: googleEmail,
-          username,
-          avatarUrl: googlePicture || null,
-          googleId,
-          googleEmail,
-          googlePicture: googlePicture || null,
-          googleAuthEnabled: true,
-          passwordHash: placeholderHash, // Placeholder hash for OAuth users
-          // Create FREE subscription for new user
-          subscription: {
-            create: {
-              tier: 'FREE',
-              status: 'ACTIVE',
-            },
-          },
-          // Create appeal limit
-          appealLimit: {
-            create: {
-              monthlyLimit: 4,
-              currentCount: 0,
-            },
-          },
-        },
-      })
-      
-      // If username needs to be set from Google name, prompt user later
-      // For now, use email-based username
     } else {
       // Update existing user with Google OAuth info
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          googleId,
-          googleEmail,
-          googlePicture: googlePicture || null,
-          googleAuthEnabled: true,
-          // Update avatar if not set
-          ...(googlePicture && !user.avatarUrl ? { avatarUrl: googlePicture } : {}),
-        },
-      })
+      try {
+        console.log('[Google OAuth Callback] Updating existing user:', user.id)
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            googleId,
+            googleEmail,
+            googlePicture: googlePicture || null,
+            googleAuthEnabled: true,
+            // Update avatar if not set
+            ...(googlePicture && !user.avatarUrl ? { avatarUrl: googlePicture } : {}),
+          },
+        })
+        console.log('[Google OAuth Callback] User updated successfully')
+      } catch (updateError: any) {
+        console.error('[Google OAuth Callback] Failed to update user:', updateError)
+        console.error('[Google OAuth Callback] Update error details:', {
+          message: updateError?.message,
+          code: updateError?.code,
+          meta: updateError?.meta,
+        })
+        throw new Error(`Failed to update user account: ${updateError?.message || 'Unknown error'}`)
+      }
     }
 
     // Check if user wants to add account (not replace current session)
@@ -230,8 +259,19 @@ export async function GET(request: NextRequest) {
     })
 
     // Create session for the new account
-    await createSession(user.id)
-    console.log(`Google OAuth login successful for user: ${user.email}${isAddingAccount ? ' (adding account)' : ''}`)
+    try {
+      console.log('[Google OAuth Callback] Creating session for user:', user.id)
+      await createSession(user.id)
+      console.log(`[Google OAuth Callback] Google OAuth login successful for user: ${user.email}${isAddingAccount ? ' (adding account)' : ''}`)
+    } catch (sessionError: any) {
+      console.error('[Google OAuth Callback] Failed to create session:', sessionError)
+      console.error('[Google OAuth Callback] Session error details:', {
+        message: sessionError?.message,
+        code: sessionError?.code,
+        stack: sessionError?.stack,
+      })
+      throw new Error(`Failed to create session: ${sessionError?.message || 'Unknown error'}`)
+    }
 
     // If adding account, we need to switch back to the original account
     // The new account is now in localStorage via the session creation
