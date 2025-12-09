@@ -76,10 +76,17 @@ export async function GET(request: NextRequest) {
     
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
     const redirectUri = `${baseUrl}/api/auth/google/callback`
+    
+    console.log('[Google OAuth Callback] Configuration:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      baseUrl,
+      redirectUri,
+    })
 
     if (!clientId || !clientSecret) {
-      console.error('Google OAuth credentials not configured')
-      return NextResponse.redirect('/login?error=oauth_not_configured')
+      console.error('[Google OAuth Callback] Google OAuth credentials not configured')
+      return NextResponse.redirect(new URL('/login?error=oauth_not_configured', baseUrl))
     }
 
     // Exchange code for tokens
@@ -309,7 +316,7 @@ export async function GET(request: NextRequest) {
           })
           
           // Redirect back to dashboard - the new account is now in localStorage
-          return NextResponse.redirect('/?accountAdded=true')
+          return NextResponse.redirect(new URL('/?accountAdded=true', baseUrl))
         }
       } catch (error) {
         console.error('Failed to restore original session:', error)
@@ -318,13 +325,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Redirect based on user type
-    if (user.isAdmin) {
-      return NextResponse.redirect('/admin')
-    } else if (userType === 'advertiser') {
-      return NextResponse.redirect('/advertiser/dashboard')
-    } else {
-      // Regular users go to dashboard/home
-      return NextResponse.redirect(returnTo || '/')
+    try {
+      if (user.isAdmin) {
+        return NextResponse.redirect(new URL('/admin', baseUrl))
+      } else if (userType === 'advertiser') {
+        return NextResponse.redirect(new URL('/advertiser/dashboard', baseUrl))
+      } else {
+        // Regular users go to dashboard/home
+        return NextResponse.redirect(new URL(returnTo || '/', baseUrl))
+      }
+    } catch (redirectError: any) {
+      console.error('[Google OAuth Callback] Failed to redirect:', redirectError)
+      // Fallback to simple redirect
+      return NextResponse.redirect('/')
     }
   } catch (error: any) {
     console.error('[Google OAuth Callback] Error:', error)
