@@ -14,6 +14,14 @@ export default function AdminSettingsPage() {
   const [googleAnalyticsPropertyId, setGoogleAnalyticsPropertyId] = useState('')
   const [stripePublishableKey, setStripePublishableKey] = useState('')
   const [stripeSecretKey, setStripeSecretKey] = useState('')
+  const [firebaseApiKey, setFirebaseApiKey] = useState('')
+  const [firebaseAuthDomain, setFirebaseAuthDomain] = useState('')
+  const [firebaseProjectId, setFirebaseProjectId] = useState('')
+  const [firebaseStorageBucket, setFirebaseStorageBucket] = useState('')
+  const [firebaseMessagingSenderId, setFirebaseMessagingSenderId] = useState('')
+  const [firebaseAppId, setFirebaseAppId] = useState('')
+  const [firebaseServerKey, setFirebaseServerKey] = useState('')
+  const [firebaseVapidKey, setFirebaseVapidKey] = useState('')
   const [tournamentsEnabled, setTournamentsEnabled] = useState(false)
   
   // Advertising settings
@@ -52,6 +60,14 @@ export default function AdminSettingsPage() {
         setGoogleAnalyticsPropertyId(data.GOOGLE_ANALYTICS_PROPERTY_ID || '')
         setStripePublishableKey(data.STRIPE_PUBLISHABLE_KEY || '')
         setStripeSecretKey(data.STRIPE_SECRET_KEY || '')
+        setFirebaseApiKey(data.FIREBASE_API_KEY || '')
+        setFirebaseAuthDomain(data.FIREBASE_AUTH_DOMAIN || '')
+        setFirebaseProjectId(data.FIREBASE_PROJECT_ID || '')
+        setFirebaseStorageBucket(data.FIREBASE_STORAGE_BUCKET || '')
+        setFirebaseMessagingSenderId(data.FIREBASE_MESSAGING_SENDER_ID || '')
+        setFirebaseAppId(data.FIREBASE_APP_ID || '')
+        setFirebaseServerKey(data.FIREBASE_SERVER_KEY || '')
+        setFirebaseVapidKey(data.FIREBASE_VAPID_KEY || '')
         setTournamentsEnabled(data.TOURNAMENTS_ENABLED === 'true')
         
         // Advertising settings
@@ -86,6 +102,14 @@ export default function AdminSettingsPage() {
           GOOGLE_ANALYTICS_PROPERTY_ID: googleAnalyticsPropertyId,
           STRIPE_PUBLISHABLE_KEY: stripePublishableKey,
           STRIPE_SECRET_KEY: stripeSecretKey,
+          FIREBASE_API_KEY: firebaseApiKey,
+          FIREBASE_AUTH_DOMAIN: firebaseAuthDomain,
+          FIREBASE_PROJECT_ID: firebaseProjectId,
+          FIREBASE_STORAGE_BUCKET: firebaseStorageBucket,
+          FIREBASE_MESSAGING_SENDER_ID: firebaseMessagingSenderId,
+          FIREBASE_APP_ID: firebaseAppId,
+          FIREBASE_SERVER_KEY: firebaseServerKey,
+          FIREBASE_VAPID_KEY: firebaseVapidKey,
           TOURNAMENTS_ENABLED: tournamentsEnabled.toString(),
           // Advertising settings
           ADS_PLATFORM_ENABLED: platformAdsEnabled.toString(),

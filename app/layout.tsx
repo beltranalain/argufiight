@@ -5,6 +5,7 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ThemeProvider } from '@/lib/contexts/ThemeContext'
 import { NotificationTicker } from '@/components/notifications/NotificationTicker'
+import { PushNotificationManager } from '@/components/notifications/PushNotificationManager'
 
 export const metadata: Metadata = {
   title: 'Argu Fight - AI-Judged Debate Platform',
@@ -67,6 +68,7 @@ export default function RootLayout({
             <ToastProvider>
               {children}
               <NotificationTicker />
+              <PushNotificationManager />
             </ToastProvider>
           </ErrorBoundary>
         </ThemeProvider>

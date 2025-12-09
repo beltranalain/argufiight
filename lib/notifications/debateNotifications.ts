@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma';
 import crypto from 'crypto';
+import { sendPushNotificationForNotification } from './push-notifications';
 
 export async function createDebateNotification(
   debateId: string,
@@ -9,6 +10,7 @@ export async function createDebateNotification(
   message: string
 ) {
   try {
+    // Create in-app notification (existing system)
     await prisma.notification.create({
       data: {
         id: crypto.randomUUID(),
@@ -20,6 +22,14 @@ export async function createDebateNotification(
         read: false,
       },
     });
+
+    // Send push notification (Firebase) - non-blocking
+    sendPushNotificationForNotification(userId, type, title, message, debateId).catch(
+      (error) => {
+        console.error('Failed to send push notification:', error);
+        // Don't throw - push notifications are optional
+      }
+    );
   } catch (error) {
     console.error('Failed to create notification:', error);
   }
