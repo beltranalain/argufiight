@@ -124,6 +124,18 @@ export async function PublicHomepageServer({ sections }: PublicHomepageServerPro
               </div>
               <div className="flex items-center gap-4">
                 <Link
+                  href="/blog"
+                  className="px-4 py-2 text-text-primary hover:text-electric-blue transition-colors"
+                >
+                  Blog
+                </Link>
+                <Link
+                  href="/leaderboard"
+                  className="px-4 py-2 text-text-primary hover:text-electric-blue transition-colors"
+                >
+                  Leaderboard
+                </Link>
+                <Link
                   href="/login"
                   className="px-4 py-2 text-text-primary hover:text-electric-blue transition-colors"
                 >

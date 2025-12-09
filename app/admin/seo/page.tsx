@@ -57,7 +57,26 @@ export default function SEOAdminPage() {
       const response = await fetch('/api/admin/seo')
       if (response.ok) {
         const data = await response.json()
-        setSettings(data.settings || settings)
+        // Merge returned settings with defaults to ensure all fields exist
+        setSettings({
+          siteTitle: '',
+          siteDescription: '',
+          defaultOgImage: '',
+          twitterCardType: 'summary_large_image',
+          googleAnalyticsId: '',
+          googleSearchConsoleVerification: '',
+          canonicalUrlBase: '',
+          organizationName: '',
+          organizationLogo: '',
+          organizationDescription: '',
+          organizationContactInfo: '',
+          organizationSocialFacebook: '',
+          organizationSocialTwitter: '',
+          organizationSocialLinkedIn: '',
+          organizationSocialInstagram: '',
+          organizationSocialYouTube: '',
+          ...(data.settings || {}),
+        })
       }
     } catch (error) {
       console.error('Failed to fetch SEO settings:', error)
@@ -161,7 +180,7 @@ export default function SEOAdminPage() {
                 placeholder="Default meta description for the site"
               />
               <p className="text-xs text-text-secondary mt-1">
-                {settings.siteDescription.length}/160 characters
+                {(settings.siteDescription || '').length}/160 characters
               </p>
             </div>
 
