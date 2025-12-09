@@ -180,7 +180,7 @@ export default async function BlogPostPage({
               <div className="flex flex-wrap gap-2 mb-4">
                 {post.categories.map((c) => (
                   <Link
-                    key={c.id}
+                    key={c.category.id}
                     href={`/blog?category=${c.category.slug}`}
                     className="px-3 py-1 text-sm bg-electric-blue/20 text-electric-blue rounded hover:bg-electric-blue/30 transition-colors"
                   >
@@ -269,7 +269,7 @@ export default async function BlogPostPage({
               <div className="flex flex-wrap gap-2">
                 {post.tags.map((t) => (
                   <Link
-                    key={t.id}
+                    key={t.tag.id}
                     href={`/blog?tag=${t.tag.slug}`}
                     className="px-3 py-1 text-sm bg-bg-tertiary text-text-secondary rounded hover:bg-electric-blue/20 hover:text-electric-blue transition-colors"
                   >

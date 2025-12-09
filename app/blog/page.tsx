@@ -145,7 +145,7 @@ export default async function BlogPage({
                       <div className="flex flex-wrap gap-2 mb-3">
                         {post.categories.map((c) => (
                           <span
-                            key={c.id}
+                            key={c.category.id}
                             className="px-2 py-1 text-xs bg-electric-blue/20 text-electric-blue rounded"
                           >
                             {c.category.name}
