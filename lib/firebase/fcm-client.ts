@@ -3,7 +3,7 @@
  * Handles sending push notifications via FCM
  */
 
-import { getFirebaseServerKey, getFirebaseConfig } from './config'
+import { getFirebaseServerKey } from './config'
 
 export interface PushNotificationPayload {
   title: string
@@ -20,28 +20,12 @@ export interface PushNotificationPayload {
 
 /**
  * Send push notification to a single FCM token
- * Tries V1 API first (Service Account), falls back to Legacy API (Server Key)
  */
 export async function sendPushNotification(
   token: string,
   payload: PushNotificationPayload
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Try V1 API first (Service Account) - modern approach
-    const serviceAccount = await getFirebaseServiceAccount()
-    const config = await getFirebaseConfig()
-    
-    if (serviceAccount && config?.projectId) {
-      const { sendPushNotificationV1 } = await import('./fcm-client-v1')
-      const result = await sendPushNotificationV1(token, payload, config.projectId)
-      if (result.success) {
-        return result
-      }
-      // If V1 fails, fall through to Legacy API
-      console.log('V1 API failed, falling back to Legacy API:', result.error)
-    }
-
-    // Fall back to Legacy API (Server Key)
     const serverKey = await getFirebaseServerKey()
 
     if (!serverKey) {

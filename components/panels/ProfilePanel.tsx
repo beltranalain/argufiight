@@ -221,9 +221,21 @@ export function ProfilePanel() {
                               Lost
                             </Badge>
                           )
+                        ) : debate.status === 'ACTIVE' ? (
+                          <Badge variant="default" size="sm" className="bg-electric-blue text-white text-xs">
+                            Ongoing
+                          </Badge>
+                        ) : debate.status === 'COMPLETED' ? (
+                          <Badge variant="default" size="sm" className="bg-neon-yellow text-black text-xs">
+                            Awaiting Verdict
+                          </Badge>
+                        ) : debate.status === 'APPEALED' ? (
+                          <Badge variant="default" size="sm" className="bg-neon-orange text-black text-xs">
+                            Appealed
+                          </Badge>
                         ) : (
                           <Badge variant="default" size="sm" className="bg-text-muted text-text-primary text-xs">
-                            Completed
+                            {debate.status}
                           </Badge>
                         )}
                         <span className="text-xs text-text-muted">
