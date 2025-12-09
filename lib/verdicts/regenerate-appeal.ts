@@ -369,21 +369,25 @@ export async function regenerateAppealVerdicts(debateId: string) {
       throw new Error('Failed to generate new verdicts')
     }
 
-    // Determine overall winner (majority vote)
-    const challengerWins = newVerdicts.filter(v => v.winnerId === debate.challengerId).length
-    const opponentWins = newVerdicts.filter(v => v.winnerId === debate.opponentId).length
-    const ties = newVerdicts.filter(v => !v.winnerId).length
-
-    let finalWinnerId: string | null = null
-    if (challengerWins > opponentWins && challengerWins > ties) {
-      finalWinnerId = debate.challengerId
-    } else if (opponentWins > challengerWins && opponentWins > ties && debate.opponentId) {
-      finalWinnerId = debate.opponentId
-    }
-
     // Calculate scores from new verdicts
     const challengerNewScore = newVerdicts.reduce((sum, v) => sum + (v.challengerScore ?? 0), 0)
     const opponentNewScore = newVerdicts.reduce((sum, v) => sum + (v.opponentScore ?? 0), 0)
+
+    // Determine overall winner based on total score (not majority vote)
+    // The person with the higher total score wins
+    let finalWinnerId: string | null = null
+    const scoreDifference = Math.abs(challengerNewScore - opponentNewScore)
+    const tieThreshold = 5 // Consider it a tie if scores are within 5 points
+
+    if (scoreDifference < tieThreshold) {
+      // Scores are too close, it's a tie
+      finalWinnerId = null
+    } else if (challengerNewScore > opponentNewScore) {
+      finalWinnerId = debate.challengerId
+    } else if (opponentNewScore > challengerNewScore && debate.opponentId) {
+      finalWinnerId = debate.opponentId
+    }
+    // If scores are equal or too close, winnerId remains null (tie)
     const maxScoreForDebate = newVerdicts.length * 100
 
     // Calculate scores from original verdicts (to subtract)

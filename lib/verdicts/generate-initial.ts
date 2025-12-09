@@ -222,18 +222,25 @@ export async function generateInitialVerdicts(debateId: string) {
       )
     )
 
-    // Determine overall winner (majority vote)
-    const challengerVotes = verdicts.filter((v) => v.decision === 'CHALLENGER_WINS').length
-    const opponentVotes = verdicts.filter((v) => v.decision === 'OPPONENT_WINS').length
-    const tieVotes = verdicts.filter((v) => v.decision === 'TIE').length
+    // Calculate total scores from verdicts
+    const challengerTotalScore = verdicts.reduce((sum, v) => sum + (v.challengerScore ?? 0), 0)
+    const opponentTotalScore = verdicts.reduce((sum, v) => sum + (v.opponentScore ?? 0), 0)
 
+    // Determine overall winner based on total score (not majority vote)
+    // The person with the higher total score wins
     let finalWinnerId: string | null = null
-    if (challengerVotes > opponentVotes && challengerVotes > tieVotes) {
+    const scoreDifference = Math.abs(challengerTotalScore - opponentTotalScore)
+    const tieThreshold = 5 // Consider it a tie if scores are within 5 points
+
+    if (scoreDifference < tieThreshold) {
+      // Scores are too close, it's a tie
+      finalWinnerId = null
+    } else if (challengerTotalScore > opponentTotalScore) {
       finalWinnerId = debate.challengerId
-    } else if (opponentVotes > challengerVotes && opponentVotes > tieVotes) {
+    } else if (opponentTotalScore > challengerTotalScore) {
       finalWinnerId = debate.opponentId
     }
-    // If tie or no clear majority, winnerId remains null
+    // If scores are equal or too close, winnerId remains null (tie)
 
     // Calculate ELO changes (simplified ELO system)
     const challengerEloChange = calculateEloChange(
@@ -256,9 +263,7 @@ export async function generateInitialVerdicts(debateId: string) {
       },
     })
 
-    // Calculate total scores from verdicts
-    const challengerTotalScore = verdicts.reduce((sum, v) => sum + (v.challengerScore ?? 0), 0)
-    const opponentTotalScore = verdicts.reduce((sum, v) => sum + (v.opponentScore ?? 0), 0)
+    // Total scores already calculated above for winner determination
     const maxScoreForDebate = verdicts.length * 100 // Each judge can give up to 100 points
 
     // Calculate rounds for analytics

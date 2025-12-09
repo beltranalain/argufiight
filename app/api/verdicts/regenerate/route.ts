@@ -391,17 +391,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Determine overall winner (majority vote)
-    const challengerWins = newVerdicts.filter(v => v.winnerId === debate.challengerId).length
-    const opponentWins = newVerdicts.filter(v => v.winnerId === debate.opponentId).length
-    const ties = newVerdicts.filter(v => !v.winnerId).length
+    // Calculate total scores from new verdicts
+    const challengerNewScore = newVerdicts.reduce((sum, v) => sum + (v.challengerScore ?? 0), 0)
+    const opponentNewScore = newVerdicts.reduce((sum, v) => sum + (v.opponentScore ?? 0), 0)
 
+    // Determine overall winner based on total score (not majority vote)
+    // The person with the higher total score wins
     let finalWinnerId: string | null = null
-    if (challengerWins > opponentWins && challengerWins > ties) {
+    const scoreDifference = Math.abs(challengerNewScore - opponentNewScore)
+    const tieThreshold = 5 // Consider it a tie if scores are within 5 points
+
+    if (scoreDifference < tieThreshold) {
+      // Scores are too close, it's a tie
+      finalWinnerId = null
+    } else if (challengerNewScore > opponentNewScore) {
       finalWinnerId = debate.challengerId
-    } else if (opponentWins > challengerWins && opponentWins > ties && debate.opponentId) {
+    } else if (opponentNewScore > challengerNewScore && debate.opponentId) {
       finalWinnerId = debate.opponentId
     }
+    // If scores are equal or too close, winnerId remains null (tie)
 
     // Calculate ELO changes only if verdict differs from original
     const originalWinnerId = debate.originalWinnerId
