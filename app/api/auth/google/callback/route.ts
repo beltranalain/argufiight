@@ -13,15 +13,18 @@ export async function GET(request: NextRequest) {
 
     console.log('[Google OAuth Callback] Received:', { code: !!code, state, error })
 
+    // Get base URL early for all redirects
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
+
     // Handle OAuth errors
     if (error) {
       console.error('[Google OAuth Callback] OAuth error:', error)
-      return NextResponse.redirect('/login?error=oauth_denied')
+      return NextResponse.redirect(new URL('/login?error=oauth_denied', baseUrl))
     }
 
     if (!code) {
       console.error('[Google OAuth Callback] No code received')
-      return NextResponse.redirect('/login?error=oauth_failed')
+      return NextResponse.redirect(new URL('/login?error=oauth_failed', baseUrl))
     }
 
     // Parse state to get return URL and user type
@@ -77,7 +80,6 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
     const redirectUri = `${baseUrl}/api/auth/google/callback`
     
     console.log('[Google OAuth Callback] Configuration:', {
@@ -100,11 +102,11 @@ export async function GET(request: NextRequest) {
       tokens = tokenResponse.tokens
     } catch (error: any) {
       console.error('Failed to exchange code for tokens:', error)
-      return NextResponse.redirect('/login?error=token_exchange_failed')
+      return NextResponse.redirect(new URL('/login?error=token_exchange_failed', baseUrl))
     }
     
     if (!tokens.id_token) {
-      return NextResponse.redirect('/login?error=no_id_token')
+      return NextResponse.redirect(new URL('/login?error=no_id_token', baseUrl))
     }
 
     // Verify and decode the ID token
@@ -117,11 +119,11 @@ export async function GET(request: NextRequest) {
       payload = ticket.getPayload()
     } catch (error: any) {
       console.error('Failed to verify ID token:', error)
-      return NextResponse.redirect('/login?error=token_verification_failed')
+      return NextResponse.redirect(new URL('/login?error=token_verification_failed', baseUrl))
     }
 
     if (!payload) {
-      return NextResponse.redirect('/login?error=invalid_token')
+      return NextResponse.redirect(new URL('/login?error=invalid_token', baseUrl))
     }
 
     const googleId = payload.sub
@@ -130,7 +132,7 @@ export async function GET(request: NextRequest) {
     const googleName = payload.name
 
     if (!googleEmail) {
-      return NextResponse.redirect('/login?error=no_email')
+      return NextResponse.redirect(new URL('/login?error=no_email', baseUrl))
     }
 
     // Verify user type restrictions (only for advertisers/employees)
@@ -141,10 +143,10 @@ export async function GET(request: NextRequest) {
         where: { contactEmail: googleEmail },
       })
       if (!advertiser) {
-        return NextResponse.redirect('/login?error=not_advertiser')
+        return NextResponse.redirect(new URL('/login?error=not_advertiser', baseUrl))
       }
       if (advertiser.status !== 'APPROVED') {
-        return NextResponse.redirect('/login?error=advertiser_not_approved')
+        return NextResponse.redirect(new URL('/login?error=advertiser_not_approved', baseUrl))
       }
     } else if (userType === 'employee') {
       // Check if user is an employee/admin by email
@@ -152,7 +154,7 @@ export async function GET(request: NextRequest) {
         where: { email: googleEmail },
       })
       if (!existingUser || !existingUser.isAdmin) {
-        return NextResponse.redirect('/login?error=not_employee')
+        return NextResponse.redirect(new URL('/login?error=not_employee', baseUrl))
       }
     }
     // For regular users (userType === 'user' or no userType), no restrictions
@@ -295,14 +297,12 @@ export async function GET(request: NextRequest) {
         cause: sessionError?.cause,
       })
       // If session creation fails, redirect to login with error
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
       return NextResponse.redirect(new URL('/login?error=session_creation_failed', baseUrl))
     }
     
     // Ensure session was created before proceeding
     if (!sessionJWT) {
       console.error('[Google OAuth Callback] Session was not created, aborting')
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
       return NextResponse.redirect(new URL('/login?error=session_creation_failed', baseUrl))
     }
 
@@ -396,8 +396,8 @@ export async function GET(request: NextRequest) {
       return response
     } catch (redirectError: any) {
       console.error('[Google OAuth Callback] Failed to redirect:', redirectError)
-      // Fallback to simple redirect
-      return NextResponse.redirect('/')
+      // Fallback to simple redirect with absolute URL
+      return NextResponse.redirect(new URL('/', baseUrl))
     }
   } catch (error: any) {
     console.error('[Google OAuth Callback] Unhandled error:', {
