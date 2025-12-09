@@ -89,8 +89,13 @@ export async function generateTournamentMatches(
   }> = []
 
   if (roundNumber === 1) {
-    // First round: Different logic for Championship vs Bracket format
-    if (tournament.format === 'CHAMPIONSHIP') {
+    // First round: Different logic for Championship vs Bracket vs King of the Hill format
+    if (tournament.format === 'KING_OF_THE_HILL') {
+      // King of the Hill: Use specialized match generation
+      const { generateKingOfTheHillMatches } = await import('./king-of-the-hill')
+      await generateKingOfTheHillMatches(tournamentId, roundNumber)
+      return
+    } else if (tournament.format === 'CHAMPIONSHIP') {
       // Championship format: Pair PRO vs CON only
       const proParticipants = activeParticipants.filter((p) => p.selectedPosition === 'PRO')
       const conParticipants = activeParticipants.filter((p) => p.selectedPosition === 'CON')
@@ -153,7 +158,14 @@ export async function generateTournamentMatches(
     // For Bracket format, use match winners
     let advancingParticipants: typeof activeParticipants = []
 
-    if (tournament.format === 'CHAMPIONSHIP' && roundNumber === 2) {
+    if (tournament.format === 'KING_OF_THE_HILL') {
+      // King of the Hill: Use all active participants (not eliminated)
+      advancingParticipants = activeParticipants.filter((p) => p.status === 'ACTIVE')
+      // Use specialized match generation
+      const { generateKingOfTheHillMatches } = await import('./king-of-the-hill')
+      await generateKingOfTheHillMatches(tournamentId, roundNumber)
+      return
+    } else if (tournament.format === 'CHAMPIONSHIP' && roundNumber === 2) {
       // Round 2: Use participants who advanced from Round 1 (ACTIVE status)
       advancingParticipants = activeParticipants.filter((p) => p.status === 'ACTIVE')
     } else {

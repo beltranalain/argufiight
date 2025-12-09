@@ -28,7 +28,7 @@ export default function CreateTournamentPage() {
     roundDuration: 24,
     reseedAfterRound: true,
     isPrivate: false,
-    format: 'BRACKET' as 'BRACKET' | 'CHAMPIONSHIP',
+    format: 'BRACKET' as 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL',
     selectedPosition: null as 'PRO' | 'CON' | null,
   })
   const [invitedUsers, setInvitedUsers] = useState<Array<{ id: string; username: string; avatarUrl: string | null; eloRating: number }>>([])

@@ -93,8 +93,61 @@ export async function checkAndAdvanceTournamentRound(
     const nextRoundNumber = roundNumber + 1
     console.log(`[Tournament Round] Generating next round ${nextRoundNumber} for tournament ${tournamentId}`)
 
-    // For Championship format Round 1, use score-based advancement
-    if (round.tournament.format === 'CHAMPIONSHIP' && roundNumber === 1) {
+    // For King of the Hill format, eliminate bottom 25% each round
+    if (round.tournament.format === 'KING_OF_THE_HILL') {
+      console.log(`[King of the Hill] Round ${roundNumber} complete - eliminating bottom 25%`)
+
+      const { getEliminatedParticipants } = await import('./king-of-the-hill')
+      const eliminatedIds = await getEliminatedParticipants(tournamentId, roundNumber)
+
+      // Mark eliminated participants
+      await Promise.all(
+        eliminatedIds.map((participantId) =>
+          prisma.tournamentParticipant.update({
+            where: { id: participantId },
+            data: {
+              status: 'ELIMINATED',
+              eliminatedAt: new Date(),
+            },
+          })
+        )
+      )
+
+      // Mark remaining participants as ACTIVE
+      const remainingParticipants = await prisma.tournamentParticipant.findMany({
+        where: {
+          tournamentId,
+          status: { in: ['REGISTERED', 'ACTIVE'] },
+        },
+      })
+
+      const remainingIds = remainingParticipants
+        .map((p) => p.id)
+        .filter((id) => !eliminatedIds.includes(id))
+
+      await Promise.all(
+        remainingIds.map((participantId) =>
+          prisma.tournamentParticipant.update({
+            where: { id: participantId },
+            data: {
+              status: 'ACTIVE',
+            },
+          })
+        )
+      )
+
+      console.log(
+        `[King of the Hill] ${eliminatedIds.length} participants eliminated, ${remainingIds.length} remaining`
+      )
+
+      // Check if we have enough participants to continue (need at least 2 for finals)
+      if (remainingIds.length < 2) {
+        console.log(`[King of the Hill] Not enough participants remaining - completing tournament`)
+        await completeTournament(tournamentId)
+        return
+      }
+    } else if (round.tournament.format === 'CHAMPIONSHIP' && roundNumber === 1) {
+      // For Championship format Round 1, use score-based advancement
       console.log(`[Championship] Round 1 complete - calculating score-based advancement`)
 
       // Calculate which participants advance based on scores

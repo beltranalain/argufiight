@@ -1707,6 +1707,7 @@ enum TournamentStatus {
 enum TournamentFormat {
   BRACKET // Traditional bracket elimination (current system)
   CHAMPIONSHIP // Position-based, score-advancement format (new)
+  KING_OF_THE_HILL // Free-for-all format, eliminate bottom 25% each round
 }
 
 enum ReseedMethod {
