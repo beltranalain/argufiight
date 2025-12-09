@@ -91,7 +91,7 @@ export async function getFirebaseConfig(): Promise<FirebaseConfig | null> {
 }
 
 /**
- * Get Firebase server key for sending push notifications
+ * Get Firebase server key for sending push notifications (Legacy API)
  */
 export async function getFirebaseServerKey(): Promise<string | null> {
   try {
@@ -108,6 +108,40 @@ export async function getFirebaseServerKey(): Promise<string | null> {
     return process.env.FIREBASE_SERVER_KEY || null
   } catch (error) {
     console.error('Failed to get Firebase server key:', error)
+    return null
+  }
+}
+
+/**
+ * Get Firebase service account JSON (for V1 API)
+ */
+export async function getFirebaseServiceAccount(): Promise<any | null> {
+  try {
+    // Try to get from database first
+    const setting = await prisma.adminSetting.findUnique({
+      where: { key: 'FIREBASE_SERVICE_ACCOUNT' },
+    })
+
+    if (setting?.value) {
+      try {
+        return JSON.parse(setting.value)
+      } catch {
+        return null
+      }
+    }
+
+    // Fallback to environment variable
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+      try {
+        return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+      } catch {
+        return null
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error('Failed to get Firebase service account:', error)
     return null
   }
 }
