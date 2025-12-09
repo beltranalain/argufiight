@@ -55,6 +55,7 @@ export default function BlogManagementPage() {
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [isLoadingPost, setIsLoadingPost] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -269,13 +270,34 @@ export default function BlogManagementPage() {
                   )}
                   <Button
                     variant="secondary"
-                    onClick={() => {
-                      setSelectedPost(post)
-                      setIsEditModalOpen(true)
+                    onClick={async () => {
+                      setIsLoadingPost(true)
+                      try {
+                        const response = await fetch(`/api/admin/blog/${post.id}`)
+                        if (response.ok) {
+                          const data = await response.json()
+                          setSelectedPost({
+                            ...data.post,
+                            categoryIds: data.post.categories.map((c: any) => c.id),
+                            tagIds: data.post.tags.map((t: any) => t.id),
+                          })
+                          setIsEditModalOpen(true)
+                        }
+                      } catch (error) {
+                        console.error('Failed to fetch post:', error)
+                        showToast({
+                          type: 'error',
+                          title: 'Error',
+                          description: 'Failed to load post for editing',
+                        })
+                      } finally {
+                        setIsLoadingPost(false)
+                      }
                     }}
                     className="text-sm px-3 py-1.5"
+                    disabled={isLoadingPost}
                   >
-                    Edit
+                    {isLoadingPost ? 'Loading...' : 'Edit'}
                   </Button>
                   <Button
                     variant="secondary"
