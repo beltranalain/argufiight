@@ -91,10 +91,11 @@ export default function CreateTournamentPage() {
     e.preventDefault()
 
     if (!canCreate?.allowed) {
+      const limit = canCreate?.limit ?? 1
       showToast({
         type: 'warning',
         title: 'Tournament Limit Reached',
-        description: `You've used your ${canCreate.limit || 1} tournament${(canCreate.limit || 1) === 1 ? '' : 's'} this month. Upgrade to Pro for unlimited tournaments!`,
+        description: `You've used your ${limit} tournament${limit === 1 ? '' : 's'} this month. Upgrade to Pro for unlimited tournaments!`,
       })
       return
     }
