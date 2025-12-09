@@ -151,6 +151,9 @@ model User {
   activeContracts AdContract[]    @relation("CreatorContracts")
   creatorTaxInfo  CreatorTaxInfo?
 
+  // Blog relations
+  blogPosts BlogPost[] @relation("BlogPostAuthor")
+
   @@index([email])
   @@index([username])
   @@index([eloRating])
@@ -784,6 +787,9 @@ model Debate {
   isPrivate  Boolean @default(false) @map("is_private") // Private debates require share token
   shareToken String? @unique @map("share_token") // Unique token for sharing private debates
 
+  // SEO & Public Access
+  visibility DebateVisibility @default(PRIVATE) // PUBLIC, PRIVATE, UNLISTED
+
   // Relations
   images DebateImage[]
 
@@ -839,6 +845,12 @@ enum DebateCategory {
 enum DebatePosition {
   FOR
   AGAINST
+}
+
+enum DebateVisibility {
+  PUBLIC   // Publicly indexable and visible
+  PRIVATE  // Only accessible via share token
+  UNLISTED // Accessible via direct link but not indexed
 }
 
 enum DebateStatus {
@@ -1672,6 +1684,9 @@ model MediaLibrary {
   uploadedBy String?  @map("uploaded_by") // User ID
   uploadedAt DateTime @default(now()) @map("uploaded_at")
 
+  // Relations
+  featuredInBlogPosts BlogPost[] @relation("BlogPostFeaturedImage")
+
   @@index([usedIn])
   @@index([uploadedBy])
   @@index([uploadedAt])
@@ -2051,4 +2066,112 @@ model DirectMessage {
   @@index([receiverId])
   @@index([createdAt])
   @@map("direct_messages")
+}
+
+// ============================================
+// BLOG SYSTEM
+// ============================================
+
+enum BlogPostStatus {
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+  ARCHIVED
+}
+
+model BlogPost {
+  id      String  @id @default(uuid())
+  slug    String  @unique // URL-friendly slug (auto-generated from title)
+  title   String
+  excerpt String? @db.Text // Short description for listings
+  content String  @db.Text // Full blog post content (HTML)
+
+  // SEO Fields
+  metaTitle       String? @map("meta_title") // Custom SEO title (defaults to title)
+  metaDescription String? @map("meta_description") // Meta description
+  keywords        String? // Comma-separated keywords
+  ogImage         String? @map("og_image") // Open Graph image URL
+
+  // Publishing
+  status      BlogPostStatus @default(DRAFT) // DRAFT, PUBLISHED, SCHEDULED, ARCHIVED
+  publishedAt DateTime?      @map("published_at") // When to publish (for scheduled)
+
+  // Author
+  authorId String @map("author_id")
+  author   User   @relation("BlogPostAuthor", fields: [authorId], references: [id])
+
+  // Media
+  featuredImageId String?       @map("featured_image_id")
+  featuredImage   MediaLibrary? @relation("BlogPostFeaturedImage", fields: [featuredImageId], references: [id], onDelete: SetNull)
+
+  // Categories & Tags
+  categories BlogPostToCategory[]
+  tags       BlogPostToTag[]
+
+  // Analytics
+  views    Int     @default(0)
+  featured Boolean @default(false) // Featured on homepage
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([slug])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([authorId])
+  @@index([featured])
+  @@index([createdAt])
+  @@map("blog_posts")
+}
+
+model BlogPostCategory {
+  id          String               @id @default(uuid())
+  name        String               @unique
+  slug        String               @unique
+  description String?              @db.Text
+  posts       BlogPostToCategory[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([slug])
+  @@map("blog_post_categories")
+}
+
+model BlogPostTag {
+  id    String          @id @default(uuid())
+  name  String          @unique
+  slug  String          @unique
+  posts BlogPostToTag[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([slug])
+  @@map("blog_post_tags")
+}
+
+// Many-to-many relations
+model BlogPostToCategory {
+  postId     String           @map("post_id")
+  categoryId String           @map("category_id")
+  post       BlogPost         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category   BlogPostCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([postId, categoryId])
+  @@index([postId])
+  @@index([categoryId])
+  @@map("blog_post_to_categories")
+}
+
+model BlogPostToTag {
+  postId String      @map("post_id")
+  tagId  String      @map("tag_id")
+  post   BlogPost    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    BlogPostTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([postId])
+  @@index([tagId])
+  @@map("blog_post_to_tags")
 }

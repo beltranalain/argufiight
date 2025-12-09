@@ -1,8 +1,54 @@
 import { redirect } from 'next/navigation'
+import type { Metadata } from 'next'
 import { verifySessionWithDb } from '@/lib/auth/session-verify'
-import { PublicHomepage } from '@/components/homepage/PublicHomepage'
+import { PublicHomepageServer } from '@/components/homepage/PublicHomepageServer'
 import { DashboardHomePage } from '@/components/dashboard/DashboardHomePage'
 import { prisma } from '@/lib/db/prisma'
+
+// Generate dynamic metadata for SEO
+export async function generateMetadata(): Promise<Metadata> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
+  
+  // Get hero section for default metadata
+  const heroSection = await prisma.homepageSection.findUnique({
+    where: { key: 'hero' },
+    select: { metaTitle: true, metaDescription: true },
+  })
+
+  const title = heroSection?.metaTitle || 'Argufight | AI-Judged Debate Platform - Win Debates with 7 AI Judges'
+  const description = heroSection?.metaDescription || 'Join Argufight, the premier AI-judged debate platform. Debate any topic with 7 unique AI judges, climb the ELO leaderboard, and compete in tournaments. Free to start!'
+
+  return {
+    title,
+    description,
+    keywords: 'debate platform, AI judges, online debates, ELO ranking, debate tournaments, argumentation, critical thinking',
+    openGraph: {
+      title,
+      description,
+      url: baseUrl,
+      siteName: 'Argufight',
+      images: [
+        {
+          url: `${baseUrl}/og-image.png`,
+          width: 1200,
+          height: 630,
+          alt: 'Argufight - AI-Judged Debate Platform',
+        },
+      ],
+      locale: 'en_US',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [`${baseUrl}/twitter-card.png`],
+    },
+    alternates: {
+      canonical: baseUrl,
+    },
+  }
+}
 
 export default async function RootPage() {
   // Use verifySessionWithDb to get full session with userId
@@ -38,6 +84,20 @@ export default async function RootPage() {
     return <DashboardHomePage />
   }
 
-  // If not logged in, show public homepage
-  return <PublicHomepage />
+  // If not logged in, fetch homepage content SERVER-SIDE and show public homepage
+  const sections = await prisma.homepageSection.findMany({
+    where: { isVisible: true },
+    include: {
+      images: {
+        orderBy: { order: 'asc' },
+      },
+      buttons: {
+        where: { isVisible: true },
+        orderBy: { order: 'asc' },
+      },
+    },
+    orderBy: { order: 'asc' },
+  })
+
+  return <PublicHomepageServer sections={sections} />
 }

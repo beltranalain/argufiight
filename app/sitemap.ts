@@ -1,9 +1,11 @@
 import { MetadataRoute } from 'next'
+import { prisma } from '@/lib/db/prisma'
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://honorable-ai.vercel.app'
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
   
-  return [
+  // Static pages
+  const staticPages: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
       lastModified: new Date(),
@@ -28,7 +30,97 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'daily',
       priority: 0.9,
     },
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.9,
+    },
+    // Landing pages
+    {
+      url: `${baseUrl}/online-debate-platform`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/debate-practice`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/ai-debate`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/debate-simulator`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/argument-checker`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
   ]
+
+  // Get public debates
+  let publicDebates: MetadataRoute.Sitemap = []
+  try {
+    publicDebates = await prisma.debate.findMany({
+      where: {
+        visibility: 'PUBLIC',
+        status: 'COMPLETED',
+      },
+      select: {
+        id: true,
+        updatedAt: true,
+      },
+      take: 1000,
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    }).then(debates => debates.map(debate => ({
+      url: `${baseUrl}/debates/${debate.id}`,
+      lastModified: debate.updatedAt,
+      changeFrequency: 'weekly' as const,
+      priority: 0.7,
+    })))
+  } catch (error) {
+    console.log('[Sitemap] Error fetching public debates:', error)
+  }
+
+  // Get published blog posts
+  let blogPosts: MetadataRoute.Sitemap = []
+  try {
+    blogPosts = await prisma.blogPost.findMany({
+      where: {
+        status: 'PUBLISHED',
+      },
+      select: {
+        slug: true,
+        updatedAt: true,
+      },
+      take: 1000,
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    }).then(posts => posts.map(post => ({
+      url: `${baseUrl}/blog/${post.slug}`,
+      lastModified: post.updatedAt,
+      changeFrequency: 'weekly' as const,
+      priority: 0.8,
+    })))
+  } catch (error) {
+    console.log('[Sitemap] Error fetching blog posts:', error)
+  }
+
+  return [...staticPages, ...publicDebates, ...blogPosts]
 }
 
 
