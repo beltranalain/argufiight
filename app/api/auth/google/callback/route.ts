@@ -30,14 +30,25 @@ export async function GET(request: NextRequest) {
     let addAccount = false
     if (state) {
       try {
-        const stateData = JSON.parse(state)
+        // Decode URL-encoded state first
+        const decodedState = decodeURIComponent(state)
+        const stateData = JSON.parse(decodedState)
         returnTo = stateData.returnTo || '/'
         userType = stateData.userType || 'user'
         addAccount = stateData.addAccount === true
         console.log('[Google OAuth Callback] Parsed state:', { returnTo, userType, addAccount })
       } catch (e) {
         console.error('[Google OAuth Callback] Failed to parse OAuth state:', e, 'State:', state)
-        // Use defaults
+        // Try parsing without decoding (in case it's already decoded)
+        try {
+          const stateData = JSON.parse(state)
+          returnTo = stateData.returnTo || '/'
+          userType = stateData.userType || 'user'
+          addAccount = stateData.addAccount === true
+        } catch (e2) {
+          console.error('[Google OAuth Callback] Failed to parse state even without decoding:', e2)
+          // Use defaults
+        }
       }
     }
 
@@ -52,14 +63,14 @@ export async function GET(request: NextRequest) {
           prisma.adminSetting.findUnique({ where: { key: 'GOOGLE_CLIENT_SECRET' } }),
         ])
         
-        if (clientIdSetting && clientIdSetting.value) {
+        if (clientIdSetting?.value) {
           clientId = clientIdSetting.value
         }
-        if (clientSecretSetting && clientSecretSetting.value) {
+        if (clientSecretSetting?.value) {
           clientSecret = clientSecretSetting.value
         }
       } catch (error) {
-        console.error('Failed to fetch Google OAuth credentials from admin settings:', error)
+        console.error('[Google OAuth Callback] Failed to fetch Google OAuth credentials from admin settings:', error)
       }
     }
     
@@ -276,7 +287,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(returnTo || '/')
     }
   } catch (error: any) {
-    console.error('Google OAuth callback error:', error)
+    console.error('[Google OAuth Callback] Error:', error)
+    console.error('[Google OAuth Callback] Error stack:', error?.stack)
+    console.error('[Google OAuth Callback] Error message:', error?.message)
+    console.error('[Google OAuth Callback] Error details:', {
+      name: error?.name,
+      code: error?.code,
+      cause: error?.cause,
+    })
     return NextResponse.redirect('/login?error=oauth_error')
   }
 }
