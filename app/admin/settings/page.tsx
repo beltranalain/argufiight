@@ -434,6 +434,61 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
+            {/* Google OAuth */}
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-4">Google OAuth</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Google Client ID
+                  </label>
+                  <input
+                    type="text"
+                    value={googleClientId}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGoogleClientId(e.target.value)}
+                    placeholder="xxx-xxx.apps.googleusercontent.com"
+                    className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                  />
+                  <p className="text-xs text-text-secondary mt-1">OAuth 2.0 Client ID from Google Cloud Console</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Google Client Secret
+                  </label>
+                  <input
+                    type="password"
+                    value={googleClientSecret}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGoogleClientSecret(e.target.value)}
+                    placeholder="GOCSPX-..."
+                    className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                  />
+                  <p className="text-xs text-text-secondary mt-1">OAuth 2.0 Client Secret (stored encrypted)</p>
+                </div>
+              </div>
+              <div className="mt-4 p-3 bg-electric-blue/10 border border-electric-blue/30 rounded-lg">
+                <p className="text-sm text-electric-blue mb-2">
+                  <strong>Get your Google OAuth credentials:</strong>
+                </p>
+                <p className="text-xs text-text-secondary mb-2">
+                  1. Go to{' '}
+                  <a
+                    href="https://console.cloud.google.com/apis/credentials"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-electric-blue"
+                  >
+                    Google Cloud Console → APIs & Services → Credentials
+                  </a>
+                </p>
+                <p className="text-xs text-text-secondary mb-2">
+                  2. Create OAuth 2.0 Client ID (Web application)
+                </p>
+                <p className="text-xs text-text-secondary">
+                  3. Add redirect URI: <code className="bg-bg-secondary px-1 rounded">https://www.argufight.com/api/auth/google/callback</code>
+                </p>
+              </div>
+            </div>
+
             {/* Resend API Key */}
             <div>
               <div className="flex items-end gap-4">
