@@ -22,6 +22,8 @@ export default function AdminSettingsPage() {
   const [firebaseAppId, setFirebaseAppId] = useState('')
   const [firebaseServerKey, setFirebaseServerKey] = useState('')
   const [firebaseVapidKey, setFirebaseVapidKey] = useState('')
+  const [googleClientId, setGoogleClientId] = useState('')
+  const [googleClientSecret, setGoogleClientSecret] = useState('')
   const [tournamentsEnabled, setTournamentsEnabled] = useState(false)
   
   // Advertising settings
@@ -68,6 +70,8 @@ export default function AdminSettingsPage() {
         setFirebaseAppId(data.FIREBASE_APP_ID || '')
         setFirebaseServerKey(data.FIREBASE_SERVER_KEY || '')
         setFirebaseVapidKey(data.FIREBASE_VAPID_KEY || '')
+        setGoogleClientId(data.GOOGLE_CLIENT_ID || '')
+        setGoogleClientSecret(data.GOOGLE_CLIENT_SECRET || '')
         setTournamentsEnabled(data.TOURNAMENTS_ENABLED === 'true')
         
         // Advertising settings
@@ -110,6 +114,8 @@ export default function AdminSettingsPage() {
           FIREBASE_APP_ID: firebaseAppId,
           FIREBASE_SERVER_KEY: firebaseServerKey,
           FIREBASE_VAPID_KEY: firebaseVapidKey,
+          GOOGLE_CLIENT_ID: googleClientId,
+          GOOGLE_CLIENT_SECRET: googleClientSecret,
           TOURNAMENTS_ENABLED: tournamentsEnabled.toString(),
           // Advertising settings
           ADS_PLATFORM_ENABLED: platformAdsEnabled.toString(),

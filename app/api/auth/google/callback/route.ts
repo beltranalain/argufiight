@@ -34,8 +34,28 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const clientId = process.env.GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    // Check admin settings first, then environment variables
+    let clientId = process.env.GOOGLE_CLIENT_ID
+    let clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    
+    if (!clientId || !clientSecret) {
+      try {
+        const [clientIdSetting, clientSecretSetting] = await Promise.all([
+          prisma.adminSetting.findUnique({ where: { key: 'GOOGLE_CLIENT_ID' } }),
+          prisma.adminSetting.findUnique({ where: { key: 'GOOGLE_CLIENT_SECRET' } }),
+        ])
+        
+        if (clientIdSetting && clientIdSetting.value) {
+          clientId = clientIdSetting.value
+        }
+        if (clientSecretSetting && clientSecretSetting.value) {
+          clientSecret = clientSecretSetting.value
+        }
+      } catch (error) {
+        console.error('Failed to fetch Google OAuth credentials from admin settings:', error)
+      }
+    }
+    
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
     const redirectUri = `${baseUrl}/api/auth/google/callback`
 

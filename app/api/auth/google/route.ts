@@ -1,13 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/db/prisma'
 
 export async function GET(request: NextRequest) {
-  const clientId = process.env.GOOGLE_CLIENT_ID
+  // Check admin settings first, then environment variables
+  let clientId = process.env.GOOGLE_CLIENT_ID
+  
+  if (!clientId) {
+    try {
+      const setting = await prisma.adminSetting.findUnique({
+        where: { key: 'GOOGLE_CLIENT_ID' },
+      })
+      if (setting && setting.value) {
+        clientId = setting.value
+      }
+    } catch (error) {
+      console.error('Failed to fetch GOOGLE_CLIENT_ID from admin settings:', error)
+    }
+  }
+  
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
   const redirectUri = `${baseUrl}/api/auth/google/callback`
   
   if (!clientId) {
     return NextResponse.json(
-      { error: 'Google OAuth not configured' },
+      { error: 'Google OAuth not configured. Please add GOOGLE_CLIENT_ID in admin settings or environment variables.' },
       { status: 500 }
     )
   }
