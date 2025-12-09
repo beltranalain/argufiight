@@ -29,7 +29,7 @@ interface Tournament {
   roundDuration: number
   reseedAfterRound: boolean
   reseedMethod: string
-  format: 'BRACKET' | 'CHAMPIONSHIP'
+  format: 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL'
   assignedJudges: string[] | null
   creator: {
     id: string
@@ -188,6 +188,7 @@ export default function TournamentDetailPage() {
     }
 
     // If Championship format, show position selector first
+    // King of the Hill doesn't require position selection
     if (tournament.format === 'CHAMPIONSHIP') {
       setShowPositionSelector(true)
       return
@@ -336,9 +337,19 @@ export default function TournamentDetailPage() {
                 </Badge>
                 <Badge 
                   variant="default" 
-                  className={tournament.format === 'CHAMPIONSHIP' ? 'bg-cyber-green text-black' : 'bg-bg-tertiary text-text-primary'}
+                  className={
+                    tournament.format === 'CHAMPIONSHIP' 
+                      ? 'bg-cyber-green text-black' 
+                      : tournament.format === 'KING_OF_THE_HILL'
+                      ? 'bg-neon-orange text-black'
+                      : 'bg-bg-tertiary text-text-primary'
+                  }
                 >
-                  {tournament.format === 'CHAMPIONSHIP' ? 'Championship' : 'Bracket'}
+                  {tournament.format === 'CHAMPIONSHIP' 
+                    ? 'Championship' 
+                    : tournament.format === 'KING_OF_THE_HILL'
+                    ? 'King of the Hill'
+                    : 'Bracket'}
                 </Badge>
                 {tournament.format === 'CHAMPIONSHIP' && (
                   <Button

@@ -352,6 +352,13 @@ export default function CreateTournamentPage() {
                       </p>
                     </div>
                   )}
+                  {formData.format === 'KING_OF_THE_HILL' && (
+                    <div className="mt-3 p-3 bg-neon-orange/10 border border-neon-orange/30 rounded-lg">
+                      <p className="text-sm text-text-primary">
+                        <strong>How it works:</strong> All participants debate simultaneously. After each round, the AI judge eliminates the bottom 25% based on performance scores. This continues until only the champion remains!
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Position Selection (Championship only) */}
