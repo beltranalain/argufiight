@@ -51,6 +51,37 @@ export async function createSession(userId: string) {
   return sessionJWT
 }
 
+/**
+ * Create a session without setting the cookie
+ * Use this when you need to set the cookie manually in a redirect response
+ * (e.g., in OAuth callbacks where redirect happens immediately)
+ */
+export async function createSessionWithoutCookie(userId: string) {
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+  
+  // Generate a unique session token using crypto (Node.js only)
+  const crypto = require('crypto')
+  const sessionToken = crypto.randomBytes(32).toString('hex')
+  
+  // Create JWT with session token (not userId directly)
+  const sessionJWT = await new SignJWT({ sessionToken })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(expiresAt)
+    .sign(encodedKey)
+
+  // Store session in database
+  await prisma.session.create({
+    data: {
+      userId,
+      token: sessionToken,
+      expiresAt,
+    },
+  })
+
+  return { sessionJWT, expiresAt }
+}
+
 // Re-export verifySessionWithDb as verifySession for API routes (Node.js runtime)
 // This allows API routes to import from one place
 export { verifySessionWithDb as verifySession, deleteSession, getSession } from './session-verify'

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { OAuth2Client } from 'google-auth-library'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/db/prisma'
-import { createSession } from '@/lib/auth/session'
+import { createSessionWithoutCookie } from '@/lib/auth/session'
 
 export async function GET(request: NextRequest) {
   try {
@@ -280,13 +280,16 @@ export async function GET(request: NextRequest) {
       // Continue without checking for existing session
     }
 
-    // Create session for the new account
+    // Create session for the new account (without setting cookie - we'll set it in redirect)
     let sessionJWT: string | null = null
+    let sessionExpiresAt: Date | null = null
     try {
       console.log('[Google OAuth Callback] Creating session for user:', user.id)
       
-      // Create session - this sets the cookie internally
-      sessionJWT = await createSession(user.id)
+      // Create session without cookie - we'll set cookie in redirect response
+      const sessionResult = await createSessionWithoutCookie(user.id)
+      sessionJWT = sessionResult.sessionJWT
+      sessionExpiresAt = sessionResult.expiresAt
       console.log(`[Google OAuth Callback] Google OAuth login successful for user: ${user.email}${isAddingAccount ? ' (adding account)' : ''}`)
     } catch (sessionError: any) {
       console.error('[Google OAuth Callback] Failed to create session:', {
@@ -301,7 +304,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Ensure session was created before proceeding
-    if (!sessionJWT) {
+    if (!sessionJWT || !sessionExpiresAt) {
       console.error('[Google OAuth Callback] Session was not created, aborting')
       return NextResponse.redirect(new URL('/login?error=session_creation_failed', baseUrl))
     }
@@ -361,11 +364,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Redirect based on user type
-    // IMPORTANT: Explicitly set the session cookie in the redirect response
+    // IMPORTANT: Set the session cookie ONLY in the redirect response
     // This ensures the cookie is included when the browser follows the redirect
     try {
       const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1'
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
       
       // Determine redirect URL
       let redirectUrl: string
@@ -380,18 +382,21 @@ export async function GET(request: NextRequest) {
       // Create redirect response
       const response = NextResponse.redirect(new URL(redirectUrl, baseUrl))
       
-      // Explicitly set the session cookie in the redirect response
-      // This ensures the cookie is sent with the redirect
-      if (sessionJWT) {
-        response.cookies.set('session', sessionJWT, {
-          httpOnly: true,
-          secure: isProduction,
-          sameSite: 'lax',
-          expires: expiresAt,
-          path: '/',
-        })
-        console.log('[Google OAuth Callback] Session cookie set in redirect response')
-      }
+      // Set the session cookie in the redirect response
+      // This is the ONLY place we set the cookie for OAuth flow
+      response.cookies.set('session', sessionJWT, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'lax',
+        expires: sessionExpiresAt,
+        path: '/',
+        // Don't set domain - let browser use current domain
+      })
+      console.log('[Google OAuth Callback] Session cookie set in redirect response', {
+        hasJWT: !!sessionJWT,
+        expiresAt: sessionExpiresAt.toISOString(),
+        isProduction,
+      })
       
       return response
     } catch (redirectError: any) {
