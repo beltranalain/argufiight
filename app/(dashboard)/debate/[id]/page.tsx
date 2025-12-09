@@ -637,12 +637,20 @@ export default function DebatePage() {
                         <div className="space-y-4">
                           {roundStatements.map((statement) => {
                             const isChallenger = statement.author.id === debate.challenger.id
+                            const isOpponent = debate.opponent && statement.author.id === debate.opponent.id
+                            // For group debates (King of the Hill), show all participants
+                            const isGroupDebate = debate.challengeType === 'GROUP'
+                            
                             return (
                               <div
                                 key={statement.id}
                                 className={`p-4 rounded-lg border ${
                                   isChallenger
                                     ? 'bg-bg-secondary border-electric-blue/30'
+                                    : isOpponent
+                                    ? 'bg-bg-tertiary border-bg-tertiary'
+                                    : isGroupDebate
+                                    ? 'bg-bg-secondary/50 border-bg-tertiary'
                                     : 'bg-bg-tertiary border-bg-tertiary'
                                 }`}
                               >
@@ -652,10 +660,17 @@ export default function DebatePage() {
                                     username={statement.author.username}
                                     size="sm"
                                   />
-                                  <div>
-                                    <p className="font-semibold text-text-primary text-sm">
-                                      {statement.author.username}
-                                    </p>
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-semibold text-text-primary text-sm">
+                                        {statement.author.username}
+                                      </p>
+                                      {isGroupDebate && (
+                                        <Badge variant="default" size="sm">
+                                          Participant
+                                        </Badge>
+                                      )}
+                                    </div>
                                     <p className="text-xs text-text-secondary">
                                       {new Date(statement.createdAt).toLocaleString()}
                                     </p>

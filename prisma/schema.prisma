@@ -814,7 +814,7 @@ model Debate {
   comments          DebateComment[]
   appealPredictions AppealPrediction[]
   tags              DebateTag[]
-  tournamentMatch   TournamentMatch?   @relation("TournamentDebate")
+  tournamentMatch   TournamentMatch?    @relation("TournamentDebate")
   socialMediaPosts  SocialMediaPost[]
   participants      DebateParticipant[] // Multi-participant support for group challenges
 
@@ -868,17 +868,17 @@ enum RematchStatus {
 // ============================================
 
 model DebateParticipant {
-  id        String   @id @default(uuid())
-  debateId  String   @map("debate_id")
-  debate    Debate   @relation(fields: [debateId], references: [id], onDelete: Cascade)
-  userId    String   @map("user_id")
-  user      User     @relation("DebateParticipants", fields: [userId], references: [id], onDelete: Cascade)
-  
+  id       String @id @default(uuid())
+  debateId String @map("debate_id")
+  debate   Debate @relation(fields: [debateId], references: [id], onDelete: Cascade)
+  userId   String @map("user_id")
+  user     User   @relation("DebateParticipants", fields: [userId], references: [id], onDelete: Cascade)
+
   position  DebatePosition // FOR or AGAINST
-  status    String   @default("INVITED") // INVITED, ACCEPTED, DECLINED, ACTIVE, ELIMINATED
-  joinedAt  DateTime? @map("joined_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  status    String         @default("INVITED") // INVITED, ACCEPTED, DECLINED, ACTIVE, ELIMINATED
+  joinedAt  DateTime?      @map("joined_at")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
 
   @@unique([debateId, userId])
   @@index([debateId])
@@ -1047,7 +1047,7 @@ model FCMToken {
   userId    String   @map("user_id")
   user      User     @relation("FCMTokens", fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
-  device    String?  // Browser/device identifier (e.g., "Chrome", "Safari", "Mobile App")
+  device    String? // Browser/device identifier (e.g., "Chrome", "Safari", "Mobile App")
   userAgent String?  @map("user_agent")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1830,6 +1830,11 @@ model TournamentParticipant {
 
   // Position selection (Championship format only)
   selectedPosition String? @map("selected_position") // 'PRO' or 'CON'
+
+  // King of the Hill specific fields
+  cumulativeScore   Int?    @map("cumulative_score") // Total score across all rounds
+  eliminationRound  Int?    @map("elimination_round") // Round in which participant was eliminated
+  eliminationReason String? @map("elimination_reason") // AI explanation for elimination
 
   // Status
   status       ParticipantStatus @default(REGISTERED)

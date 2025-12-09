@@ -91,9 +91,17 @@ export async function generateTournamentMatches(
   if (roundNumber === 1) {
     // First round: Different logic for Championship vs Bracket vs King of the Hill format
     if (tournament.format === 'KING_OF_THE_HILL') {
-      // King of the Hill: Use specialized match generation
-      const { generateKingOfTheHillMatches } = await import('./king-of-the-hill')
-      await generateKingOfTheHillMatches(tournamentId, roundNumber)
+      // King of the Hill: Create one debate with all participants
+      const { createKingOfTheHillDebate, shouldTransitionToFinals, createFinalsDebate } = await import('./king-of-the-hill')
+      
+      // Check if we should transition to finals (exactly 2 participants)
+      if (await shouldTransitionToFinals(tournamentId)) {
+        // Create finals debate (traditional 3-round)
+        await createFinalsDebate(tournamentId, roundNumber)
+      } else {
+        // Create regular King of the Hill debate (all participants together)
+        await createKingOfTheHillDebate(tournamentId, roundNumber)
+      }
       return
     } else if (tournament.format === 'CHAMPIONSHIP') {
       // Championship format: Pair PRO vs CON only
@@ -159,11 +167,17 @@ export async function generateTournamentMatches(
     let advancingParticipants: typeof activeParticipants = []
 
     if (tournament.format === 'KING_OF_THE_HILL') {
-      // King of the Hill: Use all active participants (not eliminated)
-      advancingParticipants = activeParticipants.filter((p) => p.status === 'ACTIVE')
-      // Use specialized match generation
-      const { generateKingOfTheHillMatches } = await import('./king-of-the-hill')
-      await generateKingOfTheHillMatches(tournamentId, roundNumber)
+      // King of the Hill: Create one debate with all remaining participants
+      const { createKingOfTheHillDebate, shouldTransitionToFinals, createFinalsDebate } = await import('./king-of-the-hill')
+      
+      // Check if we should transition to finals (exactly 2 participants)
+      if (await shouldTransitionToFinals(tournamentId)) {
+        // Create finals debate (traditional 3-round)
+        await createFinalsDebate(tournamentId, roundNumber)
+      } else {
+        // Create regular King of the Hill debate (all participants together)
+        await createKingOfTheHillDebate(tournamentId, roundNumber)
+      }
       return
     } else if (tournament.format === 'CHAMPIONSHIP' && roundNumber === 2) {
       // Round 2: Use participants who advanced from Round 1 (ACTIVE status)

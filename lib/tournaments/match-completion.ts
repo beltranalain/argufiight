@@ -48,6 +48,58 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
       return
     }
 
+    // For King of the Hill format, handle differently
+    if (match.round.tournament.format === 'KING_OF_THE_HILL') {
+      // King of the Hill: Check if all participants have submitted
+      // Then trigger evaluation and elimination
+      const debate = await prisma.debate.findUnique({
+        where: { id: debateId },
+        include: {
+          participants: {
+            where: { status: 'ACTIVE' },
+          },
+          statements: {
+            where: { round: 1 }, // King of the Hill rounds are single submission rounds
+          },
+        },
+      })
+
+      if (!debate) {
+        console.log(`[Tournament Match] Debate ${debateId} not found for King of the Hill`)
+        return
+      }
+
+      // Check if all active participants have submitted
+      const activeParticipantIds = new Set(debate.participants.map(p => p.userId))
+      const submittedParticipantIds = new Set(debate.statements.map(s => s.authorId))
+      const allSubmitted = activeParticipantIds.size > 0 && 
+        Array.from(activeParticipantIds).every(id => submittedParticipantIds.has(id))
+
+      if (!allSubmitted) {
+        console.log(`[King of the Hill] Not all participants have submitted yet (${submittedParticipantIds.size}/${activeParticipantIds.size})`)
+        return
+      }
+
+      // All participants submitted - trigger evaluation
+      console.log(`[King of the Hill] All participants submitted - triggering evaluation`)
+      const { evaluateKingOfTheHillRound } = await import('./king-of-the-hill')
+      await evaluateKingOfTheHillRound(debateId, match.round.tournamentId, match.round.roundNumber)
+
+      // Mark match as completed
+      await prisma.tournamentMatch.update({
+        where: { id: match.id },
+        data: {
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+      })
+
+      // Check if round is complete and advance if needed
+      await checkAndAdvanceTournamentRound(match.round.tournamentId, match.round.roundNumber)
+      return
+    }
+
+    // For other formats (Bracket, Championship), use standard logic
     // Check if debate has a winner
     // Note: DebateStatus enum doesn't have FORFEITED or CANCELLED
     // Forfeits are handled by checking if debate is COMPLETED but has no winner

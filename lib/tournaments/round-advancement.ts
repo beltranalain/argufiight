@@ -52,7 +52,51 @@ export async function checkAndAdvanceTournamentRound(
       return
     }
 
-    // Check if all matches are complete
+    // For King of the Hill, check if the debate has all submissions
+    if (round.tournament.format === 'KING_OF_THE_HILL') {
+      const match = round.matches[0] // King of the Hill has one match per round
+      if (!match || !match.debateId) {
+        console.log(`[King of the Hill] Round ${roundNumber} has no debate yet`)
+        return
+      }
+
+      const debate = await prisma.debate.findUnique({
+        where: { id: match.debateId },
+        include: {
+          participants: {
+            where: { status: 'ACTIVE' },
+          },
+          statements: {
+            where: { round: 1 }, // King of the Hill rounds are single submission rounds
+          },
+        },
+      })
+
+      if (!debate) {
+        console.log(`[King of the Hill] Debate ${match.debateId} not found`)
+        return
+      }
+
+      // Check if all active participants have submitted
+      const activeParticipantIds = new Set(debate.participants.map(p => p.userId))
+      const submittedParticipantIds = new Set(debate.statements.map(s => s.authorId))
+      const allSubmitted = activeParticipantIds.size > 0 && 
+        Array.from(activeParticipantIds).every(id => submittedParticipantIds.has(id))
+
+      if (!allSubmitted) {
+        console.log(`[King of the Hill] Not all participants have submitted yet (${submittedParticipantIds.size}/${activeParticipantIds.size})`)
+        return
+      }
+
+      // All submitted - evaluation should have been triggered by match completion
+      // Just check if match is completed
+      if (match.status !== 'COMPLETED') {
+        console.log(`[King of the Hill] Match not completed yet, waiting for evaluation`)
+        return
+      }
+    }
+
+    // Check if all matches are complete (for other formats)
     const allMatchesComplete = round.matches.every((m) => m.status === 'COMPLETED')
     const hasMatches = round.matches.length > 0
 
@@ -61,7 +105,7 @@ export async function checkAndAdvanceTournamentRound(
       return
     }
 
-    if (!allMatchesComplete) {
+    if (!allMatchesComplete && round.tournament.format !== 'KING_OF_THE_HILL') {
       // Round not complete yet
       const completedCount = round.matches.filter((m) => m.status === 'COMPLETED').length
       console.log(
@@ -93,40 +137,39 @@ export async function checkAndAdvanceTournamentRound(
     const nextRoundNumber = roundNumber + 1
     console.log(`[Tournament Round] Generating next round ${nextRoundNumber} for tournament ${tournamentId}`)
 
-    // For King of the Hill format, eliminate bottom 25% each round
+    // For King of the Hill format, evaluate all submissions and eliminate bottom 25%
     if (round.tournament.format === 'KING_OF_THE_HILL') {
-      console.log(`[King of the Hill] Round ${roundNumber} complete - eliminating bottom 25%`)
+      console.log(`[King of the Hill] Round ${roundNumber} complete - evaluating all submissions and eliminating bottom 25%`)
 
-      const { getEliminatedParticipants } = await import('./king-of-the-hill')
-      const eliminatedIds = await getEliminatedParticipants(tournamentId, roundNumber)
-
-      // Mark eliminated participants
-      await Promise.all(
-        eliminatedIds.map((participantId) =>
-          prisma.tournamentParticipant.update({
-            where: { id: participantId },
-            data: {
-              status: 'ELIMINATED',
-              eliminatedAt: new Date(),
-            },
-          })
-        )
-      )
-
-      // Mark remaining participants as ACTIVE
-      const remainingParticipants = await prisma.tournamentParticipant.findMany({
+      // Get the debate for this round
+      const roundMatch = await prisma.tournamentMatch.findFirst({
         where: {
-          tournamentId,
-          status: { in: ['REGISTERED', 'ACTIVE'] },
+          roundId: round.id,
+        },
+        include: {
+          debate: true,
         },
       })
 
-      const remainingIds = remainingParticipants
-        .map((p) => p.id)
-        .filter((id) => !eliminatedIds.includes(id))
+      if (!roundMatch || !roundMatch.debateId) {
+        throw new Error(`No debate found for King of the Hill round ${roundNumber}`)
+      }
 
+      // Evaluate all submissions together
+      const { evaluateKingOfTheHillRound } = await import('./king-of-the-hill')
+      const eliminationResult = await evaluateKingOfTheHillRound(
+        roundMatch.debateId,
+        tournamentId,
+        roundNumber
+      )
+
+      console.log(
+        `[King of the Hill] ${eliminationResult.eliminatedParticipantIds.length} participants eliminated, ${eliminationResult.remainingParticipantIds.length} remaining`
+      )
+
+      // Mark remaining participants as ACTIVE
       await Promise.all(
-        remainingIds.map((participantId) =>
+        eliminationResult.remainingParticipantIds.map((participantId) =>
           prisma.tournamentParticipant.update({
             where: { id: participantId },
             data: {
@@ -136,12 +179,11 @@ export async function checkAndAdvanceTournamentRound(
         )
       )
 
-      console.log(
-        `[King of the Hill] ${eliminatedIds.length} participants eliminated, ${remainingIds.length} remaining`
-      )
-
-      // Check if we have enough participants to continue (need at least 2 for finals)
-      if (remainingIds.length < 2) {
+      // Check if we should transition to finals (exactly 2 remaining)
+      if (eliminationResult.remainingParticipantIds.length === 2) {
+        console.log(`[King of the Hill] Transitioning to finals with 2 participants`)
+        // Next round will be created as finals by match generation
+      } else if (eliminationResult.remainingParticipantIds.length < 2) {
         console.log(`[King of the Hill] Not enough participants remaining - completing tournament`)
         await completeTournament(tournamentId)
         return
