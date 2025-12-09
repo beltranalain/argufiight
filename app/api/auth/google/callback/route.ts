@@ -85,7 +85,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect('/login?error=no_email')
     }
 
-    // Verify user type restrictions
+    // Verify user type restrictions (only for advertisers/employees)
+    // Regular users can now use Google login without restrictions
     if (userType === 'advertiser') {
       // Check if user is an approved advertiser
       const advertiser = await prisma.advertiser.findUnique({
@@ -106,6 +107,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect('/login?error=not_employee')
       }
     }
+    // For regular users (userType === 'user' or no userType), no restrictions
 
     // Check if user exists with this Google ID
     let user = await prisma.user.findUnique({
@@ -119,52 +121,50 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // If user doesn't exist, create new user (only for advertisers/employees)
+    // If user doesn't exist, create new user (for all user types now)
     if (!user) {
-      if (userType === 'advertiser') {
-        // Create user account for advertiser
-        // Generate a unique username from email
-        const baseUsername = googleEmail.split('@')[0]
-        let username = baseUsername
-        let counter = 1
-        while (await prisma.user.findUnique({ where: { username } })) {
-          username = `${baseUsername}${counter}`
-          counter++
-        }
+      // Generate a unique username from email
+      const baseUsername = googleEmail.split('@')[0]
+      let username = baseUsername
+      let counter = 1
+      while (await prisma.user.findUnique({ where: { username } })) {
+        username = `${baseUsername}${counter}`
+        counter++
+      }
 
-        // Generate a placeholder password hash for OAuth users (they won't use it)
-        const crypto = require('crypto')
-        const placeholderHash = crypto.randomBytes(32).toString('hex')
+      // Generate a placeholder password hash for OAuth users (they won't use it)
+      const crypto = require('crypto')
+      const placeholderHash = crypto.randomBytes(32).toString('hex')
 
-        user = await prisma.user.create({
-          data: {
-            email: googleEmail,
-            username,
-            avatarUrl: googlePicture || null,
-            googleId,
-            googleEmail,
-            googlePicture: googlePicture || null,
-            googleAuthEnabled: true,
-            passwordHash: placeholderHash, // Placeholder hash for OAuth users
-            // Create FREE subscription for new user
-            subscription: {
-              create: {
-                tier: 'FREE',
-                status: 'ACTIVE',
-              },
-            },
-            // Create appeal limit
-            appealLimit: {
-              create: {
-                monthlyLimit: 4,
-                currentCount: 0,
-              },
+      user = await prisma.user.create({
+        data: {
+          email: googleEmail,
+          username,
+          avatarUrl: googlePicture || null,
+          googleId,
+          googleEmail,
+          googlePicture: googlePicture || null,
+          googleAuthEnabled: true,
+          passwordHash: placeholderHash, // Placeholder hash for OAuth users
+          // Create FREE subscription for new user
+          subscription: {
+            create: {
+              tier: 'FREE',
+              status: 'ACTIVE',
             },
           },
-        })
-      } else {
-        return NextResponse.redirect('/login?error=user_not_found')
-      }
+          // Create appeal limit
+          appealLimit: {
+            create: {
+              monthlyLimit: 4,
+              currentCount: 0,
+            },
+          },
+        },
+      })
+      
+      // If username needs to be set from Google name, prompt user later
+      // For now, use email-based username
     } else {
       // Update existing user with Google OAuth info
       user = await prisma.user.update({
@@ -190,7 +190,8 @@ export async function GET(request: NextRequest) {
     } else if (userType === 'advertiser') {
       return NextResponse.redirect('/advertiser/dashboard')
     } else {
-      return NextResponse.redirect(returnTo)
+      // Regular users go to dashboard/home
+      return NextResponse.redirect(returnTo || '/')
     }
   } catch (error: any) {
     console.error('Google OAuth callback error:', error)

@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   // Get the intended redirect URL and user type from query params
   const searchParams = request.nextUrl.searchParams
   const returnTo = searchParams.get('returnTo') || '/'
-  const userType = searchParams.get('userType') || 'advertiser' // 'advertiser' or 'employee'
+  const userType = searchParams.get('userType') || 'user' // 'user', 'advertiser', or 'employee'
 
   // Build Google OAuth URL
   const params = new URLSearchParams({
