@@ -1,6 +1,40 @@
 # Project Status and Next Steps
-**Last Updated:** December 9, 2024  
-**Session:** King of the Hill Tournament Implementation + Google OAuth Fixes
+**Last Updated:** December 10, 2024  
+**Session:** King of the Hill Tournament Implementation + Google OAuth Fixes + Notification Error Investigation
+
+## 🚨 **QUICK REFERENCE - START HERE**
+
+### **Critical Issues:**
+1. **Google OAuth 401 Errors** - Session cookie not persisting after OAuth callback
+   - File: `app/api/auth/google/callback/route.ts`
+   - Status: Partially fixed, still investigating cookie persistence
+
+2. **Notification Raw SQL Error** - Boolean/integer type mismatch
+   - File: `app/api/notifications/route.ts` (line 42)
+   - Fix: Change `n.read = 0` to `n.read = false`
+   - Status: Identified, ready to fix
+
+### **GitHub Repository:**
+- Remote: `argufight`
+- URL: `https://github.com/argufight/argufight.git`
+- Branch: `main`
+
+### **Quick Commands:**
+```bash
+# Pull latest code
+git pull argufight main
+
+# Install dependencies
+npm install
+
+# Generate Prisma client
+npx prisma generate
+
+# Push changes
+git add -A
+git commit -m "Your message"
+git push argufight main
+```
 
 ---
 
@@ -42,7 +76,7 @@
 ---
 
 ### 2. **Notification System - Raw SQL Error** ⚠️ MEDIUM PRIORITY
-**Status:** Not Fixed  
+**Status:** Identified - Ready to Fix  
 **Issue:** Repeated errors in logs:
 ```
 Raw SQL notification fetch failed, falling back to Prisma: Invalid `prisma.$queryRawUnsafe()` invocation: 
@@ -50,19 +84,30 @@ Raw query failed. Code: `42883`. Message: `ERROR: operator does not exist: boole
 HINT: No operator matches the given name and argument types. You might need to add explicit type casts.`
 ```
 
-**What This Means:**
-- Notification queries are using raw SQL with incorrect type casting
-- System falls back to Prisma queries (working but slower)
-- Error appears frequently in production logs
+**Root Cause Found:**
+- In `app/api/notifications/route.ts` line 42, the query uses `n.read = 0` (integer)
+- But `read` is a `Boolean` field in the database (see `prisma/schema.prisma` line 1035)
+- PostgreSQL cannot compare boolean to integer without explicit casting
 
-**Files to Check:**
-- Search for `$queryRawUnsafe` in notification-related files
-- Likely in: `lib/notifications/` or `app/api/notifications/route.ts`
+**Exact Fix Needed:**
+Change line 42 in `app/api/notifications/route.ts`:
+```sql
+-- CURRENT (WRONG):
+WHERE n.user_id = $1 AND n.read = 0
+
+-- SHOULD BE:
+WHERE n.user_id = $1 AND n.read = false
+-- OR:
+WHERE n.user_id = $1 AND n.read = $3::boolean
+```
+
+**Files to Fix:**
+- `app/api/notifications/route.ts` (line 42) - Change `n.read = 0` to `n.read = false`
 
 **Next Steps:**
-1. Find the raw SQL query causing the error
-2. Add explicit type casts for boolean/integer comparisons
-3. Or replace raw SQL with Prisma queries
+1. ✅ Fix line 42: Change `n.read = 0` to `n.read = false`
+2. Test notification queries work correctly
+3. Verify error no longer appears in logs
 
 ---
 
@@ -250,16 +295,23 @@ Message: `ERROR: operator does not exist: boolean = integer
 HINT: No operator matches the given name and argument types. You might need to add explicit type casts.`
 ```
 
-### **Investigation Needed:**
-1. Search codebase for `$queryRawUnsafe` in notification files
-2. Find the query comparing boolean to integer
-3. Add explicit type casts: `::boolean` or `::integer`
-4. Or replace with Prisma queries
+### **Fix Identified:**
+**File:** `app/api/notifications/route.ts`  
+**Line:** 42  
+**Issue:** `n.read = 0` compares boolean field to integer  
+**Fix:** Change to `n.read = false`
 
-### **Files to Check:**
-- `app/api/notifications/route.ts`
-- `lib/notifications/*.ts`
-- Any file with `queryRawUnsafe` and notification logic
+**Code Change:**
+```typescript
+// Line 42 - BEFORE:
+WHERE n.user_id = $1 AND n.read = 0
+
+// Line 42 - AFTER:
+WHERE n.user_id = $1 AND n.read = false
+```
+
+### **Files to Fix:**
+- ✅ `app/api/notifications/route.ts` (line 42) - Change `n.read = 0` to `n.read = false`
 
 ---
 
@@ -314,9 +366,10 @@ npm run build
 6. ⚠️ **TODO:** Add detailed logging
 
 ### **Priority 2: Fix Notification Error**
-1. ⚠️ **TODO:** Find the raw SQL query
-2. ⚠️ **TODO:** Add type casts or replace with Prisma
-3. ⚠️ **TODO:** Test notification queries
+1. ✅ **DONE:** Found the raw SQL query (line 42 in `app/api/notifications/route.ts`)
+2. ⚠️ **TODO:** Change `n.read = 0` to `n.read = false` on line 42
+3. ⚠️ **TODO:** Test notification queries work correctly
+4. ⚠️ **TODO:** Verify error no longer appears in production logs
 
 ---
 
@@ -348,9 +401,10 @@ npx prisma generate
 - Test the full OAuth flow
 
 ### **6. Fix Notification Error:**
-- Search for `queryRawUnsafe` in notification code
-- Fix type casting issues
+- ✅ **Identified:** Line 42 in `app/api/notifications/route.ts` - change `n.read = 0` to `n.read = false`
+- Fix the boolean comparison
 - Test notification queries
+- Verify error no longer appears in logs
 
 ---
 
