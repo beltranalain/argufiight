@@ -74,8 +74,17 @@ export async function generateVerdict(
 
   // Determine if debate is complete
   const isComplete = debateContext.isComplete && debateContext.currentRound >= debateContext.totalRounds
+  
+  // Check if debate ended due to time expiration (has "[No submission - Time expired]" statements)
+  const hasExpiredStatements = debateContext.statements.some(s => 
+    s.content.includes('[No submission - Time expired]') || 
+    s.content.includes('Time expired')
+  )
+  
   const completionNote = isComplete 
     ? 'This debate has been completed with all rounds finished. Judge based on the full set of arguments presented.'
+    : hasExpiredStatements
+    ? `This debate ended due to time expiration. Some rounds were not completed because participants missed the deadline. Judge based on whatever arguments were submitted before the time expired. If a debater missed a round due to time expiration, consider that as a negative factor in your evaluation - they failed to meet the deadline.`
     : `This debate is incomplete (Round ${debateContext.currentRound}/${debateContext.totalRounds}). Judge based on whatever arguments are available, even if not all rounds were completed. If a debater missed a round, consider that in your evaluation.`
 
   try {
@@ -96,7 +105,7 @@ Analyze the available arguments and provide your verdict in the following JSON f
 
 {
   "winner": "CHALLENGER" | "OPPONENT" | "TIE",
-  "reasoning": "Your detailed explanation of why you reached this decision. ${isComplete ? 'Do not mention that the debate is incomplete, as it has been fully completed.' : 'Mention if the incomplete nature of the debate affected your evaluation.'}",
+  "reasoning": "Your detailed explanation of why you reached this decision. ${isComplete ? 'Do not mention that the debate is incomplete, as it has been fully completed.' : hasExpiredStatements ? 'Mention that the debate ended due to time expiration and how missed deadlines affected your evaluation.' : 'Mention if the incomplete nature of the debate affected your evaluation.'}",
   "challengerScore": 0-100,
   "opponentScore": 0-100
 }
@@ -199,7 +208,13 @@ function buildDebateSummary(context: DebateContext): string {
       
       roundStatements.forEach((statement) => {
         summary += `${statement.author} (${statement.position}):\n`
-        summary += `${statement.content}\n\n`
+        // Highlight expired submissions
+        if (statement.content.includes('[No submission - Time expired]') || statement.content.includes('Time expired')) {
+          summary += `[MISSED DEADLINE - NO SUBMISSION]\n`
+          summary += `This participant failed to submit their argument before the deadline expired.\n\n`
+        } else {
+          summary += `${statement.content}\n\n`
+        }
       })
     })
 

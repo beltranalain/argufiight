@@ -190,19 +190,29 @@ export async function POST(request: NextRequest) {
             })
 
             // Trigger verdict generation
-            import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
-              try {
-                await generateModule.generateInitialVerdicts(debate.id)
-                console.log('✅ [Process Expired] Verdict generation completed for debate:', debate.id)
-              } catch (error: any) {
-                console.error('❌ [Process Expired] Error generating verdicts:', {
-                  debateId: debate.id,
-                  error: error.message
-                })
-              }
-            }).catch((importError: any) => {
-              console.error('❌ [Process Expired] Failed to import generate module:', importError.message)
-            })
+            // IMPORTANT: Await this to ensure verdicts are generated before returning
+            try {
+              const generateModule = await import('@/lib/verdicts/generate-initial')
+              console.log(`[Process Expired] Starting verdict generation for completed debate ${debate.id}`)
+              await generateModule.generateInitialVerdicts(debate.id)
+              console.log('✅ [Process Expired] Verdict generation completed for debate:', debate.id)
+              
+              // Update debate status to VERDICT_READY after verdicts are generated
+              await prisma.debate.update({
+                where: { id: debate.id },
+                data: {
+                  status: 'VERDICT_READY',
+                },
+              })
+              console.log(`[Process Expired] Updated debate ${debate.id} status to VERDICT_READY`)
+            } catch (error: any) {
+              console.error('❌ [Process Expired] Error generating verdicts:', {
+                debateId: debate.id,
+                error: error.message,
+                stack: error.stack,
+              })
+              // Don't throw - log the error but continue processing other debates
+            }
 
             results.completed++
           } else {
@@ -320,23 +330,33 @@ async function handleMissingSubmission(
         WHERE id = ${debate.id}
       `
 
-      console.log(`[Process Expired] Ending debate ${debate.id} - Round ${debate.currentRound}/${debate.totalRounds} ${isHalfwayThrough && !isFinalRound ? '(halfway through)' : '(final round)'}`)
+      console.log(`[Process Expired] Ending debate ${debate.id} - Round ${debate.currentRound}/${debate.totalRounds} ${isHalfwayThrough && !isFinalRound ? '(halfway through)' : '(final round)'} - Time expired, generating verdicts`)
 
       // Trigger verdict generation automatically (direct function call)
       // AI will judge whatever arguments are available, even if incomplete
-      import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
-        try {
-          await generateModule.generateInitialVerdicts(debate.id)
-          console.log('✅ [Process Expired] Verdict generation completed for debate:', debate.id)
-        } catch (error: any) {
-          console.error('❌ [Process Expired] Error generating verdicts:', {
-            debateId: debate.id,
-            error: error.message
-          })
-        }
-      }).catch((importError: any) => {
-        console.error('❌ [Process Expired] Failed to import generate module:', importError.message)
-      })
+      // IMPORTANT: Await this to ensure verdicts are generated before returning
+      try {
+        const generateModule = await import('@/lib/verdicts/generate-initial')
+        console.log(`[Process Expired] Starting verdict generation for expired debate ${debate.id}`)
+        await generateModule.generateInitialVerdicts(debate.id)
+        console.log('✅ [Process Expired] Verdict generation completed for debate:', debate.id)
+        
+        // Update debate status to VERDICT_READY after verdicts are generated
+        await prisma.$executeRaw`
+          UPDATE debates
+          SET status = ${'VERDICT_READY'}::"DebateStatus"
+          WHERE id = ${debate.id}
+        `
+        console.log(`[Process Expired] Updated debate ${debate.id} status to VERDICT_READY`)
+      } catch (error: any) {
+        console.error('❌ [Process Expired] Error generating verdicts:', {
+          debateId: debate.id,
+          error: error.message,
+          stack: error.stack,
+        })
+        // Don't throw - log the error but continue processing other debates
+        // The debate remains COMPLETED but without verdicts - can be retried later
+      }
     } else {
       // Not halfway through yet - advance to next round
       const newDeadline = new Date(now.getTime() + debate.roundDuration)
@@ -420,22 +440,33 @@ async function handleBothMissing(debate: any, now: Date) {
       },
     })
 
-    console.log(`[Process Expired] Ending debate ${debate.id} (both missing) - Round ${debate.currentRound}/${debate.totalRounds} ${isHalfwayThrough && !isFinalRound ? '(halfway through)' : '(final round)'}`)
+    console.log(`[Process Expired] Ending debate ${debate.id} (both missing) - Round ${debate.currentRound}/${debate.totalRounds} ${isHalfwayThrough && !isFinalRound ? '(halfway through)' : '(final round)'} - Time expired, generating verdicts`)
 
     // Trigger verdict generation (AI will judge whatever arguments exist)
-    import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
-      try {
-        await generateModule.generateInitialVerdicts(debate.id)
-        console.log('✅ [Process Expired] Verdict generation completed for debate:', debate.id)
-      } catch (error: any) {
-        console.error('❌ [Process Expired] Error generating verdicts:', {
-          debateId: debate.id,
-          error: error.message
-        })
-      }
-    }).catch((importError: any) => {
-      console.error('❌ [Process Expired] Failed to import generate module:', importError.message)
-    })
+    // IMPORTANT: Await this to ensure verdicts are generated before returning
+    try {
+      const generateModule = await import('@/lib/verdicts/generate-initial')
+      console.log(`[Process Expired] Starting verdict generation for expired debate ${debate.id} (both participants missed deadline)`)
+      await generateModule.generateInitialVerdicts(debate.id)
+      console.log('✅ [Process Expired] Verdict generation completed for debate:', debate.id)
+      
+      // Update debate status to VERDICT_READY after verdicts are generated
+      await prisma.debate.update({
+        where: { id: debate.id },
+        data: {
+          status: 'VERDICT_READY',
+        },
+      })
+      console.log(`[Process Expired] Updated debate ${debate.id} status to VERDICT_READY`)
+    } catch (error: any) {
+      console.error('❌ [Process Expired] Error generating verdicts:', {
+        debateId: debate.id,
+        error: error.message,
+        stack: error.stack,
+      })
+      // Don't throw - log the error but continue processing other debates
+      // The debate remains COMPLETED but without verdicts - can be retried later
+    }
   } else {
     // Not halfway through yet - advance to next round
     const newDeadline = new Date(now.getTime() + debate.roundDuration)
