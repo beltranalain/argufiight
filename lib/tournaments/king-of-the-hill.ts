@@ -213,7 +213,27 @@ export async function evaluateKingOfTheHillRound(
     throw new Error('No submissions found from active tournament participants')
   }
 
+  // Automatically eliminate participants who didn't submit (they get score 0)
+  const submittedUserIds = new Set(submissions.map(s => s.userId))
+  const participantsWhoDidntSubmit = tournamentParticipants.filter(tp => !submittedUserIds.has(tp.userId))
+  
+  // Mark non-submitters as eliminated immediately
+  for (const nonSubmitter of participantsWhoDidntSubmit) {
+    await prisma.tournamentParticipant.update({
+      where: { id: nonSubmitter.id },
+      data: {
+        status: 'ELIMINATED',
+        eliminatedAt: new Date(),
+        eliminationRound: roundNumber,
+        eliminationReason: 'Did not submit an argument for this round',
+      },
+    })
+  }
+
   console.log(`[King of the Hill] Evaluating ${submissions.length} submissions from ${tournamentParticipants.length} active participants`)
+  if (participantsWhoDidntSubmit.length > 0) {
+    console.log(`[King of the Hill] Automatically eliminated ${participantsWhoDidntSubmit.length} participant(s) who did not submit`)
+  }
 
   // Call AI to evaluate all submissions together
   const { generateKingOfTheHillVerdict } = await import('./king-of-the-hill-ai')
@@ -297,8 +317,14 @@ export async function evaluateKingOfTheHillRound(
     })
   }
 
+  // Include non-submitters in eliminated list
+  const allEliminatedIds = [
+    ...eliminated.map((e) => e.participantId),
+    ...participantsWhoDidntSubmit.map((p) => p.id),
+  ]
+
   return {
-    eliminatedParticipantIds: eliminated.map((e) => e.participantId),
+    eliminatedParticipantIds: allEliminatedIds,
     eliminationExplanations,
     remainingParticipantIds: remaining.map((r) => r.participantId),
     scores: participantScores,
