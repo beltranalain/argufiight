@@ -33,17 +33,14 @@ export default async function BlogPage({
   const limit = 10
   const skip = (page - 1) * limit
 
-  // Build the where clause with proper AND/OR structure
+  // Build the where clause - show all PUBLISHED posts regardless of publishedAt date
+  // This ensures all published posts show immediately when status is set to PUBLISHED
   const where: any = {
-    AND: [
-      { status: 'PUBLISHED' },
-      {
-        OR: [
-          { publishedAt: { lte: new Date() } },
-          { publishedAt: null },
-        ],
-      },
-    ],
+    status: 'PUBLISHED',
+    // Include all published posts - don't filter by publishedAt date
+    // If publishedAt is in the future, it will still show (admin can schedule if needed)
+    // If publishedAt is null, it will show
+    // If publishedAt is in the past, it will show
   }
 
   // Add category filter
