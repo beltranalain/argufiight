@@ -373,12 +373,24 @@ export default function DebatePage() {
   }
 
   // Check if this is a group challenge (King of the Hill)
-  // Check by tournament format, challengeType, OR by having more than 2 participants
+  // Check by tournament format FIRST (most reliable), then challengeType, OR by having more than 2 participants
   const isGroupChallenge = debate && (
     debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL' ||
     debate.challengeType === 'GROUP' || 
     (debate.participants && debate.participants.length > 2)
   )
+
+  // Debug logging for King of the Hill detection
+  if (debate && process.env.NODE_ENV === 'development') {
+    console.log('[Debate Page] King of the Hill Detection:', {
+      debateId: debate.id,
+      tournamentFormat: debate.tournamentMatch?.tournament?.format,
+      challengeType: debate.challengeType,
+      participantsCount: debate.participants?.length || 0,
+      isGroupChallenge,
+      hasParticipants: !!debate.participants,
+    })
+  }
 
   // Check if user is a participant (for both 2-person and group debates)
   const isParticipant = debate && user && (
@@ -571,28 +583,39 @@ export default function DebatePage() {
               )}
 
               {/* Participants */}
-              {isGroupChallenge && debate.participants && debate.participants.length > 0 ? (
+              {/* For King of the Hill tournaments, ALWAYS show participants view, even if participants array is empty */}
+              {(isGroupChallenge || debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL') ? (
                 // Show all participants for GROUP debates (King of the Hill)
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-text-primary mb-4">All Participants ({debate.participants.length})</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {debate.participants.map((participant) => (
-                      <div key={participant.id} className="flex items-center gap-4 p-3 rounded-lg border border-bg-tertiary bg-bg-secondary/50">
-                        <Avatar 
-                          src={participant.user.avatarUrl}
-                          username={participant.user.username}
-                          size="lg"
-                        />
-                        <div>
-                          <p className="font-semibold text-text-primary">{participant.user.username}</p>
-                          <p className="text-sm text-text-secondary">ELO: {participant.user.eloRating}</p>
-                          <Badge variant="default" size="sm" className="mt-1">
-                            {participant.position}
-                          </Badge>
+                  <h3 className="text-lg font-semibold text-text-primary mb-4">
+                    {debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL' 
+                      ? `King of the Hill - All Participants${debate.participants && debate.participants.length > 0 ? ` (${debate.participants.length})` : ''}`
+                      : `All Participants (${debate.participants?.length || 0})`}
+                  </h3>
+                  {debate.participants && debate.participants.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {debate.participants.map((participant) => (
+                        <div key={participant.id} className="flex items-center gap-4 p-3 rounded-lg border border-bg-tertiary bg-bg-secondary/50">
+                          <Avatar 
+                            src={participant.user.avatarUrl}
+                            username={participant.user.username}
+                            size="lg"
+                          />
+                          <div>
+                            <p className="font-semibold text-text-primary">{participant.user.username}</p>
+                            <p className="text-sm text-text-secondary">ELO: {participant.user.eloRating}</p>
+                            <Badge variant="default" size="sm" className="mt-1">
+                              {participant.position}
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-lg border border-bg-tertiary bg-bg-secondary/50">
+                      <p className="text-text-secondary">Loading participants...</p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 // Show challenger/opponent for regular debates
