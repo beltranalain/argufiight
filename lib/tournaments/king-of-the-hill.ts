@@ -179,7 +179,8 @@ export async function evaluateKingOfTheHillRound(
     throw new Error('Debate not found')
   }
 
-  // Get tournament participants with cumulative scores
+  // Get tournament participants who are ACTIVE (not yet eliminated)
+  // These are the participants who should be evaluated in this round
   const tournamentParticipants = await prisma.tournamentParticipant.findMany({
     where: {
       tournamentId,
@@ -195,13 +196,24 @@ export async function evaluateKingOfTheHillRound(
     },
   })
 
-  // Build context for AI evaluation
-  const submissions = debate.statements.map((statement) => ({
-    userId: statement.authorId,
-    username: statement.author.username,
-    content: statement.content,
-    round: statement.round,
-  }))
+  // Build context for AI evaluation - only include participants who actually submitted
+  const submissions = debate.statements
+    .filter(statement => {
+      // Only include statements from active tournament participants
+      return tournamentParticipants.some(tp => tp.userId === statement.authorId)
+    })
+    .map((statement) => ({
+      userId: statement.authorId,
+      username: statement.author.username,
+      content: statement.content,
+      round: statement.round,
+    }))
+
+  if (submissions.length === 0) {
+    throw new Error('No submissions found from active tournament participants')
+  }
+
+  console.log(`[King of the Hill] Evaluating ${submissions.length} submissions from ${tournamentParticipants.length} active participants`)
 
   // Call AI to evaluate all submissions together
   const { generateKingOfTheHillVerdict } = await import('./king-of-the-hill-ai')
@@ -212,31 +224,48 @@ export async function evaluateKingOfTheHillRound(
   )
 
   // Map AI verdict to participant scores
-  const participantScores: ParticipantScore[] = tournamentParticipants.map((tp) => {
-    const verdictEntry = verdict.rankings.find((r) => r.userId === tp.userId)
-    const roundScore = verdictEntry?.score || 0
-    const cumulativeScore = (tp.cumulativeScore || 0) + roundScore
+  // Only include tournament participants who actually submitted
+  const participantScores: ParticipantScore[] = tournamentParticipants
+    .filter(tp => submissions.some(s => s.userId === tp.userId))
+    .map((tp) => {
+      const verdictEntry = verdict.rankings.find((r) => r.userId === tp.userId)
+      const roundScore = verdictEntry?.score || 0
+      const cumulativeScore = (tp.cumulativeScore || 0) + roundScore
 
-    return {
-      participantId: tp.id,
-      userId: tp.userId,
-      username: tp.user.username,
-      score: roundScore,
-      cumulativeScore,
-      rank: verdictEntry?.rank || tournamentParticipants.length,
-    }
-  })
+      return {
+        participantId: tp.id,
+        userId: tp.userId,
+        username: tp.user.username,
+        score: roundScore,
+        cumulativeScore,
+        rank: verdictEntry?.rank || tournamentParticipants.length,
+      }
+    })
 
   // Sort by score (descending - highest first)
   participantScores.sort((a, b) => b.score - a.score)
 
   // Calculate how many to eliminate (bottom 25%, minimum 1)
+  // Use the number of participants who actually submitted, not total tournament participants
   const totalParticipants = participantScores.length
   const eliminateCount = Math.max(1, Math.ceil(totalParticipants * 0.25))
+  
+  console.log(`[King of the Hill] Round ${roundNumber}: ${totalParticipants} participants, eliminating bottom ${eliminateCount} (${Math.round((eliminateCount / totalParticipants) * 100)}%)`)
 
   // Get bottom 25% (lowest scores)
+  // slice(-eliminateCount) gets the LAST eliminateCount elements (lowest scores)
+  // slice(0, -eliminateCount) gets all EXCEPT the last eliminateCount elements (highest scores)
   const eliminated = participantScores.slice(-eliminateCount)
   const remaining = participantScores.slice(0, -eliminateCount)
+  
+  console.log(`[King of the Hill] Round ${roundNumber} Elimination Results:`, {
+    totalParticipants: totalParticipants,
+    eliminateCount: eliminateCount,
+    eliminatedCount: eliminated.length,
+    remainingCount: remaining.length,
+    eliminated: eliminated.map(e => ({ username: e.username, score: e.score, rank: e.rank })),
+    remaining: remaining.map(r => ({ username: r.username, score: r.score, rank: r.rank })),
+  })
 
   // Build elimination explanations
   const eliminationExplanations: Record<string, string> = {}

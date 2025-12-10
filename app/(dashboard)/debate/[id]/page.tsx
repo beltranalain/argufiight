@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { SubmitArgumentForm } from '@/components/debate/SubmitArgumentForm'
 import { VerdictDisplay } from '@/components/debate/VerdictDisplay'
+import { KingOfTheHillResults } from '@/components/tournaments/KingOfTheHillResults'
 import { AppealButton } from '@/components/debate/AppealButton'
 import { RematchButton } from '@/components/debate/RematchButton'
 import { LiveChat } from '@/components/debate/LiveChat'
@@ -128,6 +129,20 @@ interface Debate {
       currentRound: number
       totalRounds: number
       format?: 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL'
+      participants?: Array<{
+        id: string
+        userId: string
+        cumulativeScore: number | null
+        eliminationRound: number | null
+        eliminationReason: string | null
+        status: string
+        user: {
+          id: string
+          username: string
+          avatarUrl: string | null
+          eloRating: number
+        }
+      }>
     }
     round: {
       roundNumber: number
@@ -809,6 +824,30 @@ export default function DebatePage() {
             </Card>
           )}
 
+          {/* King of the Hill Results Display */}
+          {debate.status === 'VERDICT_READY' && 
+           debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL' &&
+           debate.tournamentMatch?.tournament?.participants && (
+            <div className="mb-6">
+              <KingOfTheHillResults
+                participants={debate.tournamentMatch.tournament.participants.map((p) => ({
+                  id: p.id,
+                  userId: p.userId,
+                  username: p.user.username,
+                  avatarUrl: p.user.avatarUrl,
+                  eloRating: p.user.eloRating,
+                  cumulativeScore: p.cumulativeScore,
+                  eliminationRound: p.eliminationRound,
+                  eliminationReason: p.eliminationReason,
+                  status: p.status,
+                }))}
+                roundNumber={debate.tournamentMatch.round.roundNumber}
+                totalRounds={debate.tournamentMatch.tournament.totalRounds}
+              />
+            </div>
+          )}
+
+          {/* Regular 2-Person Verdict Display */}
           {debate.status === 'VERDICT_READY' && debate.verdicts && debate.verdicts.length > 0 && debate.opponent && (
             <>
               <VerdictDisplay

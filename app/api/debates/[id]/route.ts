@@ -122,6 +122,24 @@ export async function GET(
                   currentRound: true,
                   totalRounds: true,
                   format: true, // Include tournament format for King of the Hill detection
+                  participants: {
+                    select: {
+                      id: true,
+                      userId: true,
+                      cumulativeScore: true,
+                      eliminationRound: true,
+                      eliminationReason: true,
+                      status: true,
+                      user: {
+                        select: {
+                          id: true,
+                          username: true,
+                          avatarUrl: true,
+                          eloRating: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
               round: {
@@ -267,6 +285,24 @@ export async function GET(
                   currentRound: true,
                   totalRounds: true,
                   format: true, // Include tournament format for King of the Hill detection
+                  participants: {
+                    select: {
+                      id: true,
+                      userId: true,
+                      cumulativeScore: true,
+                      eliminationRound: true,
+                      eliminationReason: true,
+                      status: true,
+                      user: {
+                        select: {
+                          id: true,
+                          username: true,
+                          avatarUrl: true,
+                          eloRating: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
               round: {
