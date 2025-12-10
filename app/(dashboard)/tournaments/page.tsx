@@ -25,6 +25,7 @@ interface Tournament {
   participantCount: number
   startDate: string
   minElo: number | null
+  format?: string // 'BRACKET', 'CHAMPIONSHIP', or 'KING_OF_THE_HILL'
   creator: {
     id: string
     username: string
@@ -378,6 +379,16 @@ export default function TournamentsPage() {
                           >
                             {tournament.isPrivate ? 'Private' : 'Public'}
                           </Badge>
+                          {tournament.format && (
+                            <Badge 
+                              variant="default" 
+                              className="bg-purple-500 text-white"
+                            >
+                              {tournament.format === 'KING_OF_THE_HILL' ? 'King of the Hill' : 
+                               tournament.format === 'CHAMPIONSHIP' ? 'Championship' : 
+                               'Bracket'}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     </div>
