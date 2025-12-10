@@ -87,10 +87,11 @@ export async function createKingOfTheHillDebate(
 
   // Create a single Debate with all participants
   // The topic is the tournament name (same topic for all rounds)
+  const participantNames = activeParticipants.map(p => p.user.username).join(', ')
   const debate = await prisma.debate.create({
     data: {
       topic: tournament.name,
-      description: tournament.description || `King of the Hill Round ${roundNumber}`,
+      description: `King of the Hill Round ${roundNumber} - Open Debate with ${activeParticipants.length} participants: ${participantNames}`,
       category: 'OTHER', // Default category for tournaments
       challengerId: activeParticipants[0].userId, // First participant as challenger
       challengerPosition: 'FOR', // Default position

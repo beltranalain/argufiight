@@ -411,17 +411,30 @@ export default function DebatePage() {
   )
   const isChallenger = debate && user && debate.challenger.id === user.id
   const isOpponent = debate && user && debate.opponent && debate.opponent.id === user.id
+  
+  // For GROUP debates (King of the Hill), check if user is a participant
+  const isGroupParticipant = isGroupChallenge && debate?.participants?.some(
+    p => p.userId === user?.id
+  )
+  
   const noStatementsInRound = currentRoundStatements.length === 0
   
   // Determine if it's user's turn
-  // In each round: challenger goes first, then opponent responds
+  // For GROUP debates: all participants can submit simultaneously (anyone who hasn't submitted yet)
+  // For regular debates: challenger goes first, then opponent responds
   const isMyTurn = debate && user && debate.status === 'ACTIVE' && (
-    // New round (no statements yet): challenger goes first
-    (noStatementsInRound && isChallenger) ||
-    // Challenger's turn: opponent submitted but challenger hasn't
-    (isChallenger && opponentSubmitted && !challengerSubmitted) ||
-    // Opponent's turn: challenger submitted but opponent hasn't
-    (isOpponent && challengerSubmitted && !opponentSubmitted)
+    isGroupChallenge
+      ? // For GROUP debates: anyone can submit if they haven't submitted yet
+        isGroupParticipant && !userSubmitted
+      : // For regular debates: turn-based
+        (
+          // New round (no statements yet): challenger goes first
+          (noStatementsInRound && isChallenger) ||
+          // Challenger's turn: opponent submitted but challenger hasn't
+          (isChallenger && opponentSubmitted && !challengerSubmitted) ||
+          // Opponent's turn: challenger submitted but opponent hasn't
+          (isOpponent && challengerSubmitted && !opponentSubmitted)
+        )
   )
 
   const canSubmit = debate && user && isParticipant && 
@@ -552,48 +565,74 @@ export default function DebatePage() {
               )}
 
               {/* Participants */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="flex items-center gap-4">
-                  <Avatar 
-                    src={debate.challenger.avatarUrl}
-                    username={debate.challenger.username}
-                    size="lg"
-                  />
-                  <div>
-                    <p className="font-semibold text-text-primary">{debate.challenger.username}</p>
-                    <p className="text-sm text-text-secondary">ELO: {debate.challenger.eloRating}</p>
-                    <Badge variant="default" size="sm" className="mt-1">
-                      {debate.challengerPosition}
-                    </Badge>
+              {isGroupChallenge && debate.participants && debate.participants.length > 0 ? (
+                // Show all participants for GROUP debates (King of the Hill)
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-text-primary mb-4">All Participants ({debate.participants.length})</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {debate.participants.map((participant) => (
+                      <div key={participant.id} className="flex items-center gap-4 p-3 rounded-lg border border-bg-tertiary bg-bg-secondary/50">
+                        <Avatar 
+                          src={participant.user.avatarUrl}
+                          username={participant.user.username}
+                          size="lg"
+                        />
+                        <div>
+                          <p className="font-semibold text-text-primary">{participant.user.username}</p>
+                          <p className="text-sm text-text-secondary">ELO: {participant.user.eloRating}</p>
+                          <Badge variant="default" size="sm" className="mt-1">
+                            {participant.position}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                {debate.opponent ? (
+              ) : (
+                // Show challenger/opponent for regular debates
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                   <div className="flex items-center gap-4">
                     <Avatar 
-                      src={debate.opponent.avatarUrl}
-                      username={debate.opponent.username}
+                      src={debate.challenger.avatarUrl}
+                      username={debate.challenger.username}
                       size="lg"
                     />
                     <div>
-                      <p className="font-semibold text-text-primary">{debate.opponent.username}</p>
-                      <p className="text-sm text-text-secondary">ELO: {debate.opponent.eloRating}</p>
+                      <p className="font-semibold text-text-primary">{debate.challenger.username}</p>
+                      <p className="text-sm text-text-secondary">ELO: {debate.challenger.eloRating}</p>
                       <Badge variant="default" size="sm" className="mt-1">
-                        {debate.opponentPosition}
+                        {debate.challengerPosition}
                       </Badge>
                     </div>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-bg-tertiary flex items-center justify-center">
-                      <span className="text-text-muted">?</span>
+
+                  {debate.opponent ? (
+                    <div className="flex items-center gap-4">
+                      <Avatar 
+                        src={debate.opponent.avatarUrl}
+                        username={debate.opponent.username}
+                        size="lg"
+                      />
+                      <div>
+                        <p className="font-semibold text-text-primary">{debate.opponent.username}</p>
+                        <p className="text-sm text-text-secondary">ELO: {debate.opponent.eloRating}</p>
+                        <Badge variant="default" size="sm" className="mt-1">
+                          {debate.opponentPosition}
+                        </Badge>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-text-secondary">Waiting for opponent...</p>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-bg-tertiary flex items-center justify-center">
+                        <span className="text-text-muted">?</span>
+                      </div>
+                      <div>
+                        <p className="text-text-secondary">Waiting for opponent...</p>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               {/* Progress */}
               {debate.status === 'ACTIVE' && (

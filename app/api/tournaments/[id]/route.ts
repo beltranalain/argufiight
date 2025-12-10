@@ -61,6 +61,7 @@ export async function GET(
                 topic: true,
                 status: true,
                 winnerId: true,
+                challengeType: true,
                 challenger: {
                   select: {
                     id: true,
@@ -71,6 +72,18 @@ export async function GET(
                   select: {
                     id: true,
                     username: true,
+                  },
+                },
+                participants: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        avatarUrl: true,
+                        eloRating: true,
+                      },
+                    },
                   },
                 },
               },
@@ -183,7 +196,16 @@ export async function GET(
             participant2Score: m.participant2Score,
             participant1ScoreBreakdown: m.participant1ScoreBreakdown,
             participant2ScoreBreakdown: m.participant2ScoreBreakdown,
-            debate: m.debate,
+            debate: m.debate ? {
+              ...m.debate,
+              participants: m.debate.participants?.map((p: any) => ({
+                id: p.id,
+                userId: p.userId,
+                position: p.position,
+                status: p.status,
+                user: p.user,
+              })) || [],
+            } : null,
           }
         }),
         rounds: tournament.rounds,
