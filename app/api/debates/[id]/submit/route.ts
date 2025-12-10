@@ -31,6 +31,16 @@ export async function POST(
 
     const debate = await prisma.debate.findUnique({
       where: { id },
+      select: {
+        id: true,
+        challengerId: true,
+        opponentId: true,
+        challengeType: true,
+        status: true,
+        currentRound: true,
+        totalRounds: true,
+        roundDuration: true,
+      },
     })
 
     if (!debate) {
@@ -55,8 +65,23 @@ export async function POST(
       )
     }
 
-    // Verify user is a participant
-    if (debate.challengerId !== userId && debate.opponentId !== userId) {
+    // Verify user is a participant (for both 2-person and group debates)
+    let isParticipant = debate.challengerId === userId || 
+                       (debate.opponentId === userId)
+    
+    // For GROUP challenges (including King of the Hill), check DebateParticipant
+    if (!isParticipant && debate.challengeType === 'GROUP') {
+      const participant = await prisma.debateParticipant.findFirst({
+        where: {
+          debateId: id,
+          userId: userId,
+          status: { in: ['ACTIVE', 'ACCEPTED'] },
+        },
+      })
+      isParticipant = !!participant
+    }
+    
+    if (!isParticipant) {
       return NextResponse.json(
         { error: 'You are not a participant in this debate' },
         { status: 403 }
@@ -172,22 +197,25 @@ export async function POST(
         })
       }
     } else {
-      // Notify opponent it's their turn
-      const opponentId =
-        userId === debate.challengerId
-          ? debate.opponentId
-          : debate.challengerId
+      // For 2-person debates, notify opponent it's their turn
+      // For GROUP debates, all participants can submit simultaneously, so no turn notifications needed
+      if (debate.challengeType !== 'GROUP' && debate.opponentId) {
+        const opponentId =
+          userId === debate.challengerId
+            ? debate.opponentId
+            : debate.challengerId
 
-      if (opponentId) {
-        await prisma.notification.create({
-          data: {
-            userId: opponentId,
-            type: 'DEBATE_TURN',
-            title: 'Your Turn to Argue',
-            message: `It's your turn in "${debate.topic}"`,
-            debateId: debate.id,
-          },
-        })
+        if (opponentId) {
+          await prisma.notification.create({
+            data: {
+              userId: opponentId,
+              type: 'DEBATE_TURN',
+              title: 'Your Turn to Argue',
+              message: `It's your turn in "${debate.topic}"`,
+              debateId: debate.id,
+            },
+          })
+        }
       }
     }
 
