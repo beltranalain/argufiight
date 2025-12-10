@@ -245,23 +245,57 @@ export default async function BlogPage({
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex justify-center gap-2">
-                {page > 1 && (
-                  <Link
-                    href={`/blog?page=${page - 1}${params.category ? `&category=${params.category}` : ''}${params.tag ? `&tag=${params.tag}` : ''}`}
-                    className="px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white hover:border-electric-blue transition-colors"
-                  >
-                    Previous
-                  </Link>
-                )}
-                {page < totalPages && (
-                  <Link
-                    href={`/blog?page=${page + 1}${params.category ? `&category=${params.category}` : ''}${params.tag ? `&tag=${params.tag}` : ''}`}
-                    className="px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white hover:border-electric-blue transition-colors"
-                  >
-                    Next
-                  </Link>
-                )}
+              <div className="flex flex-col items-center gap-4">
+                <div className="text-text-secondary text-sm">
+                  Page {page} of {totalPages} ({total} {total === 1 ? 'post' : 'posts'})
+                </div>
+                <div className="flex justify-center gap-2 flex-wrap">
+                  {page > 1 && (
+                    <Link
+                      href={`/blog?page=${page - 1}${params.category ? `&category=${params.category}` : ''}${params.tag ? `&tag=${params.tag}` : ''}${params.search ? `&search=${encodeURIComponent(params.search)}` : ''}`}
+                      className="px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white hover:border-electric-blue transition-colors"
+                    >
+                      Previous
+                    </Link>
+                  )}
+                  
+                  {/* Page numbers */}
+                  {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => {
+                    let pageNum: number
+                    if (totalPages <= 10) {
+                      pageNum = i + 1
+                    } else if (page <= 5) {
+                      pageNum = i + 1
+                    } else if (page >= totalPages - 4) {
+                      pageNum = totalPages - 9 + i
+                    } else {
+                      pageNum = page - 5 + i
+                    }
+                    
+                    return (
+                      <Link
+                        key={pageNum}
+                        href={`/blog?page=${pageNum}${params.category ? `&category=${params.category}` : ''}${params.tag ? `&tag=${params.tag}` : ''}${params.search ? `&search=${encodeURIComponent(params.search)}` : ''}`}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
+                          pageNum === page
+                            ? 'bg-electric-blue text-black font-semibold'
+                            : 'bg-bg-secondary border border-bg-tertiary text-white hover:border-electric-blue'
+                        }`}
+                      >
+                        {pageNum}
+                      </Link>
+                    )
+                  })}
+                  
+                  {page < totalPages && (
+                    <Link
+                      href={`/blog?page=${page + 1}${params.category ? `&category=${params.category}` : ''}${params.tag ? `&tag=${params.tag}` : ''}${params.search ? `&search=${encodeURIComponent(params.search)}` : ''}`}
+                      className="px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white hover:border-electric-blue transition-colors"
+                    >
+                      Next
+                    </Link>
+                  )}
+                </div>
               </div>
             )}
           </>
