@@ -2,6 +2,16 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { prisma } from '@/lib/db/prisma'
+import { SocialMediaIcon } from '@/components/ui/SocialMediaIcon'
+
+const PLATFORM_LABELS: Record<string, string> = {
+  FACEBOOK: 'Facebook',
+  TWITTER: 'X',
+  INSTAGRAM: 'Instagram',
+  LINKEDIN: 'LinkedIn',
+  YOUTUBE: 'YouTube',
+  TIKTOK: 'TikTok',
+}
 
 export const metadata: Metadata = {
   title: 'Blog | Argufight',
@@ -99,9 +109,67 @@ export default async function BlogPage({
 
   const totalPages = Math.ceil(total / limit)
 
+  // Fetch social media links and footer content
+  const [socialLinks, footerSection] = await Promise.all([
+    prisma.socialMediaLink.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+    }),
+    prisma.homepageSection.findFirst({
+      where: { key: 'footer', isVisible: true },
+    }),
+  ])
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-950 via-purple-900 to-indigo-950">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <div className="min-h-screen bg-gradient-to-b from-purple-950 via-purple-900 to-indigo-950 relative overflow-hidden">
+      {/* Consistent starry background */}
+      <div className="fixed inset-0 opacity-30 pointer-events-none">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `radial-gradient(circle at 2px 2px, rgba(255,255,255,0.4) 1px, transparent 0)`,
+          backgroundSize: '50px 50px',
+        }} />
+      </div>
+
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-purple-950/80 backdrop-blur-md border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <Link href="/" className="text-2xl font-bold text-electric-blue">
+                ARGU FIGHT
+              </Link>
+              <Link
+                href="/blog"
+                className="ml-8 px-4 py-2 text-text-primary hover:text-electric-blue transition-colors hidden md:block"
+              >
+                Blog
+              </Link>
+              <Link
+                href="/leaderboard"
+                className="px-4 py-2 text-text-primary hover:text-electric-blue transition-colors hidden md:block"
+              >
+                Leaderboard
+              </Link>
+            </div>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/login"
+                className="px-4 py-2 text-text-primary hover:text-electric-blue transition-colors"
+              >
+                Login
+              </Link>
+              <Link
+                href="/signup"
+                className="px-6 py-2 bg-electric-blue text-black rounded-lg font-semibold hover:bg-[#00B8E6] transition-colors"
+              >
+                Sign Up
+              </Link>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <div className="pt-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-white mb-4">Blog</h1>
           <p className="text-xl text-text-primary/80">
@@ -123,20 +191,22 @@ export default async function BlogPage({
                   className="bg-bg-secondary border border-bg-tertiary rounded-xl overflow-hidden hover:border-electric-blue/50 transition-all group"
                 >
                   {post.featuredImage && (
-                    <div className="relative w-full h-48">
+                    <div className="relative w-full h-64 flex items-center justify-center bg-bg-tertiary">
                       {post.featuredImage.url.startsWith('data:') || post.featuredImage.url.includes('blob.vercel-storage.com') ? (
                         <img
                           src={post.featuredImage.url}
                           alt={post.featuredImage.alt || post.title}
-                          className="w-full h-full object-cover"
+                          className="max-w-full max-h-full object-contain"
                         />
                       ) : (
-                        <Image
-                          src={post.featuredImage.url}
-                          alt={post.featuredImage.alt || post.title}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform"
-                        />
+                        <div className="relative w-full h-full">
+                          <Image
+                            src={post.featuredImage.url}
+                            alt={post.featuredImage.alt || post.title}
+                            fill
+                            className="object-contain group-hover:scale-105 transition-transform"
+                          />
+                        </div>
                       )}
                     </div>
                   )}
@@ -161,8 +231,7 @@ export default async function BlogPage({
                         {post.excerpt}
                       </p>
                     )}
-                    <div className="flex items-center justify-between text-sm text-text-secondary">
-                      <span>{post.author.username}</span>
+                    <div className="flex items-center justify-end text-sm text-text-secondary">
                       <span>
                         {post.publishedAt
                           ? new Date(post.publishedAt).toLocaleDateString()
@@ -198,6 +267,98 @@ export default async function BlogPage({
           </>
         )}
       </div>
+
+      {/* Footer */}
+      <footer className="py-20 px-4 sm:px-6 lg:px-8 mt-16">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+            <div>
+              <h3 className="text-text-primary font-semibold text-lg mb-6">Platform</h3>
+              <ul className="space-y-3">
+                <li>
+                  <Link href="/" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                    Home
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/leaderboard" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                    Leaderboard
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/blog" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                    Blog
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/advertise" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                    Advertiser
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-text-primary font-semibold text-lg mb-6">Debate Topics</h3>
+              <ul className="space-y-3">
+                <li><Link href="/blog?category=politics" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">Politics</Link></li>
+                <li><Link href="/blog?category=science" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">Science</Link></li>
+                <li><Link href="/blog?category=tech" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">Technology</Link></li>
+                <li><Link href="/blog?category=sports" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">Sports</Link></li>
+                <li><Link href="/blog?category=entertainment" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">Entertainment</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-text-primary font-semibold text-lg mb-6">Legal</h3>
+              <ul className="space-y-3">
+                <li>
+                  <Link href="/terms" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                    Terms of Service
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/privacy" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                    Privacy Policy
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="text-text-primary font-semibold text-lg mb-6">Contact</h3>
+              <p className="text-text-primary/80 text-base mb-4">
+                {footerSection?.contactEmail || 'info@argufight.com'}
+              </p>
+
+              {/* Social Media Links */}
+              {socialLinks.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {socialLinks.map((link) => (
+                    <a
+                      key={link.platform}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-text-primary/80 hover:text-text-primary"
+                      title={PLATFORM_LABELS[link.platform] || link.platform}
+                    >
+                      <SocialMediaIcon platform={link.platform} className="w-5 h-5" />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Copyright */}
+          <div className="text-center text-text-primary/60 text-sm pt-8 border-t border-text-primary/10">
+            <p>
+              &copy; {new Date().getFullYear()} {footerSection?.content || 'Argu Fight. All rights reserved.'}
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

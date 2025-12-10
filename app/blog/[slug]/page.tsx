@@ -3,6 +3,16 @@ import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { prisma } from '@/lib/db/prisma'
+import { SocialMediaIcon } from '@/components/ui/SocialMediaIcon'
+
+const PLATFORM_LABELS: Record<string, string> = {
+  FACEBOOK: 'Facebook',
+  TWITTER: 'X',
+  INSTAGRAM: 'Instagram',
+  LINKEDIN: 'LinkedIn',
+  YOUTUBE: 'YouTube',
+  TIKTOK: 'TikTok',
+}
 
 export async function generateMetadata({
   params,
@@ -151,6 +161,17 @@ export default async function BlogPostPage({
   const wordCount = post.content.split(/\s+/).length
   const readingTime = Math.ceil(wordCount / 200)
 
+  // Fetch social media links and footer content
+  const [socialLinks, footerSection] = await Promise.all([
+    prisma.socialMediaLink.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+    }),
+    prisma.homepageSection.findFirst({
+      where: { key: 'footer', isVisible: true },
+    }),
+  ])
+
   return (
     <>
       {/* Structured Data */}
@@ -159,8 +180,55 @@ export default async function BlogPostPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
 
-      <div className="min-h-screen bg-gradient-to-b from-purple-950 via-purple-900 to-indigo-950">
-        <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div className="min-h-screen bg-gradient-to-b from-purple-950 via-purple-900 to-indigo-950 relative overflow-hidden">
+        {/* Consistent starry background */}
+        <div className="fixed inset-0 opacity-30 pointer-events-none">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `radial-gradient(circle at 2px 2px, rgba(255,255,255,0.4) 1px, transparent 0)`,
+            backgroundSize: '50px 50px',
+          }} />
+        </div>
+
+        {/* Navigation */}
+        <nav className="fixed top-0 left-0 right-0 z-50 bg-purple-950/80 backdrop-blur-md border-b border-white/10">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center">
+                <Link href="/" className="text-2xl font-bold text-electric-blue">
+                  ARGU FIGHT
+                </Link>
+                <Link
+                  href="/blog"
+                  className="ml-8 px-4 py-2 text-text-primary hover:text-electric-blue transition-colors hidden md:block"
+                >
+                  Blog
+                </Link>
+                <Link
+                  href="/leaderboard"
+                  className="px-4 py-2 text-text-primary hover:text-electric-blue transition-colors hidden md:block"
+                >
+                  Leaderboard
+                </Link>
+              </div>
+              <div className="flex items-center gap-4">
+                <Link
+                  href="/login"
+                  className="px-4 py-2 text-text-primary hover:text-electric-blue transition-colors"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  className="px-6 py-2 bg-electric-blue text-black rounded-lg font-semibold hover:bg-[#00B8E6] transition-colors"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        <article className="pt-20 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           {/* Breadcrumb */}
           <nav className="mb-8 text-sm text-text-secondary">
             <Link href="/" className="hover:text-white transition-colors">
@@ -199,35 +267,15 @@ export default async function BlogPostPage({
             )}
 
             <div className="flex items-center gap-4 text-text-secondary">
-              <div className="flex items-center gap-2">
-                {post.author.avatarUrl ? (
-                  <Image
-                    src={post.author.avatarUrl}
-                    alt={post.author.username}
-                    width={40}
-                    height={40}
-                    className="rounded-full"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-electric-blue/20 flex items-center justify-center">
-                    <span className="text-electric-blue font-semibold">
-                      {post.author.username[0].toUpperCase()}
-                    </span>
-                  </div>
-                )}
-                <div>
-                  <p className="text-white font-medium">{post.author.username}</p>
-                  {post.publishedAt && (
-                    <p className="text-sm">
-                      {new Date(post.publishedAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                      })}
-                    </p>
-                  )}
-                </div>
-              </div>
+              {post.publishedAt && (
+                <span>
+                  {new Date(post.publishedAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </span>
+              )}
               <span className="text-text-secondary">•</span>
               <span>{readingTime} min read</span>
               <span className="text-text-secondary">•</span>
@@ -237,21 +285,24 @@ export default async function BlogPostPage({
 
           {/* Featured Image */}
           {post.featuredImage && (
-            <div className="relative w-full h-96 mb-8 rounded-xl overflow-hidden">
+            <div className="relative w-full mb-8 rounded-xl overflow-hidden bg-bg-tertiary flex items-center justify-center min-h-[400px]">
               {post.featuredImage.url.startsWith('data:') || post.featuredImage.url.includes('blob.vercel-storage.com') ? (
                 <img
                   src={post.featuredImage.url}
                   alt={post.featuredImage.alt || post.title}
-                  className="w-full h-full object-cover"
+                  className="max-w-full max-h-full object-contain"
                 />
               ) : (
-                <Image
-                  src={post.featuredImage.url}
-                  alt={post.featuredImage.alt || post.title}
-                  fill
-                  className="object-cover"
-                  priority
-                />
+                <div className="relative w-full h-full min-h-[400px]">
+                  <Image
+                    src={post.featuredImage.url}
+                    alt={post.featuredImage.alt || post.title}
+                    fill
+                    className="object-contain"
+                    priority
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 896px"
+                  />
+                </div>
               )}
             </div>
           )}
@@ -303,6 +354,98 @@ export default async function BlogPostPage({
             </Link>
           </div>
         </article>
+
+        {/* Footer */}
+        <footer className="py-20 px-4 sm:px-6 lg:px-8 mt-16">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+              <div>
+                <h3 className="text-text-primary font-semibold text-lg mb-6">Platform</h3>
+                <ul className="space-y-3">
+                  <li>
+                    <Link href="/" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                      Home
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/leaderboard" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                      Leaderboard
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/blog" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                      Blog
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/advertise" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                      Advertiser
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="text-text-primary font-semibold text-lg mb-6">Debate Topics</h3>
+                <ul className="space-y-3">
+                  <li><Link href="/blog?category=politics" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">Politics</Link></li>
+                  <li><Link href="/blog?category=science" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">Science</Link></li>
+                  <li><Link href="/blog?category=tech" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">Technology</Link></li>
+                  <li><Link href="/blog?category=sports" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">Sports</Link></li>
+                  <li><Link href="/blog?category=entertainment" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">Entertainment</Link></li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="text-text-primary font-semibold text-lg mb-6">Legal</h3>
+                <ul className="space-y-3">
+                  <li>
+                    <Link href="/terms" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                      Terms of Service
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/privacy" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                      Privacy Policy
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="text-text-primary font-semibold text-lg mb-6">Contact</h3>
+                <p className="text-text-primary/80 text-base mb-4">
+                  {footerSection?.contactEmail || 'info@argufight.com'}
+                </p>
+
+                {/* Social Media Links */}
+                {socialLinks.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    {socialLinks.map((link) => (
+                      <a
+                        key={link.platform}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-text-primary/80 hover:text-text-primary"
+                        title={PLATFORM_LABELS[link.platform] || link.platform}
+                      >
+                        <SocialMediaIcon platform={link.platform} className="w-5 h-5" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Copyright */}
+            <div className="text-center text-text-primary/60 text-sm pt-8 border-t border-text-primary/10">
+              <p>
+                &copy; {new Date().getFullYear()} {footerSection?.content || 'Argu Fight. All rights reserved.'}
+              </p>
+            </div>
+          </div>
+        </footer>
       </div>
     </>
   )
