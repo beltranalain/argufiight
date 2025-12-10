@@ -51,6 +51,7 @@ export async function GET(
           appealedStatements: true,
           appealRejectionReason: true,
           spectatorCount: true,
+          challengeType: true,
           createdAt: true,
           // viewCount fetched separately below (Prisma client may not have it)
           challenger: {
