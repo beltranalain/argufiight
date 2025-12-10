@@ -127,6 +127,7 @@ interface Debate {
       name: string
       currentRound: number
       totalRounds: number
+      format?: 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL'
     }
     round: {
       roundNumber: number
@@ -372,8 +373,9 @@ export default function DebatePage() {
   }
 
   // Check if this is a group challenge (King of the Hill)
-  // Check by challengeType OR by having more than 2 participants
+  // Check by tournament format, challengeType, OR by having more than 2 participants
   const isGroupChallenge = debate && (
+    debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL' ||
     debate.challengeType === 'GROUP' || 
     (debate.participants && debate.participants.length > 2)
   )
