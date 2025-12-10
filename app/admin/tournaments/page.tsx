@@ -117,17 +117,48 @@ export default function TournamentsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'UPCOMING':
-        return 'bg-blue-500'
+        return 'bg-blue-500 text-white'
       case 'REGISTRATION_OPEN':
-        return 'bg-green-500'
+        return 'bg-green-500 text-white'
       case 'IN_PROGRESS':
-        return 'bg-yellow-500'
+        return 'bg-yellow-500 text-black font-semibold'
       case 'COMPLETED':
-        return 'bg-cyber-green'
+        return 'bg-cyber-green text-black font-semibold'
       case 'CANCELLED':
-        return 'bg-red-500'
+        return 'bg-red-500 text-white'
       default:
-        return 'bg-gray-500'
+        return 'bg-gray-500 text-white'
+    }
+  }
+
+  const handleDelete = async (tournamentId: string, tournamentName: string) => {
+    if (!confirm(`Are you sure you want to delete "${tournamentName}"? This action cannot be undone and will delete all associated data (matches, rounds, participants, etc.).`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/admin/tournaments/${tournamentId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Deleted',
+          description: 'Tournament deleted successfully',
+        })
+        fetchTournaments()
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || 'Failed to delete tournament')
+      }
+    } catch (error: any) {
+      console.error('Failed to delete tournament:', error)
+      showToast({
+        type: 'error',
+        title: 'Delete Failed',
+        description: error.message || 'Failed to delete tournament',
+      })
     }
   }
 
@@ -315,6 +346,15 @@ export default function TournamentsPage() {
                           </p>
                         </div>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <Button
+                        variant="secondary"
+                        onClick={() => handleDelete(tournament.id, tournament.name)}
+                        className="text-sm px-3 py-1.5 text-red-400 hover:text-red-300 border-red-400/30 hover:border-red-400/50"
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 </div>
