@@ -33,6 +33,7 @@ export async function POST(
       where: { id },
       select: {
         id: true,
+        topic: true,
         challengerId: true,
         opponentId: true,
         challengeType: true,
