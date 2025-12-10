@@ -537,6 +537,7 @@ export default function TournamentDetailPage() {
                       matches={tournament.matches}
                       totalRounds={tournament.totalRounds}
                       currentRound={tournament.currentRound}
+                      format={tournament.format}
                     />
                   </CardBody>
                 </Card>

@@ -52,6 +52,7 @@ interface TournamentBracketProps {
   matches: Match[]
   totalRounds: number
   currentRound: number
+  format?: 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL'
 }
 
 interface BracketSlot {
@@ -68,7 +69,10 @@ export function TournamentBracket({
   matches,
   totalRounds,
   currentRound,
+  format = 'BRACKET',
 }: TournamentBracketProps) {
+  const isKingOfTheHill = format === 'KING_OF_THE_HILL'
+  
   // Build bracket structure
   const bracketStructure = useMemo(() => {
     const structure: BracketSlot[][][] = [] // [round][match][slot]
@@ -79,43 +83,87 @@ export function TournamentBracket({
       return participants.find((p) => p.id === participantId) || null
     }
     
+    // For King of the Hill, get active participants for each round
+    const getActiveParticipantsForRound = (round: number): Participant[] => {
+      if (!isKingOfTheHill) return []
+      
+      // For finals (last round), only 2 participants remain
+      if (round === totalRounds) {
+        // Get participants from the match (finals is 1v1)
+        const roundMatch = matches.find((m) => m.round === round)
+        if (roundMatch) {
+          const p1 = findParticipant(roundMatch.participant1Id)
+          const p2 = findParticipant(roundMatch.participant2Id)
+          return [p1, p2].filter((p): p is Participant => p !== null)
+        }
+        return []
+      }
+      
+      // For non-finals rounds, get all active participants
+      // Active = not eliminated (status is ACTIVE or REGISTERED)
+      return participants.filter((p) => 
+        p.status === 'ACTIVE' || p.status === 'REGISTERED'
+      )
+    }
+    
     // Build bracket round by round
     for (let round = 1; round <= totalRounds; round++) {
       const roundMatches = matches.filter((m) => m.round === round)
       const roundSlots: BracketSlot[][] = []
       
-      // Sort matches by matchNumber to maintain order
-      roundMatches.sort((a, b) => a.matchNumber - b.matchNumber)
-      
-      for (const match of roundMatches) {
-        const participant1 = findParticipant(match.participant1Id)
-        const participant2 = findParticipant(match.participant2Id)
+      if (isKingOfTheHill && round < totalRounds) {
+        // King of the Hill: Show all active participants in a single "open debate" box
+        const activeParticipants = getActiveParticipantsForRound(round)
+        const roundMatch = roundMatches[0] // King of the Hill has one match per round
         
-        roundSlots.push([
-          {
-            participant: participant1,
-            matchId: match.id,
-            isWinner: match.winnerId ? match.winnerId === participant1?.userId : false,
-            debateId: match.debate?.id || null,
-            matchStatus: match.status,
-            score: match.participant1Score,
-          },
-          {
-            participant: participant2,
-            matchId: match.id,
-            isWinner: match.winnerId ? match.winnerId === participant2?.userId : false,
-            debateId: match.debate?.id || null,
-            matchStatus: match.status,
-            score: match.participant2Score,
-          },
-        ])
+        if (roundMatch && activeParticipants.length > 0) {
+          // Create slots for all active participants
+          const allParticipants: BracketSlot[] = activeParticipants.map((participant) => ({
+            participant,
+            matchId: roundMatch.id,
+            isWinner: roundMatch.winnerId ? roundMatch.winnerId === participant.userId : false,
+            debateId: roundMatch.debate?.id || null,
+            matchStatus: roundMatch.status,
+            score: null, // Scores are per-participant, not per-match for King of the Hill
+          }))
+          
+          roundSlots.push(allParticipants)
+        }
+      } else {
+        // Traditional bracket format: 1v1 matches
+        // Sort matches by matchNumber to maintain order
+        roundMatches.sort((a, b) => a.matchNumber - b.matchNumber)
+        
+        for (const match of roundMatches) {
+          const participant1 = findParticipant(match.participant1Id)
+          const participant2 = findParticipant(match.participant2Id)
+          
+          roundSlots.push([
+            {
+              participant: participant1,
+              matchId: match.id,
+              isWinner: match.winnerId ? match.winnerId === participant1?.userId : false,
+              debateId: match.debate?.id || null,
+              matchStatus: match.status,
+              score: match.participant1Score,
+            },
+            {
+              participant: participant2,
+              matchId: match.id,
+              isWinner: match.winnerId ? match.winnerId === participant2?.userId : false,
+              debateId: match.debate?.id || null,
+              matchStatus: match.status,
+              score: match.participant2Score,
+            },
+          ])
+        }
       }
       
       structure.push(roundSlots)
     }
     
     return structure
-  }, [participants, matches, totalRounds])
+  }, [participants, matches, totalRounds, isKingOfTheHill])
 
   const getSlotHeight = (round: number) => {
     // Each round has fewer matches, so slots get taller
@@ -155,12 +203,105 @@ export function TournamentBracket({
                 {/* Matches in this round */}
                 <div className="flex flex-col gap-2" style={{ minHeight: `${round.length * getSlotHeight(roundNum)}px` }}>
                   {round.map((match, matchIndex) => {
+                    // For King of the Hill (non-finals), match is an array of all participants
+                    const isKingOfTheHillRound = isKingOfTheHill && roundNum < totalRounds
                     const slot1 = match[0]
                     const slot2 = match[1]
-                    const isActive = slot1.matchStatus === 'IN_PROGRESS' || slot2.matchStatus === 'IN_PROGRESS'
-                    const isCompleted = slot1.matchStatus === 'COMPLETED' || slot2.matchStatus === 'COMPLETED'
+                    const isActive = slot1?.matchStatus === 'IN_PROGRESS' || slot2?.matchStatus === 'IN_PROGRESS'
+                    const isCompleted = slot1?.matchStatus === 'COMPLETED' || slot2?.matchStatus === 'COMPLETED'
                     const isFinalRound = roundNum === totalRounds
-                    const isFinalWinner = isFinalRound && isCompleted && (slot1.isWinner || slot2.isWinner)
+                    const isFinalWinner = isFinalRound && isCompleted && (slot1?.isWinner || slot2?.isWinner)
+                    
+                    // King of the Hill: Show all participants in one box
+                    if (isKingOfTheHillRound) {
+                      const allParticipants = match.filter((slot) => slot.participant !== null)
+                      const debateId = slot1?.debateId
+                      
+                      return (
+                        <div
+                          key={matchIndex}
+                          className="relative"
+                          style={{ minHeight: `${getSlotHeight(roundNum)}px` }}
+                        >
+                          {/* Match Card - Open Debate with All Participants */}
+                          <div
+                            className={`relative z-10 p-4 rounded-lg border-2 ${
+                              isActive
+                                ? 'border-electric-blue bg-electric-blue/10'
+                                : isCompleted
+                                ? 'border-cyber-green/50 bg-cyber-green/5'
+                                : 'border-bg-tertiary bg-bg-secondary'
+                            }`}
+                          >
+                            <div className="mb-3 text-center">
+                              <h4 className="text-lg font-bold text-text-primary mb-1">Open Debate</h4>
+                              <p className="text-sm text-text-secondary">
+                                All {allParticipants.length} participants submit simultaneously
+                              </p>
+                            </div>
+                            
+                            {/* All Participants Grid */}
+                            <div className="grid grid-cols-2 gap-3 mb-4">
+                              {allParticipants.map((slot, idx) => (
+                                <div
+                                  key={idx}
+                                  className={`p-3 rounded transition-all ${
+                                    slot.isWinner
+                                      ? 'bg-cyber-green/20 border border-cyber-green'
+                                      : 'bg-bg-tertiary'
+                                  }`}
+                                >
+                                  {slot.participant && (
+                                    <div className="flex items-center gap-2">
+                                      <Avatar
+                                        src={slot.participant.user.avatarUrl}
+                                        username={slot.participant.user.username}
+                                        size="sm"
+                                      />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-text-primary text-sm font-semibold truncate">
+                                          ({slot.participant.seed}) @{slot.participant.user.username}
+                                          {slot.isWinner && (
+                                            <span className="ml-2 text-cyber-green">✓ Advanced</span>
+                                          )}
+                                        </p>
+                                        <p className="text-text-secondary text-xs">ELO: {slot.participant.user.eloRating}</p>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {/* Match Status & View Debate Button */}
+                            <div className="flex items-center justify-between gap-3">
+                              <Badge
+                                variant="default"
+                                size="sm"
+                                className={
+                                  isActive
+                                    ? 'bg-electric-blue text-black'
+                                    : isCompleted
+                                    ? 'bg-cyber-green text-black'
+                                    : 'bg-bg-tertiary text-text-secondary'
+                                }
+                              >
+                                {formatStatus(slot1?.matchStatus || 'PENDING')}
+                              </Badge>
+                              {debateId && (
+                                <Link href={`/debate/${debateId}`} className="flex-shrink-0">
+                                  <Button variant="secondary" size="sm">
+                                    View
+                                  </Button>
+                                </Link>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    }
+                    
+                    // Traditional 1v1 match display
 
                     return (
                       <div
