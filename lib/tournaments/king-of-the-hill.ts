@@ -203,13 +203,6 @@ export async function evaluateKingOfTheHillRound(
     round: statement.round,
   }))
 
-  // Get a judge for the verdict (use first available judge)
-  const judges = await prisma.judge.findMany()
-  if (judges.length === 0) {
-    throw new Error('No judges available for King of the Hill evaluation')
-  }
-  const judge = judges[0]
-
   // Call AI to evaluate all submissions together
   const { generateKingOfTheHillVerdict } = await import('./king-of-the-hill-ai')
   const verdict = await generateKingOfTheHillVerdict(
@@ -252,48 +245,6 @@ export async function evaluateKingOfTheHillRound(
       `Ranked ${eliminatedParticipant.rank} out of ${totalParticipants} with a score of ${eliminatedParticipant.score}`
     eliminationExplanations[eliminatedParticipant.participantId] = explanation
   }
-
-  // Build ranking summary for verdict reasoning
-  const rankingSummary = participantScores
-    .map((ps, index) => `${index + 1}. ${ps.username} - Score: ${ps.score}/100 (Rank: ${ps.rank})`)
-    .join('\n')
-  
-  const eliminationSummary = eliminated
-    .map((e) => `• ${e.username} (Score: ${e.score}/100) - ${eliminationExplanations[e.participantId]}`)
-    .join('\n')
-
-  const verdictReasoning = `King of the Hill Round ${roundNumber} - Overall Rankings:\n\n${rankingSummary}\n\nEliminated Participants (Bottom 25%):\n${eliminationSummary}`
-
-  // Get top 2 participants for challenger/opponent scores
-  const topParticipant = participantScores[0]
-  const secondParticipant = participantScores[1] || participantScores[0]
-
-  // Determine winner (top participant)
-  const winnerId = topParticipant?.userId || null
-  const decision = winnerId ? 'CHALLENGER_WINS' : 'TIE'
-
-  // Create verdict record for display on debate page
-  await prisma.verdict.create({
-    data: {
-      debateId,
-      judgeId: judge.id,
-      winnerId,
-      decision: decision as 'CHALLENGER_WINS' | 'OPPONENT_WINS' | 'TIE',
-      reasoning: verdictReasoning,
-      challengerScore: topParticipant?.score || null,
-      opponentScore: secondParticipant?.score || null,
-    },
-  })
-
-  // Update judge stats
-  await prisma.judge.update({
-    where: { id: judge.id },
-    data: {
-      debatesJudged: {
-        increment: 1,
-      },
-    },
-  })
 
   // Update participant cumulative scores and mark eliminated ones
   for (const score of participantScores) {
