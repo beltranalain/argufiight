@@ -371,15 +371,19 @@ export default function DebatePage() {
     return `${hours}h ${minutes}m left`
   }
 
+  // Check if this is a group challenge (King of the Hill)
+  // Check by challengeType OR by having more than 2 participants
+  const isGroupChallenge = debate && (
+    debate.challengeType === 'GROUP' || 
+    (debate.participants && debate.participants.length > 2)
+  )
+
   // Check if user is a participant (for both 2-person and group debates)
   const isParticipant = debate && user && (
-    debate.challenger.id === user.id || 
-    (debate.opponent && debate.opponent.id === user.id) ||
-    (debate.participants && debate.participants.some((p: any) => p.userId === user.id && (p.status === 'ACCEPTED' || p.status === 'ACTIVE')))
+    isGroupChallenge
+      ? (debate.participants && debate.participants.some((p: any) => p.userId === user.id && (p.status === 'ACCEPTED' || p.status === 'ACTIVE')))
+      : (debate.challenger.id === user.id || (debate.opponent && debate.opponent.id === user.id))
   )
-  
-  // Check if this is a group challenge
-  const isGroupChallenge = debate?.challengeType === 'GROUP' && debate.participants && debate.participants.length > 0
 
   // Determine if it's user's turn and if they can submit
   const currentRoundStatements = debate?.statements.filter(
