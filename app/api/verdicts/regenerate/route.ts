@@ -341,12 +341,48 @@ export async function POST(request: NextRequest) {
         )
         console.log(`[Appeal Regenerate] ✅ Generated verdict from ${judge.name}:`, verdictResult.winner)
 
-        // Determine winner from verdict
+        // CRITICAL FIX: Derive winner from scores to ensure consistency
+        // The AI might give inconsistent winner decisions vs scores, especially for expired debates
+        // We derive the decision from scores (the primary data) to ensure they always match
+        const scoreDifference = Math.abs(verdictResult.challengerScore - verdictResult.opponentScore)
+        const tieThreshold = 1 // Consider it a tie if scores are within 1 point
+        
+        let derivedWinner: 'CHALLENGER' | 'OPPONENT' | 'TIE'
+        if (scoreDifference < tieThreshold) {
+          derivedWinner = 'TIE'
+        } else if (verdictResult.challengerScore > verdictResult.opponentScore) {
+          derivedWinner = 'CHALLENGER'
+        } else {
+          derivedWinner = 'OPPONENT'
+        }
+
+        // Log if AI's winner doesn't match derived winner (for debugging)
+        if (verdictResult.winner !== derivedWinner) {
+          console.warn(`[Appeal Regenerate] ⚠️ AI winner mismatch for ${judge.name}:`, {
+            aiWinner: verdictResult.winner,
+            derivedWinner,
+            challengerScore: verdictResult.challengerScore,
+            opponentScore: verdictResult.opponentScore,
+            debateId
+          })
+        }
+
+        // Determine winner from derived verdict
         let winnerId: string | null = null
-        if (verdictResult.winner === 'CHALLENGER') {
+        if (derivedWinner === 'CHALLENGER') {
           winnerId = debate.challengerId
-        } else if (verdictResult.winner === 'OPPONENT' && debate.opponentId) {
+        } else if (derivedWinner === 'OPPONENT' && debate.opponentId) {
           winnerId = debate.opponentId
+        }
+
+        // Determine decision enum from derived winner
+        let decision: 'CHALLENGER_WINS' | 'OPPONENT_WINS' | 'TIE'
+        if (derivedWinner === 'CHALLENGER') {
+          decision = 'CHALLENGER_WINS'
+        } else if (derivedWinner === 'OPPONENT') {
+          decision = 'OPPONENT_WINS'
+        } else {
+          decision = 'TIE'
         }
 
         // Save verdict
@@ -354,7 +390,7 @@ export async function POST(request: NextRequest) {
           data: {
             debateId,
             judgeId: judge.id,
-            decision: verdictResult.winner === 'CHALLENGER' ? 'CHALLENGER_WINS' : verdictResult.winner === 'OPPONENT' ? 'OPPONENT_WINS' : 'TIE',
+            decision,
             reasoning: verdictResult.reasoning,
             challengerScore: verdictResult.challengerScore,
             opponentScore: verdictResult.opponentScore,
