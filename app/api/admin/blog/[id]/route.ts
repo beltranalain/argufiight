@@ -171,6 +171,19 @@ export async function PATCH(
       }
     }
 
+    // Determine publishedAt: if status is PUBLISHED and it wasn't published before, set to now
+    let finalPublishedAt = existingPost.publishedAt
+    if (status === 'PUBLISHED') {
+      if (!existingPost.publishedAt) {
+        // First time publishing - set to now
+        finalPublishedAt = new Date()
+      }
+      // If already published, keep the original publishedAt
+    } else if (publishedAt !== undefined) {
+      // For other statuses, use provided publishedAt or null
+      finalPublishedAt = publishedAt ? new Date(publishedAt) : null
+    }
+
     // Update post
     const post = await prisma.blogPost.update({
       where: { id },
@@ -184,7 +197,7 @@ export async function PATCH(
         ...(keywords !== undefined && { keywords }),
         ...(ogImage !== undefined && { ogImage }),
         ...(status && { status }),
-        ...(publishedAt !== undefined && { publishedAt: publishedAt ? new Date(publishedAt) : null }),
+        ...(finalPublishedAt !== undefined && { publishedAt: finalPublishedAt }),
         ...(featuredImageId !== undefined && { featuredImageId }),
         ...(featured !== undefined && { featured }),
       },

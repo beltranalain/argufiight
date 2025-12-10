@@ -108,7 +108,7 @@ export default async function BlogPage({
         },
       },
       orderBy: {
-        publishedAt: 'desc',
+        createdAt: 'desc',
       },
       skip,
       take: limit,

@@ -71,7 +71,6 @@ export function BlogPostEditor({
   const [keywords, setKeywords] = useState('')
   const [ogImage, setOgImage] = useState('')
   const [status, setStatus] = useState<'DRAFT' | 'PUBLISHED' | 'SCHEDULED' | 'ARCHIVED'>('DRAFT')
-  const [publishedAt, setPublishedAt] = useState('')
   const [featuredImageId, setFeaturedImageId] = useState<string | null>(null)
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
@@ -97,7 +96,6 @@ export function BlogPostEditor({
       setKeywords(post.keywords || '')
       setOgImage(post.ogImage || '')
       setStatus(post.status)
-      setPublishedAt(post.publishedAt ? new Date(post.publishedAt).toISOString().slice(0, 16) : '')
       setFeaturedImageId(post.featuredImageId)
       setSelectedCategoryIds(post.categoryIds || [])
       setSelectedTagIds(post.tagIds || [])
@@ -253,7 +251,8 @@ export function BlogPostEditor({
         keywords,
         ogImage,
         status,
-        publishedAt: publishedAt ? new Date(publishedAt).toISOString() : null,
+        // Automatically set publishedAt to now when status is PUBLISHED
+        publishedAt: status === 'PUBLISHED' ? new Date().toISOString() : null,
         featuredImageId,
         categoryIds: selectedCategoryIds,
         tagIds: selectedTagIds,
@@ -546,19 +545,6 @@ export function BlogPostEditor({
               </select>
             </div>
 
-            {(status === 'PUBLISHED' || status === 'SCHEDULED') && (
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  {status === 'SCHEDULED' ? 'Schedule Publish Date' : 'Published Date'}
-                </label>
-                <input
-                  type="datetime-local"
-                  value={publishedAt}
-                  onChange={(e) => setPublishedAt(e.target.value)}
-                  className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
-                />
-              </div>
-            )}
 
             <div>
               <label className="flex items-center gap-2 cursor-pointer">

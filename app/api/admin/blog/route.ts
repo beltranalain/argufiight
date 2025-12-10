@@ -155,7 +155,8 @@ export async function POST(request: NextRequest) {
         keywords,
         ogImage,
         status,
-        publishedAt: publishedAt ? new Date(publishedAt) : (status === 'PUBLISHED' ? new Date() : null),
+        // Automatically set publishedAt to now when status is PUBLISHED
+        publishedAt: status === 'PUBLISHED' ? new Date() : null,
         authorId: userId,
         featuredImageId,
         featured,
