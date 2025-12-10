@@ -352,78 +352,88 @@ export async function startTournament(tournamentId: string): Promise<void> {
   })
 
   // Generate first round matches
+  // For King of the Hill, generateTournamentMatches already creates the debate via createKingOfTheHillDebate
+  // For other formats, we need to create debates for each match
   await generateTournamentMatches(tournamentId, 1)
 
-  // Create debates for each match
-  const round = await prisma.tournamentRound.findUnique({
-    where: {
-      tournamentId_roundNumber: {
-        tournamentId,
-        roundNumber: 1,
+  // Only create debates for non-King of the Hill formats
+  // King of the Hill debates are created by generateTournamentMatches -> createKingOfTheHillDebate
+  if (tournament.format !== 'KING_OF_THE_HILL') {
+    // Create debates for each match
+    const round = await prisma.tournamentRound.findUnique({
+      where: {
+        tournamentId_roundNumber: {
+          tournamentId,
+          roundNumber: 1,
+        },
       },
-    },
-    include: {
-      matches: {
-        include: {
-          participant1: {
-            include: {
-              user: true,
+      include: {
+        matches: {
+          include: {
+            participant1: {
+              include: {
+                user: true,
+              },
             },
-          },
-          participant2: {
-            include: {
-              user: true,
+            participant2: {
+              include: {
+                user: true,
+              },
             },
           },
         },
       },
-    },
-  })
-
-  if (!round) {
-    throw new Error('Failed to create tournament round')
-  }
-
-  // Create debates for each match
-  for (const match of round.matches) {
-    const participant1 = match.participant1.user
-    const participant2 = match.participant2.user
-
-    // Create debate topic based on tournament name
-    const debateTopic = `${tournament.name} - Round ${round.roundNumber}, Match ${match.id.slice(0, 8)}`
-
-    // Create debate
-    // Note: Judge is assigned when creating verdicts, not when creating the debate
-    const debate = await prisma.debate.create({
-      data: {
-        topic: debateTopic,
-        description: `Tournament match: ${participant1.username} vs ${participant2.username}`,
-        category: 'SPORTS', // Default category, could be configurable
-        challengerId: participant1.id,
-        challengerPosition: 'FOR',
-        opponentPosition: 'AGAINST',
-        opponentId: participant2.id,
-        totalRounds: 3, // Tournament matches are 3 rounds
-        roundDuration: tournament.roundDuration * 3600000, // Convert hours to milliseconds
-        speedMode: false,
-        allowCopyPaste: true,
-        status: 'ACTIVE',
-        // judgeId is not part of Debate model - judges are assigned in Verdict model
-      },
     })
 
-    // Link debate to match
-    await prisma.tournamentMatch.update({
-      where: { id: match.id },
-      data: {
-        debateId: debate.id,
-        status: 'IN_PROGRESS',
-      },
-    })
+    if (!round) {
+      throw new Error('Failed to create tournament round')
+    }
 
-    console.log(`Created debate ${debate.id} for match ${match.id}`)
+    // Create debates for each match
+    for (const match of round.matches) {
+      const participant1 = match.participant1.user
+      const participant2 = match.participant2.user
+
+      // Create debate topic based on tournament name
+      const debateTopic = `${tournament.name} - Round ${round.roundNumber}, Match ${match.id.slice(0, 8)}`
+
+      // Create debate
+      // Note: Judge is assigned when creating verdicts, not when creating the debate
+      const debate = await prisma.debate.create({
+        data: {
+          topic: debateTopic,
+          description: `Tournament match: ${participant1.username} vs ${participant2.username}`,
+          category: 'SPORTS', // Default category, could be configurable
+          challengerId: participant1.id,
+          challengerPosition: 'FOR',
+          opponentPosition: 'AGAINST',
+          opponentId: participant2.id,
+          totalRounds: 3, // Tournament matches are 3 rounds
+          roundDuration: tournament.roundDuration * 3600000, // Convert hours to milliseconds
+          speedMode: false,
+          allowCopyPaste: true,
+          status: 'ACTIVE',
+          challengeType: 'DIRECT', // Explicitly set for 1v1 debates
+          // judgeId is not part of Debate model - judges are assigned in Verdict model
+        },
+      })
+
+      // Link debate to match
+      await prisma.tournamentMatch.update({
+        where: { id: match.id },
+        data: {
+          debateId: debate.id,
+          status: 'IN_PROGRESS',
+        },
+      })
+
+      console.log(`Created debate ${debate.id} for match ${match.id}`)
+    }
+
+    console.log(`Tournament ${tournamentId} started with ${round.matches.length} matches`)
+  } else {
+    // For King of the Hill, the debate is already created by generateTournamentMatches
+    console.log(`[King of the Hill] Tournament ${tournamentId} started - debate created by generateTournamentMatches`)
   }
-
-  console.log(`Tournament ${tournamentId} started with ${round.matches.length} matches`)
 }
 
