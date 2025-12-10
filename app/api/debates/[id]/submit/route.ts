@@ -122,17 +122,45 @@ export async function POST(
       console.error('Failed to update user analytics:', err)
     })
 
-    // Check if both participants have submitted
-    const roundStatements = await prisma.statement.count({
+    // Check if all participants have submitted (for both 2-person and group debates)
+    const roundStatements = await prisma.statement.findMany({
       where: {
         debateId: id,
         round: debate.currentRound,
       },
+      select: {
+        authorId: true,
+      },
     })
+
+    const submittedAuthorIds = new Set(roundStatements.map(s => s.authorId))
+    
+    let allParticipantsSubmitted = false
+    if (debate.challengeType === 'GROUP') {
+      // For GROUP challenges, check all active participants
+      const activeParticipants = await prisma.debateParticipant.findMany({
+        where: {
+          debateId: id,
+          status: { in: ['ACTIVE', 'ACCEPTED'] },
+        },
+        select: {
+          userId: true,
+        },
+      })
+
+      const activeParticipantIds = new Set(activeParticipants.map(p => p.userId))
+      allParticipantsSubmitted = activeParticipantIds.size > 0 && 
+        Array.from(activeParticipantIds).every(id => submittedAuthorIds.has(id))
+    } else {
+      // For 2-person debates, check if both challenger and opponent submitted
+      const challengerSubmitted = submittedAuthorIds.has(debate.challengerId)
+      const opponentSubmitted = debate.opponentId ? submittedAuthorIds.has(debate.opponentId) : false
+      allParticipantsSubmitted = challengerSubmitted && opponentSubmitted
+    }
 
     let updatedDebate = debate
 
-    if (roundStatements === 2) {
+    if (allParticipantsSubmitted) {
       // Both submitted, advance round
       if (debate.currentRound >= debate.totalRounds) {
         // Debate complete
