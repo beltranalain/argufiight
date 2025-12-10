@@ -67,7 +67,9 @@ export default async function BlogPage({
 
   // Add search filter
   if (params.search) {
+    // When search is used, we need to combine it with status using AND
     where.AND = [
+      { status: 'PUBLISHED' },
       {
         OR: [
           { title: { contains: params.search, mode: 'insensitive' } },
@@ -75,6 +77,8 @@ export default async function BlogPage({
         ],
       },
     ]
+    // Remove the status from top level since it's now in AND
+    delete where.status
   }
 
   const [posts, total] = await Promise.all([
