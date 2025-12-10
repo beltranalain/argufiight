@@ -179,6 +179,7 @@ export async function GET(
           appealedStatements: true,
           appealRejectionReason: true,
           spectatorCount: true,
+          challengeType: true,
           createdAt: true,
           challenger: {
             select: {
@@ -195,6 +196,21 @@ export async function GET(
               avatarUrl: true,
               eloRating: true,
             }
+          },
+          participants: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  avatarUrl: true,
+                  eloRating: true,
+                },
+              },
+            },
+            orderBy: {
+              joinedAt: 'asc',
+            },
           },
           statements: {
             include: {
