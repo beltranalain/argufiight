@@ -120,6 +120,7 @@ export async function GET(
                   name: true,
                   currentRound: true,
                   totalRounds: true,
+                  format: true, // Include tournament format for King of the Hill detection
                 },
               },
               round: {
