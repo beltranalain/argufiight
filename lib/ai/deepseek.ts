@@ -84,8 +84,18 @@ export async function generateVerdict(
   const completionNote = isComplete 
     ? 'This debate has been completed with all rounds finished. Judge based on the full set of arguments presented.'
     : hasExpiredStatements
-    ? `This debate ended due to time expiration. Some rounds were not completed because participants missed the deadline. Judge based on whatever arguments were submitted before the time expired. If a debater missed a round due to time expiration, consider that as a negative factor in your evaluation - they failed to meet the deadline. IMPORTANT: Do NOT mention time expiration, deadlines, or incomplete rounds in your reasoning. Judge the arguments that were submitted and provide your verdict based on argument quality only.`
-    : `This debate is incomplete (Round ${debateContext.currentRound}/${debateContext.totalRounds}). Judge based on whatever arguments are available, even if not all rounds were completed. If a debater missed a round, consider that in your evaluation. IMPORTANT: Do NOT mention that the debate is incomplete in your reasoning. Judge the arguments that were submitted and provide your verdict based on argument quality only.`
+    ? `This debate ended due to time expiration. Some rounds were not completed because participants missed the deadline. 
+
+IMPORTANT INSTRUCTIONS:
+1. Judge based on whatever arguments were submitted before the time expired.
+2. If a debater missed a round due to time expiration, consider that as a negative factor in your SCORING (lower their score) - they failed to meet the deadline.
+3. However, in your REASONING text, do NOT mention time expiration, deadlines, incomplete rounds, or missing submissions. Focus only on the quality of the arguments that were presented - their logic, evidence, persuasiveness, and argumentation skills.`
+    : `This debate is incomplete (Round ${debateContext.currentRound}/${debateContext.totalRounds}). 
+
+IMPORTANT INSTRUCTIONS:
+1. Judge based on whatever arguments are available, even if not all rounds were completed.
+2. If a debater missed a round, consider that as a negative factor in your SCORING (lower their score).
+3. However, in your REASONING text, do NOT mention that the debate is incomplete or that rounds were missed. Focus only on the quality of the arguments that were presented - their logic, evidence, persuasiveness, and argumentation skills.`
 
   try {
     const completion = await client.chat.completions.create({
