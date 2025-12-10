@@ -35,47 +35,43 @@ export default async function BlogPage({
 
   const where: any = {
     status: 'PUBLISHED',
-    AND: [
-      {
-        OR: [
-          { publishedAt: { lte: new Date() } },
-          { publishedAt: null },
-        ],
-      },
+    // Include all published posts regardless of publishedAt date
+    // (publishedAt can be null or in the past)
+    OR: [
+      { publishedAt: { lte: new Date() } },
+      { publishedAt: null },
     ],
   }
 
   if (params.category) {
-    where.AND.push({
-      categories: {
-        some: {
-          category: {
-            slug: params.category,
-          },
+    where.categories = {
+      some: {
+        category: {
+          slug: params.category,
         },
       },
-    })
+    }
   }
 
   if (params.tag) {
-    where.AND.push({
-      tags: {
-        some: {
-          tag: {
-            slug: params.tag,
-          },
+    where.tags = {
+      some: {
+        tag: {
+          slug: params.tag,
         },
       },
-    })
+    }
   }
 
   if (params.search) {
-    where.AND.push({
-      OR: [
-        { title: { contains: params.search, mode: 'insensitive' } },
-        { excerpt: { contains: params.search, mode: 'insensitive' } },
-      ],
-    })
+    where.AND = [
+      {
+        OR: [
+          { title: { contains: params.search, mode: 'insensitive' } },
+          { excerpt: { contains: params.search, mode: 'insensitive' } },
+        ],
+      },
+    ]
   }
 
   const [posts, total] = await Promise.all([
