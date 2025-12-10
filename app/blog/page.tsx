@@ -45,38 +45,36 @@ export default async function BlogPage({
 
   // Add category filter
   if (params.category) {
-    where.AND.push({
-      categories: {
-        some: {
-          category: {
-            slug: params.category,
-          },
+    where.categories = {
+      some: {
+        category: {
+          slug: params.category,
         },
       },
-    })
+    }
   }
 
   // Add tag filter
   if (params.tag) {
-    where.AND.push({
-      tags: {
-        some: {
-          tag: {
-            slug: params.tag,
-          },
+    where.tags = {
+      some: {
+        tag: {
+          slug: params.tag,
         },
       },
-    })
+    }
   }
 
   // Add search filter
   if (params.search) {
-    where.AND.push({
-      OR: [
-        { title: { contains: params.search, mode: 'insensitive' } },
-        { excerpt: { contains: params.search, mode: 'insensitive' } },
-      ],
-    })
+    where.AND = [
+      {
+        OR: [
+          { title: { contains: params.search, mode: 'insensitive' } },
+          { excerpt: { contains: params.search, mode: 'insensitive' } },
+        ],
+      },
+    ]
   }
 
   const [posts, total] = await Promise.all([
