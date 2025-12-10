@@ -54,12 +54,23 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
       // Then trigger evaluation and elimination
       const debate = await prisma.debate.findUnique({
         where: { id: debateId },
-        include: {
+        select: {
+          id: true,
+          topic: true,
+          currentRound: true,
+          totalRounds: true,
+          status: true,
           participants: {
             where: { status: 'ACTIVE' },
+            select: {
+              userId: true,
+            },
           },
           statements: {
-            where: { round: 1 }, // King of the Hill rounds are single submission rounds
+            select: {
+              authorId: true,
+              round: true,
+            },
           },
         },
       })
@@ -69,9 +80,10 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
         return
       }
 
-      // Check if all active participants have submitted
+      // Get statements for the current round (King of the Hill rounds are single submission rounds)
+      const currentRoundStatements = debate.statements.filter(s => s.round === debate.currentRound)
       const activeParticipantIds = new Set(debate.participants.map(p => p.userId))
-      const submittedParticipantIds = new Set(debate.statements.map(s => s.authorId))
+      const submittedParticipantIds = new Set(currentRoundStatements.map(s => s.authorId))
       const allSubmitted = activeParticipantIds.size > 0 && 
         Array.from(activeParticipantIds).every(id => submittedParticipantIds.has(id))
 
@@ -81,9 +93,17 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
       }
 
       // All participants submitted - trigger evaluation
-      console.log(`[King of the Hill] All participants submitted - triggering evaluation`)
+      console.log(`[King of the Hill] All participants submitted - triggering evaluation for round ${match.round.roundNumber}`)
       const { evaluateKingOfTheHillRound } = await import('./king-of-the-hill')
       await evaluateKingOfTheHillRound(debateId, match.round.tournamentId, match.round.roundNumber)
+
+      // Update debate status to VERDICT_READY to indicate evaluation is complete
+      await prisma.debate.update({
+        where: { id: debateId },
+        data: {
+          status: 'VERDICT_READY',
+        },
+      })
 
       // Mark match as completed
       await prisma.tournamentMatch.update({
