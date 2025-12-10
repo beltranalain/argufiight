@@ -130,7 +130,8 @@ export async function createKingOfTheHillDebate(
     },
   })
 
-  console.log(`[King of the Hill] Created debate ${debate.id} for round ${roundNumber} with ${activeParticipants.length} participants`)
+  console.log(`[King of the Hill] Created debate ${debate.id} for round ${roundNumber} with ${activeParticipants.length} participants:`, 
+    activeParticipants.map(p => p.user.username).join(', '))
 
   return debate.id
 }
