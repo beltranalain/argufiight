@@ -35,9 +35,13 @@ export default async function BlogPage({
 
   const where: any = {
     status: 'PUBLISHED',
-    OR: [
-      { publishedAt: { lte: new Date() } },
-      { publishedAt: null },
+    AND: [
+      {
+        OR: [
+          { publishedAt: { lte: new Date() } },
+          { publishedAt: null },
+        ],
+      },
     ],
   }
 
@@ -188,10 +192,10 @@ export default async function BlogPage({
                 <Link
                   key={post.id}
                   href={`/blog/${post.slug}`}
-                  className="bg-bg-secondary border border-bg-tertiary rounded-xl overflow-hidden hover:border-electric-blue/50 transition-all group"
+                  className="bg-transparent border border-white/20 rounded-xl overflow-hidden hover:border-electric-blue/50 transition-all group backdrop-blur-sm"
                 >
                   {post.featuredImage && (
-                    <div className="relative w-full h-64 flex items-center justify-center bg-bg-tertiary">
+                    <div className="relative w-full h-64 flex items-center justify-center bg-transparent">
                       {post.featuredImage.url.startsWith('data:') || post.featuredImage.url.includes('blob.vercel-storage.com') ? (
                         <img
                           src={post.featuredImage.url}
@@ -210,7 +214,7 @@ export default async function BlogPage({
                       )}
                     </div>
                   )}
-                  <div className="p-6">
+                  <div className="p-6 bg-transparent">
                     {post.categories.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-3">
                         {post.categories.map((c) => (
@@ -227,11 +231,11 @@ export default async function BlogPage({
                       {post.title}
                     </h2>
                     {post.excerpt && (
-                      <p className="text-text-secondary text-sm mb-4 line-clamp-3">
+                      <p className="text-white/80 text-sm mb-4 line-clamp-3">
                         {post.excerpt}
                       </p>
                     )}
-                    <div className="flex items-center justify-end text-sm text-text-secondary">
+                    <div className="flex items-center justify-end text-sm text-white/60">
                       <span>
                         {post.publishedAt
                           ? new Date(post.publishedAt).toLocaleDateString()
