@@ -39,16 +39,6 @@ export async function GET(
           },
         },
         participants: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                username: true,
-                avatarUrl: true,
-                eloRating: true,
-              },
-            },
-          },
           select: {
             id: true,
             userId: true,
