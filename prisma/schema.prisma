@@ -2196,3 +2196,64 @@ model BlogPostToTag {
   @@index([tagId])
   @@map("blog_post_to_tags")
 }
+
+// Trello-like Kanban Board System
+model Board {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  color       String?  @default("#0079bf") // Trello blue
+  isArchived  Boolean  @default(false) @map("is_archived")
+  lists       List[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([isArchived])
+  @@map("boards")
+}
+
+model List {
+  id         String   @id @default(uuid())
+  boardId    String   @map("board_id")
+  board      Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  name       String
+  position   Int      @default(0) // For ordering lists
+  isArchived Boolean  @default(false) @map("is_archived")
+  cards      Card[]
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([boardId])
+  @@index([position])
+  @@map("lists")
+}
+
+model Card {
+  id          String      @id @default(uuid())
+  listId      String      @map("list_id")
+  list        List        @relation(fields: [listId], references: [id], onDelete: Cascade)
+  title       String
+  description String? // Rich text description
+  position    Int         @default(0) // For ordering cards within a list
+  dueDate     DateTime?   @map("due_date")
+  isArchived  Boolean     @default(false) @map("is_archived")
+  labels      CardLabel[]
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  @@index([listId])
+  @@index([position])
+  @@map("cards")
+}
+
+model CardLabel {
+  id        String   @id @default(uuid())
+  cardId    String   @map("card_id")
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  name      String
+  color     String   @default("#61bd4f") // Green default
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([cardId])
+  @@map("card_labels")
+}
