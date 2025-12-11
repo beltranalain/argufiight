@@ -110,7 +110,21 @@ export function TournamentBracket({
     
     // Build bracket round by round
     for (let round = 1; round <= totalRounds; round++) {
-      const roundMatches = matches.filter((m) => m.round === round)
+      let roundMatches = matches.filter((m) => m.round === round)
+      
+      // For King of the Hill, ensure only ONE match per round (the GROUP debate)
+      // If multiple matches exist, prefer the one with GROUP challengeType
+      if (isKingOfTheHill) {
+        const groupMatch = roundMatches.find(m => m.debate?.challengeType === 'GROUP')
+        if (groupMatch) {
+          roundMatches = [groupMatch] // Only use the GROUP match
+        } else if (roundMatches.length > 1) {
+          // If no GROUP match found but multiple matches exist, use the first one
+          // This handles edge cases where old matches might exist
+          roundMatches = [roundMatches[0]]
+        }
+      }
+      
       const roundSlots: BracketSlot[][] = []
       
       if (isKingOfTheHill && round < totalRounds) {
