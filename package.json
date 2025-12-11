@@ -27,7 +27,8 @@
     "check-all-appeals": "tsx scripts/check-all-appeals.ts",
     "process-appeals": "tsx scripts/process-appeals.ts",
     "process-appeals-direct": "tsx scripts/process-appeals-direct.ts",
-    "process-expired": "tsx scripts/process-expired-rounds.ts"
+    "process-expired": "tsx scripts/process-expired-rounds.ts",
+    "migrate-plans": "node scripts/run-plans-migration.js"
   },
   "keywords": [
     "debate",
