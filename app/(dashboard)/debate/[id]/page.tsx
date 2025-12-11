@@ -388,11 +388,13 @@ export default function DebatePage() {
   }
 
   // Check if this is a group challenge (King of the Hill)
-  // Check by tournament format FIRST (most reliable), then challengeType, OR by having more than 2 participants
+  // IMPORTANT: Finals are ONE_ON_ONE, so check challengeType FIRST
+  // If challengeType is ONE_ON_ONE, it's NOT a group challenge (even if part of King of the Hill tournament)
   const isGroupChallenge = debate && (
-    debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL' ||
     debate.challengeType === 'GROUP' || 
-    (debate.participants && debate.participants.length > 2)
+    (debate.challengeType !== 'ONE_ON_ONE' && 
+     debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL') ||
+    (debate.participants && debate.participants.length > 2 && debate.challengeType !== 'ONE_ON_ONE')
   )
 
   // Debug logging for King of the Hill detection
