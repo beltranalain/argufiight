@@ -25,6 +25,7 @@ export interface KingOfTheHillVerdict {
   eliminationExplanations: Record<string, string> // userId -> explanation for why eliminated
   totalParticipants: number
   eliminatedCount: number
+  judgeId: string // ID of the judge who evaluated this round
 }
 
 /**
@@ -61,12 +62,19 @@ ${submissionsText}
 
 Your task:
 1. Evaluate each participant's argument quality, reasoning, evidence, and persuasiveness
-2. Rank all participants from best (1) to worst (${submissions.length})
-3. Assign a score (0-100) to each participant
-4. Identify the bottom 25% who should be eliminated
+2. Rank all participants from best (1) to worst (${submissions.length}) - NO TIES, each must have a unique rank
+3. Assign a score (0-100) to each participant based on their argument quality
+4. Identify the bottom 25% who should be eliminated (approximately ${Math.ceil(submissions.length * 0.25)} participants)
 5. Provide a clear explanation for why each eliminated participant was removed
 
-Respond in the following JSON format:
+SCORING CRITERIA:
+- Argument Quality: How well-structured and logical is the argument? (0-25 points)
+- Evidence: Does the participant provide supporting evidence or examples? (0-25 points)
+- Persuasiveness: How convincing is the argument? (0-25 points)
+- Clarity: Is the argument clear and easy to understand? (0-15 points)
+- Relevance: Does the argument directly address the topic? (0-10 points)
+
+Respond in the following JSON format (NO markdown code blocks, just pure JSON):
 {
   "rankings": [
     {
@@ -74,22 +82,30 @@ Respond in the following JSON format:
       "username": "username1",
       "score": 85,
       "rank": 1,
-      "reasoning": "Strong argument with clear evidence..."
+      "reasoning": "Strong argument with clear evidence and logical reasoning. The participant effectively addressed the topic and provided compelling examples."
     },
-    ...
+    {
+      "userId": "user-id-2",
+      "username": "username2",
+      "score": 72,
+      "rank": 2,
+      "reasoning": "Good argument with solid points, though some areas could be more developed."
+    }
   ],
   "eliminationExplanations": {
-    "user-id-of-eliminated-1": "This participant was eliminated because...",
-    "user-id-of-eliminated-2": "This participant was eliminated because..."
+    "user-id-of-eliminated-1": "This participant was eliminated because their argument lacked sufficient evidence and failed to adequately address the topic. Ranked ${submissions.length} out of ${submissions.length} with a score of 45.",
+    "user-id-of-eliminated-2": "This participant was eliminated because their reasoning was unclear and the argument structure was weak. Ranked ${submissions.length - 1} out of ${submissions.length} with a score of 52."
   }
 }
 
-IMPORTANT:
-- Rankings must be from 1 (best) to ${submissions.length} (worst)
-- Scores should be 0-100
-- Eliminate the bottom 25% (approximately ${Math.ceil(submissions.length * 0.25)} participants)
-- Provide clear, constructive explanations for eliminations
-- Be fair and objective in your evaluation`
+CRITICAL REQUIREMENTS:
+- Rankings MUST be from 1 (best) to ${submissions.length} (worst) - NO TIES, each participant must have a unique rank
+- Each participant MUST have a unique rank (1, 2, 3, ..., ${submissions.length})
+- Scores MUST be between 0-100
+- Eliminate EXACTLY the bottom 25% (${Math.ceil(submissions.length * 0.25)} participants minimum)
+- Provide detailed, constructive explanations for eliminations
+- Be fair, objective, and consistent in your evaluation
+- Return ONLY valid JSON, no markdown formatting, no code blocks`
 
   try {
     // Use DeepSeek to generate the verdict
@@ -112,12 +128,18 @@ IMPORTANT:
     }
 
     // Get a judge (we'll use the first available judge)
-    const judges = await prisma.judge.findMany()
+    // For King of the Hill, we want a fair and objective judge
+    const judges = await prisma.judge.findMany({
+      orderBy: {
+        debatesJudged: 'asc', // Rotate judges to distribute workload
+      },
+    })
     if (judges.length === 0) {
       throw new Error('No judges available')
     }
 
     const judge = judges[0]
+    console.log(`[King of the Hill AI] Using judge: ${judge.name} (${judge.id}) for round ${roundNumber}`)
 
     // Generate verdict using DeepSeek
     // Note: We'll need to adapt this to handle multi-participant evaluation
@@ -193,7 +215,10 @@ IMPORTANT:
       }
     }
 
-    return verdict
+    return {
+      ...verdict,
+      judgeId: judge.id,
+    }
   } catch (error: any) {
     console.error('[King of the Hill AI] Failed to generate verdict:', error)
     
@@ -215,11 +240,16 @@ IMPORTANT:
         `Ranked ${eliminatedParticipant.rank} out of ${submissions.length} with a score of ${eliminatedParticipant.score}`
     }
 
+    // For fallback, use first available judge
+    const fallbackJudges = await prisma.judge.findMany()
+    const fallbackJudgeId = fallbackJudges[0]?.id || ''
+
     return {
       rankings: defaultRankings,
       eliminationExplanations,
       totalParticipants: submissions.length,
       eliminatedCount: eliminateCount,
+      judgeId: fallbackJudgeId,
     }
   }
 }
