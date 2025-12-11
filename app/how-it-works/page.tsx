@@ -1,22 +1,34 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { getStaticPage } from '@/lib/content/static-pages'
 
-export const metadata: Metadata = {
-  title: 'How It Works - Argufight | AI-Judged Debate Platform',
-  description: 'Learn how Argufight works. Create debates, make arguments over 5 rounds, get judged by 7 unique AI personalities, and climb the ELO leaderboard. Start debating today!',
-  keywords: 'how debate platform works, AI judges, debate process, ELO ranking, online debates, argumentation skills',
-  openGraph: {
-    title: 'How It Works - Argufight',
-    description: 'Learn how to use Argufight to debate any topic with AI judges and improve your argumentation skills.',
-    type: 'website',
-  },
-  alternates: {
-    canonical: 'https://www.argufight.com/how-it-works',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
+  const page = await getStaticPage('how-it-works')
+  
+  const title = page?.metaTitle || 'How It Works - Argufight | AI-Judged Debate Platform'
+  const description = page?.metaDescription || 'Learn how Argufight works. Create debates, make arguments over 5 rounds, get judged by 7 unique AI personalities, and climb the ELO leaderboard. Start debating today!'
+  const keywords = page?.keywords || 'how debate platform works, AI judges, debate process, ELO ranking, online debates, argumentation skills'
+
+  return {
+    title,
+    description,
+    keywords,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+      url: `${baseUrl}/how-it-works`,
+    },
+    alternates: {
+      canonical: `${baseUrl}/how-it-works`,
+    },
+  }
 }
 
-export default function HowItWorksPage() {
+export default async function HowItWorksPage() {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
+  const page = await getStaticPage('how-it-works')
 
   const structuredData = {
     "@context": "https://schema.org",
@@ -60,14 +72,30 @@ export default function HowItWorksPage() {
       />
       <div className="min-h-screen bg-gradient-to-b from-purple-950 via-purple-900 to-indigo-950">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              How Argufight Works
-            </h1>
-            <p className="text-xl text-text-primary/80">
-              Master the art of argumentation with AI-judged debates
-            </p>
-          </div>
+          {page && page.content ? (
+            // Render database content
+            <div>
+              <div className="text-center mb-12">
+                <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+                  {page.title}
+                </h1>
+              </div>
+              <div
+                className="prose prose-invert prose-lg max-w-none prose-headings:text-white prose-p:text-text-primary/90 prose-a:text-electric-blue prose-strong:text-white"
+                dangerouslySetInnerHTML={{ __html: page.content }}
+              />
+            </div>
+          ) : (
+            // Fallback content
+            <>
+              <div className="text-center mb-12">
+                <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+                  How Argufight Works
+                </h1>
+                <p className="text-xl text-text-primary/80">
+                  Master the art of argumentation with AI-judged debates
+                </p>
+              </div>
 
           <div className="space-y-12">
             {/* Step 1 */}
@@ -225,6 +253,8 @@ export default function HowItWorksPage() {
               </div>
             </section>
           </div>
+            </>
+          )}
         </div>
       </div>
     </>

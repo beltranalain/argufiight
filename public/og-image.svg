@@ -1,0 +1,14 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1d2e;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#2d1b4e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a1d2e;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grad1)"/>
+  <text x="600" y="280" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="#00d9ff" text-anchor="middle">ARGU FIGHT</text>
+  <text x="600" y="360" font-family="Arial, sans-serif" font-size="36" fill="#ffffff" text-anchor="middle">AI-Judged Debate Platform</text>
+  <text x="600" y="420" font-family="Arial, sans-serif" font-size="24" fill="#a0a0a0" text-anchor="middle">Win Debates with 7 AI Judges</text>
+</svg>
+

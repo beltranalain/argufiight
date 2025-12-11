@@ -848,8 +848,8 @@ enum DebatePosition {
 }
 
 enum DebateVisibility {
-  PUBLIC   // Publicly indexable and visible
-  PRIVATE  // Only accessible via share token
+  PUBLIC // Publicly indexable and visible
+  PRIVATE // Only accessible via share token
   UNLISTED // Accessible via direct link but not indexed
 }
 
@@ -1712,6 +1712,28 @@ model LegalPage {
   @@index([slug])
   @@index([isVisible])
   @@map("legal_pages")
+}
+
+// Static pages (how-it-works, pricing, about, faq)
+model StaticPage {
+  id        String  @id @default(uuid())
+  slug      String  @unique // e.g., "how-it-works", "pricing", "about", "faq"
+  title     String // Page title
+  content   String // Rich text content (HTML)
+  isVisible Boolean @default(true) @map("is_visible")
+
+  // SEO
+  metaTitle       String? @map("meta_title")
+  metaDescription String? @map("meta_description")
+  keywords        String? // Comma-separated keywords
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([slug])
+  @@index([isVisible])
+  @@map("static_pages")
 }
 
 // Social media links for footer

@@ -344,6 +344,17 @@ export default function ContentManagerPage() {
           </div>
         </div>
 
+        {/* Static Pages Section */}
+        <div className="mt-6 pt-8 border-t border-bg-tertiary">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-2">Static Pages</h2>
+              <p className="text-text-secondary">Manage content for how-it-works, pricing, about, and FAQ pages</p>
+            </div>
+          </div>
+          <StaticPagesManager />
+        </div>
+
         {/* Social Media Links Section */}
         <div className="mt-6 pt-8 border-t border-bg-tertiary">
           <div className="flex items-center justify-between mb-6">
@@ -365,6 +376,278 @@ export default function ContentManagerPage() {
             />
           )}
         </div>
+    </div>
+  )
+}
+
+// Static Pages Manager Component
+function StaticPagesManager() {
+  const { showToast } = useToast()
+  const [pages, setPages] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [editingPage, setEditingPage] = useState<any | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [formData, setFormData] = useState({
+    title: '',
+    content: '',
+    metaTitle: '',
+    metaDescription: '',
+    keywords: '',
+    isVisible: true,
+  })
+
+  useEffect(() => {
+    fetchPages()
+  }, [])
+
+  const fetchPages = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/admin/static-pages')
+      if (response.ok) {
+        const data = await response.json()
+        setPages(data.pages || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch static pages:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEdit = (page: any) => {
+    setEditingPage(page)
+    setFormData({
+      title: page.title,
+      content: page.content,
+      metaTitle: page.metaTitle || '',
+      metaDescription: page.metaDescription || '',
+      keywords: page.keywords || '',
+      isVisible: page.isVisible,
+    })
+    setIsModalOpen(true)
+  }
+
+  const handleSave = async () => {
+    try {
+      const url = editingPage
+        ? `/api/admin/static-pages/${editingPage.id}`
+        : '/api/admin/static-pages'
+      
+      const method = editingPage ? 'PATCH' : 'POST'
+      const body = editingPage
+        ? formData
+        : { ...formData, slug: getSlugFromTitle(formData.title) }
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Save failed' }))
+        throw new Error(error.error || 'Save failed')
+      }
+
+      showToast({
+        type: 'success',
+        title: 'Page Saved',
+        description: `Static page ${editingPage ? 'updated' : 'created'} successfully`,
+      })
+      
+      setIsModalOpen(false)
+      setEditingPage(null)
+      fetchPages()
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Save Failed',
+        description: error.message || 'Failed to save page',
+      })
+    }
+  }
+
+  const getSlugFromTitle = (title: string) => {
+    return title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+  }
+
+  const predefinedPages = [
+    { slug: 'how-it-works', title: 'How It Works', url: '/how-it-works' },
+    { slug: 'pricing', title: 'Pricing', url: '/pricing' },
+    { slug: 'about', title: 'About Us', url: '/about' },
+    { slug: 'faq', title: 'FAQ', url: '/faq' },
+  ]
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <LoadingSpinner size="sm" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {predefinedPages.map((predefined) => {
+        const page = pages.find((p) => p.slug === predefined.slug)
+        return (
+          <div
+            key={predefined.slug}
+            className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-xl font-semibold text-white">{predefined.title}</h3>
+                  <span className="px-2 py-1 text-xs rounded bg-bg-tertiary text-text-secondary">
+                    {predefined.slug}
+                  </span>
+                  {page?.isVisible ? (
+                    <span className="px-2 py-1 text-xs rounded bg-cyber-green/20 text-cyber-green">
+                      Visible
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 text-xs rounded bg-text-muted/20 text-text-muted">
+                      Hidden
+                    </span>
+                  )}
+                </div>
+                {page ? (
+                  <p className="text-text-secondary text-sm mb-2">
+                    Last updated: {new Date(page.updatedAt).toLocaleDateString()}
+                  </p>
+                ) : (
+                  <p className="text-text-secondary text-sm mb-2">
+                    Not yet created. Click "Create" to add content.
+                  </p>
+                )}
+                <a
+                  href={predefined.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-electric-blue hover:text-[#00B8E6] text-sm"
+                >
+                  View page →
+                </a>
+              </div>
+              <Button
+                onClick={() => {
+                  if (page) {
+                    handleEdit(page)
+                  } else {
+                    setFormData({
+                      title: predefined.title,
+                      content: '',
+                      metaTitle: '',
+                      metaDescription: '',
+                      keywords: '',
+                      isVisible: true,
+                    })
+                    setEditingPage(null)
+                    setIsModalOpen(true)
+                  }
+                }}
+              >
+                {page ? 'Edit' : 'Create'}
+              </Button>
+            </div>
+          </div>
+        )
+      })}
+
+      {/* Edit/Create Modal */}
+      {isModalOpen && (
+        <Modal
+          isOpen={true}
+          onClose={() => {
+            setIsModalOpen(false)
+            setEditingPage(null)
+          }}
+          title={editingPage ? `Edit ${editingPage.title}` : 'Create Static Page'}
+          size="lg"
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Title</label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white"
+                disabled={!!editingPage}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Content</label>
+              <RichTextEditor
+                value={formData.content}
+                onChange={(value) => setFormData({ ...formData, content: value })}
+                placeholder="Enter page content here..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Meta Title</label>
+              <input
+                type="text"
+                value={formData.metaTitle}
+                onChange={(e) => setFormData({ ...formData, metaTitle: e.target.value })}
+                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white"
+                placeholder="SEO meta title"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Meta Description</label>
+              <textarea
+                value={formData.metaDescription}
+                onChange={(e) => setFormData({ ...formData, metaDescription: e.target.value })}
+                rows={3}
+                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white"
+                placeholder="SEO meta description"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">Keywords</label>
+              <input
+                type="text"
+                value={formData.keywords}
+                onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
+                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white"
+                placeholder="Comma-separated keywords"
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isVisible}
+                  onChange={(e) => setFormData({ ...formData, isVisible: e.target.checked })}
+                  className="rounded"
+                />
+                <span className="text-sm text-white">Visible</span>
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-4 pt-4 border-t border-bg-tertiary">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsModalOpen(false)
+                  setEditingPage(null)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSave}>Save</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

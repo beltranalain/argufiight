@@ -29,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: 'Argufight',
       images: [
         {
-          url: `${baseUrl}/og-image.png`,
+          url: `${baseUrl}/og-image.svg`,
           width: 1200,
           height: 630,
           alt: 'Argufight - AI-Judged Debate Platform',
@@ -42,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
       card: 'summary_large_image',
       title,
       description,
-      images: [`${baseUrl}/twitter-card.png`],
+      images: [`${baseUrl}/twitter-card.svg`],
     },
     alternates: {
       canonical: baseUrl,
