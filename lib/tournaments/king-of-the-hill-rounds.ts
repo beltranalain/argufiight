@@ -382,10 +382,9 @@ async function createKingOfTheHillFinals(
     throw new Error('Finals requires exactly 2 participants')
   }
 
-  // Check if tournament is already completed
+  // Check if tournament is already completed and get tournament data
   const tournament = await prisma.tournament.findUnique({
     where: { id: tournamentId },
-    select: { id: true, status: true },
   })
 
   if (!tournament) {
@@ -438,10 +437,6 @@ async function createKingOfTheHillFinals(
     console.log(`[King of the Hill] Finals already exists for round ${roundNumber}: Debate ${existingMatch.debate.id}`)
     return existingMatch.debate.id
   }
-
-  const tournament = await prisma.tournament.findUnique({
-    where: { id: tournamentId },
-  })
 
   // Create traditional 3-round debate (same as regular debates)
   // Finals uses classic debate rules: ONE_ON_ONE, 3 rounds, alternating turns
