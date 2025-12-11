@@ -5,7 +5,8 @@
  */
 
 import { prisma } from '@/lib/db/prisma'
-import { createDeepSeekClient, logApiUsage } from '@/lib/ai/deepseek'
+import { createDeepSeekClient } from '@/lib/ai/deepseek'
+import { logApiUsage } from '@/lib/ai/api-tracking'
 
 export interface ParticipantSubmission {
   userId: string
