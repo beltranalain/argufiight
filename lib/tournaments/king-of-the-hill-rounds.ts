@@ -190,6 +190,13 @@ export async function createKingOfTheHillRound(
         roundNumber,
       },
     },
+    include: {
+      matches: {
+        include: {
+          debate: true,
+        },
+      },
+    },
   })
 
   if (!round) {
@@ -200,7 +207,21 @@ export async function createKingOfTheHillRound(
         status: 'UPCOMING',
         startDate: new Date(),
       },
+      include: {
+        matches: {
+          include: {
+            debate: true,
+          },
+        },
+      },
     })
+  }
+
+  // Check if debate already exists for this round (prevent duplicates)
+  const existingMatch = round.matches.find(m => m.debate && m.debate.challengeType === 'GROUP')
+  if (existingMatch && existingMatch.debate) {
+    console.log(`[King of the Hill] Round ${roundNumber} debate already exists: Debate ${existingMatch.debate.id}`)
+    return existingMatch.debate.id
   }
 
   // Create debate with all active participants
@@ -359,6 +380,13 @@ async function createKingOfTheHillFinals(
         roundNumber,
       },
     },
+    include: {
+      matches: {
+        include: {
+          debate: true,
+        },
+      },
+    },
   })
 
   if (!round) {
@@ -369,7 +397,21 @@ async function createKingOfTheHillFinals(
         status: 'UPCOMING',
         startDate: new Date(),
       },
+      include: {
+        matches: {
+          include: {
+            debate: true,
+          },
+        },
+      },
     })
+  }
+
+  // Check if finals debate already exists for this round (prevent duplicates)
+  const existingMatch = round.matches.find(m => m.debate && m.debate.challengeType === 'ONE_ON_ONE')
+  if (existingMatch && existingMatch.debate) {
+    console.log(`[King of the Hill] Finals already exists for round ${roundNumber}: Debate ${existingMatch.debate.id}`)
+    return existingMatch.debate.id
   }
 
   const tournament = await prisma.tournament.findUnique({
