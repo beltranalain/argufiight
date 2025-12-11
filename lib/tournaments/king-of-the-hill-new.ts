@@ -171,6 +171,7 @@ export async function generateKingOfTheHillRoundVerdicts(
 
       // Store scores and elimination reasoning in a format the frontend can parse
       // Frontend expects: "username: score/100\n   reasoning\n\nusername2: score/100..."
+      // Format: Each participant on a new line with score, then elimination reasoning at the end
       const scoresText = participants
         .map(p => {
           const score = judgeVerdict.scores[p.userId] || 0
@@ -178,6 +179,8 @@ export async function generateKingOfTheHillRoundVerdicts(
         })
         .join('\n')
       
+      // Format: Scores first, then separator, then elimination reasoning
+      // The frontend parser will extract scores from lines matching "username: score/100"
       const reasoningText = `${scoresText}\n\n---\n\nElimination Reasoning (Why bottom 25% should be eliminated):\n\n${judgeVerdict.overallReasoning}`
 
       const verdict = await prisma.verdict.create({
@@ -282,6 +285,24 @@ export async function generateKingOfTheHillRoundVerdicts(
       })
     )
   )
+
+  // Update cumulative scores for all participants (for "winner takes all" system)
+  // This is critical for tournament completion logic
+  await Promise.all(
+    allTournamentParticipants.map(tp => {
+      const roundScore = totalScores[tp.userId] || 0
+      const newCumulativeScore = (tp.cumulativeScore || 0) + roundScore
+      
+      return prisma.tournamentParticipant.update({
+        where: { id: tp.id },
+        data: {
+          cumulativeScore: newCumulativeScore,
+        },
+      })
+    })
+  )
+
+  console.log(`[King of the Hill] Updated cumulative scores for all ${allTournamentParticipants.length} participants`)
 
   return {
     verdicts: storedVerdicts,
