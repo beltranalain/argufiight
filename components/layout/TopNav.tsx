@@ -21,17 +21,38 @@ export function TopNav({ currentPanel }: TopNavProps) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [userTier, setUserTier] = useState<'FREE' | 'PRO' | null>(null)
   const [isAdvertiser, setIsAdvertiser] = useState(false)
+  const [accountCount, setAccountCount] = useState(0)
 
   useEffect(() => {
     if (user) {
       fetchUnreadCount()
       fetchUserTier()
       checkIfAdvertiser()
+      fetchAccountCount()
       // Poll for new notifications every 30 seconds
       const interval = setInterval(fetchUnreadCount, 30000)
       return () => clearInterval(interval)
     }
   }, [user])
+
+  const fetchAccountCount = async () => {
+    try {
+      if (typeof window === 'undefined') return
+      const linkedAccountIds = JSON.parse(localStorage.getItem('argufight_linked_accounts') || '[]')
+      const response = await fetch('/api/auth/sessions', {
+        headers: {
+          'x-linked-accounts': JSON.stringify(linkedAccountIds),
+        },
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setAccountCount(data.sessions?.length || 1)
+      }
+    } catch (error) {
+      console.error('Failed to fetch account count:', error)
+      setAccountCount(1)
+    }
+  }
   
   const checkIfAdvertiser = async () => {
     try {
@@ -86,12 +107,6 @@ export function TopNav({ currentPanel }: TopNavProps) {
       onClick: () => window.location.href = '/advertiser/settings',
     },
     {
-      label: 'Add an existing account',
-      onClick: () => {
-        setIsAccountSwitcherOpen(true)
-      },
-    },
-    {
       label: `Log out @${user?.username || ''}`,
       variant: 'danger' as const,
       onClick: logout,
@@ -126,12 +141,6 @@ export function TopNav({ currentPanel }: TopNavProps) {
     {
       label: 'Settings',
       onClick: () => window.location.href = '/settings',
-    },
-    {
-      label: 'Add an existing account',
-      onClick: () => {
-        setIsAccountSwitcherOpen(true)
-      },
     },
     {
       label: `Log out @${user?.username || ''}`,
@@ -189,6 +198,22 @@ export function TopNav({ currentPanel }: TopNavProps) {
             </button>
           )}
 
+          {/* Switch Account Box */}
+          {user && (
+            <button
+              onClick={() => setIsAccountSwitcherOpen(true)}
+              className="flex items-center gap-2 px-3 py-2 hover:bg-bg-tertiary rounded-lg transition-colors border border-electric-blue/30 hover:border-electric-blue bg-bg-tertiary/50"
+              title="Switch Account"
+            >
+              <svg className="w-4 h-4 text-electric-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+              <span className="text-sm font-medium text-electric-blue">
+                {accountCount > 1 ? `${accountCount} accounts` : 'Switch'}
+              </span>
+            </button>
+          )}
+
           {/* Profile */}
           {user ? (
             <DropdownMenu
@@ -231,7 +256,10 @@ export function TopNav({ currentPanel }: TopNavProps) {
       <AnimatePresence>
         {isAccountSwitcherOpen && user && (
           <AccountSwitcher
-            onClose={() => setIsAccountSwitcherOpen(false)}
+            onClose={() => {
+              setIsAccountSwitcherOpen(false)
+              fetchAccountCount() // Refresh account count when switcher closes
+            }}
           />
         )}
       </AnimatePresence>

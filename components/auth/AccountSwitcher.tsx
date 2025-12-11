@@ -167,7 +167,7 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
           {sessions.length === 0 ? (
             <div className="p-4 text-center">
               <p className="text-text-secondary text-sm mb-3">
-                No linked accounts. Add an account to switch between them.
+                No linked accounts. Add an existing account to switch between them.
               </p>
               <button
                 onClick={() => {
@@ -175,7 +175,7 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
                 }}
                 className="px-4 py-2 bg-electric-blue text-black font-semibold rounded-lg hover:bg-[#00B8E6] transition-colors text-sm"
               >
-                Add an account
+                Add an existing account
               </button>
             </div>
           ) : (
@@ -245,9 +245,9 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
                 onClick={() => {
                   window.location.href = '/login?addAccount=true'
                 }}
-                className="w-full text-sm text-electric-blue hover:text-neon-orange text-center py-2"
+                className="w-full text-sm text-electric-blue hover:text-neon-orange text-center py-2 font-medium"
               >
-                + Add another account
+                + Add an existing account
               </button>
             </div>
             </>

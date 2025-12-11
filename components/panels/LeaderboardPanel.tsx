@@ -121,14 +121,73 @@ export function LeaderboardPanel() {
             description="Complete debates to appear on the leaderboard"
           />
         ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="overflow-x-auto -mx-6 px-6 pb-2">
+          <div className="flex gap-4 min-w-max">
+            {/* User's Card First (if not in top 3) */}
+            {userRank && (
+              <Link
+                href={`/profile/${userRank.id}`}
+                className="flex-shrink-0 block p-5 rounded-xl border-2 transition-all hover:shadow-lg bg-gradient-to-br from-electric-blue/20 to-electric-blue/5 border-electric-blue/50 hover:border-electric-blue shadow-electric-blue/20 w-[280px]"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <span className="text-text-muted font-semibold">#{userRank.rank}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Avatar
+                        src={userRank.avatarUrl}
+                        username={userRank.username}
+                        size="md"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-base truncate text-electric-blue">
+                            {userRank.username}
+                          </p>
+                          <Badge variant="default" size="sm" className="bg-electric-blue text-black text-xs px-2 py-0.5">
+                            You
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2 mt-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-text-secondary">ELO</span>
+                        <span className="text-electric-blue font-bold">{userRank.eloRating}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-text-secondary">Score</span>
+                        <span className="text-cyber-green font-bold">{userRank.overallScore} ({userRank.overallScorePercent}%)</span>
+                      </div>
+                      <div className="pt-2 border-t border-bg-secondary">
+                        <div className="flex items-center justify-between text-xs text-text-secondary mb-1">
+                          <span>Record</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-cyber-green font-semibold">{userRank.debatesWon}W</span>
+                            <span className="text-neon-orange font-semibold">{userRank.debatesLost}L</span>
+                            <span className="text-yellow-500 font-semibold">{userRank.debatesTied || 0}T</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-text-secondary">
+                          <span>{userRank.totalDebates} debates</span>
+                          <span className="text-electric-blue font-semibold">{userRank.winRate}% win rate</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            )}
+            
+            {/* Top 3 Cards */}
             {leaderboard.map((entry) => {
               const isCurrentUser = user?.id === entry.id
               return (
                 <Link
                   key={entry.id}
                   href={`/profile/${entry.id}`}
-                  className={`block p-5 rounded-xl border-2 transition-all hover:shadow-lg ${
+                  className={`flex-shrink-0 block p-5 rounded-xl border-2 transition-all hover:shadow-lg w-[280px] ${
                     isCurrentUser
                       ? 'bg-gradient-to-br from-electric-blue/20 to-electric-blue/5 border-electric-blue/50 hover:border-electric-blue shadow-electric-blue/20'
                       : 'bg-bg-tertiary border-bg-secondary hover:border-bg-primary'
@@ -187,64 +246,8 @@ export function LeaderboardPanel() {
                 </Link>
               )
             })}
-            
-            {/* 4th Card: User's Rank (if not in top 3) */}
-            {userRank && (
-              <Link
-                href={`/profile/${userRank.id}`}
-                className="block p-5 rounded-xl border-2 transition-all hover:shadow-lg bg-gradient-to-br from-electric-blue/20 to-electric-blue/5 border-electric-blue/50 hover:border-electric-blue shadow-electric-blue/20"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0">
-                    <span className="text-text-muted font-semibold">#{userRank.rank}</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Avatar
-                        src={userRank.avatarUrl}
-                        username={userRank.username}
-                        size="md"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-base truncate text-electric-blue">
-                            {userRank.username}
-                          </p>
-                          <Badge variant="default" size="sm" className="bg-electric-blue text-black text-xs px-2 py-0.5">
-                            You
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-2 mt-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-text-secondary">ELO</span>
-                        <span className="text-electric-blue font-bold">{userRank.eloRating}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-text-secondary">Score</span>
-                        <span className="text-cyber-green font-bold">{userRank.overallScore} ({userRank.overallScorePercent}%)</span>
-                      </div>
-                      <div className="pt-2 border-t border-bg-secondary">
-                        <div className="flex items-center justify-between text-xs text-text-secondary mb-1">
-                          <span>Record</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-cyber-green font-semibold">{userRank.debatesWon}W</span>
-                            <span className="text-neon-orange font-semibold">{userRank.debatesLost}L</span>
-                            <span className="text-yellow-500 font-semibold">{userRank.debatesTied || 0}T</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-text-secondary">
-                          <span>{userRank.totalDebates} debates</span>
-                          <span className="text-electric-blue font-semibold">{userRank.winRate}% win rate</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            )}
           </div>
+        </div>
         )}
     </div>
   )
