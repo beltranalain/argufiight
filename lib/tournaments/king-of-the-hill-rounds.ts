@@ -179,7 +179,11 @@ export async function createKingOfTheHillRound(
   // Check if we should transition to finals (exactly 2 participants)
   if (participants.length === 2) {
     // Create finals (traditional 3-round head-to-head)
-    return await createKingOfTheHillFinals(tournamentId, roundNumber, participants)
+    // Map participants to the format expected by createKingOfTheHillFinals
+    const finalsParticipants = participants.map(p => ({
+      userId: (p as any).userId || p.user?.id,
+    }))
+    return await createKingOfTheHillFinals(tournamentId, roundNumber, finalsParticipants)
   }
 
   // Create or get round
