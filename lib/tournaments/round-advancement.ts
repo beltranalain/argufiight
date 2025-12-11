@@ -264,7 +264,14 @@ export async function checkAndAdvanceTournamentRound(
       throw new Error(`Failed to create next round ${nextRoundNumber}`)
     }
 
-    // Create debates for each match in the new round
+    // For King of the Hill, debates are already created by generateTournamentMatches
+    // (createKingOfTheHillRound or createKingOfTheHillFinals)
+    if (round.tournament.format === 'KING_OF_THE_HILL') {
+      console.log(`[King of the Hill] Round ${nextRoundNumber} debate already created by generateTournamentMatches`)
+      return
+    }
+
+    // Create debates for each match in the new round (for Bracket/Championship formats)
     for (const match of nextRound.matches) {
       const participant1 = match.participant1.user
       const participant2 = match.participant2.user
