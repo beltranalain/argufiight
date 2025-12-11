@@ -131,7 +131,18 @@ export async function checkAndAdvanceTournamentRound(
 
     console.log(`[Tournament Round] Round ${roundNumber} completed for tournament ${tournamentId}`)
 
-    // Check if this is the final round
+    // For King of the Hill, check if this is the finals round (ONE_ON_ONE debate)
+    if (round.tournament.format === 'KING_OF_THE_HILL') {
+      const finalsMatch = round.matches.find(m => m.debate && m.debate.challengeType === 'ONE_ON_ONE')
+      if (finalsMatch && finalsMatch.status === 'COMPLETED') {
+        // Finals completed - tournament is done
+        console.log(`[King of the Hill] Finals round completed - completing tournament ${tournamentId}`)
+        await completeTournament(tournamentId)
+        return
+      }
+    }
+
+    // Check if this is the final round (for other formats or if totalRounds check is needed)
     if (roundNumber >= round.tournament.totalRounds) {
       // Tournament complete
       console.log(`[Tournament Round] Final round complete - completing tournament ${tournamentId}`)

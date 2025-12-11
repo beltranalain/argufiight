@@ -283,6 +283,15 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
 
     console.log(`[Tournament Match] Match ${match.id} completed. Winner: ${winningParticipantId}, Loser: ${losingParticipantId}`)
 
+    // For King of the Hill finals (ONE_ON_ONE), check if this is the final round and complete tournament
+    if (match.round.tournament.format === 'KING_OF_THE_HILL' && match.debate?.challengeType === 'ONE_ON_ONE') {
+      // This is the finals - tournament should be completed
+      console.log(`[King of the Hill] Finals match completed - completing tournament ${match.round.tournamentId}`)
+      const { completeTournament } = await import('./tournament-completion')
+      await completeTournament(match.round.tournamentId)
+      return
+    }
+
     // Check if round is complete and advance if needed
     await checkAndAdvanceTournamentRound(match.round.tournamentId, match.round.roundNumber)
   } catch (error: any) {
