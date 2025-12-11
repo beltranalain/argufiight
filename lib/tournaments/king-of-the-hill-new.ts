@@ -113,6 +113,10 @@ export async function generateKingOfTheHillRoundVerdicts(
   )
 
   // Calculate total scores for each participant (sum of all 3 judges)
+  // SAME SYSTEM AS REGULAR DEBATES:
+  // - Each judge scores 0-100 per participant
+  // - Total score = sum of all 3 judges = 0-300 per participant
+  // - Display format: xxx/300 (same as regular debates)
   const totalScores: Record<string, number> = {}
   participants.forEach(p => {
     totalScores[p.userId] = judgeVerdicts.reduce((sum, judgeVerdict) => {
@@ -149,16 +153,9 @@ export async function generateKingOfTheHillRoundVerdicts(
   // Each judge gets a Verdict record
   const storedVerdicts = await Promise.all(
     judgeVerdicts.map(async (judgeVerdict) => {
-      // Build reasoning text that includes all participant scores
-      // Format: "Participant 1 (username): score/100\n   reasoning\n\nParticipant 2..."
-      const reasoningText = participants
-        .map(p => {
-          const score = judgeVerdict.scores[p.userId] || 0
-          const reasoning = judgeVerdict.reasoning[p.userId] || 'No reasoning provided'
-          return `${p.username}: ${score}/100\n   ${reasoning}`
-        })
-        .join('\n\n') + 
-        `\n\nElimination Reasoning:\n${judgeVerdict.overallReasoning}`
+      // Store only elimination reasoning (explaining why bottom 25% should be eliminated)
+      // Scores are calculated separately and displayed in the UI
+      const reasoningText = `Elimination Reasoning (Why bottom 25% should be eliminated):\n\n${judgeVerdict.overallReasoning}`
 
       const verdict = await prisma.verdict.create({
         data: {
@@ -202,16 +199,25 @@ export async function generateKingOfTheHillRoundVerdicts(
     },
   })
 
-  // Build elimination reasons from all judges
+  // Build elimination reasons from all 3 judges
+  // Each judge provides elimination reasoning explaining why the bottom 25% should be eliminated
   const eliminationReasons: Record<string, string> = {}
   eliminated.forEach(eliminatedParticipant => {
-    const reasons = judgeVerdicts.map(jv => {
-      const participantReasoning = jv.reasoning[eliminatedParticipant.userId] || 'No specific reasoning'
-      return `${jv.judgeName}: ${participantReasoning}`
+    // Get individual scores from each judge (for display)
+    const judgeScores = judgeVerdicts.map(jv => {
+      const score = jv.scores[eliminatedParticipant.userId] || 0
+      return `Judge ${jv.judgeName}: ${score}/100`
+    }).join('\n')
+    
+    // Get elimination reasoning from each judge (explaining why bottom 25% should be eliminated)
+    const eliminationReasoning = judgeVerdicts.map(jv => {
+      return `Judge ${jv.judgeName}:\n   ${jv.overallReasoning || 'No elimination reasoning provided'}`
     }).join('\n\n')
     
     eliminationReasons[eliminatedParticipant.userId] = 
-      `Eliminated (Rank ${eliminatedParticipant.rank} of ${participants.length}, Total Score: ${eliminatedParticipant.totalScore}/300 from 3 judges):\n\n${reasons}\n\nOverall: ${judgeVerdicts[0]?.overallReasoning || 'No overall reasoning'}`
+      `Eliminated (Rank ${eliminatedParticipant.rank} of ${participants.length}, Total Score: ${eliminatedParticipant.totalScore}/300 from 3 judges)\n\n` +
+      `Judge Scores:\n${judgeScores}\n\n` +
+      `Elimination Reasoning (from all 3 judges):\n${eliminationReasoning}`
   })
 
   // Update eliminated participants

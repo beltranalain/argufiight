@@ -14,8 +14,7 @@ export interface KingOfTheHillVerdictResult {
   judgeName: string
   judgePersonality: string
   scores: Record<string, number> // userId -> score (0-100)
-  reasoning: Record<string, string> // userId -> reasoning
-  overallReasoning: string // Overall explanation for eliminations
+  overallReasoning: string // Elimination reasoning explaining why bottom 25% should be eliminated
 }
 
 /**
@@ -70,15 +69,21 @@ ${submissionsText}
 Your task:
 1. Evaluate each participant's argument quality, reasoning, evidence, and persuasiveness
 2. Assign a score (0-100) to EACH participant based on their argument quality
-3. Provide a brief reasoning for each participant's score
-4. Explain why the bottom ${eliminateCount} participant(s) should be eliminated
+3. **IMPORTANT**: After scoring all participants, identify the bottom ${eliminateCount} participant(s) (lowest scores) and provide detailed reasoning explaining WHY they should be eliminated
 
-SCORING CRITERIA (0-100 scale):
+SCORING CRITERIA (0-100 scale per participant):
 - Argument Quality: How well-structured and logical is the argument? (0-25 points)
 - Evidence: Does the participant provide supporting evidence or examples? (0-25 points)
 - Persuasiveness: How convincing is the argument? (0-25 points)
 - Clarity: Is the argument clear and easy to understand? (0-15 points)
 - Relevance: Does the argument directly address the topic? (0-10 points)
+
+**ELIMINATION REASONING REQUIREMENT:**
+After scoring all participants, you must identify which ${eliminateCount} participant(s) have the LOWEST scores and explain in detail:
+- Why their arguments were weaker compared to others
+- What specific flaws or shortcomings led to their lower scores
+- How their performance compared to the remaining participants
+- Be specific and constructive in your explanation
 
 Respond in the following JSON format (NO markdown code blocks, just pure JSON):
 {
@@ -87,18 +92,14 @@ Respond in the following JSON format (NO markdown code blocks, just pure JSON):
     "${submissions[1].userId}": 72,
     ...
   },
-  "reasoning": {
-    "${submissions[0].userId}": "Strong argument with clear evidence and logical reasoning. The participant effectively addressed the topic.",
-    "${submissions[1].userId}": "Good argument with solid points, though some areas could be more developed.",
-    ...
-  },
-  "eliminationReasoning": "The bottom ${eliminateCount} participant(s) should be eliminated because [explain why based on their scores and argument quality]"
+  "eliminationReasoning": "The bottom ${eliminateCount} participant(s) [identify by username] should be eliminated because [provide detailed explanation of their weaknesses, lower scores, and why they performed worse than others]. Be specific about what made their arguments inferior."
 }
 
 CRITICAL REQUIREMENTS:
 - You MUST score ALL ${submissions.length} participants
 - Scores MUST be between 0-100
-- Each participant MUST have a score and reasoning
+- Each participant MUST have a score
+- Provide detailed elimination reasoning explaining why the bottom ${eliminateCount} participant(s) should be eliminated
 - Be fair, objective, and consistent in your evaluation
 - Return ONLY valid JSON, no markdown formatting, no code blocks`,
         },
@@ -135,7 +136,6 @@ CRITICAL REQUIREMENTS:
     try {
       const verdict = JSON.parse(cleanedResponse) as {
         scores: Record<string, number>
-        reasoning: Record<string, string>
         eliminationReasoning: string
       }
 
@@ -145,7 +145,6 @@ CRITICAL REQUIREMENTS:
         if (!scoredUserIds.has(submission.userId)) {
           console.warn(`[King of the Hill] Judge did not score participant ${submission.username}, assigning default score 50`)
           verdict.scores[submission.userId] = 50
-          verdict.reasoning[submission.userId] = 'No evaluation provided by judge'
         }
       }
 
@@ -162,7 +161,6 @@ CRITICAL REQUIREMENTS:
         judgeName: '', // Will be set by caller
         judgePersonality: '', // Will be set by caller
         scores: verdict.scores,
-        reasoning: verdict.reasoning,
         overallReasoning: verdict.eliminationReasoning || 'No elimination reasoning provided',
       }
     } catch (error: any) {
@@ -171,11 +169,9 @@ CRITICAL REQUIREMENTS:
       
       // Return fallback scores
       const fallbackScores: Record<string, number> = {}
-      const fallbackReasoning: Record<string, string> = {}
       
       submissions.forEach(sub => {
         fallbackScores[sub.userId] = 50
-        fallbackReasoning[sub.userId] = 'Error parsing judge response, default score assigned'
       })
 
       return {
@@ -183,8 +179,7 @@ CRITICAL REQUIREMENTS:
         judgeName: '',
         judgePersonality: '',
         scores: fallbackScores,
-        reasoning: fallbackReasoning,
-        overallReasoning: 'Error generating verdict',
+        overallReasoning: 'Error parsing judge response',
       }
     }
   } catch (error: any) {
@@ -192,11 +187,9 @@ CRITICAL REQUIREMENTS:
     
     // Return fallback scores
     const fallbackScores: Record<string, number> = {}
-    const fallbackReasoning: Record<string, string> = {}
     
     submissions.forEach(sub => {
       fallbackScores[sub.userId] = 50
-      fallbackReasoning[sub.userId] = 'Error generating verdict, default score assigned'
     })
 
     return {
@@ -204,7 +197,6 @@ CRITICAL REQUIREMENTS:
       judgeName: '',
       judgePersonality: '',
       scores: fallbackScores,
-      reasoning: fallbackReasoning,
       overallReasoning: 'Error generating verdict',
     }
   }
