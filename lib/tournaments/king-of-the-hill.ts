@@ -246,7 +246,7 @@ export async function evaluateKingOfTheHillRound(
   // Store the judge's evaluation and update judge stats
   // Use the same judge that was used in the AI evaluation
   const judge = await prisma.judge.findUnique({
-    where: { id: verdict.judgeId },
+    where: { id: verdictResult.judgeId },
   })
   if (judge) {
     // Update judge stats
