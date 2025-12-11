@@ -28,7 +28,7 @@ export default function CreateTournamentPage() {
     roundDuration: 24,
     reseedAfterRound: true,
     isPrivate: false,
-    format: 'BRACKET' as 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL',
+    format: 'BRACKET' as 'BRACKET' | 'CHAMPIONSHIP',
     selectedPosition: null as 'PRO' | 'CON' | null,
   })
   const [invitedUsers, setInvitedUsers] = useState<Array<{ id: string; username: string; avatarUrl: string | null; eloRating: number }>>([])
@@ -310,7 +310,7 @@ export default function CreateTournamentPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Tournament Format *
                   </label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <button
                       type="button"
                       onClick={() => {
@@ -347,36 +347,11 @@ export default function CreateTournamentPage() {
                         </p>
                       </div>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData({ ...formData, format: 'KING_OF_THE_HILL', selectedPosition: null })
-                      }}
-                      className={`p-4 rounded-lg border-2 transition-all ${
-                        formData.format === 'KING_OF_THE_HILL'
-                          ? 'border-electric-blue bg-electric-blue/10'
-                          : 'border-bg-tertiary bg-bg-secondary hover:border-electric-blue/50'
-                      }`}
-                    >
-                      <div className="text-left">
-                        <h3 className="font-semibold text-text-primary mb-1">King of the Hill</h3>
-                        <p className="text-sm text-text-secondary">
-                          Free-for-all format. Bottom 25% eliminated each round until champion.
-                        </p>
-                      </div>
-                    </button>
                   </div>
                   {formData.format === 'CHAMPIONSHIP' && (
                     <div className="mt-3 p-3 bg-cyber-green/10 border border-cyber-green/30 rounded-lg">
                       <p className="text-sm text-text-primary">
                         <strong>How it works:</strong> Players choose PRO or CON position. Advancement is based on individual scores within your position group. You can lose your match but still advance if you score higher than peers on your side!
-                      </p>
-                    </div>
-                  )}
-                  {formData.format === 'KING_OF_THE_HILL' && (
-                    <div className="mt-3 p-3 bg-neon-orange/10 border border-neon-orange/30 rounded-lg">
-                      <p className="text-sm text-text-primary">
-                        <strong>How it works:</strong> All participants debate simultaneously. After each round, the AI judge eliminates the bottom 25% based on performance scores. This continues until only the champion remains!
                       </p>
                     </div>
                   )}
@@ -431,46 +406,21 @@ export default function CreateTournamentPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Max Participants *
                   </label>
-                  {formData.format === 'KING_OF_THE_HILL' ? (
-                    <input
-                      type="number"
-                      min="2"
-                      max="100"
-                      value={formData.maxParticipants}
-                      onChange={(e) => setFormData({ ...formData, maxParticipants: parseInt(e.target.value) || 2 })}
-                      className="w-full px-4 py-3 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-electric-blue transition-colors"
-                      required
-                    />
-                  ) : (
-                    <select
-                      value={formData.maxParticipants}
-                      onChange={(e) => setFormData({ ...formData, maxParticipants: parseInt(e.target.value) })}
-                      className="w-full px-4 py-3 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-electric-blue transition-colors"
-                      required
-                    >
-                      <option value={4}>4 participants</option>
-                      <option value={8}>8 participants</option>
-                      <option value={16}>16 participants</option>
-                      <option value={32}>32 participants</option>
-                      <option value={64}>64 participants</option>
-                    </select>
-                  )}
+                  <select
+                    value={formData.maxParticipants}
+                    onChange={(e) => setFormData({ ...formData, maxParticipants: parseInt(e.target.value) })}
+                    className="w-full px-4 py-3 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-electric-blue transition-colors"
+                    required
+                  >
+                    <option value={4}>4 participants</option>
+                    <option value={8}>8 participants</option>
+                    <option value={16}>16 participants</option>
+                    <option value={32}>32 participants</option>
+                    <option value={64}>64 participants</option>
+                  </select>
                   <p className="text-text-secondary text-sm mt-1">
                     {formData.format === 'CHAMPIONSHIP' 
                       ? `${formData.maxParticipants / 2} PRO + ${formData.maxParticipants / 2} CON positions`
-                      : formData.format === 'KING_OF_THE_HILL'
-                      ? (() => {
-                          // Calculate rounds for King of the Hill
-                          let remaining = formData.maxParticipants
-                          let rounds = 0
-                          while (remaining > 1) {
-                            const eliminated = Math.ceil(remaining * 0.25)
-                            remaining = remaining - eliminated
-                            rounds++
-                          }
-                          if (rounds === 0) rounds = 1
-                          return `Tournament will have approximately ${rounds} round${rounds === 1 ? '' : 's'} (25% eliminated each round)`
-                        })()
                       : `Tournament will have ${Math.log2(formData.maxParticipants)} rounds`
                     }
                   </p>
