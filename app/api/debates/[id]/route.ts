@@ -109,7 +109,8 @@ export async function GET(
             },
             orderBy: {
               createdAt: 'asc',
-            }
+            },
+            take: 3, // EXACTLY 3 judges (SAME as regular debates)
           },
           tournamentMatch: {
             select: {
@@ -272,7 +273,8 @@ export async function GET(
             },
             orderBy: {
               createdAt: 'asc',
-            }
+            },
+            take: 3, // EXACTLY 3 judges (SAME as regular debates)
           },
           tournamentMatch: {
             select: {

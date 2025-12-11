@@ -109,7 +109,10 @@ export function KingOfTheHillVerdictDisplay({
     }
   })
 
-  verdicts.forEach(verdict => {
+  // Only use the first 3 verdicts (EXACTLY 3 judges, SAME as regular debates)
+  const displayedVerdicts = verdicts.slice(0, 3)
+  
+  displayedVerdicts.forEach(verdict => {
     const scores = parseVerdictScores(verdict.reasoning)
     
     Object.entries(scores).forEach(([username, { score, reasoning }]) => {
@@ -136,7 +139,8 @@ export function KingOfTheHillVerdictDisplay({
     return scoreB - scoreA // Highest first
   })
 
-  const maxPossibleScore = verdicts.length * 100 // 3 judges × 100 = 300
+  // EXACTLY 3 judges (SAME as regular debates) - max score is 300
+  const maxPossibleScore = 300 // 3 judges × 100 = 300 (FIXED, not based on verdicts.length)
 
   return (
     <Card>
@@ -186,9 +190,9 @@ export function KingOfTheHillVerdictDisplay({
           </div>
         </div>
 
-        {/* Individual Judge Verdicts (SAME format as regular debates) */}
+        {/* Individual Judge Verdicts (SAME format as regular debates) - EXACTLY 3 judges */}
         <div className="space-y-6">
-          {verdicts.map((verdict, index) => {
+          {displayedVerdicts.map((verdict, index) => {
             const scores = parseVerdictScores(verdict.reasoning)
             
             return (

@@ -71,18 +71,23 @@ export async function generateKingOfTheHillRoundVerdicts(
     }
   })
 
-  // Get 3 random judges (SAME as regular debates)
+  // Get EXACTLY 3 random judges (SAME as regular debates - NOT all 7!)
   const allJudges = await prisma.judge.findMany()
   
   if (allJudges.length === 0) {
     throw new Error('No judges available. Please seed the database with judges.')
   }
   
+  // Select EXACTLY 3 random judges (SAME as regular debates)
   const selectedJudges = allJudges
     .sort(() => Math.random() - 0.5)
     .slice(0, Math.min(3, allJudges.length))
 
-  console.log(`[King of the Hill] Round ${roundNumber}: Selected ${selectedJudges.length} judges: ${selectedJudges.map(j => j.name).join(', ')}`)
+  if (selectedJudges.length !== 3) {
+    throw new Error(`Expected exactly 3 judges, got ${selectedJudges.length}`)
+  }
+
+  console.log(`[King of the Hill] Round ${roundNumber}: Selected EXACTLY 3 judges: ${selectedJudges.map(j => j.name).join(', ')}`)
 
   // Generate verdicts from each judge in parallel (SAME as regular debates)
   const judgeVerdicts = await Promise.all(
