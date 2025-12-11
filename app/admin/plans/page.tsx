@@ -501,10 +501,7 @@ export default function PlansPage() {
                 onCardDragStart={handleCardDragStart}
                 onCardDragEnd={(position) => handleCardDragEnd(list.id, position)}
                 onListDragStart={() => handleListDragStart(list)}
-                onListDragEnd={() => {
-                  // For now, list reordering is manual via position updates
-                  // Can be enhanced with drag-and-drop later
-                }}
+                onListDragEnd={() => handleListDragEnd(listIndex)}
                 draggedCard={draggedCard}
                 draggedList={draggedList}
               />
