@@ -167,6 +167,12 @@ export async function createKingOfTheHillRound(
     throw new Error('Tournament not found')
   }
 
+  // Don't create rounds for completed tournaments
+  if (tournament.status === 'COMPLETED') {
+    console.log(`[King of the Hill] Tournament ${tournamentId} is already COMPLETED - skipping round creation`)
+    throw new Error('Tournament is already completed')
+  }
+
   if (tournament.format !== 'KING_OF_THE_HILL') {
     throw new Error('This function is only for King of the Hill tournaments')
   }
@@ -374,6 +380,21 @@ async function createKingOfTheHillFinals(
 ): Promise<string> {
   if (participants.length !== 2) {
     throw new Error('Finals requires exactly 2 participants')
+  }
+
+  // Check if tournament is already completed
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { id: true, status: true },
+  })
+
+  if (!tournament) {
+    throw new Error('Tournament not found')
+  }
+
+  if (tournament.status === 'COMPLETED') {
+    console.log(`[King of the Hill] Tournament ${tournamentId} is already COMPLETED - skipping finals creation`)
+    throw new Error('Tournament is already completed')
   }
 
   // Create or get round

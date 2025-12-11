@@ -50,6 +50,12 @@ export async function generateTournamentMatches(
     throw new Error('Tournament not found')
   }
 
+  // Don't create matches for completed tournaments
+  if (tournament.status === 'COMPLETED') {
+    console.log(`[Match Generation] Tournament ${tournamentId} is already COMPLETED - skipping match generation`)
+    return
+  }
+
   // Filter active participants (not eliminated)
   const activeParticipants = tournament.participants.filter(
     (p) => p.status === 'REGISTERED' || p.status === 'ACTIVE'

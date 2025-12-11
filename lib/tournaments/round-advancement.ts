@@ -52,6 +52,12 @@ export async function checkAndAdvanceTournamentRound(
       return
     }
 
+    // Check if tournament is already completed - don't create new rounds
+    if (round.tournament.status === 'COMPLETED') {
+      console.log(`[Tournament Round] Tournament ${tournamentId} is already COMPLETED - skipping round advancement`)
+      return
+    }
+
     // For King of the Hill, check if the debate has all submissions
     if (round.tournament.format === 'KING_OF_THE_HILL') {
       const match = round.matches[0] // King of the Hill has one match per round
