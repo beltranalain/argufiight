@@ -151,8 +151,24 @@ export async function generateKingOfTheHillRoundVerdicts(
 
   // Store verdicts in database (same format as regular debates)
   // Each judge gets a Verdict record
+  // Check if verdicts already exist to prevent duplicates (idempotent operation)
+  const existingVerdicts = await prisma.verdict.findMany({
+    where: {
+      debateId: debate.id,
+      judgeId: { in: judgeVerdicts.map(jv => jv.judgeId) },
+    },
+  })
+
+  const existingJudgeIds = new Set(existingVerdicts.map(v => v.judgeId))
+
   const storedVerdicts = await Promise.all(
     judgeVerdicts.map(async (judgeVerdict) => {
+      // Skip if verdict already exists for this judge
+      if (existingJudgeIds.has(judgeVerdict.judgeId)) {
+        console.log(`[King of the Hill] Verdict already exists for judge ${judgeVerdict.judgeName}, skipping creation`)
+        return existingVerdicts.find(v => v.judgeId === judgeVerdict.judgeId)!
+      }
+
       // Store only elimination reasoning (explaining why bottom 25% should be eliminated)
       // Scores are calculated separately and displayed in the UI
       const reasoningText = `Elimination Reasoning (Why bottom 25% should be eliminated):\n\n${judgeVerdict.overallReasoning}`
@@ -169,7 +185,7 @@ export async function generateKingOfTheHillRoundVerdicts(
         },
       })
 
-      // Update judge stats
+      // Update judge stats (only if we created a new verdict)
       await prisma.judge.update({
         where: { id: judgeVerdict.judgeId },
         data: {
