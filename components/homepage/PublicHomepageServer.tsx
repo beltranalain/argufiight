@@ -503,6 +503,11 @@ function FooterSection({ section, socialLinks }: { section: HomepageSection | un
                 </Link>
               </li>
               <li>
+                <Link href="/how-it-works" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                  How It Works
+                </Link>
+              </li>
+              <li>
                 <Link href="/leaderboard" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
                   Leaderboard
                 </Link>
@@ -513,8 +518,8 @@ function FooterSection({ section, socialLinks }: { section: HomepageSection | un
                 </Link>
               </li>
               <li>
-                <Link href="/advertise" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
-                  Advertiser
+                <Link href="/pricing" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                  Pricing
                 </Link>
               </li>
             </ul>
@@ -523,6 +528,16 @@ function FooterSection({ section, socialLinks }: { section: HomepageSection | un
           <div>
             <h3 className="text-text-primary font-semibold text-lg mb-6">Resources</h3>
             <ul className="space-y-3">
+              <li>
+                <Link href="/about" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                  About Us
+                </Link>
+              </li>
+              <li>
+                <Link href="/faq" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
+                  FAQ
+                </Link>
+              </li>
               <li>
                 <Link href="/online-debate-platform" className="text-text-primary/80 hover:text-text-primary transition-colors text-base">
                   Online Debate Platform
