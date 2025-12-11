@@ -30,6 +30,12 @@ export async function checkAndAdvanceTournamentRound(
           include: {
             participant1: true,
             participant2: true,
+            debate: {
+              select: {
+                id: true,
+                challengeType: true, // Needed to detect King of the Hill finals
+              },
+            },
           },
         },
         tournament: {
