@@ -55,6 +55,7 @@ function LoginForm() {
         oauth_denied: 'Google authentication was cancelled.',
         oauth_failed: 'Google authentication failed. Please try again.',
         oauth_not_configured: 'Google authentication is not configured.',
+        oauth_invalid_credentials: 'Google OAuth credentials are invalid. Please check that Client ID and Client Secret match in Google Cloud Console and Admin Settings.',
         token_exchange_failed: 'Failed to complete Google authentication.',
         no_id_token: 'Google authentication failed: No token received.',
         token_verification_failed: 'Failed to verify Google authentication.',
