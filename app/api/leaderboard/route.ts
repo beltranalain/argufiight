@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100) // Max 100 per page, default 50
     const skip = (page - 1) * limit
     const category = searchParams.get('category') // Optional: filter by category
+    const userId = searchParams.get('userId') // Optional: get rank for specific user
 
     const where: any = {
       isAdmin: false, // Exclude admins/employees
@@ -66,6 +67,60 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    // If userId is provided, get that user's rank
+    let userRank: any = null
+    if (userId) {
+      const targetUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          username: true,
+          avatarUrl: true,
+          eloRating: true,
+          debatesWon: true,
+          debatesLost: true,
+          debatesTied: true,
+          totalDebates: true,
+          totalScore: true,
+          totalMaxScore: true,
+          isBanned: true,
+          isAdmin: true,
+        },
+      })
+
+      if (targetUser && !targetUser.isBanned && !targetUser.isAdmin && targetUser.totalDebates >= 1) {
+        // Count how many users have higher ELO (rank = count + 1)
+        const rankCount = await prisma.user.count({
+          where: {
+            ...where,
+            eloRating: {
+              gt: targetUser.eloRating,
+            },
+          },
+        })
+
+        const winRate = targetUser.totalDebates > 0
+          ? ((targetUser.debatesWon / targetUser.totalDebates) * 100).toFixed(1)
+          : '0.0'
+        
+        const overallScore = targetUser.totalMaxScore > 0
+          ? `${targetUser.totalScore}/${targetUser.totalMaxScore}`
+          : '0/0'
+        
+        const overallScorePercent = targetUser.totalMaxScore > 0
+          ? ((targetUser.totalScore / targetUser.totalMaxScore) * 100).toFixed(1)
+          : '0.0'
+
+        userRank = {
+          rank: rankCount + 1,
+          ...targetUser,
+          winRate: parseFloat(winRate),
+          overallScore,
+          overallScorePercent: parseFloat(overallScorePercent),
+        }
+      }
+    }
+
     return NextResponse.json({
       leaderboard: leaderboardWithRank,
       pagination: {
@@ -74,6 +129,7 @@ export async function GET(request: NextRequest) {
         total,
         totalPages: Math.ceil(total / limit),
       },
+      userRank, // Include user's rank if userId was provided
     })
   } catch (error) {
     console.error('Failed to fetch leaderboard:', error)
