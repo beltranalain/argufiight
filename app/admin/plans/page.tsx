@@ -81,9 +81,19 @@ export default function PlansPage() {
         if (data.boards && data.boards.length > 0 && !selectedBoard) {
           setSelectedBoard(data.boards[0])
         }
+      } else if (response.status === 503) {
+        // Migration required
+        const data = await response.json().catch(() => ({}))
+        showToast({
+          type: 'error',
+          title: 'Database Migration Required',
+          description: data.error || 'Please run the database migration to use Plans board',
+        })
+        setBoards([])
       }
     } catch (error) {
       console.error('Failed to fetch boards:', error)
+      setBoards([])
     } finally {
       setIsLoading(false)
     }

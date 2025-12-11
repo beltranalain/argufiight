@@ -31,10 +31,16 @@ export async function GET() {
     })
 
     return NextResponse.json({ boards })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to fetch boards:', error)
+    
+    // Handle case where tables don't exist yet (migration not run)
+    if (error?.code === 'P2021' || error?.code === '42P01' || error?.message?.includes('does not exist')) {
+      return NextResponse.json({ boards: [] }, { status: 200 })
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to fetch boards' },
+      { error: 'Failed to fetch boards', details: error?.message },
       { status: 500 }
     )
   }
@@ -80,8 +86,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ board })
   } catch (error: any) {
     console.error('Failed to create board:', error)
+    
+    // Handle case where tables don't exist yet (migration not run)
+    if (error?.code === 'P2021' || error?.code === '42P01' || error?.message?.includes('does not exist')) {
+      return NextResponse.json(
+        { error: 'Database migration required. Please run: npx prisma migrate deploy' },
+        { status: 503 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to create board' },
+      { error: 'Failed to create board', details: error?.message },
       { status: 500 }
     )
   }
