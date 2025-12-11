@@ -410,7 +410,10 @@ export default function DebatePage() {
   // Check if user is a participant (for both 2-person and group debates)
   const isParticipant = debate && user && (
     isGroupChallenge
-      ? (debate.participants && debate.participants.some((p: any) => p.userId === user.id && (p.status === 'ACCEPTED' || p.status === 'ACTIVE')))
+      ? (debate.participants && debate.participants.some((p: any) => 
+          ((p.userId === user.id) || (p.user?.id === user.id)) && 
+          (p.status === 'ACCEPTED' || p.status === 'ACTIVE')
+        ))
       : (debate.challenger.id === user.id || (debate.opponent && debate.opponent.id === user.id))
   )
 

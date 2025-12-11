@@ -379,6 +379,7 @@ async function createKingOfTheHillFinals(
   // Create traditional 3-round debate (same as regular debates)
   // Finals uses classic debate rules: ONE_ON_ONE, 3 rounds, alternating turns
   const roundDuration = tournament?.roundDuration ? tournament.roundDuration * 60 * 60 * 1000 : 24 * 60 * 60 * 1000 // Default 24 hours
+  const now = new Date()
   const debate = await prisma.debate.create({
     data: {
       topic: tournament?.name || 'Finals',
@@ -392,7 +393,8 @@ async function createKingOfTheHillFinals(
       currentRound: 1,
       totalRounds: 3, // Finals is 3 rounds (classic debate format)
       roundDuration: roundDuration,
-      roundDeadline: new Date(Date.now() + roundDuration), // Set deadline for first round
+      roundDeadline: new Date(now.getTime() + roundDuration), // Set deadline for first round
+      startedAt: now, // Mark debate as started
       visibility: tournament?.isPrivate ? 'PRIVATE' : 'PUBLIC',
     },
   })
