@@ -222,13 +222,22 @@ export async function createKingOfTheHillRound(
 
   // Add all active participants to the debate (SAME format as Round 1)
   console.log(`[King of the Hill] Round ${roundNumber}: Adding ${participants.length} participants to debate ${debate.id}`)
+  
+  // Ensure we have valid userIds - TournamentParticipant has userId field directly
+  const participantUserIds = participants.map(p => {
+    // TournamentParticipant has userId field, but also check user relation as fallback
+    const userId = (p as any).userId || p.user?.id
+    if (!userId) {
+      console.error(`[King of the Hill] Round ${roundNumber}: Missing userId for participant`, JSON.stringify(p, null, 2))
+      throw new Error(`Missing userId for participant in round ${roundNumber}`)
+    }
+    return userId
+  })
+  
+  console.log(`[King of the Hill] Round ${roundNumber}: Participant user IDs:`, participantUserIds)
+  
   await Promise.all(
-    participants.map((p, index) => {
-      const userId = p.userId || p.user?.id
-      if (!userId) {
-        console.error(`[King of the Hill] Round ${roundNumber}: Missing userId for participant`, p)
-        return Promise.resolve()
-      }
+    participantUserIds.map((userId, index) => {
       console.log(`[King of the Hill] Round ${roundNumber}: Adding participant ${userId} to debate ${debate.id}`)
       return prisma.debateParticipant.create({
         data: {
@@ -237,6 +246,29 @@ export async function createKingOfTheHillRound(
           position: index % 2 === 0 ? 'FOR' : 'AGAINST', // Alternate positions
           status: 'ACTIVE',
         },
+      }).catch((error) => {
+        // If participant already exists (shouldn't happen, but handle gracefully)
+        if (error.code === 'P2002') {
+          console.warn(`[King of the Hill] Round ${roundNumber}: Participant ${userId} already exists in debate ${debate.id}`)
+          return prisma.debateParticipant.findUnique({
+            where: {
+              debateId_userId: {
+                debateId: debate.id,
+                userId: userId,
+              },
+            },
+          }).then(existing => {
+            // Update status to ACTIVE if it exists
+            if (existing && existing.status !== 'ACTIVE') {
+              return prisma.debateParticipant.update({
+                where: { id: existing.id },
+                data: { status: 'ACTIVE' },
+              })
+            }
+            return existing
+          })
+        }
+        throw error
       })
     })
   )
