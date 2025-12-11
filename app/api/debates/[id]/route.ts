@@ -151,7 +151,12 @@ export async function GET(
             },
           },
           participants: {
-            include: {
+            select: {
+              id: true,
+              userId: true, // Explicitly include userId
+              position: true,
+              status: true,
+              joinedAt: true,
               user: {
                 select: {
                   id: true,
@@ -220,7 +225,12 @@ export async function GET(
             }
           },
           participants: {
-            include: {
+            select: {
+              id: true,
+              userId: true, // Explicitly include userId
+              position: true,
+              status: true,
+              joinedAt: true,
               user: {
                 select: {
                   id: true,

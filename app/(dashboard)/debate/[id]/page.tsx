@@ -446,8 +446,9 @@ export default function DebatePage() {
   const isOpponent = debate && user && debate.opponent && debate.opponent.id === user.id
   
   // For GROUP debates (King of the Hill), check if user is a participant
+  // Check both userId (direct field) and user.id (relation) for compatibility
   const isGroupParticipant = isGroupChallenge && debate?.participants?.some(
-    p => p.userId === user?.id
+    p => (p as any).userId === user?.id || p.user?.id === user?.id
   )
   
   const noStatementsInRound = currentRoundStatements.length === 0
