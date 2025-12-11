@@ -85,6 +85,7 @@ export function KingOfTheHillResults({
                       <div className="mt-2">
                         <p className="text-sm text-text-secondary">
                           Total Score: <span className="font-semibold text-electric-blue">{participant.cumulativeScore}</span>
+                          <span className="text-text-secondary text-xs ml-1">(from 3 judges)</span>
                         </p>
                       </div>
                     )}
@@ -125,6 +126,7 @@ export function KingOfTheHillResults({
                       <div className="mt-2 mb-2">
                         <p className="text-sm text-text-secondary">
                           Final Score: <span className="font-semibold text-red-400">{participant.cumulativeScore}</span>
+                          <span className="text-text-secondary text-xs ml-1">(from 3 judges)</span>
                         </p>
                       </div>
                     )}
