@@ -168,23 +168,19 @@ export async function generateTournamentMatches(
 
     if (tournament.format === 'KING_OF_THE_HILL') {
       // King of the Hill: Create one debate with all remaining participants
-      const { createKingOfTheHillDebate, shouldTransitionToFinals, createFinalsDebate } = await import('./king-of-the-hill')
+      const { createKingOfTheHillRound1, createKingOfTheHillRound } = await import('./king-of-the-hill-rounds')
       
       console.log(`[King of the Hill] Round ${roundNumber}: Found ${activeParticipants.length} active participants:`, 
         activeParticipants.map(p => `${p.user.username} (${p.status})`).join(', '))
       
-      // Check if we should transition to finals (exactly 2 participants)
-      const shouldFinals = await shouldTransitionToFinals(tournamentId)
-      console.log(`[King of the Hill] Round ${roundNumber}: Should transition to finals? ${shouldFinals}`)
-      
-      if (shouldFinals) {
-        // Create finals debate (traditional 3-round)
-        console.log(`[King of the Hill] Round ${roundNumber}: Creating finals debate (2 participants)`)
-        await createFinalsDebate(tournamentId, roundNumber)
+      if (roundNumber === 1) {
+        // Round 1: Create with all registered participants
+        console.log(`[King of the Hill] Round 1: Creating open debate with ${activeParticipants.length} participants`)
+        await createKingOfTheHillRound1(tournamentId)
       } else {
-        // Create regular King of the Hill debate (all participants together)
+        // Round 2+: Create with active participants (survivors)
         console.log(`[King of the Hill] Round ${roundNumber}: Creating open debate with ${activeParticipants.length} participants`)
-        await createKingOfTheHillDebate(tournamentId, roundNumber)
+        await createKingOfTheHillRound(tournamentId, roundNumber)
       }
       return
     } else if (tournament.format === 'CHAMPIONSHIP' && roundNumber === 2) {

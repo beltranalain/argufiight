@@ -63,6 +63,7 @@ interface BracketSlot {
   debateId: string | null
   matchStatus: string | null
   score: number | null
+  isEliminated?: boolean // For King of the Hill: mark eliminated participants
 }
 
 export function TournamentBracket({
@@ -113,44 +114,53 @@ export function TournamentBracket({
       const roundSlots: BracketSlot[][] = []
       
       if (isKingOfTheHill && round < totalRounds) {
-        // King of the Hill: Show all active participants in a single "open debate" box
-        // For each round, get participants who were active at the START of that round
-        // For Round 1: All registered participants
-        // For Round 2+: Participants who survived previous rounds (ACTIVE status, not eliminated in previous rounds)
-        let activeParticipants: Participant[] = []
+        // King of the Hill: Show all participants who were in this round
+        // Round 1: All 4 participants (including eliminated one in red)
+        // Round 2: All 3 participants (including eliminated one in red)
+        let roundParticipants: Participant[] = []
         
         if (round === 1) {
-          // Round 1: Show all registered participants (before any eliminations)
-          activeParticipants = participants.filter(p => 
-            p.status === 'REGISTERED' || p.status === 'ACTIVE' || 
-            (p.status === 'ELIMINATED' && (p.eliminationRound === null || p.eliminationRound > round))
+          // Round 1: Show all participants (REGISTERED, ACTIVE, or ELIMINATED in round 1)
+          roundParticipants = participants.filter(p => 
+            p.status === 'REGISTERED' || 
+            p.status === 'ACTIVE' || 
+            (p.status === 'ELIMINATED' && p.eliminationRound === 1)
           )
         } else {
-          // Round 2+: Show participants who were not eliminated in previous rounds
-          // They should be ACTIVE and not eliminated in rounds 1 through (round-1)
-          activeParticipants = participants.filter(p => {
-            if (p.status === 'ELIMINATED') {
-              // Only include if eliminated in a later round (shouldn't happen, but safety check)
-              return p.eliminationRound !== null && p.eliminationRound >= round
+          // Round 2+: Show participants who were ACTIVE at the start of this round
+          // This includes: ACTIVE participants who weren't eliminated yet, OR eliminated in this round
+          roundParticipants = participants.filter(p => {
+            // Include if eliminated in this round (to show in red)
+            if (p.status === 'ELIMINATED' && p.eliminationRound === round) {
+              return true
             }
-            // Include ACTIVE participants (they survived previous rounds)
-            return p.status === 'ACTIVE'
+            // Include if ACTIVE (survived previous rounds, may be in this round or future)
+            if (p.status === 'ACTIVE') {
+              // Check if they were eliminated in a previous round (shouldn't be ACTIVE if eliminated)
+              // If eliminationRound is null or > round, they're still in
+              return p.eliminationRound === null || p.eliminationRound > round || p.eliminationRound === round
+            }
+            return false
           })
         }
         
         const roundMatch = roundMatches[0] // King of the Hill has one match per round
         
-        // Show the round even if match doesn't exist yet (for upcoming rounds)
-        if (activeParticipants.length > 0) {
-          // Create slots for all active participants
-          const allParticipants: BracketSlot[] = activeParticipants.map((participant) => ({
-            participant,
-            matchId: roundMatch?.id || null,
-            isWinner: roundMatch?.winnerId ? roundMatch.winnerId === participant.userId : false,
-            debateId: roundMatch?.debate?.id || null,
-            matchStatus: roundMatch?.status || 'UPCOMING',
-            score: null, // Scores are per-participant, not per-match for King of the Hill
-          }))
+        // Show the round with all participants
+        if (roundParticipants.length > 0) {
+          // Create slots for all participants in this round
+          const allParticipants: BracketSlot[] = roundParticipants.map((participant) => {
+            const isEliminated = participant.status === 'ELIMINATED' && participant.eliminationRound === round
+            return {
+              participant,
+              matchId: roundMatch?.id || null,
+              isWinner: false, // No winners in King of the Hill until finals
+              debateId: roundMatch?.debate?.id || null,
+              matchStatus: roundMatch?.status || 'UPCOMING',
+              score: null,
+              isEliminated, // Mark eliminated participants
+            }
+          })
           
           roundSlots.push(allParticipants)
         }
@@ -267,35 +277,43 @@ export function TournamentBracket({
                             
                             {/* All Participants Grid */}
                             <div className="grid grid-cols-2 gap-3 mb-4">
-                              {allParticipants.map((slot, idx) => (
-                                <div
-                                  key={idx}
-                                  className={`p-3 rounded transition-all ${
-                                    slot.isWinner
-                                      ? 'bg-cyber-green/20 border border-cyber-green'
-                                      : 'bg-bg-tertiary'
-                                  }`}
-                                >
-                                  {slot.participant && (
-                                    <div className="flex items-center gap-2">
-                                      <Avatar
-                                        src={slot.participant.user.avatarUrl}
-                                        username={slot.participant.user.username}
-                                        size="sm"
-                                      />
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-text-primary text-sm font-semibold truncate">
-                                          ({slot.participant.seed}) @{slot.participant.user.username}
-                                          {slot.isWinner && (
-                                            <span className="ml-2 text-cyber-green">✓ Advanced</span>
-                                          )}
-                                        </p>
-                                        <p className="text-text-secondary text-xs">ELO: {slot.participant.user.eloRating}</p>
+                              {allParticipants.map((slot, idx) => {
+                                const isEliminated = slot.isEliminated || (slot.participant?.status === 'ELIMINATED' && slot.participant.eliminationRound === roundNum)
+                                return (
+                                  <div
+                                    key={idx}
+                                    className={`p-3 rounded transition-all ${
+                                      isEliminated
+                                        ? 'bg-red-500/20 border-2 border-red-500'
+                                        : slot.isWinner
+                                        ? 'bg-cyber-green/20 border border-cyber-green'
+                                        : 'bg-bg-tertiary'
+                                    }`}
+                                  >
+                                    {slot.participant && (
+                                      <div className="flex items-center gap-2">
+                                        <Avatar
+                                          src={slot.participant.user.avatarUrl}
+                                          username={slot.participant.user.username}
+                                          size="sm"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <p className={`text-sm font-semibold truncate ${isEliminated ? 'text-red-400' : 'text-text-primary'}`}>
+                                            ({slot.participant.seed}) @{slot.participant.user.username}
+                                            {isEliminated && (
+                                              <span className="ml-2 text-red-400 font-bold">✗ Eliminated</span>
+                                            )}
+                                            {slot.isWinner && !isEliminated && (
+                                              <span className="ml-2 text-cyber-green">✓ Advanced</span>
+                                            )}
+                                          </p>
+                                          <p className="text-text-secondary text-xs">ELO: {slot.participant.user.eloRating}</p>
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
+                                    )}
+                                  </div>
+                                )
+                              })}
                             </div>
                             
                             {/* Match Status & View Debate Button */}

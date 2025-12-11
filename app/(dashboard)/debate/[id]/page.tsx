@@ -9,7 +9,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { SubmitArgumentForm } from '@/components/debate/SubmitArgumentForm'
 import { VerdictDisplay } from '@/components/debate/VerdictDisplay'
-import { KingOfTheHillResults } from '@/components/tournaments/KingOfTheHillResults'
+import { KingOfTheHillVerdictDisplay } from '@/components/tournaments/KingOfTheHillVerdictDisplay'
 import { AppealButton } from '@/components/debate/AppealButton'
 import { RematchButton } from '@/components/debate/RematchButton'
 import { LiveChat } from '@/components/debate/LiveChat'
@@ -824,26 +824,33 @@ export default function DebatePage() {
             </Card>
           )}
 
-          {/* King of the Hill Results Display */}
+          {/* King of the Hill Verdict Display (SAME format as regular debates) */}
           {debate.status === 'VERDICT_READY' && 
            debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL' &&
-           debate.tournamentMatch?.tournament?.participants && (
+           debate.tournamentMatch?.tournament?.participants &&
+           debate.verdicts &&
+           debate.verdicts.length > 0 && (
             <div className="mb-6">
-              <KingOfTheHillResults
-                debateId={debate.id}
+              <KingOfTheHillVerdictDisplay
+                verdicts={debate.verdicts.map(v => ({
+                  id: v.id,
+                  judge: v.judge,
+                  reasoning: v.reasoning,
+                  challengerScore: v.challengerScore,
+                  opponentScore: v.opponentScore,
+                }))}
                 participants={debate.tournamentMatch.tournament.participants.map((p) => ({
                   id: p.id,
                   userId: p.userId,
                   username: p.user.username,
                   avatarUrl: p.user.avatarUrl,
                   eloRating: p.user.eloRating,
-                  cumulativeScore: p.cumulativeScore,
+                  status: p.status,
                   eliminationRound: p.eliminationRound,
                   eliminationReason: p.eliminationReason,
-                  status: p.status,
                 }))}
                 roundNumber={debate.tournamentMatch.round.roundNumber}
-                totalRounds={debate.tournamentMatch.tournament.totalRounds}
+                debateId={debate.id}
               />
             </div>
           )}

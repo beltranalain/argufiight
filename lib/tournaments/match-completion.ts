@@ -92,30 +92,10 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
         return
       }
 
-      // All participants submitted - trigger evaluation
+      // All participants submitted - use new King of the Hill completion system
       console.log(`[King of the Hill] All participants submitted - triggering evaluation for round ${match.round.roundNumber}`)
-      const { evaluateKingOfTheHillRound } = await import('./king-of-the-hill')
-      await evaluateKingOfTheHillRound(debateId, match.round.tournamentId, match.round.roundNumber)
-
-      // Update debate status to VERDICT_READY to indicate evaluation is complete
-      await prisma.debate.update({
-        where: { id: debateId },
-        data: {
-          status: 'VERDICT_READY',
-        },
-      })
-
-      // Mark match as completed
-      await prisma.tournamentMatch.update({
-        where: { id: match.id },
-        data: {
-          status: 'COMPLETED',
-          completedAt: new Date(),
-        },
-      })
-
-      // Check if round is complete and advance if needed
-      await checkAndAdvanceTournamentRound(match.round.tournamentId, match.round.roundNumber)
+      const { processKingOfTheHillDebateCompletion } = await import('./king-of-the-hill-completion')
+      await processKingOfTheHillDebateCompletion(debateId)
       return
     }
 
