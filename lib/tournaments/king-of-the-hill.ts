@@ -235,110 +235,94 @@ export async function evaluateKingOfTheHillRound(
     console.log(`[King of the Hill] Automatically eliminated ${participantsWhoDidntSubmit.length} participant(s) who did not submit`)
   }
 
-  // Call AI to evaluate all submissions together
+  // Call AI to evaluate all submissions together using 3 random judges
   const { generateKingOfTheHillVerdict } = await import('./king-of-the-hill-ai')
   const verdictResult = await generateKingOfTheHillVerdict(
     debate.topic,
     submissions,
-    roundNumber
+    roundNumber,
+    debate.id
   )
   
-  // Store the judge's evaluation and update judge stats
-  // Use the same judge that was used in the AI evaluation
-  const judge = await prisma.judge.findUnique({
-    where: { id: verdictResult.judgeId },
-  })
-  if (judge) {
-    // Update judge stats
-    await prisma.judge.update({
-      where: { id: judge.id },
-      data: {
-        debatesJudged: {
-          increment: 1,
-        },
-      },
+  // Store verdicts from all 3 judges and update judge stats
+  await Promise.all(
+    verdictResult.judgeScores.map(async (judgeScore) => {
+      const judge = await prisma.judge.findUnique({
+        where: { id: judgeScore.judgeId },
+      })
+      
+      if (judge) {
+        // Update judge stats
+        await prisma.judge.update({
+          where: { id: judge.id },
+          data: {
+            debatesJudged: {
+              increment: 1,
+            },
+          },
+        })
+        
+        // Create a Verdict record for this judge's evaluation
+        // For King of the Hill, we store each judge's scores for all participants
+        const verdictSummary = `King of the Hill Round ${roundNumber} - Judge: ${judge.name}\n\n` +
+          `Scores for each participant:\n${Object.entries(judgeScore.scores)
+            .map(([userId, score]) => {
+              const participant = submissions.find(s => s.userId === userId)
+              const reasoning = judgeScore.reasoning[userId] || 'No reasoning provided'
+              return `${participant?.username || userId}: ${score}/100\n   ${reasoning}`
+            })
+            .join('\n\n')}`
+        
+        await prisma.verdict.create({
+          data: {
+            debateId: debate.id,
+            judgeId: judge.id,
+            decision: 'TIE', // Not applicable for King of the Hill, but required by schema
+            reasoning: verdictSummary,
+            challengerScore: null, // Not applicable for King of the Hill
+            opponentScore: null, // Not applicable for King of the Hill
+            winnerId: null, // Not applicable for King of the Hill
+          },
+        })
+        
+        console.log(`[King of the Hill] Created Verdict record for judge ${judge.name} (${judge.id})`)
+      }
     })
-    
-    // Create a Verdict record to store the judge's evaluation
-    // For King of the Hill, we'll store the overall evaluation in the reasoning field
-    // and use TIE as the decision (since it's not a 1v1 format)
-    const verdictSummary = `King of the Hill Round ${roundNumber} Evaluation:\n\n` +
-      `Total Participants: ${verdictResult.totalParticipants}\n` +
-      `Eliminated: ${verdictResult.eliminatedCount}\n\n` +
-      `Rankings:\n${verdictResult.rankings.map((r, i) => 
-        `${i + 1}. ${r.username}: Score ${r.score}/100 (Rank ${r.rank})\n   ${r.reasoning}`
-      ).join('\n\n')}\n\n` +
-      `Elimination Explanations:\n${Object.entries(verdictResult.eliminationExplanations).map(
-        ([userId, explanation]) => {
-          const participant = verdictResult.rankings.find(r => r.userId === userId)
-          return `${participant?.username || userId}: ${explanation}`
-        }
-      ).join('\n')}`
-    
-    await prisma.verdict.create({
-      data: {
-        debateId: debate.id,
-        judgeId: judge.id,
-        decision: 'TIE', // Not applicable for King of the Hill, but required by schema
-        reasoning: verdictSummary,
-        challengerScore: null, // Not applicable for King of the Hill
-        opponentScore: null, // Not applicable for King of the Hill
-        winnerId: null, // Not applicable for King of the Hill
-      },
-    })
-    
-    console.log(`[King of the Hill] Created Verdict record for judge ${judge.name} (${judge.id})`)
-  }
-  
-  const verdict = verdictResult
+  )
 
-  // Map AI verdict to participant scores
-  // Only include tournament participants who actually submitted
+  // Map AI verdict to participant scores using TOTAL SCORES (sum of all 3 judges)
+  // Each participant gets a score from 0-300 (3 judges × 0-100 each)
+  // For cumulative scoring, we'll use the total score (0-300) to maintain consistency
   const participantScores: ParticipantScore[] = tournamentParticipants
     .filter(tp => submissions.some(s => s.userId === tp.userId))
     .map((tp) => {
-      const verdictEntry = verdict.rankings.find((r) => r.userId === tp.userId)
-      if (!verdictEntry) {
-        console.warn(`[King of the Hill] No verdict entry found for participant ${tp.user.username} (${tp.userId})`)
+      const ranking = verdictResult.rankings.find((r) => r.userId === tp.userId)
+      if (!ranking) {
+        console.warn(`[King of the Hill] No ranking found for participant ${tp.user.username} (${tp.userId})`)
       }
-      const roundScore = verdictEntry?.score || 0
+      // Use total score (0-300) from all 3 judges
+      const roundScore = ranking?.totalScore || 0
       const cumulativeScore = (tp.cumulativeScore || 0) + roundScore
 
       return {
         participantId: tp.id,
         userId: tp.userId,
         username: tp.user.username,
-        score: roundScore,
+        score: roundScore, // Total score from 3 judges (0-300)
         cumulativeScore,
-        rank: verdictEntry?.rank || tournamentParticipants.length,
+        rank: ranking?.rank || tournamentParticipants.length,
       }
     })
   
   // Validate that all submissions have rankings
-  const rankedUserIds = new Set(verdict.rankings.map(r => r.userId))
+  const rankedUserIds = new Set(verdictResult.rankings.map(r => r.userId))
   const missingRankings = submissions.filter(s => !rankedUserIds.has(s.userId))
   if (missingRankings.length > 0) {
     console.error(`[King of the Hill] Missing rankings for ${missingRankings.length} submissions:`, 
       missingRankings.map(s => s.username))
   }
-  
-  // Validate rankings are unique and sequential
-  const ranks = verdict.rankings.map(r => r.rank).sort((a, b) => a - b)
-  const expectedRanks = Array.from({ length: submissions.length }, (_, i) => i + 1)
-  const ranksMatch = ranks.length === expectedRanks.length && 
-    ranks.every((rank, index) => rank === expectedRanks[index])
-  if (!ranksMatch) {
-    console.warn(`[King of the Hill] Rankings validation failed. Expected: [${expectedRanks.join(', ')}], Got: [${ranks.join(', ')}]`)
-  }
-  
-  // Validate scores are in range
-  const invalidScores = verdict.rankings.filter(r => r.score < 0 || r.score > 100)
-  if (invalidScores.length > 0) {
-    console.warn(`[King of the Hill] Invalid scores found (must be 0-100):`, 
-      invalidScores.map(r => `${r.username}: ${r.score}`))
-  }
 
-  // Sort by score (descending - highest first)
+  // Sort by total score (descending - highest first)
   participantScores.sort((a, b) => b.score - a.score)
 
   // Calculate how many to eliminate (bottom 25%, minimum 1)
@@ -348,7 +332,7 @@ export async function evaluateKingOfTheHillRound(
   
   console.log(`[King of the Hill] Round ${roundNumber}: ${totalParticipants} participants, eliminating bottom ${eliminateCount} (${Math.round((eliminateCount / totalParticipants) * 100)}%)`)
 
-  // Get bottom 25% (lowest scores)
+  // Get bottom 25% (lowest total scores)
   // slice(-eliminateCount) gets the LAST eliminateCount elements (lowest scores)
   // slice(0, -eliminateCount) gets all EXCEPT the last eliminateCount elements (highest scores)
   const eliminated = participantScores.slice(-eliminateCount)
@@ -359,15 +343,15 @@ export async function evaluateKingOfTheHillRound(
     eliminateCount: eliminateCount,
     eliminatedCount: eliminated.length,
     remainingCount: remaining.length,
-    eliminated: eliminated.map(e => ({ username: e.username, score: e.score, rank: e.rank })),
-    remaining: remaining.map(r => ({ username: r.username, score: r.score, rank: r.rank })),
+    eliminated: eliminated.map(e => ({ username: e.username, totalScore: e.score, rank: e.rank })),
+    remaining: remaining.map(r => ({ username: r.username, totalScore: r.score, rank: r.rank })),
   })
 
-  // Build elimination explanations
+  // Build elimination explanations from verdict result
   const eliminationExplanations: Record<string, string> = {}
   for (const eliminatedParticipant of eliminated) {
-    const explanation = verdict.eliminationExplanations[eliminatedParticipant.userId] || 
-      `Ranked ${eliminatedParticipant.rank} out of ${totalParticipants} with a score of ${eliminatedParticipant.score}`
+    const explanation = verdictResult.eliminationExplanations[eliminatedParticipant.userId] || 
+      `Ranked ${eliminatedParticipant.rank} out of ${totalParticipants} with a total score of ${eliminatedParticipant.score}/300 from 3 judges`
     eliminationExplanations[eliminatedParticipant.participantId] = explanation
   }
 

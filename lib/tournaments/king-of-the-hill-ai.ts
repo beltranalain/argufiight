@@ -1,9 +1,11 @@
 /**
  * AI Evaluation for King of the Hill Tournament
- * Evaluates all submissions together and ranks participants
+ * Uses 3 random judges (same as regular debates) to evaluate all participants
+ * Each judge scores all participants (0-100), then scores are aggregated
  */
 
-import { generateVerdict, type DebateContext } from '@/lib/ai/deepseek'
+import { prisma } from '@/lib/db/prisma'
+import { createDeepSeekClient, logApiUsage } from '@/lib/ai/deepseek'
 
 export interface ParticipantSubmission {
   userId: string
@@ -12,36 +14,57 @@ export interface ParticipantSubmission {
   round: number
 }
 
-export interface ParticipantRanking {
-  userId: string
-  username: string
-  score: number // 0-100
-  rank: number // 1 = best, N = worst
-  reasoning: string // Why this score/rank
+export interface JudgeScore {
+  judgeId: string
+  judgeName: string
+  scores: Record<string, number> // userId -> score (0-100)
+  reasoning: Record<string, string> // userId -> reasoning
 }
 
 export interface KingOfTheHillVerdict {
-  rankings: ParticipantRanking[]
+  judgeScores: JudgeScore[] // Scores from all 3 judges
+  totalScores: Record<string, number> // userId -> total score (sum of all 3 judges)
+  rankings: Array<{
+    userId: string
+    username: string
+    totalScore: number
+    rank: number
+  }>
   eliminationExplanations: Record<string, string> // userId -> explanation for why eliminated
   totalParticipants: number
   eliminatedCount: number
-  judgeId: string // ID of the judge who evaluated this round
 }
 
 /**
- * Generate verdict for King of the Hill round
- * AI evaluates all submissions together and ranks them
+ * Generate verdict for King of the Hill round using 3 random judges
+ * Each judge scores all participants, then scores are aggregated
  */
 export async function generateKingOfTheHillVerdict(
   topic: string,
   submissions: ParticipantSubmission[],
-  roundNumber: number
+  roundNumber: number,
+  debateId?: string
 ): Promise<KingOfTheHillVerdict> {
   if (submissions.length === 0) {
     throw new Error('No submissions to evaluate')
   }
 
-  // Build prompt for AI to evaluate all submissions together
+  // Get 3 random judges (same as regular debates)
+  const allJudges = await prisma.judge.findMany()
+  
+  if (allJudges.length === 0) {
+    throw new Error('No judges available. Please seed the database with judges.')
+  }
+  
+  console.log(`[King of the Hill] Found ${allJudges.length} judges, selecting 3 for round ${roundNumber}`)
+
+  const selectedJudges = allJudges
+    .sort(() => Math.random() - 0.5)
+    .slice(0, Math.min(3, allJudges.length))
+
+  console.log(`[King of the Hill] Selected judges: ${selectedJudges.map(j => j.name).join(', ')}`)
+
+  // Build submissions text for the prompt
   const submissionsText = submissions
     .map((sub, index) => {
       return `Participant ${index + 1} (${sub.username}):
@@ -51,7 +74,16 @@ ${sub.content}
     })
     .join('\n\n')
 
-  const prompt = `You are judging a King of the Hill tournament round. All participants have submitted arguments on the same topic.
+  const eliminateCount = Math.max(1, Math.ceil(submissions.length * 0.25))
+
+  // Generate verdicts from each judge in parallel
+  const judgeVerdicts = await Promise.all(
+    selectedJudges.map(async (judge) => {
+      try {
+        const client = await createDeepSeekClient()
+        const startTime = Date.now()
+
+        const prompt = `You are judging a King of the Hill tournament round. All ${submissions.length} participants have submitted arguments on the same topic.
 
 TOPIC: "${topic}"
 
@@ -62,12 +94,10 @@ ${submissionsText}
 
 Your task:
 1. Evaluate each participant's argument quality, reasoning, evidence, and persuasiveness
-2. Rank all participants from best (1) to worst (${submissions.length}) - NO TIES, each must have a unique rank
-3. Assign a score (0-100) to each participant based on their argument quality
-4. Identify the bottom 25% who should be eliminated (approximately ${Math.ceil(submissions.length * 0.25)} participants)
-5. Provide a clear explanation for why each eliminated participant was removed
+2. Assign a score (0-100) to EACH participant based on their argument quality
+3. Provide a brief reasoning for each participant's score
 
-SCORING CRITERIA:
+SCORING CRITERIA (0-100 scale):
 - Argument Quality: How well-structured and logical is the argument? (0-25 points)
 - Evidence: Does the participant provide supporting evidence or examples? (0-25 points)
 - Persuasiveness: How convincing is the argument? (0-25 points)
@@ -76,183 +106,180 @@ SCORING CRITERIA:
 
 Respond in the following JSON format (NO markdown code blocks, just pure JSON):
 {
-  "rankings": [
-    {
-      "userId": "user-id-1",
-      "username": "username1",
-      "score": 85,
-      "rank": 1,
-      "reasoning": "Strong argument with clear evidence and logical reasoning. The participant effectively addressed the topic and provided compelling examples."
-    },
-    {
-      "userId": "user-id-2",
-      "username": "username2",
-      "score": 72,
-      "rank": 2,
-      "reasoning": "Good argument with solid points, though some areas could be more developed."
-    }
-  ],
-  "eliminationExplanations": {
-    "user-id-of-eliminated-1": "This participant was eliminated because their argument lacked sufficient evidence and failed to adequately address the topic. Ranked ${submissions.length} out of ${submissions.length} with a score of 45.",
-    "user-id-of-eliminated-2": "This participant was eliminated because their reasoning was unclear and the argument structure was weak. Ranked ${submissions.length - 1} out of ${submissions.length} with a score of 52."
+  "scores": {
+    "${submissions[0].userId}": 85,
+    "${submissions[1].userId}": 72,
+    ...
+  },
+  "reasoning": {
+    "${submissions[0].userId}": "Strong argument with clear evidence and logical reasoning. The participant effectively addressed the topic.",
+    "${submissions[1].userId}": "Good argument with solid points, though some areas could be more developed.",
+    ...
   }
 }
 
 CRITICAL REQUIREMENTS:
-- Rankings MUST be from 1 (best) to ${submissions.length} (worst) - NO TIES, each participant must have a unique rank
-- Each participant MUST have a unique rank (1, 2, 3, ..., ${submissions.length})
+- You MUST score ALL ${submissions.length} participants
 - Scores MUST be between 0-100
-- Eliminate EXACTLY the bottom 25% (${Math.ceil(submissions.length * 0.25)} participants minimum)
-- Provide detailed, constructive explanations for eliminations
+- Each participant MUST have a score and reasoning
 - Be fair, objective, and consistent in your evaluation
 - Return ONLY valid JSON, no markdown formatting, no code blocks`
 
-  try {
-    // Use DeepSeek to generate the verdict
-    // We'll create a simplified debate context for the AI
-    const debateContext: DebateContext = {
-      topic,
-      challengerName: submissions[0]?.username || 'Participant 1',
-      opponentName: submissions[1]?.username || 'Participant 2',
-      challengerPosition: 'FOR',
-      opponentPosition: 'AGAINST',
-      currentRound: roundNumber,
-      totalRounds: 1,
-      isComplete: true,
-      statements: submissions.map((sub) => ({
-        round: sub.round,
-        author: sub.username,
-        position: 'FOR' as const,
-        content: sub.content,
-      })),
-    }
-
-    // Get a judge (we'll use the first available judge)
-    // For King of the Hill, we want a fair and objective judge
-    const judges = await prisma.judge.findMany({
-      orderBy: {
-        debatesJudged: 'asc', // Rotate judges to distribute workload
-      },
-    })
-    if (judges.length === 0) {
-      throw new Error('No judges available')
-    }
-
-    const judge = judges[0]
-    console.log(`[King of the Hill AI] Using judge: ${judge.name} (${judge.id}) for round ${roundNumber}`)
-
-    // Generate verdict using DeepSeek
-    // Note: We'll need to adapt this to handle multi-participant evaluation
-    // For now, we'll use a custom prompt approach
-    const { createDeepSeekClient } = await import('@/lib/ai/deepseek')
-    const client = await createDeepSeekClient()
-
-    const completion = await client.chat.completions.create({
-      model: 'deepseek-chat',
-      messages: [
-        {
-          role: 'system',
-          content: judge.systemPrompt || 'You are an expert debate judge evaluating arguments fairly and objectively.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 4000,
-    })
-
-    const responseText = completion.choices[0].message.content || '{}'
-    
-    // Clean response (remove markdown code blocks if present)
-    const cleanedResponse = responseText
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
-      .trim()
-
-    const verdict = JSON.parse(cleanedResponse) as KingOfTheHillVerdict
-
-    // Validate and normalize the verdict
-    if (!verdict.rankings || !Array.isArray(verdict.rankings)) {
-      throw new Error('Invalid verdict format: missing rankings')
-    }
-
-    // Ensure all submissions have rankings
-    const rankedUserIds = new Set(verdict.rankings.map((r) => r.userId))
-    for (const submission of submissions) {
-      if (!rankedUserIds.has(submission.userId)) {
-        // Add missing participant with default score
-        verdict.rankings.push({
-          userId: submission.userId,
-          username: submission.username,
-          score: 50,
-          rank: verdict.rankings.length + 1,
-          reasoning: 'No evaluation provided',
+        const completion = await client.chat.completions.create({
+          model: 'deepseek-chat',
+          messages: [
+            {
+              role: 'system',
+              content: judge.systemPrompt || 'You are an expert debate judge evaluating arguments fairly and objectively.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 3000,
         })
+
+        const responseTime = Date.now() - startTime
+        const usage = completion.usage
+
+        // Log API usage
+        await logApiUsage({
+          provider: 'deepseek',
+          endpoint: 'chat/completions',
+          model: 'deepseek-chat',
+          promptTokens: usage?.prompt_tokens,
+          completionTokens: usage?.completion_tokens,
+          totalTokens: usage?.total_tokens,
+          debateId,
+          success: true,
+          responseTime,
+        })
+
+        const responseText = completion.choices[0].message.content || '{}'
+        
+        // Clean response (remove markdown code blocks if present)
+        const cleanedResponse = responseText
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim()
+
+        const verdict = JSON.parse(cleanedResponse) as {
+          scores: Record<string, number>
+          reasoning: Record<string, string>
+        }
+
+        // Validate that all participants have scores
+        const scoredUserIds = new Set(Object.keys(verdict.scores || {}))
+        for (const submission of submissions) {
+          if (!scoredUserIds.has(submission.userId)) {
+            console.warn(`[King of the Hill] Judge ${judge.name} did not score participant ${submission.username}, assigning default score 50`)
+            verdict.scores[submission.userId] = 50
+            verdict.reasoning[submission.userId] = 'No evaluation provided by judge'
+          }
+        }
+
+        // Validate scores are in range
+        for (const [userId, score] of Object.entries(verdict.scores)) {
+          if (score < 0 || score > 100) {
+            console.warn(`[King of the Hill] Judge ${judge.name} gave invalid score ${score} to ${userId}, clamping to 0-100`)
+            verdict.scores[userId] = Math.max(0, Math.min(100, score))
+          }
+        }
+
+        return {
+          judgeId: judge.id,
+          judgeName: judge.name,
+          scores: verdict.scores,
+          reasoning: verdict.reasoning,
+        }
+      } catch (error: any) {
+        console.error(`[King of the Hill] Failed to get verdict from judge ${judge.name}:`, error)
+        
+        // Fallback: Assign default scores
+        const defaultScores: Record<string, number> = {}
+        const defaultReasoning: Record<string, string> = {}
+        
+        submissions.forEach((sub, index) => {
+          defaultScores[sub.userId] = 100 - (index * 10) // Decreasing scores
+          defaultReasoning[sub.userId] = 'Default score due to evaluation error'
+        })
+
+        return {
+          judgeId: judge.id,
+          judgeName: judge.name,
+          scores: defaultScores,
+          reasoning: defaultReasoning,
+        }
       }
-    }
+    })
+  )
 
-    // Sort by rank (1 = best)
-    verdict.rankings.sort((a, b) => a.rank - b.rank)
+  // Aggregate scores from all 3 judges
+  const totalScores: Record<string, number> = {}
+  const allReasoning: Record<string, string[]> = {} // userId -> array of reasoning from each judge
 
-    // Calculate elimination count
-    const eliminateCount = Math.max(1, Math.ceil(submissions.length * 0.25))
-    const eliminatedCount = eliminateCount
-    verdict.eliminatedCount = eliminatedCount
-    verdict.totalParticipants = submissions.length
+  // Initialize totals
+  submissions.forEach(sub => {
+    totalScores[sub.userId] = 0
+    allReasoning[sub.userId] = []
+  })
 
-    // Ensure elimination explanations exist for bottom 25%
-    const eliminated = verdict.rankings.slice(-eliminateCount)
-    if (!verdict.eliminationExplanations) {
-      verdict.eliminationExplanations = {}
-    }
-
-    for (const eliminatedParticipant of eliminated) {
-      if (!verdict.eliminationExplanations[eliminatedParticipant.userId]) {
-        verdict.eliminationExplanations[eliminatedParticipant.userId] = 
-          `Ranked ${eliminatedParticipant.rank} out of ${submissions.length} with a score of ${eliminatedParticipant.score}. ${eliminatedParticipant.reasoning}`
-      }
-    }
-
-    return {
-      ...verdict,
-      judgeId: judge.id,
-    }
-  } catch (error: any) {
-    console.error('[King of the Hill AI] Failed to generate verdict:', error)
+  // Sum up scores from all judges
+  judgeVerdicts.forEach((judgeVerdict) => {
+    Object.entries(judgeVerdict.scores).forEach(([userId, score]) => {
+      totalScores[userId] = (totalScores[userId] || 0) + score
+    })
     
-    // Fallback: Create default rankings based on submission order
-    const defaultRankings: ParticipantRanking[] = submissions.map((sub, index) => ({
+    Object.entries(judgeVerdict.reasoning).forEach(([userId, reasoning]) => {
+      if (!allReasoning[userId]) {
+        allReasoning[userId] = []
+      }
+      allReasoning[userId].push(`${judgeVerdict.judgeName}: ${reasoning}`)
+    })
+  })
+
+  // Create rankings based on total scores
+  const rankings = submissions
+    .map(sub => ({
       userId: sub.userId,
       username: sub.username,
-      score: 100 - (index * 10), // Decreasing scores
-      rank: index + 1,
-      reasoning: 'Default ranking due to evaluation error',
+      totalScore: totalScores[sub.userId],
+    }))
+    .sort((a, b) => b.totalScore - a.totalScore) // Sort descending (highest first)
+    .map((participant, index) => ({
+      ...participant,
+      rank: index + 1, // Rank 1 = best (highest score)
     }))
 
-    const eliminateCount = Math.max(1, Math.ceil(submissions.length * 0.25))
-    const eliminated = defaultRankings.slice(-eliminateCount)
-    const eliminationExplanations: Record<string, string> = {}
-    
-    for (const eliminatedParticipant of eliminated) {
-      eliminationExplanations[eliminatedParticipant.userId] = 
-        `Ranked ${eliminatedParticipant.rank} out of ${submissions.length} with a score of ${eliminatedParticipant.score}`
-    }
+  // Get bottom 25% (lowest total scores)
+  const eliminated = rankings.slice(-eliminateCount)
+  const remaining = rankings.slice(0, -eliminateCount)
 
-    // For fallback, use first available judge
-    const fallbackJudges = await prisma.judge.findMany()
-    const fallbackJudgeId = fallbackJudges[0]?.id || ''
+  // Build elimination explanations from all 3 judges
+  const eliminationExplanations: Record<string, string> = {}
+  eliminated.forEach((eliminatedParticipant) => {
+    const reasoning = allReasoning[eliminatedParticipant.userId] || []
+    const explanation = reasoning.length > 0
+      ? `Eliminated (Rank ${eliminatedParticipant.rank} of ${submissions.length}, Total Score: ${eliminatedParticipant.totalScore}/300 from 3 judges):\n${reasoning.join('\n\n')}`
+      : `Eliminated (Rank ${eliminatedParticipant.rank} of ${submissions.length}, Total Score: ${eliminatedParticipant.totalScore}/300 from 3 judges)`
+    eliminationExplanations[eliminatedParticipant.userId] = explanation
+  })
 
-    return {
-      rankings: defaultRankings,
-      eliminationExplanations,
-      totalParticipants: submissions.length,
-      eliminatedCount: eliminateCount,
-      judgeId: fallbackJudgeId,
-    }
+  console.log(`[King of the Hill] Round ${roundNumber} Results:`, {
+    totalParticipants: submissions.length,
+    eliminateCount,
+    eliminated: eliminated.map(e => ({ username: e.username, totalScore: e.totalScore, rank: e.rank })),
+    remaining: remaining.map(r => ({ username: r.username, totalScore: r.totalScore, rank: r.rank })),
+  })
+
+  return {
+    judgeScores: judgeVerdicts,
+    totalScores,
+    rankings,
+    eliminationExplanations,
+    totalParticipants: submissions.length,
+    eliminatedCount: eliminateCount,
   }
 }
-
-import { prisma } from '@/lib/db/prisma'
-
