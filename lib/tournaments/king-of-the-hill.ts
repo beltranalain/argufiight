@@ -264,11 +264,12 @@ export async function evaluateKingOfTheHillRound(
         
         // Create a Verdict record for this judge's evaluation
         // For King of the Hill, we store each judge's scores for all participants
+        // Format: username: score/100\n   reasoning (one per line, easy to parse)
         const verdictSummary = `King of the Hill Round ${roundNumber} - Judge: ${judge.name}\n\n` +
           `Scores for each participant:\n${Object.entries(judgeScore.scores)
             .map(([userId, score]) => {
               const participant = submissions.find(s => s.userId === userId)
-              const reasoning = judgeScore.reasoning[userId] || 'No reasoning provided'
+              const reasoning = judgeScore.reasoning[userId] || 'No specific reasoning provided by this judge.'
               return `${participant?.username || userId}: ${score}/100\n   ${reasoning}`
             })
             .join('\n\n')}`

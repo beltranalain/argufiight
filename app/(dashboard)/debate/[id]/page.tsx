@@ -830,6 +830,7 @@ export default function DebatePage() {
            debate.tournamentMatch?.tournament?.participants && (
             <div className="mb-6">
               <KingOfTheHillResults
+                debateId={debate.id}
                 participants={debate.tournamentMatch.tournament.participants.map((p) => ({
                   id: p.id,
                   userId: p.userId,
