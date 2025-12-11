@@ -38,6 +38,7 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
             challengerId: true,
             opponentId: true,
             status: true,
+            challengeType: true, // Needed to detect King of the Hill finals
           },
         },
       },
