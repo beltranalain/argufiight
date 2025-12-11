@@ -81,17 +81,24 @@ export async function createKingOfTheHillRound1(
   })
 
   // Add all participants to the debate
+  console.log(`[King of the Hill] Round 1: Adding ${participants.length} participants to debate ${debate.id}`)
   await Promise.all(
-    participants.map((p, index) =>
-      prisma.debateParticipant.create({
+    participants.map((p, index) => {
+      const userId = p.userId || p.user?.id
+      if (!userId) {
+        console.error(`[King of the Hill] Round 1: Missing userId for participant`, p)
+        return Promise.resolve()
+      }
+      console.log(`[King of the Hill] Round 1: Adding participant ${userId} to debate ${debate.id}`)
+      return prisma.debateParticipant.create({
         data: {
           debateId: debate.id,
-          userId: p.userId,
+          userId: userId,
           position: index % 2 === 0 ? 'FOR' : 'AGAINST', // Alternate positions
           status: 'ACTIVE',
         },
       })
-    )
+    })
   )
 
   // Create tournament match (for King of the Hill, use first two participants as placeholder)
@@ -213,18 +220,25 @@ export async function createKingOfTheHillRound(
     },
   })
 
-  // Add all active participants to the debate
+  // Add all active participants to the debate (SAME format as Round 1)
+  console.log(`[King of the Hill] Round ${roundNumber}: Adding ${participants.length} participants to debate ${debate.id}`)
   await Promise.all(
-    participants.map((p, index) =>
-      prisma.debateParticipant.create({
+    participants.map((p, index) => {
+      const userId = p.userId || p.user?.id
+      if (!userId) {
+        console.error(`[King of the Hill] Round ${roundNumber}: Missing userId for participant`, p)
+        return Promise.resolve()
+      }
+      console.log(`[King of the Hill] Round ${roundNumber}: Adding participant ${userId} to debate ${debate.id}`)
+      return prisma.debateParticipant.create({
         data: {
           debateId: debate.id,
-          userId: p.userId,
+          userId: userId,
           position: index % 2 === 0 ? 'FOR' : 'AGAINST', // Alternate positions
           status: 'ACTIVE',
         },
       })
-    )
+    })
   )
 
   // Create tournament match (for King of the Hill, use first two participants as placeholder)
