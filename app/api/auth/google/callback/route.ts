@@ -85,6 +85,9 @@ export async function GET(request: NextRequest) {
     console.log('[Google OAuth Callback] Configuration:', {
       hasClientId: !!clientId,
       hasClientSecret: !!clientSecret,
+      clientIdPrefix: clientId?.substring(0, 30) + '...',
+      clientSecretPrefix: clientSecret ? clientSecret.substring(0, 10) + '...' : 'missing',
+      clientSecretLength: clientSecret?.length || 0,
       baseUrl,
       redirectUri,
     })
