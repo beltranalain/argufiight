@@ -37,6 +37,7 @@ interface Match {
     topic: string
     status: string
     winnerId: string | null
+    challengeType?: string // For King of the Hill GROUP debates
     challenger: {
       id: string
       username: string
