@@ -117,7 +117,6 @@ export function TournamentBracket({
             },
           ])
         }
-      }
       
       structure.push(roundSlots)
     }
