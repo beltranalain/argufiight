@@ -699,6 +699,139 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
+            {/* Firebase Push Notifications */}
+            <div className="space-y-4 pt-4 border-t border-bg-tertiary">
+              <h3 className="text-lg font-semibold text-white mb-4">Firebase Push Notifications</h3>
+              <div className="p-4 bg-text-muted/10 border border-text-muted/30 rounded-lg mb-4">
+                <p className="text-sm text-text-secondary mb-2">
+                  <strong>Firebase Cloud Messaging (FCM)</strong> enables push notifications to users even when they're not on your site.
+                </p>
+                <p className="text-xs text-text-muted">
+                  Users will be asked to allow notifications. When it's their turn in a debate, they'll receive a push notification.
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Firebase API Key *
+                  </label>
+                  <input
+                    type="text"
+                    value={firebaseApiKey}
+                    onChange={(e) => setFirebaseApiKey(e.target.value)}
+                    placeholder="AIza..."
+                    className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Auth Domain *
+                  </label>
+                  <input
+                    type="text"
+                    value={firebaseAuthDomain}
+                    onChange={(e) => setFirebaseAuthDomain(e.target.value)}
+                    placeholder="your-project.firebaseapp.com"
+                    className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Project ID *
+                  </label>
+                  <input
+                    type="text"
+                    value={firebaseProjectId}
+                    onChange={(e) => setFirebaseProjectId(e.target.value)}
+                    placeholder="your-project-id"
+                    className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Storage Bucket
+                  </label>
+                  <input
+                    type="text"
+                    value={firebaseStorageBucket}
+                    onChange={(e) => setFirebaseStorageBucket(e.target.value)}
+                    placeholder="your-project.appspot.com"
+                    className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Messaging Sender ID *
+                  </label>
+                  <input
+                    type="text"
+                    value={firebaseMessagingSenderId}
+                    onChange={(e) => setFirebaseMessagingSenderId(e.target.value)}
+                    placeholder="123456789"
+                    className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    App ID *
+                  </label>
+                  <input
+                    type="text"
+                    value={firebaseAppId}
+                    onChange={(e) => setFirebaseAppId(e.target.value)}
+                    placeholder="1:123456789:web:..."
+                    className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-white mb-2">
+                  Server Key * (Required for sending notifications)
+                </label>
+                <input
+                  type="password"
+                  value={firebaseServerKey}
+                  onChange={(e) => setFirebaseServerKey(e.target.value)}
+                  placeholder="AAAA..."
+                  className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                />
+                <p className="text-xs text-text-secondary mt-1">
+                  Found in Firebase Console → Project Settings → Cloud Messaging → Server key
+                </p>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-white mb-2">
+                  VAPID Key (Required for web push)
+                </label>
+                <input
+                  type="text"
+                  value={firebaseVapidKey}
+                  onChange={(e) => setFirebaseVapidKey(e.target.value)}
+                  placeholder="BK..."
+                  className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                />
+                <p className="text-xs text-text-secondary mt-1">
+                  Found in Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
+                </p>
+              </div>
+
+              <div className="mt-4 p-3 bg-electric-blue/10 border border-electric-blue/30 rounded-lg">
+                <p className="text-sm text-electric-blue mb-2">
+                  <strong>Get your Firebase credentials:</strong>
+                </p>
+                <ol className="text-xs text-text-secondary space-y-1 list-decimal list-inside">
+                  <li>Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-electric-blue">Firebase Console</a></li>
+                  <li>Select your project → Gear icon → Project Settings</li>
+                  <li>Scroll to "Your apps" → Web app → Copy config values</li>
+                  <li>Go to Cloud Messaging tab → Copy Server key</li>
+                  <li>Generate VAPID key pair if needed → Copy public key</li>
+                </ol>
+              </div>
+            </div>
+
             {/* Save Button */}
             <div className="flex justify-end pt-4">
               <Button
