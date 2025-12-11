@@ -49,6 +49,7 @@ interface Tournament {
     seed: number
     status: string
     selectedPosition: string | null
+    eliminationRound: number | null
     wins: number
     losses: number
     user: {

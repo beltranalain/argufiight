@@ -49,6 +49,24 @@ export async function GET(
               },
             },
           },
+          select: {
+            id: true,
+            userId: true,
+            seed: true,
+            status: true,
+            selectedPosition: true,
+            eliminationRound: true,
+            wins: true,
+            losses: true,
+            user: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+                eloRating: true,
+              },
+            },
+          },
           orderBy: {
             seed: 'asc',
           },
@@ -172,6 +190,7 @@ export async function GET(
           seed: p.seed,
           status: p.status,
           selectedPosition: p.selectedPosition,
+          eliminationRound: p.eliminationRound,
           wins: p.wins,
           losses: p.losses,
           user: p.user,

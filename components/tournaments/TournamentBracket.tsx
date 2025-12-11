@@ -13,6 +13,7 @@ interface Participant {
   seed: number
   status: string
   selectedPosition: string | null
+  eliminationRound: number | null
   user: {
     id: string
     username: string
