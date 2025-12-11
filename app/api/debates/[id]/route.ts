@@ -339,29 +339,6 @@ export async function GET(
       )
     }
 
-    // Auto-process King of the Hill debates that are COMPLETED but not yet evaluated
-    // This handles debates that were completed before the fix was deployed
-    if (
-      debate.status === 'COMPLETED' &&
-      debate.tournamentMatch &&
-      debate.tournamentMatch.tournament.format === 'KING_OF_THE_HILL' &&
-      debate.tournamentMatch.status !== 'COMPLETED'
-    ) {
-      // Trigger evaluation in the background (non-blocking)
-      import('@/lib/tournaments/match-completion')
-        .then(async (matchModule) => {
-          try {
-            console.log(`[Auto-Process] Triggering King of the Hill evaluation for debate ${id}`)
-            await matchModule.updateTournamentMatchOnDebateComplete(id)
-            console.log(`[Auto-Process] ✅ Successfully processed debate ${id}`)
-          } catch (error: any) {
-            console.error(`[Auto-Process] ❌ Error processing debate ${id}:`, error.message)
-          }
-        })
-        .catch((importError: any) => {
-          console.error(`[Auto-Process] Failed to import match completion module:`, importError.message)
-        })
-    }
 
     // Check access for private debates
     if (debate.isPrivate) {

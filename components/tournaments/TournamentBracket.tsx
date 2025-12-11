@@ -37,7 +37,6 @@ interface Match {
     topic: string
     status: string
     winnerId: string | null
-    challengeType?: string // For King of the Hill GROUP debates
     challenger: {
       id: string
       username: string
@@ -54,7 +53,7 @@ interface TournamentBracketProps {
   matches: Match[]
   totalRounds: number
   currentRound: number
-  format?: 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL'
+  format?: 'BRACKET' | 'CHAMPIONSHIP'
 }
 
 interface BracketSlot {
@@ -64,7 +63,6 @@ interface BracketSlot {
   debateId: string | null
   matchStatus: string | null
   score: number | null
-  isEliminated?: boolean // For King of the Hill: mark eliminated participants
 }
 
 export function TournamentBracket({
@@ -74,8 +72,6 @@ export function TournamentBracket({
   currentRound,
   format = 'BRACKET',
 }: TournamentBracketProps) {
-  const isKingOfTheHill = format === 'KING_OF_THE_HILL'
-  
   // Build bracket structure
   const bracketStructure = useMemo(() => {
     const structure: BracketSlot[][][] = [] // [round][match][slot]
@@ -86,101 +82,15 @@ export function TournamentBracket({
       return participants.find((p) => p.id === participantId) || null
     }
     
-    // For King of the Hill, get active participants for each round
-    const getActiveParticipantsForRound = (round: number): Participant[] => {
-      if (!isKingOfTheHill) return []
-      
-      // For finals (last round), only 2 participants remain
-      if (round === totalRounds) {
-        // Get participants from the match (finals is 1v1)
-        const roundMatch = matches.find((m) => m.round === round)
-        if (roundMatch) {
-          const p1 = findParticipant(roundMatch.participant1Id)
-          const p2 = findParticipant(roundMatch.participant2Id)
-          return [p1, p2].filter((p): p is Participant => p !== null)
-        }
-        return []
-      }
-      
-      // For non-finals rounds, get all active participants
-      // Active = not eliminated (status is ACTIVE or REGISTERED)
-      return participants.filter((p) => 
-        p.status === 'ACTIVE' || p.status === 'REGISTERED'
-      )
-    }
     
     // Build bracket round by round
     for (let round = 1; round <= totalRounds; round++) {
       let roundMatches = matches.filter((m) => m.round === round)
       
-      // For King of the Hill, ensure only ONE match per round (the GROUP debate)
-      // If multiple matches exist, prefer the one with GROUP challengeType
-      if (isKingOfTheHill) {
-        const groupMatch = roundMatches.find(m => m.debate?.challengeType === 'GROUP')
-        if (groupMatch) {
-          roundMatches = [groupMatch] // Only use the GROUP match
-        } else if (roundMatches.length > 1) {
-          // If no GROUP match found but multiple matches exist, use the first one
-          // This handles edge cases where old matches might exist
-          roundMatches = [roundMatches[0]]
-        }
-      }
       
       const roundSlots: BracketSlot[][] = []
       
-      if (isKingOfTheHill && round < totalRounds) {
-        // King of the Hill: Show all participants who were in this round
-        // Round 1: All 4 participants (including eliminated one in red)
-        // Round 2: All 3 participants (including eliminated one in red)
-        let roundParticipants: Participant[] = []
-        
-        if (round === 1) {
-          // Round 1: Show all participants (REGISTERED, ACTIVE, or ELIMINATED in round 1)
-          roundParticipants = participants.filter(p => 
-            p.status === 'REGISTERED' || 
-            p.status === 'ACTIVE' || 
-            (p.status === 'ELIMINATED' && p.eliminationRound === 1)
-          )
-        } else {
-          // Round 2+: Show participants who were ACTIVE at the start of this round
-          // This includes: ACTIVE participants who weren't eliminated yet, OR eliminated in this round
-          roundParticipants = participants.filter(p => {
-            // Include if eliminated in this round (to show in red)
-            if (p.status === 'ELIMINATED' && p.eliminationRound === round) {
-              return true
-            }
-            // Include if ACTIVE (survived previous rounds, may be in this round or future)
-            if (p.status === 'ACTIVE') {
-              // Check if they were eliminated in a previous round (shouldn't be ACTIVE if eliminated)
-              // If eliminationRound is null or > round, they're still in
-              return p.eliminationRound === null || p.eliminationRound > round || p.eliminationRound === round
-            }
-            return false
-          })
-        }
-        
-        const roundMatch = roundMatches[0] // King of the Hill has one match per round
-        
-        // Show the round with all participants
-        if (roundParticipants.length > 0) {
-          // Create slots for all participants in this round
-          const allParticipants: BracketSlot[] = roundParticipants.map((participant) => {
-            const isEliminated = participant.status === 'ELIMINATED' && participant.eliminationRound === round
-            return {
-              participant,
-              matchId: roundMatch?.id || null,
-              isWinner: false, // No winners in King of the Hill until finals
-              debateId: roundMatch?.debate?.id || null,
-              matchStatus: roundMatch?.status || 'UPCOMING',
-              score: null,
-              isEliminated, // Mark eliminated participants
-            }
-          })
-          
-          roundSlots.push(allParticipants)
-        }
-      } else {
-        // Traditional bracket format: 1v1 matches
+      // Traditional bracket format: 1v1 matches
         // Sort matches by matchNumber to maintain order
         roundMatches.sort((a, b) => a.matchNumber - b.matchNumber)
         
@@ -213,7 +123,7 @@ export function TournamentBracket({
     }
     
     return structure
-  }, [participants, matches, totalRounds, isKingOfTheHill])
+  }, [participants, matches, totalRounds])
 
   const getSlotHeight = (round: number) => {
     // Each round has fewer matches, so slots get taller
@@ -254,110 +164,12 @@ export function TournamentBracket({
                 <div className="flex flex-col gap-2" style={{ minHeight: `${round.length * getSlotHeight(roundNum)}px` }}>
                   {round.map((match, matchIndex) => {
                     // For King of the Hill (non-finals), match is an array of all participants
-                    const isKingOfTheHillRound = isKingOfTheHill && roundNum < totalRounds
                     const slot1 = match[0]
                     const slot2 = match[1]
                     const isActive = slot1?.matchStatus === 'IN_PROGRESS' || slot2?.matchStatus === 'IN_PROGRESS'
                     const isCompleted = slot1?.matchStatus === 'COMPLETED' || slot2?.matchStatus === 'COMPLETED'
                     const isFinalRound = roundNum === totalRounds
                     const isFinalWinner = isFinalRound && isCompleted && (slot1?.isWinner || slot2?.isWinner)
-                    
-                    // King of the Hill: Show all participants in one box
-                    if (isKingOfTheHillRound) {
-                      const allParticipants = match.filter((slot) => slot.participant !== null)
-                      const debateId = slot1?.debateId
-                      
-                      return (
-                        <div
-                          key={matchIndex}
-                          className="relative"
-                          style={{ minHeight: `${getSlotHeight(roundNum)}px` }}
-                        >
-                          {/* Match Card - Open Debate with All Participants */}
-                          <div
-                            className={`relative z-10 p-4 rounded-lg border-2 ${
-                              isActive
-                                ? 'border-electric-blue bg-electric-blue/10'
-                                : isCompleted
-                                ? 'border-cyber-green/50 bg-cyber-green/5'
-                                : 'border-bg-tertiary bg-bg-secondary'
-                            }`}
-                          >
-                            <div className="mb-3 text-center">
-                              <h4 className="text-lg font-bold text-text-primary mb-1">Open Debate</h4>
-                              <p className="text-sm text-text-secondary">
-                                All {allParticipants.length} participants submit simultaneously
-                              </p>
-                            </div>
-                            
-                            {/* All Participants Grid */}
-                            <div className="grid grid-cols-2 gap-3 mb-4">
-                              {allParticipants.map((slot, idx) => {
-                                const isEliminated = slot.isEliminated || (slot.participant?.status === 'ELIMINATED' && slot.participant.eliminationRound === roundNum)
-                                return (
-                                  <div
-                                    key={idx}
-                                    className={`p-3 rounded transition-all ${
-                                      isEliminated
-                                        ? 'bg-red-500/20 border-2 border-red-500'
-                                        : slot.isWinner
-                                        ? 'bg-cyber-green/20 border border-cyber-green'
-                                        : 'bg-bg-tertiary'
-                                    }`}
-                                  >
-                                    {slot.participant && (
-                                      <div className="flex items-center gap-2">
-                                        <Avatar
-                                          src={slot.participant.user.avatarUrl}
-                                          username={slot.participant.user.username}
-                                          size="sm"
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                          <p className={`text-sm font-semibold truncate ${isEliminated ? 'text-red-400' : 'text-text-primary'}`}>
-                                            ({slot.participant.seed}) @{slot.participant.user.username}
-                                            {isEliminated && (
-                                              <span className="ml-2 text-red-400 font-bold">✗ Eliminated</span>
-                                            )}
-                                            {slot.isWinner && !isEliminated && (
-                                              <span className="ml-2 text-cyber-green">✓ Advanced</span>
-                                            )}
-                                          </p>
-                                          <p className="text-text-secondary text-xs">ELO: {slot.participant.user.eloRating}</p>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                            
-                            {/* Match Status & View Debate Button */}
-                            <div className="flex items-center justify-between gap-3">
-                              <Badge
-                                variant="default"
-                                size="sm"
-                                className={
-                                  isActive
-                                    ? 'bg-electric-blue text-black'
-                                    : isCompleted
-                                    ? 'bg-cyber-green text-black'
-                                    : 'bg-bg-tertiary text-text-secondary'
-                                }
-                              >
-                                {formatStatus(slot1?.matchStatus || 'PENDING')}
-                              </Badge>
-                              {debateId && (
-                                <Link href={`/debate/${debateId}`} className="flex-shrink-0">
-                                  <Button variant="secondary" size="sm">
-                                    View
-                                  </Button>
-                                </Link>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    }
                     
                     // Traditional 1v1 match display
 

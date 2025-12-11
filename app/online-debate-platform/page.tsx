@@ -47,7 +47,7 @@ export default function OnlineDebatePlatformPage() {
 
             <h3 className="text-2xl font-semibold text-white mt-6 mb-3">Tournament Mode</h3>
             <p className="text-text-primary/90 mb-4">
-              Participate in tournaments with various formats including King of the Hill, Championship, 
+              Participate in tournaments with various formats including Championship, 
               and more. Test your skills against multiple opponents and compete for the top spot.
             </p>
 

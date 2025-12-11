@@ -29,7 +29,7 @@ interface Tournament {
   roundDuration: number
   reseedAfterRound: boolean
   reseedMethod: string
-  format: 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL'
+  format: 'BRACKET' | 'CHAMPIONSHIP'
   assignedJudges: string[] | null
   creator: {
     id: string
@@ -341,15 +341,11 @@ export default function TournamentDetailPage() {
                   className={
                     tournament.format === 'CHAMPIONSHIP' 
                       ? 'bg-cyber-green text-black' 
-                      : tournament.format === 'KING_OF_THE_HILL'
-                      ? 'bg-neon-orange text-black'
                       : 'bg-bg-tertiary text-text-primary'
                   }
                 >
                   {tournament.format === 'CHAMPIONSHIP' 
                     ? 'Championship' 
-                    : tournament.format === 'KING_OF_THE_HILL'
-                    ? 'King of the Hill'
                     : 'Bracket'}
                 </Badge>
                 {tournament.format === 'CHAMPIONSHIP' && (

@@ -49,78 +49,7 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
       return
     }
 
-    // For King of the Hill format, handle differently
-    if (match.round.tournament.format === 'KING_OF_THE_HILL') {
-      // Check if this is a GROUP debate (regular rounds) or ONE_ON_ONE (finals)
-      const debate = await prisma.debate.findUnique({
-        where: { id: debateId },
-        select: {
-          id: true,
-          topic: true,
-          currentRound: true,
-          totalRounds: true,
-          status: true,
-          challengeType: true, // Check challenge type
-          participants: {
-            where: { status: 'ACTIVE' },
-            select: {
-              userId: true,
-            },
-          },
-          statements: {
-            select: {
-              authorId: true,
-              round: true,
-            },
-          },
-        },
-      })
-
-      if (!debate) {
-        console.log(`[Tournament Match] Debate ${debateId} not found for King of the Hill`)
-        return
-      }
-
-      // Finals are ONE_ON_ONE debates - use regular verdict system
-      if (debate.challengeType === 'ONE_ON_ONE') {
-        console.log(`[King of the Hill] Finals debate detected (ONE_ON_ONE) - using regular verdict system`)
-        // For finals, use the standard debate completion flow (verdicts generated via regular system)
-        // The debate will be processed by the standard flow when it reaches VERDICT_READY
-        // Just check if debate is complete and has a winner
-        if (debate.status === 'VERDICT_READY' || debate.status === 'COMPLETED') {
-          // Continue with standard match completion logic below
-          // (This will handle the match update and tournament completion)
-        } else {
-          // Debate not ready yet, wait for verdict generation
-          console.log(`[King of the Hill] Finals debate ${debateId} not ready yet (status: ${debate.status})`)
-          return
-        }
-      } else if (debate.challengeType === 'GROUP') {
-        // Regular King of the Hill rounds (GROUP debates) - use King of the Hill verdict system
-        // Get statements for the current round (King of the Hill rounds are single submission rounds)
-        const currentRoundStatements = debate.statements.filter(s => s.round === debate.currentRound)
-        const activeParticipantIds = new Set(debate.participants.map(p => p.userId))
-        const submittedParticipantIds = new Set(currentRoundStatements.map(s => s.authorId))
-        const allSubmitted = activeParticipantIds.size > 0 && 
-          Array.from(activeParticipantIds).every(id => submittedParticipantIds.has(id))
-
-        if (!allSubmitted) {
-          console.log(`[King of the Hill] Not all participants have submitted yet (${submittedParticipantIds.size}/${activeParticipantIds.size})`)
-          return
-        }
-
-        // All participants submitted - use new King of the Hill completion system
-        console.log(`[King of the Hill] All participants submitted - triggering evaluation for round ${match.round.roundNumber}`)
-        const { processKingOfTheHillDebateCompletion } = await import('./king-of-the-hill-completion')
-        await processKingOfTheHillDebateCompletion(debateId)
-        return
-      } else {
-        console.log(`[King of the Hill] Unknown challenge type: ${debate.challengeType}`)
-        return
-      }
-    }
-
-    // For other formats (Bracket, Championship), use standard logic
+    // Use standard logic for Bracket and Championship formats
     // Check if debate has a winner
     // Note: DebateStatus enum doesn't have FORFEITED or CANCELLED
     // Forfeits are handled by checking if debate is COMPLETED but has no winner
@@ -284,14 +213,6 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
 
     console.log(`[Tournament Match] Match ${match.id} completed. Winner: ${winningParticipantId}, Loser: ${losingParticipantId}`)
 
-    // For King of the Hill finals (ONE_ON_ONE), check if this is the final round and complete tournament
-    if (match.round.tournament.format === 'KING_OF_THE_HILL' && match.debate?.challengeType === 'ONE_ON_ONE') {
-      // This is the finals - tournament should be completed
-      console.log(`[King of the Hill] Finals match completed - completing tournament ${match.round.tournamentId}`)
-      const { completeTournament } = await import('./tournament-completion')
-      await completeTournament(match.round.tournamentId)
-      return
-    }
 
     // Check if round is complete and advance if needed
     await checkAndAdvanceTournamentRound(match.round.tournamentId, match.round.roundNumber)

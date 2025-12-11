@@ -95,21 +95,8 @@ export async function generateTournamentMatches(
   }> = []
 
   if (roundNumber === 1) {
-    // First round: Different logic for Championship vs Bracket vs King of the Hill format
-    if (tournament.format === 'KING_OF_THE_HILL') {
-      // King of the Hill: Create one debate with all participants
-      const { createKingOfTheHillDebate, shouldTransitionToFinals, createFinalsDebate } = await import('./king-of-the-hill')
-      
-      // Check if we should transition to finals (exactly 2 participants)
-      if (await shouldTransitionToFinals(tournamentId)) {
-        // Create finals debate (traditional 3-round)
-        await createFinalsDebate(tournamentId, roundNumber)
-      } else {
-        // Create regular King of the Hill debate (all participants together)
-        await createKingOfTheHillDebate(tournamentId, roundNumber)
-      }
-      return
-    } else if (tournament.format === 'CHAMPIONSHIP') {
+    // First round: Different logic for Championship vs Bracket format
+    if (tournament.format === 'CHAMPIONSHIP') {
       // Championship format: Pair PRO vs CON only
       const proParticipants = activeParticipants.filter((p) => p.selectedPosition === 'PRO')
       const conParticipants = activeParticipants.filter((p) => p.selectedPosition === 'CON')
@@ -172,24 +159,7 @@ export async function generateTournamentMatches(
     // For Bracket format, use match winners
     let advancingParticipants: typeof activeParticipants = []
 
-    if (tournament.format === 'KING_OF_THE_HILL') {
-      // King of the Hill: Create one debate with all remaining participants
-      const { createKingOfTheHillRound1, createKingOfTheHillRound } = await import('./king-of-the-hill-rounds')
-      
-      console.log(`[King of the Hill] Round ${roundNumber}: Found ${activeParticipants.length} active participants:`, 
-        activeParticipants.map(p => `${p.user.username} (${p.status})`).join(', '))
-      
-      if (roundNumber === 1) {
-        // Round 1: Create with all registered participants
-        console.log(`[King of the Hill] Round 1: Creating open debate with ${activeParticipants.length} participants`)
-        await createKingOfTheHillRound1(tournamentId)
-      } else {
-        // Round 2+: Create with active participants (survivors)
-        console.log(`[King of the Hill] Round ${roundNumber}: Creating open debate with ${activeParticipants.length} participants`)
-        await createKingOfTheHillRound(tournamentId, roundNumber)
-      }
-      return
-    } else if (tournament.format === 'CHAMPIONSHIP' && roundNumber === 2) {
+    if (tournament.format === 'CHAMPIONSHIP' && roundNumber === 2) {
       // Round 2: Use participants who advanced from Round 1 (ACTIVE status)
       advancingParticipants = activeParticipants.filter((p) => p.status === 'ACTIVE')
     } else {
@@ -358,9 +328,7 @@ export async function startTournament(tournamentId: string): Promise<void> {
   // For other formats, we need to create debates for each match
   await generateTournamentMatches(tournamentId, 1)
 
-  // Only create debates for non-King of the Hill formats
-  // King of the Hill debates are created by generateTournamentMatches -> createKingOfTheHillDebate
-  if (tournament.format !== 'KING_OF_THE_HILL') {
+  // Create debates for each match
     // Create debates for each match
     const round = await prisma.tournamentRound.findUnique({
       where: {

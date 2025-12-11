@@ -45,7 +45,7 @@ export default function DebateSimulatorPage() {
             <h3 className="text-2xl font-semibold text-white mt-6 mb-3">Practice Different Formats</h3>
             <p className="text-text-primary/90 mb-4">
               Simulate various debate formats including traditional one-on-one debates, speed debates, 
-              and tournament formats like King of the Hill and Championship brackets.
+              and tournament formats like Championship brackets.
             </p>
 
             <h3 className="text-2xl font-semibold text-white mt-6 mb-3">Track Your Performance</h3>

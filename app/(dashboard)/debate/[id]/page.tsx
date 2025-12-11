@@ -9,7 +9,6 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { SubmitArgumentForm } from '@/components/debate/SubmitArgumentForm'
 import { VerdictDisplay } from '@/components/debate/VerdictDisplay'
-import { KingOfTheHillVerdictDisplay } from '@/components/tournaments/KingOfTheHillVerdictDisplay'
 import { AppealButton } from '@/components/debate/AppealButton'
 import { RematchButton } from '@/components/debate/RematchButton'
 import { LiveChat } from '@/components/debate/LiveChat'
@@ -128,7 +127,7 @@ interface Debate {
       name: string
       currentRound: number
       totalRounds: number
-      format?: 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL'
+      format?: 'BRACKET' | 'CHAMPIONSHIP'
       participants?: Array<{
         id: string
         userId: string
@@ -388,18 +387,14 @@ export default function DebatePage() {
   }
 
   // Check if this is a group challenge (King of the Hill)
-  // IMPORTANT: Finals are ONE_ON_ONE, so check challengeType FIRST
-  // If challengeType is ONE_ON_ONE, it's NOT a group challenge (even if part of King of the Hill tournament)
   const isGroupChallenge = debate && (
-    debate.challengeType === 'GROUP' || 
-    (debate.challengeType !== 'ONE_ON_ONE' && 
-     debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL') ||
+    debate.challengeType === 'GROUP' ||
     (debate.participants && debate.participants.length > 2 && debate.challengeType !== 'ONE_ON_ONE')
   )
 
-  // Debug logging for King of the Hill detection
+  // Debug logging
   if (debate && process.env.NODE_ENV === 'development') {
-    console.log('[Debate Page] King of the Hill Detection:', {
+    console.log('[Debate Page] Group Challenge Detection:', {
       debateId: debate.id,
       tournamentFormat: debate.tournamentMatch?.tournament?.format,
       challengeType: debate.challengeType,
@@ -604,14 +599,11 @@ export default function DebatePage() {
               )}
 
               {/* Participants */}
-              {/* For King of the Hill tournaments, ALWAYS show participants view, even if participants array is empty */}
-              {(isGroupChallenge || debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL') ? (
-                // Show all participants for GROUP debates (King of the Hill)
+              {isGroupChallenge ? (
+                // Show all participants for GROUP debates
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-text-primary mb-4">
-                    {debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL' 
-                      ? `King of the Hill - All Participants${debate.participants && debate.participants.length > 0 ? ` (${debate.participants.length})` : ''}`
-                      : `All Participants (${debate.participants?.length || 0})`}
+                    All Participants (${debate.participants?.length || 0})
                   </h3>
                   {debate.participants && debate.participants.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -830,36 +822,6 @@ export default function DebatePage() {
             </Card>
           )}
 
-          {/* King of the Hill Verdict Display (SAME format as regular debates) */}
-          {debate.status === 'VERDICT_READY' && 
-           debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL' &&
-           debate.tournamentMatch?.tournament?.participants &&
-           debate.verdicts &&
-           debate.verdicts.length > 0 && (
-            <div className="mb-6">
-              <KingOfTheHillVerdictDisplay
-                verdicts={debate.verdicts.map(v => ({
-                  id: v.id,
-                  judge: v.judge,
-                  reasoning: v.reasoning,
-                  challengerScore: v.challengerScore,
-                  opponentScore: v.opponentScore,
-                }))}
-                participants={debate.tournamentMatch.tournament.participants.map((p) => ({
-                  id: p.id,
-                  userId: p.userId,
-                  username: p.user.username,
-                  avatarUrl: p.user.avatarUrl,
-                  eloRating: p.user.eloRating,
-                  status: p.status,
-                  eliminationRound: p.eliminationRound,
-                  eliminationReason: p.eliminationReason,
-                }))}
-                roundNumber={debate.tournamentMatch.round.roundNumber}
-                debateId={debate.id}
-              />
-            </div>
-          )}
 
           {/* Regular 2-Person Verdict Display */}
           {debate.status === 'VERDICT_READY' && debate.verdicts && debate.verdicts.length > 0 && debate.opponent && (

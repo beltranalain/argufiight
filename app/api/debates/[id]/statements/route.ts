@@ -249,33 +249,10 @@ export async function POST(
       },
     })
 
-    const isKingOfTheHill = tournamentMatch?.round.tournament.format === 'KING_OF_THE_HILL'
-
     // If all participants have submitted, advance to next round or complete
     let updatedDebate = debate;
     if (allParticipantsSubmitted) {
-      if (isKingOfTheHill) {
-        // For King of the Hill, trigger evaluation when all submit
-        // The evaluation will handle elimination and round advancement
-        console.log(`[King of the Hill] All participants submitted - evaluation will be triggered by match completion`)
-        // Mark debate as completed so match completion can process it
-        updatedDebate = await prisma.debate.update({
-          where: { id },
-          data: {
-            status: 'COMPLETED',
-            endedAt: new Date(),
-          },
-        })
-        
-        // Trigger match completion which will handle King of the Hill evaluation
-        import('@/lib/tournaments/match-completion').then(async (matchModule) => {
-          try {
-            await matchModule.updateTournamentMatchOnDebateComplete(id)
-          } catch (error: any) {
-            console.error('❌ [King of the Hill] Error in match completion:', error)
-          }
-        })
-      } else if (statementRound >= debate.totalRounds) {
+      if (statementRound >= debate.totalRounds) {
         // Debate is complete - set to COMPLETED first (verdict generation will change to VERDICT_READY)
         updatedDebate = await prisma.debate.update({
           where: { id },

@@ -97,48 +97,6 @@ export async function completeTournament(tournamentId: string): Promise<void> {
       }
     }
 
-    // For King of the Hill format, handle winner takes all scoring
-    if (tournament.format === 'KING_OF_THE_HILL') {
-      // Get all eliminated participants' cumulative scores
-      const eliminatedParticipants = tournament.participants.filter(
-        (p) => p.status === 'ELIMINATED' && p.cumulativeScore !== null
-      )
-      
-      const totalEliminatedScore = eliminatedParticipants.reduce(
-        (sum, p) => sum + (p.cumulativeScore || 0),
-        0
-      )
-
-      // Find champion (winner of finals or last active participant)
-      if (!champion) {
-        // Try to find from finals debate winner
-        const finalRound = tournament.rounds.find((r) => r.roundNumber === tournamentInfo.totalRounds)
-        if (finalRound && finalRound.matches.length > 0) {
-          const finalMatch = finalRound.matches[0]
-          if (finalMatch.debate?.winnerId) {
-            champion = tournament.participants.find(
-              (p) => p.userId === finalMatch.debate!.winnerId
-            )
-          }
-        }
-      }
-
-      if (champion) {
-        // Winner takes all: add eliminated participants' scores to champion
-        const championFinalScore = (champion.cumulativeScore || 0) + totalEliminatedScore
-        
-        await prisma.tournamentParticipant.update({
-          where: { id: champion.id },
-          data: {
-            cumulativeScore: championFinalScore,
-          },
-        })
-
-        console.log(
-          `[King of the Hill] Champion ${champion.user.username} receives ${totalEliminatedScore} points from eliminated participants. Final score: ${championFinalScore}`
-        )
-      }
-    }
 
     if (!champion) {
       console.error(`[Tournament Completion] Could not determine champion for tournament ${tournamentId}`)

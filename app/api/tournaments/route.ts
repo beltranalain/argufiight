@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
       reseedMethod = 'ELO_BASED',
       isPrivate = false,
       invitedUserIds = null,
-      format = 'BRACKET', // 'BRACKET', 'CHAMPIONSHIP', or 'KING_OF_THE_HILL'
+      format = 'BRACKET', // 'BRACKET' or 'CHAMPIONSHIP'
       selectedPosition = null, // 'PRO' or 'CON' (required for Championship format)
     } = body
 
