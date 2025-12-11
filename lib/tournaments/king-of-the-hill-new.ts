@@ -169,9 +169,16 @@ export async function generateKingOfTheHillRoundVerdicts(
         return existingVerdicts.find(v => v.judgeId === judgeVerdict.judgeId)!
       }
 
-      // Store only elimination reasoning (explaining why bottom 25% should be eliminated)
-      // Scores are calculated separately and displayed in the UI
-      const reasoningText = `Elimination Reasoning (Why bottom 25% should be eliminated):\n\n${judgeVerdict.overallReasoning}`
+      // Store scores and elimination reasoning in a format the frontend can parse
+      // Frontend expects: "username: score/100\n   reasoning\n\nusername2: score/100..."
+      const scoresText = participants
+        .map(p => {
+          const score = judgeVerdict.scores[p.userId] || 0
+          return `${p.username}: ${score}/100`
+        })
+        .join('\n')
+      
+      const reasoningText = `${scoresText}\n\n---\n\nElimination Reasoning (Why bottom 25% should be eliminated):\n\n${judgeVerdict.overallReasoning}`
 
       const verdict = await prisma.verdict.create({
         data: {
