@@ -246,7 +246,8 @@ export async function createKingOfTheHillRound(
   
   console.log(`[King of the Hill] Round ${roundNumber}: Participant user IDs:`, participantUserIds)
   
-  await Promise.all(
+  // Create all DebateParticipant records - ensure all are created successfully
+  const participantCreationResults = await Promise.allSettled(
     participantUserIds.map((userId, index) => {
       console.log(`[King of the Hill] Round ${roundNumber}: Adding participant ${userId} to debate ${debate.id}`)
       return prisma.debateParticipant.create({
@@ -256,32 +257,55 @@ export async function createKingOfTheHillRound(
           position: index % 2 === 0 ? 'FOR' : 'AGAINST', // Alternate positions
           status: 'ACTIVE',
         },
-      }).catch((error) => {
-        // If participant already exists (shouldn't happen, but handle gracefully)
+      }).catch(async (error) => {
+        // If participant already exists, update it to ACTIVE
         if (error.code === 'P2002') {
-          console.warn(`[King of the Hill] Round ${roundNumber}: Participant ${userId} already exists in debate ${debate.id}`)
-          return prisma.debateParticipant.findUnique({
+          console.warn(`[King of the Hill] Round ${roundNumber}: Participant ${userId} already exists in debate ${debate.id}, updating to ACTIVE`)
+          const existing = await prisma.debateParticipant.findUnique({
             where: {
               debateId_userId: {
                 debateId: debate.id,
                 userId: userId,
               },
             },
-          }).then(existing => {
-            // Update status to ACTIVE if it exists
-            if (existing && existing.status !== 'ACTIVE') {
-              return prisma.debateParticipant.update({
+          })
+          if (existing) {
+            if (existing.status !== 'ACTIVE') {
+              return await prisma.debateParticipant.update({
                 where: { id: existing.id },
                 data: { status: 'ACTIVE' },
               })
             }
             return existing
-          })
+          }
         }
+        console.error(`[King of the Hill] Round ${roundNumber}: Error creating participant ${userId}:`, error)
         throw error
       })
     })
   )
+  
+  // Check for any failures
+  const failures = participantCreationResults.filter(result => result.status === 'rejected')
+  if (failures.length > 0) {
+    console.error(`[King of the Hill] Round ${roundNumber}: Failed to create ${failures.length} participant(s):`, failures)
+    throw new Error(`Failed to create ${failures.length} participant(s) for round ${roundNumber}`)
+  }
+  
+  // Verify all participants were created
+  const createdParticipants = await prisma.debateParticipant.findMany({
+    where: {
+      debateId: debate.id,
+      status: 'ACTIVE',
+    },
+  })
+  
+  console.log(`[King of the Hill] Round ${roundNumber}: Successfully created ${createdParticipants.length} DebateParticipant records`)
+  
+  if (createdParticipants.length !== participantUserIds.length) {
+    console.error(`[King of the Hill] Round ${roundNumber}: Mismatch! Expected ${participantUserIds.length} participants, found ${createdParticipants.length}`)
+    throw new Error(`Expected ${participantUserIds.length} participants, but only ${createdParticipants.length} were created`)
+  }
 
   // Create tournament match (for King of the Hill, use first two participants as placeholder)
   const tournamentParticipants = await prisma.tournamentParticipant.findMany({
