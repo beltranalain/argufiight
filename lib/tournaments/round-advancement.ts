@@ -183,10 +183,15 @@ export async function checkAndAdvanceTournamentRound(
       if (eliminationResult.remainingParticipantIds.length === 2) {
         console.log(`[King of the Hill] Transitioning to finals with 2 participants`)
         // Next round will be created as finals by match generation
+        // Continue to generate next round below
       } else if (eliminationResult.remainingParticipantIds.length < 2) {
         console.log(`[King of the Hill] Not enough participants remaining - completing tournament`)
         await completeTournament(tournamentId)
         return
+      } else {
+        // More than 2 participants remaining - continue to next round
+        console.log(`[King of the Hill] ${eliminationResult.remainingParticipantIds.length} participants remaining - continuing to next round`)
+        // Continue to generate next round below
       }
     } else if (round.tournament.format === 'CHAMPIONSHIP' && roundNumber === 1) {
       // For Championship format Round 1, use score-based advancement

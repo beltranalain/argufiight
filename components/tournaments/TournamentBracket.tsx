@@ -113,17 +113,41 @@ export function TournamentBracket({
       
       if (isKingOfTheHill && round < totalRounds) {
         // King of the Hill: Show all active participants in a single "open debate" box
-        const activeParticipants = getActiveParticipantsForRound(round)
+        // For each round, get participants who were active at the START of that round
+        // For Round 1: All registered participants
+        // For Round 2+: Participants who survived previous rounds (ACTIVE status, not eliminated in previous rounds)
+        let activeParticipants: Participant[] = []
+        
+        if (round === 1) {
+          // Round 1: Show all registered participants (before any eliminations)
+          activeParticipants = participants.filter(p => 
+            p.status === 'REGISTERED' || p.status === 'ACTIVE' || 
+            (p.status === 'ELIMINATED' && (p.eliminationRound === null || p.eliminationRound > round))
+          )
+        } else {
+          // Round 2+: Show participants who were not eliminated in previous rounds
+          // They should be ACTIVE and not eliminated in rounds 1 through (round-1)
+          activeParticipants = participants.filter(p => {
+            if (p.status === 'ELIMINATED') {
+              // Only include if eliminated in a later round (shouldn't happen, but safety check)
+              return p.eliminationRound !== null && p.eliminationRound >= round
+            }
+            // Include ACTIVE participants (they survived previous rounds)
+            return p.status === 'ACTIVE'
+          })
+        }
+        
         const roundMatch = roundMatches[0] // King of the Hill has one match per round
         
-        if (roundMatch && activeParticipants.length > 0) {
+        // Show the round even if match doesn't exist yet (for upcoming rounds)
+        if (activeParticipants.length > 0) {
           // Create slots for all active participants
           const allParticipants: BracketSlot[] = activeParticipants.map((participant) => ({
             participant,
-            matchId: roundMatch.id,
-            isWinner: roundMatch.winnerId ? roundMatch.winnerId === participant.userId : false,
-            debateId: roundMatch.debate?.id || null,
-            matchStatus: roundMatch.status,
+            matchId: roundMatch?.id || null,
+            isWinner: roundMatch?.winnerId ? roundMatch.winnerId === participant.userId : false,
+            debateId: roundMatch?.debate?.id || null,
+            matchStatus: roundMatch?.status || 'UPCOMING',
             score: null, // Scores are per-participant, not per-match for King of the Hill
           }))
           
