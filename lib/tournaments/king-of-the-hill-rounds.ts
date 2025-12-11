@@ -204,13 +204,23 @@ export async function createKingOfTheHillRound(
   }
 
   // Create debate with all active participants
+  // Get userIds - TournamentParticipant has userId field directly
+  const firstUserId = (participants[0] as any).userId || participants[0].user?.id
+  const secondUserId = participants.length > 1 
+    ? ((participants[1] as any).userId || participants[1].user?.id)
+    : firstUserId
+  
+  if (!firstUserId) {
+    throw new Error(`Missing userId for first participant in round ${roundNumber}`)
+  }
+  
   const debate = await prisma.debate.create({
     data: {
       topic: tournament.name,
       category: 'OTHER', // Default category for tournaments
-      challengerId: participants[0].userId,
+      challengerId: firstUserId,
       challengerPosition: 'FOR',
-      opponentId: participants.length > 1 ? participants[1].userId : participants[0].userId,
+      opponentId: secondUserId,
       opponentPosition: 'AGAINST',
       challengeType: 'GROUP',
       status: 'ACTIVE',
