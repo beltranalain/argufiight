@@ -769,30 +769,6 @@ model ContentCalendarItem {
   @@map("content_calendar_items")
 }
 
-// Blog Posts
-model BlogPost {
-  id          String   @id @default(uuid())
-  strategyId  String?  @map("strategy_id")
-  strategy    MarketingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
-  title       String
-  slug        String   @unique
-  content     String   @db.Text
-  excerpt     String?  @db.Text
-  seoKeywords String?  @map("seo_keywords")
-  metaDescription String? @map("meta_description") @db.Text
-  featuredImage String? @map("featured_image")
-  status      String   @default("DRAFT") // DRAFT, SCHEDULED, PUBLISHED
-  publishedAt DateTime? @map("published_at")
-  calendarItemId String? @unique @map("calendar_item_id")
-  calendarItem   ContentCalendarItem? @relation(fields: [calendarItemId], references: [id], onDelete: SetNull)
-  analytics      ContentAnalytics[]
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  @@index([status])
-  @@index([publishedAt])
-  @@map("blog_posts")
-}
 
 // Email Newsletters
 model EmailNewsletter {
@@ -2274,6 +2250,13 @@ model BlogPost {
   // Categories & Tags
   categories BlogPostToCategory[]
   tags       BlogPostToTag[]
+
+  // Marketing System Relations
+  strategyId String? @map("strategy_id")
+  strategy   MarketingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  calendarItemId String? @unique @map("calendar_item_id")
+  calendarItem   ContentCalendarItem? @relation(fields: [calendarItemId], references: [id], onDelete: SetNull)
+  analytics      ContentAnalytics[]
 
   // Analytics
   views    Int     @default(0)
