@@ -65,6 +65,15 @@ export default function CreatorOffersPage() {
           description: 'Contract created and payment held in escrow.',
         })
         fetchOffers()
+      } else if (response.status === 402) {
+        // Payment required
+        const data = await response.json()
+        showToast({
+          type: 'warning',
+          title: 'Payment Required',
+          description: 'The advertiser needs to complete payment. The contract will be created once payment is processed.',
+        })
+        fetchOffers()
       } else {
         const error = await response.json()
         showToast({

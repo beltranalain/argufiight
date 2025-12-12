@@ -301,6 +301,22 @@ export default function AdvertiserDashboardPage() {
                           <p>Expires: {new Date(offer.expiresAt).toLocaleDateString()}</p>
                         </div>
                       </div>
+                      <div className="flex flex-col gap-2">
+                        {offer.status === 'PENDING' && (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => router.push(`/advertiser/checkout?offerId=${offer.id}`)}
+                          >
+                            Pay Now
+                          </Button>
+                        )}
+                        {offer.status === 'ACCEPTED' && (
+                          <Badge className="bg-cyber-green/20 text-cyber-green border-cyber-green/30">
+                            Accepted
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   ))}
                   {offers.length > 5 && (
