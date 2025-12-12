@@ -231,3 +231,34 @@ function buildDebateSummary(context: DebateContext): string {
   return summary
 }
 
+// Generic text generation function
+export async function generateWithDeepSeek(
+  prompt: string,
+  options?: {
+    temperature?: number
+    maxTokens?: number
+    model?: string
+  }
+): Promise<string> {
+  const client = await createDeepSeekClient()
+  
+  try {
+    const completion = await client.chat.completions.create({
+      model: options?.model || 'deepseek-chat',
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: options?.temperature ?? 0.7,
+      max_tokens: options?.maxTokens ?? 2000,
+    })
+
+    return completion.choices[0].message.content || ''
+  } catch (error: any) {
+    console.error('DeepSeek generation error:', error)
+    throw new Error(`Failed to generate text: ${error.message || 'Unknown error'}`)
+  }
+}
+

@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
       select: {
         topic: true,
-        category: { select: { name: true } },
+        category: true,
       },
     })
 
