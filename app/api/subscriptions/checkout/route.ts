@@ -73,15 +73,20 @@ export async function POST(request: NextRequest) {
     const yearlyPrice = parseFloat(pricingMap.PRO_YEARLY_PRICE || '89.00')
     
     const stripe = await createStripeClient()
-    // Use NEXT_PUBLIC_APP_URL if set, otherwise construct from VERCEL_URL, fallback to localhost
-    let baseUrl = process.env.NEXT_PUBLIC_APP_URL
-    if (!baseUrl) {
-      if (process.env.VERCEL_URL) {
-        baseUrl = `https://${process.env.VERCEL_URL}`
-      } else {
-        baseUrl = 'http://localhost:3000'
+    // Always use production domain for checkout success URLs to avoid Vercel SSO issues
+    // For checkout, we want users to return to the production site, not preview deployments
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
+    
+    // Only use VERCEL_URL for local development (when NEXT_PUBLIC_APP_URL is not set)
+    // In production, always use the production domain
+    if (!process.env.NEXT_PUBLIC_APP_URL) {
+      // Check if we're in local development
+      if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+        baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
       }
+      // Otherwise, use production domain
     }
+    
     // Ensure baseUrl doesn't have trailing slash
     baseUrl = baseUrl.replace(/\/$/, '')
 
