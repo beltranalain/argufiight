@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -12,6 +12,27 @@ export function ContentGenerators() {
   const { showToast } = useToast()
   const [activeGenerator, setActiveGenerator] = useState<'social' | 'blog' | 'newsletter'>('social')
   const [isGenerating, setIsGenerating] = useState(false)
+  const [strategies, setStrategies] = useState<Array<{ id: string; name: string }>>([])
+  const [selectedStrategyId, setSelectedStrategyId] = useState<string>('')
+  const [scheduleDate, setScheduleDate] = useState('')
+  const [scheduleTime, setScheduleTime] = useState('09:00')
+  const [autoSchedule, setAutoSchedule] = useState(false)
+
+  useEffect(() => {
+    fetchStrategies()
+  }, [])
+
+  const fetchStrategies = async () => {
+    try {
+      const response = await fetch('/api/admin/marketing/strategy')
+      if (response.ok) {
+        const data = await response.json()
+        setStrategies(data.strategies || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch strategies:', error)
+    }
+  }
 
   // Social Post
   const [socialTopic, setSocialTopic] = useState('')
@@ -42,9 +63,20 @@ export function ContentGenerators() {
       return
     }
 
+    if (autoSchedule && !scheduleDate) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Please select a date for scheduling',
+      })
+      return
+    }
+
     try {
       setIsGenerating(true)
-      const response = await fetch('/api/admin/social-posts/generate', {
+      
+      // Generate post
+      const generateResponse = await fetch('/api/admin/social-posts/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -53,21 +85,79 @@ export function ContentGenerators() {
         }),
       })
 
-      if (!response.ok) {
-        const error = await response.json()
+      if (!generateResponse.ok) {
+        const error = await generateResponse.json()
         throw new Error(error.error || 'Failed to generate post')
       }
 
-      const data = await response.json()
-      setSocialContent(data.content)
-      setSocialImagePrompt(data.imagePrompt)
-      setSocialHashtags(data.hashtags)
+      const generateData = await generateResponse.json()
+      setSocialContent(generateData.content)
+      setSocialImagePrompt(generateData.imagePrompt)
+      setSocialHashtags(generateData.hashtags)
 
-      showToast({
-        type: 'success',
-        title: 'Success',
-        description: 'Post generated successfully!',
-      })
+      // If auto-scheduling, create calendar item and link post
+      if (autoSchedule) {
+        // Create calendar item
+        const calendarResponse = await fetch('/api/admin/marketing/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contentType: 'SOCIAL_POST',
+            title: socialTopic.trim(),
+            scheduledDate: scheduleDate,
+            scheduledTime: scheduleTime,
+            platform: socialPlatform,
+            strategyId: selectedStrategyId || undefined,
+          }),
+        })
+
+        if (calendarResponse.ok) {
+          const calendarData = await calendarResponse.json()
+          
+          // Save post with calendar link
+          const saveResponse = await fetch('/api/admin/social-posts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              topic: socialTopic.trim(),
+              platform: socialPlatform,
+              content: generateData.content,
+              imagePrompt: generateData.imagePrompt,
+              hashtags: generateData.hashtags,
+              status: 'DRAFT',
+              scheduledAt: new Date(`${scheduleDate}T${scheduleTime}`).toISOString(),
+              strategyId: selectedStrategyId || undefined,
+              calendarItemId: calendarData.item.id,
+            }),
+          })
+
+          if (saveResponse.ok) {
+            showToast({
+              type: 'success',
+              title: 'Success',
+              description: 'Post generated and scheduled!',
+            })
+          } else {
+            showToast({
+              type: 'success',
+              title: 'Post Generated',
+              description: 'Post generated and calendar item created, but post save failed.',
+            })
+          }
+        } else {
+          showToast({
+            type: 'success',
+            title: 'Post Generated',
+            description: 'Post generated, but scheduling failed. You can schedule it manually.',
+          })
+        }
+      } else {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: 'Post generated successfully!',
+        })
+      }
     } catch (error: any) {
       showToast({
         type: 'error',
@@ -85,6 +175,15 @@ export function ContentGenerators() {
         type: 'error',
         title: 'Error',
         description: 'Please enter a topic',
+      })
+      return
+    }
+
+    if (autoSchedule && !scheduleDate) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Please select a date for scheduling',
       })
       return
     }
@@ -110,11 +209,65 @@ export function ContentGenerators() {
       setBlogContent(data.blogPost.content)
       setBlogKeywords(data.blogPost.keywords || '')
 
-      showToast({
-        type: 'success',
-        title: 'Success',
-        description: 'Blog post generated successfully!',
-      })
+      // If auto-scheduling, create calendar item and save blog post
+      if (autoSchedule) {
+        const calendarResponse = await fetch('/api/admin/marketing/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contentType: 'BLOG_POST',
+            title: data.blogPost.title,
+            description: data.blogPost.excerpt,
+            scheduledDate: scheduleDate,
+            scheduledTime: scheduleTime,
+            strategyId: selectedStrategyId || undefined,
+          }),
+        })
+
+        if (calendarResponse.ok) {
+          const calendarData = await calendarResponse.json()
+          
+          // Save blog post with calendar link
+          const saveResponse = await fetch('/api/admin/blog', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: data.blogPost.title,
+              content: data.blogPost.content,
+              excerpt: data.blogPost.excerpt,
+              keywords: data.blogPost.keywords,
+              metaDescription: data.blogPost.metaDescription,
+              status: 'DRAFT',
+            }),
+          })
+
+          if (saveResponse.ok) {
+            showToast({
+              type: 'success',
+              title: 'Success',
+              description: 'Blog post generated and scheduled!',
+            })
+          } else {
+            showToast({
+              type: 'success',
+              title: 'Post Generated',
+              description: 'Blog post generated and calendar item created, but post save failed.',
+            })
+          }
+        } else {
+          showToast({
+            type: 'success',
+            title: 'Post Generated',
+            description: 'Blog post generated, but scheduling failed. You can schedule it manually.',
+          })
+        }
+      } else {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: 'Blog post generated successfully!',
+        })
+      }
     } catch (error: any) {
       showToast({
         type: 'error',
@@ -132,6 +285,15 @@ export function ContentGenerators() {
         type: 'error',
         title: 'Error',
         description: 'Please enter a topic',
+      })
+      return
+    }
+
+    if (autoSchedule && !scheduleDate) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Please select a date for scheduling',
       })
       return
     }
@@ -155,11 +317,65 @@ export function ContentGenerators() {
       setNewsletterSubject(data.newsletter.subject)
       setNewsletterContent(data.newsletter.content)
 
-      showToast({
-        type: 'success',
-        title: 'Success',
-        description: 'Newsletter generated successfully!',
-      })
+      // If auto-scheduling, create calendar item and save newsletter
+      if (autoSchedule) {
+        const calendarResponse = await fetch('/api/admin/marketing/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contentType: 'NEWSLETTER',
+            title: data.newsletter.subject,
+            description: data.newsletter.content.substring(0, 200),
+            scheduledDate: scheduleDate,
+            scheduledTime: scheduleTime,
+            strategyId: selectedStrategyId || undefined,
+          }),
+        })
+
+        if (calendarResponse.ok) {
+          const calendarData = await calendarResponse.json()
+          
+          // Save newsletter with calendar link
+          const saveResponse = await fetch('/api/admin/marketing/newsletter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subject: data.newsletter.subject,
+              content: data.newsletter.content,
+              htmlContent: data.newsletter.htmlContent,
+              status: 'DRAFT',
+              strategyId: selectedStrategyId || undefined,
+              calendarItemId: calendarData.item.id,
+            }),
+          })
+
+          if (saveResponse.ok) {
+            showToast({
+              type: 'success',
+              title: 'Success',
+              description: 'Newsletter generated and scheduled!',
+            })
+          } else {
+            showToast({
+              type: 'success',
+              title: 'Newsletter Generated',
+              description: 'Newsletter generated and calendar item created, but save failed.',
+            })
+          }
+        } else {
+          showToast({
+            type: 'success',
+            title: 'Newsletter Generated',
+            description: 'Newsletter generated, but scheduling failed. You can schedule it manually.',
+          })
+        }
+      } else {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: 'Newsletter generated successfully!',
+        })
+      }
     } catch (error: any) {
       showToast({
         type: 'error',
@@ -238,14 +454,69 @@ export function ContentGenerators() {
                   </select>
                 </div>
               </div>
-              <Button
-                variant="primary"
-                onClick={handleGenerateSocial}
-                isLoading={isGenerating}
-                disabled={!socialTopic.trim()}
-              >
-                Generate Post
-              </Button>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="autoScheduleSocial"
+                    checked={autoSchedule}
+                    onChange={(e) => setAutoSchedule(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="autoScheduleSocial" className="text-sm text-text-secondary">
+                    Schedule automatically
+                  </label>
+                </div>
+                {autoSchedule && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-bg-tertiary rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Strategy (optional)
+                      </label>
+                      <select
+                        value={selectedStrategyId}
+                        onChange={(e) => setSelectedStrategyId(e.target.value)}
+                        className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white"
+                      >
+                        <option value="">None</option>
+                        {strategies.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Date
+                      </label>
+                      <Input
+                        type="date"
+                        value={scheduleDate}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Time
+                      </label>
+                      <Input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+                <Button
+                  variant="primary"
+                  onClick={handleGenerateSocial}
+                  isLoading={isGenerating}
+                  disabled={!socialTopic.trim() || (autoSchedule && !scheduleDate)}
+                >
+                  Generate {autoSchedule ? '& Schedule' : ''} Post
+                </Button>
+              </div>
 
               {socialContent && (
                 <div className="mt-6 space-y-4 p-4 bg-bg-tertiary rounded-lg border border-bg-tertiary">
@@ -325,14 +596,69 @@ export function ContentGenerators() {
                   placeholder="e.g., How to win debates, AI judges explained..."
                 />
               </div>
-              <Button
-                variant="primary"
-                onClick={handleGenerateBlog}
-                isLoading={isGenerating}
-                disabled={!blogTopic.trim()}
-              >
-                Generate Blog Post
-              </Button>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="autoScheduleBlog"
+                    checked={autoSchedule}
+                    onChange={(e) => setAutoSchedule(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="autoScheduleBlog" className="text-sm text-text-secondary">
+                    Schedule automatically
+                  </label>
+                </div>
+                {autoSchedule && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-bg-tertiary rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Strategy (optional)
+                      </label>
+                      <select
+                        value={selectedStrategyId}
+                        onChange={(e) => setSelectedStrategyId(e.target.value)}
+                        className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white"
+                      >
+                        <option value="">None</option>
+                        {strategies.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Date
+                      </label>
+                      <Input
+                        type="date"
+                        value={scheduleDate}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Time
+                      </label>
+                      <Input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+                <Button
+                  variant="primary"
+                  onClick={handleGenerateBlog}
+                  isLoading={isGenerating}
+                  disabled={!blogTopic.trim() || (autoSchedule && !scheduleDate)}
+                >
+                  Generate {autoSchedule ? '& Schedule' : ''} Blog Post
+                </Button>
+              </div>
 
               {blogContent && (
                 <div className="mt-6 space-y-4 p-4 bg-bg-tertiary rounded-lg border border-bg-tertiary">
@@ -420,14 +746,69 @@ export function ContentGenerators() {
                   placeholder="e.g., Monthly update, New features, Community highlights..."
                 />
               </div>
-              <Button
-                variant="primary"
-                onClick={handleGenerateNewsletter}
-                isLoading={isGenerating}
-                disabled={!newsletterTopic.trim()}
-              >
-                Generate Newsletter
-              </Button>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="autoScheduleNewsletter"
+                    checked={autoSchedule}
+                    onChange={(e) => setAutoSchedule(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="autoScheduleNewsletter" className="text-sm text-text-secondary">
+                    Schedule automatically
+                  </label>
+                </div>
+                {autoSchedule && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-bg-tertiary rounded-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Strategy (optional)
+                      </label>
+                      <select
+                        value={selectedStrategyId}
+                        onChange={(e) => setSelectedStrategyId(e.target.value)}
+                        className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white"
+                      >
+                        <option value="">None</option>
+                        {strategies.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Date
+                      </label>
+                      <Input
+                        type="date"
+                        value={scheduleDate}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Time
+                      </label>
+                      <Input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+                <Button
+                  variant="primary"
+                  onClick={handleGenerateNewsletter}
+                  isLoading={isGenerating}
+                  disabled={!newsletterTopic.trim() || (autoSchedule && !scheduleDate)}
+                >
+                  Generate {autoSchedule ? '& Schedule' : ''} Newsletter
+                </Button>
+              </div>
 
               {newsletterContent && (
                 <div className="mt-6 space-y-4 p-4 bg-bg-tertiary rounded-lg border border-bg-tertiary">

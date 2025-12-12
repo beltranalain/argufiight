@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { debateId, topic, platform, content, imagePrompt, hashtags, status, scheduledAt } = body
+    const { debateId, topic, platform, content, imagePrompt, hashtags, status, scheduledAt, strategyId, calendarItemId } = body
 
     if (!platform || !content) {
       return NextResponse.json(
@@ -90,12 +90,14 @@ export async function POST(request: NextRequest) {
     const post = await prisma.socialMediaPost.create({
       data: {
         debateId: debateId || null, // Allow null for general posts
+        strategyId: strategyId || null,
         platform,
         content: content.trim(),
         imagePrompt: imagePrompt?.trim() || null,
         hashtags: hashtags?.trim() || null,
         status: status || 'DRAFT',
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+        calendarItemId: calendarItemId || null,
       },
       include: {
         debate: debateId ? {

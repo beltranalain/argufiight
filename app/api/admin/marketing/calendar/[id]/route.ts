@@ -21,7 +21,14 @@ export async function PATCH(
     if (body.description !== undefined) updateData.description = body.description
     if (body.scheduledDate) updateData.scheduledDate = new Date(body.scheduledDate)
     if (body.scheduledTime !== undefined) updateData.scheduledTime = body.scheduledTime
-    if (body.status !== undefined) updateData.status = body.status
+    if (body.status !== undefined) {
+      updateData.status = body.status
+      // Automatically set approvedBy and approvedAt when status is APPROVED
+      if (body.status === 'APPROVED') {
+        updateData.approvedAt = new Date()
+        updateData.approvedBy = userId
+      }
+    }
     if (body.platform !== undefined) updateData.platform = body.platform
     if (body.requiresApproval !== undefined) updateData.requiresApproval = body.requiresApproval
     if (body.approvedAt !== undefined) {

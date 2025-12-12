@@ -471,6 +471,71 @@ export function ContentCalendar() {
             )}
 
             <div className="flex justify-end gap-3 pt-4">
+              {selectedItem.status === 'DRAFT' && (
+                <>
+                  <Button
+                    variant="primary"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(`/api/admin/marketing/calendar/${selectedItem.id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            status: 'APPROVED',
+                            approvedAt: new Date().toISOString(),
+                          }),
+                        })
+                        if (response.ok) {
+                          showToast({
+                            type: 'success',
+                            title: 'Approved',
+                            description: 'Content item approved',
+                          })
+                          setSelectedItem(null)
+                          fetchCalendarItems()
+                        }
+                      } catch (error) {
+                        showToast({
+                          type: 'error',
+                          title: 'Error',
+                          description: 'Failed to approve item',
+                        })
+                      }
+                    }}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(`/api/admin/marketing/calendar/${selectedItem.id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ status: 'CANCELLED' }),
+                        })
+                        if (response.ok) {
+                          showToast({
+                            type: 'success',
+                            title: 'Cancelled',
+                            description: 'Content item cancelled',
+                          })
+                          setSelectedItem(null)
+                          fetchCalendarItems()
+                        }
+                      } catch (error) {
+                        showToast({
+                          type: 'error',
+                          title: 'Error',
+                          description: 'Failed to cancel item',
+                        })
+                      }
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              )}
               <Button variant="secondary" onClick={() => setSelectedItem(null)}>
                 Close
               </Button>
