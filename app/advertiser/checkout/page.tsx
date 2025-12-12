@@ -16,30 +16,82 @@ function CheckoutPageContent() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [offer, setOffer] = useState<any>(null)
   const [contract, setContract] = useState<any>(null)
+  const [isAdvertiser, setIsAdvertiser] = useState(false)
 
   useEffect(() => {
+    // First verify user is an advertiser
+    verifyAdvertiser()
+  }, [])
+
+  useEffect(() => {
+    if (!isAdvertiser) return
+
     const offerId = searchParams.get('offerId')
     const contractId = searchParams.get('contractId')
     
+    // Validate offerId is not a placeholder
+    if (offerId && (offerId === '<OFFER_ID>' || offerId.length < 10)) {
+      showToast({
+        type: 'error',
+        title: 'Invalid Offer ID',
+        description: 'Please select an offer from your dashboard to pay.',
+      })
+      router.push('/advertiser/dashboard')
+      return
+    }
+    
     if (!offerId && !contractId) {
+      showToast({
+        type: 'error',
+        title: 'Missing Information',
+        description: 'Please select an offer or contract to pay for.',
+      })
       router.push('/advertiser/dashboard')
       return
     }
 
     fetchDetails(offerId, contractId)
-  }, [searchParams, router])
+  }, [searchParams, router, isAdvertiser])
+
+  const verifyAdvertiser = async () => {
+    try {
+      const response = await fetch('/api/advertiser/me')
+      if (response.ok) {
+        setIsAdvertiser(true)
+      } else if (response.status === 404) {
+        showToast({
+          type: 'error',
+          title: 'Advertiser Account Required',
+          description: 'You need an advertiser account to access this page.',
+        })
+        router.push('/advertise')
+      } else {
+        router.push('/login?userType=advertiser')
+      }
+    } catch (error) {
+      console.error('Failed to verify advertiser:', error)
+      router.push('/advertiser/dashboard')
+    }
+  }
 
   const fetchDetails = async (offerId: string | null, contractId: string | null) => {
     try {
       setIsLoading(true)
       
       if (offerId) {
-        const response = await fetch(`/api/advertiser/offers/${offerId}`)
+        const response = await fetch(`/api/advertiser/offers/${encodeURIComponent(offerId)}`)
         if (response.ok) {
           const data = await response.json()
-          setOffer(data.offer)
+          if (data.offer) {
+            setOffer(data.offer)
+          } else {
+            throw new Error('Offer not found')
+          }
+        } else if (response.status === 404) {
+          throw new Error('Offer not found. It may have been deleted or you may not have access to it.')
         } else {
-          throw new Error('Failed to fetch offer')
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.error || 'Failed to fetch offer')
         }
       } else if (contractId) {
         // For now, contracts will be fetched from the checkout API
@@ -48,12 +100,12 @@ function CheckoutPageContent() {
       } else {
         throw new Error('No offer or contract ID provided')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch details:', error)
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Failed to load payment details',
+        description: error.message || 'Failed to load payment details',
       })
       router.push('/advertiser/dashboard')
     } finally {
@@ -99,7 +151,7 @@ function CheckoutPageContent() {
     }
   }
 
-  if (isLoading) {
+  if (isLoading || !isAdvertiser) {
     return (
       <div className="min-h-screen bg-bg-primary">
         <TopNav currentPanel="ADVERTISER" />
@@ -110,11 +162,37 @@ function CheckoutPageContent() {
     )
   }
 
+  if (!offer && !contract) {
+    return (
+      <div className="min-h-screen bg-bg-primary">
+        <TopNav currentPanel="ADVERTISER" />
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <Card>
+            <CardHeader>
+              <h1 className="text-2xl font-bold text-white">Payment Not Available</h1>
+            </CardHeader>
+            <CardBody>
+              <p className="text-text-secondary mb-4">
+                Unable to load payment details. Please select an offer from your dashboard.
+              </p>
+              <Button
+                variant="primary"
+                onClick={() => router.push('/advertiser/dashboard')}
+              >
+                Back to Dashboard
+              </Button>
+            </CardBody>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   const paymentInfo = offer || contract
   const amount = offer ? Number(offer.amount) : (contract ? Number(contract.totalAmount) : 0)
   const description = offer 
-    ? `Campaign: ${offer.campaign?.name} - Creator: ${offer.creator?.username}`
-    : (contract ? `Campaign: ${contract.campaign?.name} - Creator: ${contract.creator?.username}` : '')
+    ? `Campaign: ${offer.campaign?.name || 'N/A'} - Creator: ${offer.creator?.username || 'N/A'}`
+    : (contract ? `Campaign: ${contract.campaign?.name || 'N/A'} - Creator: ${contract.creator?.username || 'N/A'}` : 'Payment')
 
   return (
     <div className="min-h-screen bg-bg-primary">
