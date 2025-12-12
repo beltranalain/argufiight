@@ -48,11 +48,25 @@ export function PushNotificationManager() {
           app = apps[0]
         }
 
-        const messaging = getMessaging(app)
+        // Register service worker first
+        let serviceWorkerRegistration = null
+        if ('serviceWorker' in navigator) {
+          try {
+            serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+              scope: '/firebase-cloud-messaging-push-scope',
+            })
+            console.log('[Push Notifications] Service worker registered')
+          } catch (error) {
+            console.error('[Push Notifications] Service worker registration failed:', error)
+          }
+        }
+
+        const messaging = getMessaging(app, serviceWorkerRegistration || undefined)
 
         // Get FCM token
         const token = await getToken(messaging, {
           vapidKey: config.vapidKey || undefined,
+          serviceWorkerRegistration: serviceWorkerRegistration || undefined,
         })
 
         if (token) {
