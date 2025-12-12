@@ -1,13 +1,27 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 import { LoadingSpinner } from '@/components/ui/Loading'
+import FeaturesTab from './FeaturesTab'
+import ApiUsageTab from './ApiUsageTab'
 
 export default function AdminSettingsPage() {
   const { showToast } = useToast()
+  const searchParams = useSearchParams()
+  const tabFromUrl = searchParams.get('tab') as 'general' | 'features' | 'api-usage' | null
+  const [activeTab, setActiveTab] = useState<'general' | 'features' | 'api-usage'>(
+    tabFromUrl || 'general'
+  )
+
+  useEffect(() => {
+    if (tabFromUrl && ['general', 'features', 'api-usage'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl)
+    }
+  }, [tabFromUrl])
   const [deepseekKey, setDeepseekKey] = useState('')
   const [resendKey, setResendKey] = useState('')
   const [googleAnalyticsKey, setGoogleAnalyticsKey] = useState('')
@@ -1465,6 +1479,14 @@ export default function AdminSettingsPage() {
           </CardBody>
         </Card>
       </div>
+        </div>
+      )}
+
+      {/* Features Tab */}
+      {activeTab === 'features' && <FeaturesTab />}
+
+      {/* API Usage Tab */}
+      {activeTab === 'api-usage' && <ApiUsageTab />}
     </div>
   )
 }

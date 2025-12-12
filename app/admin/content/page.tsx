@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 // AdminLayout is provided by app/admin/layout.tsx
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -9,6 +10,9 @@ import { useToast } from '@/components/ui/Toast'
 import { RichTextEditor } from '@/components/admin/RichTextEditor'
 import Image from 'next/image'
 import { SocialMediaLinksManager } from './social-media-manager'
+import BlogManagementTab from './BlogManagementTab'
+import SEOManagementTab from './SEOManagementTab'
+import LegalPagesTab from './LegalPagesTab'
 
 interface HomepageSection {
   id: string
@@ -49,6 +53,11 @@ interface SocialMediaLink {
 
 export default function ContentManagerPage() {
   const { showToast } = useToast()
+  const searchParams = useSearchParams()
+  const tabFromUrl = searchParams.get('tab') as 'homepage' | 'blog' | 'seo' | 'legal' | null
+  const [activeTab, setActiveTab] = useState<'homepage' | 'blog' | 'seo' | 'legal'>(
+    tabFromUrl || 'homepage'
+  )
   const [sections, setSections] = useState<HomepageSection[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedSection, setSelectedSection] = useState<HomepageSection | null>(null)
@@ -58,6 +67,12 @@ export default function ContentManagerPage() {
   const [mediaLibrary, setMediaLibrary] = useState<any[]>([])
   const [socialLinks, setSocialLinks] = useState<SocialMediaLink[]>([])
   const [isLoadingSocial, setIsLoadingSocial] = useState(true)
+
+  useEffect(() => {
+    if (tabFromUrl && ['homepage', 'blog', 'seo', 'legal'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl)
+    }
+  }, [tabFromUrl])
 
   useEffect(() => {
     fetchSections()
@@ -259,8 +274,37 @@ export default function ContentManagerPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Content Manager</h1>
-            <p className="text-text-secondary">Manage your homepage content, images, and layout</p>
+            <p className="text-text-secondary">Manage your homepage content, blog posts, SEO settings, and legal pages</p>
           </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 border-b border-bg-tertiary">
+          {[
+            { id: 'homepage', label: 'Homepage', icon: '🏠' },
+            { id: 'blog', label: 'Blog', icon: '📝' },
+            { id: 'seo', label: 'SEO', icon: '🔍' },
+            { id: 'legal', label: 'Legal', icon: '📄' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+                activeTab === tab.id
+                  ? 'border-electric-blue text-electric-blue'
+                  : 'border-transparent text-text-secondary hover:text-white'
+              }`}
+            >
+              <span className="mr-2">{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Homepage Tab */}
+        {activeTab === 'homepage' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
           <div className="flex gap-4">
             <Button
               variant="secondary"
@@ -376,6 +420,17 @@ export default function ContentManagerPage() {
             />
           )}
         </div>
+          </div>
+        )}
+
+        {/* Blog Tab */}
+        {activeTab === 'blog' && <BlogManagementTab />}
+
+        {/* SEO Tab */}
+        {activeTab === 'seo' && <SEOManagementTab />}
+
+        {/* Legal Tab */}
+        {activeTab === 'legal' && <LegalPagesTab />}
     </div>
   )
 }

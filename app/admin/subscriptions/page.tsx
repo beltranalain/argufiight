@@ -69,6 +69,12 @@ export default function SubscriptionsPage() {
   const [isLoadingOverview, setIsLoadingOverview] = useState(true)
 
   useEffect(() => {
+    if (tabFromUrl && ['pricing', 'promo-codes', 'overview'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl)
+    }
+  }, [tabFromUrl])
+
+  useEffect(() => {
     if (activeTab === 'pricing') {
       fetchPricing()
     } else if (activeTab === 'promo-codes') {
