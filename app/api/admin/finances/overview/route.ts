@@ -53,54 +53,173 @@ export async function GET(request: NextRequest) {
     let subscriptionCount = 0
     const subscriptionTransactions: any[] = []
 
+    console.log(`[Finances] Fetching invoices from ${startDate.toISOString()} to ${endDate.toISOString()}`)
+
     if (secretKey) {
       try {
         const stripe = await createStripeClient()
         
-        // Get all successful invoices for subscriptions
-        const invoices = await stripe.invoices.list({
-          limit: 100,
-          created: { gte: Math.floor(startDate.getTime() / 1000) },
-          status: 'paid',
-          expand: ['data.subscription'],
-        })
+        // Get all successful invoices (including subscription and one-time payments)
+        // Fetch more invoices to ensure we don't miss any
+        let allInvoices: Stripe.Invoice[] = []
+        let hasMore = true
+        let startingAfter: string | undefined = undefined
+        
+        while (hasMore && allInvoices.length < 1000) {
+          const invoiceList = await stripe.invoices.list({
+            limit: 100,
+            created: { gte: Math.floor(startDate.getTime() / 1000) },
+            status: 'paid',
+            expand: ['data.subscription', 'data.customer'],
+            starting_after: startingAfter,
+          })
+          
+          allInvoices = [...allInvoices, ...invoiceList.data]
+          hasMore = invoiceList.has_more
+          if (invoiceList.data.length > 0) {
+            startingAfter = invoiceList.data[invoiceList.data.length - 1].id
+          } else {
+            hasMore = false
+          }
+        }
 
-        for (const invoice of invoices.data) {
-          const subscriptionId = (invoice as any).subscription 
-            ? (typeof (invoice as any).subscription === 'string' 
-                ? (invoice as any).subscription 
-                : ((invoice as any).subscription as any)?.id)
+        console.log(`[Finances] Found ${allInvoices.length} paid invoices`)
+        
+        for (const invoice of allInvoices) {
+          // Check if this is a subscription invoice
+          const subscriptionId = invoice.subscription 
+            ? (typeof invoice.subscription === 'string' 
+                ? invoice.subscription 
+                : (invoice.subscription as Stripe.Subscription)?.id)
             : null
           
-          if (subscriptionId) {
+          // Check if invoice has subscription line items
+          const hasSubscriptionLine = invoice.lines?.data?.some(line => line.type === 'subscription')
+          
+          // Only count subscription-related invoices (for subscription revenue)
+          // But we'll include all paid invoices in transactions
+          if (subscriptionId || hasSubscriptionLine) {
             const amount = invoice.amount_paid / 100 // Convert from cents
-            subscriptionRevenue += amount
-            subscriptionCount++
+            
+            // Only count as subscription revenue if it has a subscription
+            if (subscriptionId) {
+              subscriptionRevenue += amount
+              subscriptionCount++
+            }
             
             // Try to find matching subscription in database
-            const subscription = subscriptions.find(
-              s => s.stripeSubscriptionId === subscriptionId
-            )
+            const subscription = subscriptionId 
+              ? subscriptions.find(s => s.stripeSubscriptionId === subscriptionId)
+              : null
             
             // Get customer email from invoice
-            const customerEmail = typeof invoice.customer === 'string' 
-              ? null 
-              : (invoice.customer as any)?.email || invoice.customer_email
+            let customerEmail: string | null = null
+            if (typeof invoice.customer === 'string') {
+              // Customer is just an ID, need to fetch it
+              try {
+                const customer = await stripe.customers.retrieve(invoice.customer)
+                if (!customer.deleted && 'email' in customer) {
+                  customerEmail = customer.email
+                }
+              } catch (e) {
+                // Ignore errors fetching customer
+              }
+            } else if (invoice.customer && 'email' in invoice.customer) {
+              customerEmail = invoice.customer.email
+            }
+            
+            if (!customerEmail) {
+              customerEmail = invoice.customer_email
+            }
             
             subscriptionTransactions.push({
               id: invoice.id,
               type: 'subscription',
               amount,
-              stripeFee: (invoice as any).application_fee_amount ? (invoice as any).application_fee_amount / 100 : 0,
-              netAmount: amount - ((invoice as any).application_fee_amount ? (invoice as any).application_fee_amount / 100 : 0),
+              stripeFee: invoice.application_fee_amount ? invoice.application_fee_amount / 100 : 0,
+              netAmount: amount - (invoice.application_fee_amount ? invoice.application_fee_amount / 100 : 0),
               date: new Date(invoice.created * 1000),
               user: subscription?.user || { email: customerEmail || 'Unknown', username: 'Unknown' },
               subscriptionId: subscriptionId,
+              invoiceUrl: invoice.hosted_invoice_url,
             })
+            
+            console.log(`[Finances] Added invoice ${invoice.id}: $${amount} (subscription: ${subscriptionId || 'none'})`)
           }
+        }
+        
+        console.log(`[Finances] Total subscription revenue: $${subscriptionRevenue} from ${subscriptionCount} subscriptions`)
+        
+        // Also check checkout sessions for completed payments that might not have invoices yet
+        try {
+          const checkoutSessions = await stripe.checkout.sessions.list({
+            limit: 100,
+            created: { gte: Math.floor(startDate.getTime() / 1000) },
+            status: 'complete',
+            expand: ['data.customer', 'data.subscription'],
+          })
+          
+          console.log(`[Finances] Found ${checkoutSessions.data.length} completed checkout sessions`)
+          
+          for (const session of checkoutSessions.data) {
+            // Only process if payment was successful and has amount
+            if (session.payment_status === 'paid' && session.amount_total) {
+              const amount = session.amount_total / 100
+              const subscriptionId = typeof session.subscription === 'string' 
+                ? session.subscription 
+                : (session.subscription as Stripe.Subscription)?.id
+              
+              // Check if we already counted this in invoices
+              const alreadyCounted = subscriptionTransactions.some(
+                t => t.subscriptionId === subscriptionId && Math.abs(t.amount - amount) < 0.01
+              )
+              
+              if (!alreadyCounted && subscriptionId) {
+                // This is a subscription payment we haven't counted yet
+                subscriptionRevenue += amount
+                subscriptionCount++
+                
+                const subscription = subscriptions.find(s => s.stripeSubscriptionId === subscriptionId)
+                let customerEmail = 'Unknown'
+                
+                if (typeof session.customer === 'string') {
+                  try {
+                    const customer = await stripe.customers.retrieve(session.customer)
+                    if (!customer.deleted && 'email' in customer) {
+                      customerEmail = customer.email || 'Unknown'
+                    }
+                  } catch (e) {
+                    // Ignore
+                  }
+                } else if (session.customer && 'email' in session.customer) {
+                  customerEmail = session.customer.email || 'Unknown'
+                }
+                
+                subscriptionTransactions.push({
+                  id: session.id,
+                  type: 'subscription',
+                  amount,
+                  stripeFee: 0,
+                  netAmount: amount,
+                  date: new Date(session.created * 1000),
+                  user: subscription?.user || { email: customerEmail, username: 'Unknown' },
+                  subscriptionId: subscriptionId,
+                  source: 'checkout_session',
+                })
+                
+                console.log(`[Finances] Added checkout session ${session.id}: $${amount}`)
+              }
+            }
+          }
+        } catch (checkoutError) {
+          console.error('Error fetching checkout sessions:', checkoutError)
         }
       } catch (error) {
         console.error('Error fetching Stripe invoices:', error)
+        // Log more details for debugging
+        if (error instanceof Error) {
+          console.error('Error details:', error.message, error.stack)
+        }
       }
     }
 
