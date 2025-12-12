@@ -613,10 +613,38 @@ export default function AdminSettingsPage() {
 
   return (
     <div>
-      <h1 className="text-4xl font-bold text-white mb-2">Settings</h1>
-      <p className="text-text-secondary mb-8">Configure platform settings and API keys</p>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-white mb-2">Settings</h1>
+        <p className="text-text-secondary">Manage API keys, features, integrations, and platform configuration</p>
+      </div>
 
-      <div className="max-w-2xl space-y-6">
+      {/* Tabs */}
+      <div className="flex gap-2 mb-6 border-b border-bg-tertiary">
+        {[
+          { id: 'general', label: 'General', icon: '⚙️' },
+          { id: 'features', label: 'Features', icon: '🎛️' },
+          { id: 'api-usage', label: 'API Usage', icon: '📊' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`px-6 py-3 font-medium transition-colors border-b-2 ${
+              activeTab === tab.id
+                ? 'border-electric-blue text-electric-blue'
+                : 'border-transparent text-text-secondary hover:text-white'
+            }`}
+          >
+            <span className="mr-2">{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* General Settings Tab */}
+      {activeTab === 'general' && (
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-6">General Settings</h2>
+          <div className="max-w-2xl space-y-6">
         {/* API Keys Section */}
         <Card>
           <CardHeader>
