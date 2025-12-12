@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     // Get user email
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true },
+      select: { id: true, email: true },
     })
 
     if (!user) {
@@ -136,8 +136,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get or create Stripe customer
-    const customerId = await getOrCreateCustomer(advertiser.id, advertiser.contactEmail)
+    // Get or create Stripe customer (use userId, not advertiser.id)
+    const customerId = await getOrCreateCustomer(user.id, advertiser.contactEmail)
 
     const stripe = await createStripeClient()
     
