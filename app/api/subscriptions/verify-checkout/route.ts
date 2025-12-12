@@ -81,6 +81,15 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Extract period dates safely (Stripe types don't expose these directly)
+    const subscriptionAny = subscription as any
+    const currentPeriodStart = subscriptionAny.current_period_start 
+      ? new Date(subscriptionAny.current_period_start * 1000)
+      : null
+    const currentPeriodEnd = subscriptionAny.current_period_end
+      ? new Date(subscriptionAny.current_period_end * 1000)
+      : null
+
     // Create or update UserSubscription
     const userSubscription = await prisma.userSubscription.upsert({
       where: { userId },
@@ -89,25 +98,25 @@ export async function POST(request: NextRequest) {
         tier: 'PRO',
         billingCycle,
         status: subscription.status === 'active' ? 'ACTIVE' : 'PAST_DUE',
-        currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
-        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+        currentPeriodStart,
+        currentPeriodEnd,
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscription.id,
         stripePriceId: subscription.items.data[0]?.price.id || null,
         promoCodeId,
-        cancelAtPeriodEnd: (subscription as any).cancel_at_period_end,
+        cancelAtPeriodEnd: subscriptionAny.cancel_at_period_end || false,
       },
       update: {
         tier: 'PRO',
         billingCycle,
         status: subscription.status === 'active' ? 'ACTIVE' : 'PAST_DUE',
-        currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
-        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
+        currentPeriodStart,
+        currentPeriodEnd,
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscription.id,
         stripePriceId: subscription.items.data[0]?.price.id || null,
         promoCodeId,
-        cancelAtPeriodEnd: (subscription as any).cancel_at_period_end,
+        cancelAtPeriodEnd: subscriptionAny.cancel_at_period_end || false,
       },
     })
 
