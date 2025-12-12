@@ -63,6 +63,7 @@
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "firebase": "^12.6.0",
+    "firebase-admin": "^13.6.0",
     "framer-motion": "^12.23.25",
     "google-auth-library": "^10.5.0",
     "jose": "^6.1.3",

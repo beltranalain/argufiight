@@ -20,7 +20,10 @@ export default function AdminSettingsPage() {
   const [firebaseStorageBucket, setFirebaseStorageBucket] = useState('')
   const [firebaseMessagingSenderId, setFirebaseMessagingSenderId] = useState('')
   const [firebaseAppId, setFirebaseAppId] = useState('')
-  const [firebaseServerKey, setFirebaseServerKey] = useState('')
+  const [firebaseServiceAccount, setFirebaseServiceAccount] = useState('')
+  const [firebaseOAuthClientId, setFirebaseOAuthClientId] = useState('')
+  const [firebaseOAuthClientSecret, setFirebaseOAuthClientSecret] = useState('')
+  const [firebaseOAuthRefreshToken, setFirebaseOAuthRefreshToken] = useState('')
   const [firebaseVapidKey, setFirebaseVapidKey] = useState('')
   const [googleClientId, setGoogleClientId] = useState('')
   const [googleClientSecret, setGoogleClientSecret] = useState('')
@@ -68,7 +71,10 @@ export default function AdminSettingsPage() {
         setFirebaseStorageBucket(data.FIREBASE_STORAGE_BUCKET || '')
         setFirebaseMessagingSenderId(data.FIREBASE_MESSAGING_SENDER_ID || '')
         setFirebaseAppId(data.FIREBASE_APP_ID || '')
-        setFirebaseServerKey(data.FIREBASE_SERVER_KEY || '')
+        setFirebaseServiceAccount(data.FIREBASE_SERVICE_ACCOUNT || '')
+        setFirebaseOAuthClientId(data.FIREBASE_OAUTH_CLIENT_ID || '')
+        setFirebaseOAuthClientSecret(data.FIREBASE_OAUTH_CLIENT_SECRET || '')
+        setFirebaseOAuthRefreshToken(data.FIREBASE_OAUTH_REFRESH_TOKEN || '')
         setFirebaseVapidKey(data.FIREBASE_VAPID_KEY || '')
         setGoogleClientId(data.GOOGLE_CLIENT_ID || '')
         setGoogleClientSecret(data.GOOGLE_CLIENT_SECRET || '')
@@ -112,7 +118,10 @@ export default function AdminSettingsPage() {
           FIREBASE_STORAGE_BUCKET: firebaseStorageBucket,
           FIREBASE_MESSAGING_SENDER_ID: firebaseMessagingSenderId,
           FIREBASE_APP_ID: firebaseAppId,
-          FIREBASE_SERVER_KEY: firebaseServerKey,
+          FIREBASE_SERVICE_ACCOUNT: firebaseServiceAccount,
+          FIREBASE_OAUTH_CLIENT_ID: firebaseOAuthClientId,
+          FIREBASE_OAUTH_CLIENT_SECRET: firebaseOAuthClientSecret,
+          FIREBASE_OAUTH_REFRESH_TOKEN: firebaseOAuthRefreshToken,
           FIREBASE_VAPID_KEY: firebaseVapidKey,
           GOOGLE_CLIENT_ID: googleClientId,
           GOOGLE_CLIENT_SECRET: googleClientSecret,
@@ -786,20 +795,84 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
 
+              <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg mb-4">
+                <p className="text-sm text-yellow-400 mb-2">
+                  <strong>⚠️ Organization Policy Blocking Service Account Keys?</strong>
+                </p>
+                <p className="text-xs text-text-secondary">
+                  If you can't create service account keys due to organization policies, use <strong>OAuth2 credentials</strong> below instead. You only need ONE method (Service Account OR OAuth2).
+                </p>
+              </div>
+
               <div className="mt-4">
                 <label className="block text-sm font-medium text-white mb-2">
-                  Server Key * (Required for sending notifications)
+                  Service Account JSON (Option 1 - Preferred if available)
                 </label>
-                <input
-                  type="password"
-                  value={firebaseServerKey}
-                  onChange={(e) => setFirebaseServerKey(e.target.value)}
-                  placeholder="AAAA..."
-                  className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                <textarea
+                  value={firebaseServiceAccount}
+                  onChange={(e) => setFirebaseServiceAccount(e.target.value)}
+                  placeholder='{"type": "service_account", "project_id": "...", ...}'
+                  rows={6}
+                  className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent font-mono text-sm"
                 />
                 <p className="text-xs text-text-secondary mt-1">
-                  Found in Firebase Console → Project Settings → Cloud Messaging → Server key
+                  Found in Firebase Console → Project Settings → Service Accounts → Generate new private key
                 </p>
+                {firebaseServiceAccount && !firebaseServiceAccount.includes('"type": "service_account"') && (
+                  <div className="mt-2 p-2 rounded text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                    ⚠️ Warning: This doesn't look like a valid Service Account JSON. It should start with {`{"type": "service_account", ...}`}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 p-3 bg-electric-blue/10 border border-electric-blue/30 rounded-lg">
+                <p className="text-sm text-electric-blue mb-2">
+                  <strong>OR Use OAuth2 (Option 2 - If Service Account is Blocked)</strong>
+                </p>
+                <p className="text-xs text-text-secondary mb-3">
+                  If organization policies block service account keys, use OAuth2 instead. See <a href="https://developers.google.com/oauthplayground/" target="_blank" rel="noopener noreferrer" className="underline hover:text-electric-blue">OAuth Playground</a> to get refresh token.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      OAuth2 Client ID
+                    </label>
+                    <input
+                      type="text"
+                      value={firebaseOAuthClientId}
+                      onChange={(e) => setFirebaseOAuthClientId(e.target.value)}
+                      placeholder="xxx.apps.googleusercontent.com"
+                      className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white mb-2">
+                      OAuth2 Client Secret
+                    </label>
+                    <input
+                      type="password"
+                      value={firebaseOAuthClientSecret}
+                      onChange={(e) => setFirebaseOAuthClientSecret(e.target.value)}
+                      placeholder="GOCSPX-..."
+                      className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-white mb-2">
+                    OAuth2 Refresh Token
+                  </label>
+                  <input
+                    type="password"
+                    value={firebaseOAuthRefreshToken}
+                    onChange={(e) => setFirebaseOAuthRefreshToken(e.target.value)}
+                    placeholder="1//..."
+                    className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                  />
+                  <p className="text-xs text-text-secondary mt-1">
+                    Get from <a href="https://developers.google.com/oauthplayground/" target="_blank" rel="noopener noreferrer" className="underline hover:text-electric-blue">OAuth Playground</a> with scope: <code className="text-xs">https://www.googleapis.com/auth/firebase.messaging</code>
+                  </p>
+                </div>
               </div>
 
               <div className="mt-4">
@@ -826,8 +899,9 @@ export default function AdminSettingsPage() {
                   <li>Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-electric-blue">Firebase Console</a></li>
                   <li>Select your project → Gear icon → Project Settings</li>
                   <li>Scroll to "Your apps" → Web app → Copy config values</li>
-                  <li>Go to Cloud Messaging tab → Copy Server key</li>
-                  <li>Generate VAPID key pair if needed → Copy public key</li>
+                  <li>Go to <strong>Service Accounts</strong> tab → Click "Generate new private key" → Download JSON</li>
+                  <li>Go to Cloud Messaging tab → Generate VAPID key pair if needed → Copy public key</li>
+                  <li>Paste the entire Service Account JSON file content above</li>
                 </ol>
               </div>
             </div>

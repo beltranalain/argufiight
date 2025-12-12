@@ -1,9 +1,11 @@
 /**
  * Firebase Cloud Messaging Client
  * Handles sending push notifications via FCM
+ * Falls back to REST API if Admin SDK (service account) is not available
  */
 
-import { getFirebaseServerKey } from './config'
+import { getMessagingInstance } from './admin'
+import { sendPushNotificationREST, sendPushNotificationsREST } from './fcm-rest-api'
 
 export interface PushNotificationPayload {
   title: string
@@ -26,68 +28,56 @@ export async function sendPushNotification(
   payload: PushNotificationPayload
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const serverKey = await getFirebaseServerKey()
+    // Try Admin SDK first (if service account is available)
+    const messaging = await getMessagingInstance()
 
-    if (!serverKey) {
-      console.error('Firebase server key not configured')
-      return { success: false, error: 'Firebase server key not configured' }
+    if (!messaging) {
+      // Fallback to REST API with OAuth2
+      console.log('Firebase Admin SDK not available, using REST API with OAuth2')
+      return await sendPushNotificationREST(token, payload)
     }
 
-    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `key=${serverKey}`,
+    const message = {
+      token,
+      notification: {
+        title: payload.title,
+        body: payload.body,
       },
-      body: JSON.stringify({
-        to: token,
+      data: {
+        ...payload.data,
+        click_action: payload.data?.url || '/',
+      },
+      webpush: {
         notification: {
           title: payload.title,
           body: payload.body,
           icon: payload.icon || '/favicon.ico',
           badge: payload.badge || '/favicon.ico',
         },
-        data: {
-          ...payload.data,
-          click_action: payload.data?.url || 'FLUTTER_NOTIFICATION_CLICK',
+        fcmOptions: {
+          link: payload.data?.url || '/',
         },
-        webpush: {
-          fcm_options: {
-            link: payload.data?.url || '/',
-          },
-        },
-      }),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      console.error('FCM send error:', errorData)
-      return {
-        success: false,
-        error: errorData.error?.message || `HTTP ${response.status}`,
-      }
+      },
     }
 
-    const result = await response.json()
-    
-    // Check if token is invalid and should be removed
-    if (result.failure === 1 && result.results?.[0]?.error) {
-      const error = result.results[0].error
-      if (
-        error === 'InvalidRegistration' ||
-        error === 'NotRegistered' ||
-        error === 'MismatchSenderId'
-      ) {
-        return {
-          success: false,
-          error: 'INVALID_TOKEN', // Special error code to indicate token should be removed
-        }
-      }
-    }
+    await messaging.send(message)
 
     return { success: true }
   } catch (error: any) {
     console.error('Failed to send push notification:', error)
+    
+    // Check if token is invalid
+    if (
+      error.code === 'messaging/invalid-registration-token' ||
+      error.code === 'messaging/registration-token-not-registered' ||
+      error.code === 'messaging/invalid-argument'
+    ) {
+      return {
+        success: false,
+        error: 'INVALID_TOKEN', // Special error code to indicate token should be removed
+      }
+    }
+
     return { success: false, error: error.message || 'Unknown error' }
   }
 }
@@ -103,72 +93,61 @@ export async function sendPushNotifications(
     return { success: 0, failed: 0, errors: [] }
   }
 
-  // FCM allows up to 1000 tokens per batch
-  const batchSize = 1000
+  // Try Admin SDK first (if service account is available)
+  const messaging = await getMessagingInstance()
+
+  if (!messaging) {
+    // Fallback to REST API with OAuth2
+    console.log('Firebase Admin SDK not available, using REST API with OAuth2')
+    return await sendPushNotificationsREST(tokens, payload)
+  }
+
+  // FCM allows up to 500 tokens per batch with sendMulticast
+  const batchSize = 500
   let success = 0
   let failed = 0
   const errors: string[] = []
 
   for (let i = 0; i < tokens.length; i += batchSize) {
     const batch = tokens.slice(i, i + batchSize)
-    
-    // For multiple tokens, use multicast
-    const serverKey = await getFirebaseServerKey()
-    if (!serverKey) {
-      failed += batch.length
-      errors.push('Firebase server key not configured')
-      continue
-    }
 
     try {
-      const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `key=${serverKey}`,
+      const message = {
+        notification: {
+          title: payload.title,
+          body: payload.body,
         },
-        body: JSON.stringify({
-          registration_ids: batch,
+        data: {
+          ...payload.data,
+          click_action: payload.data?.url || '/',
+        },
+        webpush: {
           notification: {
             title: payload.title,
             body: payload.body,
             icon: payload.icon || '/favicon.ico',
             badge: payload.badge || '/favicon.ico',
           },
-          data: {
-            ...payload.data,
-            click_action: payload.data?.url || 'FLUTTER_NOTIFICATION_CLICK',
+          fcmOptions: {
+            link: payload.data?.url || '/',
           },
-          webpush: {
-            fcm_options: {
-              link: payload.data?.url || '/',
-            },
-          },
-        }),
+        },
+      }
+
+      const response = await messaging.sendEachForMulticast({
+        tokens: batch,
+        ...message,
       })
 
-      if (!response.ok) {
-        failed += batch.length
-        const errorData = await response.json().catch(() => ({}))
-        errors.push(errorData.error?.message || `HTTP ${response.status}`)
-        continue
-      }
+      success += response.successCount
+      failed += response.failureCount
 
-      const result = await response.json()
-      
-      // Count successes and failures
-      if (result.results) {
-        result.results.forEach((r: any, index: number) => {
-          if (r.error) {
-            failed++
-            errors.push(`Token ${batch[index]}: ${r.error}`)
-          } else {
-            success++
-          }
-        })
-      } else {
-        success += batch.length
-      }
+      // Collect errors
+      response.responses.forEach((resp, index) => {
+        if (!resp.success && resp.error) {
+          errors.push(`Token ${batch[index]}: ${resp.error.message}`)
+        }
+      })
     } catch (error: any) {
       failed += batch.length
       errors.push(error.message || 'Unknown error')
