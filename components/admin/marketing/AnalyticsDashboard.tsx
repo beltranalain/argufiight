@@ -39,46 +39,34 @@ export function AnalyticsDashboard() {
   const fetchAnalytics = async () => {
     try {
       setIsLoading(true)
-      // For now, return mock data - we'll implement real analytics later
-      // const response = await fetch(`/api/admin/marketing/analytics?range=${timeRange}`)
-      // if (response.ok) {
-      //   const data = await response.json()
-      //   setAnalytics(data)
-      // }
-
-      // Mock data for now
-      setAnalytics({
-        totalPosts: 45,
-        totalBlogPosts: 12,
-        totalNewsletters: 8,
-        totalImpressions: 125000,
-        totalEngagement: 8500,
-        topPosts: [
-          {
-            id: '1',
-            contentType: 'SOCIAL_POST',
-            title: 'Platform Launch Announcement',
-            impressions: 15000,
-            engagement: 1200,
-            engagementRate: 8.0,
-          },
-          {
-            id: '2',
-            contentType: 'BLOG_POST',
-            title: 'How to Win Debates',
-            impressions: 12000,
-            engagement: 950,
-            engagementRate: 7.9,
-          },
-        ],
-        platformStats: [
-          { platform: 'Instagram', posts: 20, impressions: 60000, engagement: 4200 },
-          { platform: 'LinkedIn', posts: 15, impressions: 45000, engagement: 2800 },
-          { platform: 'Twitter', posts: 10, impressions: 20000, engagement: 1500 },
-        ],
-      })
+      const response = await fetch(`/api/admin/marketing/analytics?range=${timeRange}`)
+      if (response.ok) {
+        const data = await response.json()
+        setAnalytics(data)
+      } else {
+        // If no data available, show empty state
+        setAnalytics({
+          totalPosts: 0,
+          totalBlogPosts: 0,
+          totalNewsletters: 0,
+          totalImpressions: 0,
+          totalEngagement: 0,
+          topPosts: [],
+          platformStats: [],
+        })
+      }
     } catch (error) {
       console.error('Failed to fetch analytics:', error)
+      // On error, show empty state
+      setAnalytics({
+        totalPosts: 0,
+        totalBlogPosts: 0,
+        totalNewsletters: 0,
+        totalImpressions: 0,
+        totalEngagement: 0,
+        topPosts: [],
+        platformStats: [],
+      })
     } finally {
       setIsLoading(false)
     }
@@ -172,43 +160,49 @@ export function AnalyticsDashboard() {
           <h2 className="text-xl font-bold text-white">Top Performing Content</h2>
         </CardHeader>
         <CardBody>
-          <div className="space-y-4">
-            {analytics.topPosts.map((post) => (
-              <div
-                key={post.id}
-                className="p-4 bg-bg-tertiary border border-bg-tertiary rounded-lg"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge>{post.contentType.replace('_', ' ')}</Badge>
-                      <h3 className="font-semibold text-white">{post.title}</h3>
+          {analytics.topPosts.length === 0 ? (
+            <p className="text-text-secondary text-center py-8">
+              No content performance data available yet. Analytics will appear here once content is published and tracked.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {analytics.topPosts.map((post) => (
+                <div
+                  key={post.id}
+                  className="p-4 bg-bg-tertiary border border-bg-tertiary rounded-lg"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge>{post.contentType.replace('_', ' ')}</Badge>
+                        <h3 className="font-semibold text-white">{post.title}</h3>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 mt-3">
+                    <div>
+                      <p className="text-xs text-text-secondary">Impressions</p>
+                      <p className="text-sm font-medium text-white">
+                        {post.impressions.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-text-secondary">Engagement</p>
+                      <p className="text-sm font-medium text-white">
+                        {post.engagement.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-text-secondary">Engagement Rate</p>
+                      <p className="text-sm font-medium text-electric-blue">
+                        {post.engagementRate.toFixed(1)}%
+                      </p>
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4 mt-3">
-                  <div>
-                    <p className="text-xs text-text-secondary">Impressions</p>
-                    <p className="text-sm font-medium text-white">
-                      {post.impressions.toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-text-secondary">Engagement</p>
-                    <p className="text-sm font-medium text-white">
-                      {post.engagement.toLocaleString()}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-text-secondary">Engagement Rate</p>
-                    <p className="text-sm font-medium text-electric-blue">
-                      {post.engagementRate.toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardBody>
       </Card>
 
@@ -218,30 +212,36 @@ export function AnalyticsDashboard() {
           <h2 className="text-xl font-bold text-white">Platform Performance</h2>
         </CardHeader>
         <CardBody>
-          <div className="space-y-4">
-            {analytics.platformStats.map((stat) => (
-              <div key={stat.platform} className="p-4 bg-bg-tertiary border border-bg-tertiary rounded-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-white">{stat.platform}</h3>
-                  <Badge>{stat.posts} posts</Badge>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-text-secondary">Impressions</p>
-                    <p className="text-lg font-bold text-white">
-                      {(stat.impressions / 1000).toFixed(1)}K
-                    </p>
+          {analytics.platformStats.length === 0 ? (
+            <p className="text-text-secondary text-center py-8">
+              No platform performance data available yet. Analytics will appear here once social posts are published and tracked.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {analytics.platformStats.map((stat) => (
+                <div key={stat.platform} className="p-4 bg-bg-tertiary border border-bg-tertiary rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-white">{stat.platform}</h3>
+                    <Badge>{stat.posts} posts</Badge>
                   </div>
-                  <div>
-                    <p className="text-xs text-text-secondary">Engagement</p>
-                    <p className="text-lg font-bold text-electric-blue">
-                      {(stat.engagement / 1000).toFixed(1)}K
-                    </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-text-secondary">Impressions</p>
+                      <p className="text-lg font-bold text-white">
+                        {stat.impressions > 0 ? (stat.impressions / 1000).toFixed(1) + 'K' : '0'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-text-secondary">Engagement</p>
+                      <p className="text-lg font-bold text-electric-blue">
+                        {stat.engagement > 0 ? (stat.engagement / 1000).toFixed(1) + 'K' : '0'}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardBody>
       </Card>
     </div>
