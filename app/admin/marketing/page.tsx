@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -10,6 +11,7 @@ import { Badge } from '@/components/ui/Badge'
 import { ContentCalendar } from '@/components/admin/marketing/ContentCalendar'
 import { ContentGenerators } from '@/components/admin/marketing/ContentGenerators'
 import { AnalyticsDashboard } from '@/components/admin/marketing/AnalyticsDashboard'
+import { SocialPostsManager } from '@/components/admin/marketing/SocialPostsManager'
 
 interface MarketingStrategy {
   id: string
@@ -27,7 +29,11 @@ interface MarketingStrategy {
 
 export default function MarketingDashboardPage() {
   const { showToast } = useToast()
-  const [activeTab, setActiveTab] = useState<'strategy' | 'calendar' | 'posts' | 'analytics'>('strategy')
+  const searchParams = useSearchParams()
+  const tabFromUrl = searchParams.get('tab') as 'strategy' | 'calendar' | 'posts' | 'analytics' | null
+  const [activeTab, setActiveTab] = useState<'strategy' | 'calendar' | 'posts' | 'analytics'>(
+    tabFromUrl || 'strategy'
+  )
   const [strategies, setStrategies] = useState<MarketingStrategy[]>([])
   const [isLoadingStrategies, setIsLoadingStrategies] = useState(false)
   const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false)
@@ -42,6 +48,12 @@ export default function MarketingDashboardPage() {
   useEffect(() => {
     fetchStrategies()
   }, [])
+
+  useEffect(() => {
+    if (tabFromUrl && ['strategy', 'calendar', 'posts', 'analytics'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl)
+    }
+  }, [tabFromUrl])
 
   const fetchStrategies = async () => {
     try {
@@ -353,7 +365,12 @@ export default function MarketingDashboardPage() {
       )}
 
       {/* Posts Tab */}
-      {activeTab === 'posts' && <ContentGenerators />}
+      {activeTab === 'posts' && (
+        <div className="space-y-6">
+          <ContentGenerators />
+          <SocialPostsManager />
+        </div>
+      )}
 
       {/* Analytics Tab */}
       {activeTab === 'analytics' && <AnalyticsDashboard />}
