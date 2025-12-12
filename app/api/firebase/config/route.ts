@@ -14,6 +14,11 @@ export async function GET() {
     }
 
     // Only return public config (no server keys)
+    // VAPID key is required for web push notifications
+    if (!config.vapidKey) {
+      console.warn('Firebase VAPID key is missing. Push notifications will not work.')
+    }
+
     return NextResponse.json({
       apiKey: config.apiKey,
       authDomain: config.authDomain,
@@ -21,7 +26,7 @@ export async function GET() {
       storageBucket: config.storageBucket,
       messagingSenderId: config.messagingSenderId,
       appId: config.appId,
-      vapidKey: config.vapidKey,
+      vapidKey: config.vapidKey || null, // Return null if missing so frontend can detect it
     })
   } catch (error) {
     console.error('Failed to get Firebase config:', error)

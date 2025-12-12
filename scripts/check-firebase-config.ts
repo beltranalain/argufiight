@@ -1,0 +1,71 @@
+import { prisma } from '@/lib/db/prisma'
+import { getFirebaseConfig } from '@/lib/firebase/config'
+
+/**
+ * Script to check Firebase configuration
+ */
+async function checkFirebaseConfig() {
+  console.log('🔍 Checking Firebase Configuration...\n')
+
+  try {
+    // Check admin settings
+    const settings = await prisma.adminSetting.findMany({
+      where: {
+        key: {
+          in: [
+            'FIREBASE_API_KEY',
+            'FIREBASE_AUTH_DOMAIN',
+            'FIREBASE_PROJECT_ID',
+            'FIREBASE_STORAGE_BUCKET',
+            'FIREBASE_MESSAGING_SENDER_ID',
+            'FIREBASE_APP_ID',
+            'FIREBASE_VAPID_KEY',
+          ],
+        },
+      },
+    })
+
+    const configMap = settings.reduce((acc, setting) => {
+      acc[setting.key] = setting.value
+      return acc
+    }, {} as Record<string, string>)
+
+    console.log('📋 Admin Settings:')
+    console.log(`  ✅ FIREBASE_API_KEY: ${configMap.FIREBASE_API_KEY ? 'Set (' + configMap.FIREBASE_API_KEY.substring(0, 20) + '...)' : '❌ MISSING'}`)
+    console.log(`  ${configMap.FIREBASE_AUTH_DOMAIN ? '✅' : '❌'} FIREBASE_AUTH_DOMAIN: ${configMap.FIREBASE_AUTH_DOMAIN || 'MISSING'}`)
+    console.log(`  ${configMap.FIREBASE_PROJECT_ID ? '✅' : '❌'} FIREBASE_PROJECT_ID: ${configMap.FIREBASE_PROJECT_ID || 'MISSING'}`)
+    console.log(`  ${configMap.FIREBASE_STORAGE_BUCKET ? '✅' : '❌'} FIREBASE_STORAGE_BUCKET: ${configMap.FIREBASE_STORAGE_BUCKET || 'MISSING'}`)
+    console.log(`  ${configMap.FIREBASE_MESSAGING_SENDER_ID ? '✅' : '❌'} FIREBASE_MESSAGING_SENDER_ID: ${configMap.FIREBASE_MESSAGING_SENDER_ID || 'MISSING'}`)
+    console.log(`  ${configMap.FIREBASE_APP_ID ? '✅' : '❌'} FIREBASE_APP_ID: ${configMap.FIREBASE_APP_ID ? configMap.FIREBASE_APP_ID.substring(0, 30) + '...' : 'MISSING'}`)
+    console.log(`  ${configMap.FIREBASE_VAPID_KEY ? '✅' : '❌'} FIREBASE_VAPID_KEY: ${configMap.FIREBASE_VAPID_KEY ? configMap.FIREBASE_VAPID_KEY.substring(0, 30) + '...' : '❌ MISSING (REQUIRED FOR WEB PUSH)'}`)
+
+    console.log('\n📦 Config Helper:')
+    const config = await getFirebaseConfig()
+    if (config) {
+      console.log('  ✅ Config retrieved successfully')
+      console.log(`  Project ID: ${config.projectId}`)
+      console.log(`  VAPID Key: ${config.vapidKey ? '✅ Set (' + config.vapidKey.substring(0, 30) + '...)' : '❌ MISSING'}`)
+    } else {
+      console.log('  ❌ Config is null - missing required fields')
+    }
+
+    console.log('\n⚠️  If VAPID key is missing:')
+    console.log('  1. Go to Firebase Console → Project Settings → Cloud Messaging')
+    console.log('  2. Scroll to "Web Push certificates" section')
+    console.log('  3. Click "Generate key pair" if not already generated')
+    console.log('  4. Copy the public key (starts with BK... or BN...)')
+    console.log('  5. Add it in Admin Dashboard → Settings → Firebase Push Notifications → VAPID Key')
+    console.log('\n⚠️  If Cloud Messaging API is not enabled:')
+    console.log('  1. Go to Google Cloud Console → APIs & Services → Library')
+    console.log('  2. Search for "Firebase Cloud Messaging API"')
+    console.log('  3. Click "Enable" if not already enabled')
+
+  } catch (error: any) {
+    console.error('❌ Error checking Firebase config:', error)
+  } finally {
+    await prisma.$disconnect()
+  }
+}
+
+checkFirebaseConfig()
+

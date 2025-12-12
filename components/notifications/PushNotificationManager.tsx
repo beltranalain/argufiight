@@ -36,6 +36,11 @@ export function PushNotificationManager() {
           return
         }
 
+        if (!config.vapidKey) {
+          console.error('[Push Notifications] VAPID key is missing. Please add it in Admin Settings → Firebase Push Notifications')
+          return
+        }
+
         // Initialize Firebase
         const { initializeApp, getApps } = await import('firebase/app')
         const { getMessaging, getToken, onMessage } = await import('firebase/messaging')
@@ -56,17 +61,24 @@ export function PushNotificationManager() {
               scope: '/firebase-cloud-messaging-push-scope',
             })
             console.log('[Push Notifications] Service worker registered')
+            
+            // Wait for service worker to be ready
+            await serviceWorkerRegistration.update()
           } catch (error) {
             console.error('[Push Notifications] Service worker registration failed:', error)
+            return
           }
+        } else {
+          console.error('[Push Notifications] Service workers not supported')
+          return
         }
 
         const messaging = getMessaging(app)
 
-        // Get FCM token
+        // Get FCM token - VAPID key is required
         const token = await getToken(messaging, {
-          vapidKey: config.vapidKey || undefined,
-          serviceWorkerRegistration: serviceWorkerRegistration || undefined,
+          vapidKey: config.vapidKey,
+          serviceWorkerRegistration: serviceWorkerRegistration,
         })
 
         if (token) {
@@ -101,9 +113,19 @@ export function PushNotificationManager() {
       } catch (error: any) {
         console.error('[Push Notifications] Initialization error:', error)
         
-        // If Firebase is not configured, that's fine - just log it
+        // Provide helpful error messages
         if (error.code === 'messaging/unsupported-browser') {
           console.log('[Push Notifications] Browser does not support FCM')
+        } else if (error.code === 'messaging/token-subscribe-failed') {
+          console.error('[Push Notifications] Failed to subscribe to FCM. This usually means:')
+          console.error('1. VAPID key is missing or invalid - check Admin Settings → Firebase Push Notifications')
+          console.error('2. Cloud Messaging API is not enabled in Firebase Console')
+          console.error('3. Firebase project configuration is incorrect')
+        } else if (error.message?.includes('authentication credential')) {
+          console.error('[Push Notifications] Authentication error. Please check:')
+          console.error('1. VAPID key is correctly set in Admin Settings')
+          console.error('2. Cloud Messaging API is enabled in Firebase Console')
+          console.error('3. Firebase project ID matches in all settings')
         }
       }
     }

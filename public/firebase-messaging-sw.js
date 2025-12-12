@@ -5,9 +5,9 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js')
 
-// Initialize Firebase with config from environment
-// The config will be passed from the main app via the messaging instance
-// For now, we'll use a minimal initialization - Firebase will handle the rest
+// Initialize Firebase - config will be set by the main app
+let messaging = null
+
 self.addEventListener('install', (event) => {
   self.skipWaiting()
 })
@@ -16,27 +16,31 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim())
 })
 
-// Fetch Firebase config and initialize
-fetch('/api/firebase/config')
-  .then((response) => {
+// Initialize Firebase when config is available
+// The main app will call this via postMessage or we'll fetch it
+async function initializeFirebase() {
+  try {
+    const response = await fetch('/api/firebase/config')
     if (!response.ok) {
       throw new Error('Failed to fetch Firebase config')
     }
-    return response.json()
-  })
-  .then((config) => {
+    const config = await response.json()
+    
     if (config && config.apiKey) {
-      firebase.initializeApp({
-        apiKey: config.apiKey,
-        authDomain: config.authDomain,
-        projectId: config.projectId,
-        storageBucket: config.storageBucket,
-        messagingSenderId: config.messagingSenderId,
-        appId: config.appId,
-      })
+      // Initialize Firebase if not already initialized
+      if (!firebase.apps || firebase.apps.length === 0) {
+        firebase.initializeApp({
+          apiKey: config.apiKey,
+          authDomain: config.authDomain,
+          projectId: config.projectId,
+          storageBucket: config.storageBucket,
+          messagingSenderId: config.messagingSenderId,
+          appId: config.appId,
+        })
+      }
 
       // Retrieve an instance of Firebase Messaging
-      const messaging = firebase.messaging()
+      messaging = firebase.messaging()
 
       // Handle background messages
       messaging.onBackgroundMessage((payload) => {
@@ -53,10 +57,13 @@ fetch('/api/firebase/config')
         return self.registration.showNotification(notificationTitle, notificationOptions)
       })
     }
-  })
-  .catch((error) => {
+  } catch (error) {
     console.error('[firebase-messaging-sw.js] Failed to initialize Firebase:', error)
-  })
+  }
+}
+
+// Initialize on service worker activation
+initializeFirebase()
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
