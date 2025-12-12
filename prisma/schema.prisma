@@ -694,15 +694,161 @@ model SocialMediaPost {
   content     String    @db.Text
   imagePrompt String?   @map("image_prompt") @db.Text
   hashtags    String?
-  status      String    @default("DRAFT") // DRAFT, APPROVED, PUBLISHED
+  status      String    @default("DRAFT") // DRAFT, APPROVED, PUBLISHED, SCHEDULED
   scheduledAt DateTime? @map("scheduled_at")
+  publishedAt DateTime? @map("published_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  // Marketing system relations
+  calendarItemId String? @unique @map("calendar_item_id")
+  calendarItem   ContentCalendarItem? @relation(fields: [calendarItemId], references: [id], onDelete: SetNull)
+  strategyId     String? @map("strategy_id")
+  strategy       MarketingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  analytics      ContentAnalytics[]
 
   @@index([debateId])
   @@index([platform])
   @@index([status])
+  @@index([scheduledAt])
   @@map("social_media_posts")
+}
+
+// Marketing Strategy - 12-month AI-generated marketing plan
+model MarketingStrategy {
+  id          String   @id @default(uuid())
+  name        String   // e.g., "Q1 2025 Marketing Strategy"
+  description String?  @db.Text
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  status      String   @default("DRAFT") // DRAFT, ACTIVE, ARCHIVED
+  goals       String?  @db.Text // JSON array of marketing goals
+  themes      String?  @db.Text // JSON array of content themes
+  platforms   String?  @db.Text // JSON array of platforms to focus on
+  frequency   String?  // e.g., "3 posts per week"
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  posts       SocialMediaPost[]
+  blogPosts   BlogPost[]
+  newsletters EmailNewsletter[]
+  calendarItems ContentCalendarItem[]
+
+  @@index([status])
+  @@index([startDate])
+  @@map("marketing_strategies")
+}
+
+// Content Calendar - Scheduled content items
+model ContentCalendarItem {
+  id          String   @id @default(uuid())
+  strategyId String?  @map("strategy_id")
+  strategy    MarketingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  contentType String   @map("content_type") // SOCIAL_POST, BLOG_POST, NEWSLETTER, VIDEO
+  title       String?
+  description String?  @db.Text
+  scheduledDate DateTime @map("scheduled_date")
+  scheduledTime String?  @map("scheduled_time") // e.g., "09:00"
+  status      String   @default("DRAFT") // DRAFT, APPROVED, SCHEDULED, PUBLISHED, CANCELLED
+  platform    String?  // For social posts: INSTAGRAM, LINKEDIN, TWITTER
+  requiresApproval Boolean @default(true) @map("requires_approval")
+  approvedAt  DateTime? @map("approved_at")
+  approvedBy  String?   @map("approved_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  socialPost  SocialMediaPost?
+  blogPost    BlogPost?
+  newsletter  EmailNewsletter?
+
+  @@index([scheduledDate])
+  @@index([status])
+  @@index([contentType])
+  @@map("content_calendar_items")
+}
+
+// Blog Posts
+model BlogPost {
+  id          String   @id @default(uuid())
+  strategyId  String?  @map("strategy_id")
+  strategy    MarketingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  title       String
+  slug        String   @unique
+  content     String   @db.Text
+  excerpt     String?  @db.Text
+  seoKeywords String?  @map("seo_keywords")
+  metaDescription String? @map("meta_description") @db.Text
+  featuredImage String? @map("featured_image")
+  status      String   @default("DRAFT") // DRAFT, SCHEDULED, PUBLISHED
+  publishedAt DateTime? @map("published_at")
+  calendarItemId String? @unique @map("calendar_item_id")
+  calendarItem   ContentCalendarItem? @relation(fields: [calendarItemId], references: [id], onDelete: SetNull)
+  analytics      ContentAnalytics[]
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([publishedAt])
+  @@map("blog_posts")
+}
+
+// Email Newsletters
+model EmailNewsletter {
+  id          String   @id @default(uuid())
+  strategyId  String?  @map("strategy_id")
+  strategy    MarketingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  subject     String
+  content     String   @db.Text
+  htmlContent String?  @map("html_content") @db.Text
+  status      String   @default("DRAFT") // DRAFT, SCHEDULED, SENT
+  sentAt      DateTime? @map("sent_at")
+  recipientCount Int?   @map("recipient_count")
+  openRate    Float?   @map("open_rate")
+  clickRate   Float?   @map("click_rate")
+  calendarItemId String? @unique @map("calendar_item_id")
+  calendarItem   ContentCalendarItem? @relation(fields: [calendarItemId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([sentAt])
+  @@map("email_newsletters")
+}
+
+// Content Analytics - Performance metrics
+model ContentAnalytics {
+  id          String   @id @default(uuid())
+  socialPostId String? @map("social_post_id")
+  blogPostId   String? @map("blog_post_id")
+  contentType String   @map("content_type") // SOCIAL_POST, BLOG_POST
+  platform    String?  // For social posts
+  
+  // Engagement metrics
+  impressions Int      @default(0)
+  reach       Int      @default(0)
+  likes       Int      @default(0)
+  comments    Int      @default(0)
+  shares      Int      @default(0)
+  clicks      Int      @default(0)
+  saves       Int      @default(0)
+  
+  // Calculated metrics
+  engagementRate Float? @map("engagement_rate")
+  clickThroughRate Float? @map("click_through_rate")
+  
+  // Relations
+  socialPost  SocialMediaPost? @relation(fields: [socialPostId], references: [id], onDelete: Cascade)
+  blogPost    BlogPost? @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+  
+  recordedAt  DateTime  @default(now()) @map("recorded_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([socialPostId])
+  @@index([blogPostId])
+  @@index([recordedAt])
+  @@map("content_analytics")
 }
 
 // Session model for authentication
