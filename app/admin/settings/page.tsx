@@ -49,10 +49,35 @@ export default function AdminSettingsPage() {
   const [testGoogleResult, setTestGoogleResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [testResendResult, setTestResendResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [testStripeResult, setTestStripeResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
+  const [isTestingPush, setIsTestingPush] = useState(false)
+  const [pushTestResult, setPushTestResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
+  const [hasFCMToken, setHasFCMToken] = useState(false)
+  const [testNotificationTitle, setTestNotificationTitle] = useState('Test Notification')
+  const [testNotificationBody, setTestNotificationBody] = useState('This is a test push notification!')
 
   useEffect(() => {
     fetchSettings()
+    checkNotificationStatus()
   }, [])
+
+  const checkNotificationStatus = async () => {
+    // Check browser notification permission
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotificationPermission(Notification.permission)
+    }
+
+    // Check if user has FCM token registered
+    try {
+      const response = await fetch('/api/fcm/status')
+      if (response.ok) {
+        const data = await response.json()
+        setHasFCMToken(data.hasToken || false)
+      }
+    } catch (error) {
+      console.error('Failed to check FCM status:', error)
+    }
+  }
 
   const fetchSettings = async () => {
     try {
@@ -365,6 +390,116 @@ export default function AdminSettingsPage() {
       })
     } finally {
       setIsTestingStripe(false)
+    }
+  }
+
+  const handleRequestNotificationPermission = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      showToast({
+        type: 'error',
+        title: 'Not Supported',
+        description: 'Your browser does not support notifications',
+      })
+      return
+    }
+
+    try {
+      const permission = await Notification.requestPermission()
+      setNotificationPermission(permission)
+
+      if (permission === 'granted') {
+        showToast({
+          type: 'success',
+          title: 'Permission Granted',
+          description: 'Notification permission granted! The FCM token will be registered automatically.',
+        })
+        // Refresh status after a short delay to allow token registration
+        setTimeout(() => {
+          checkNotificationStatus()
+        }, 2000)
+      } else {
+        showToast({
+          type: 'error',
+          title: 'Permission Denied',
+          description: 'Please allow notifications to test push notifications',
+        })
+      }
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to request permission',
+      })
+    }
+  }
+
+  const handleTestPushNotification = async () => {
+    setIsTestingPush(true)
+    setPushTestResult(null)
+
+    try {
+      // Get current user ID
+      const userResponse = await fetch('/api/auth/me')
+      if (!userResponse.ok) {
+        throw new Error('Failed to get user ID')
+      }
+      const userData = await userResponse.json()
+      const userId = userData.user?.id
+
+      if (!userId) {
+        throw new Error('User not found')
+      }
+
+      // Send test notification
+      const response = await fetch('/api/fcm/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userIds: [userId],
+          title: testNotificationTitle,
+          body: testNotificationBody,
+          data: {
+            type: 'TEST',
+            url: '/admin/settings',
+          },
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setPushTestResult({
+          success: true,
+          message: `✅ Notification sent! (${data.sent || 0} sent, ${data.failed || 0} failed)`,
+        })
+        showToast({
+          type: 'success',
+          title: 'Test Notification Sent',
+          description: 'Check your browser for the push notification!',
+        })
+      } else {
+        setPushTestResult({
+          success: false,
+          error: data.message || data.error || 'Failed to send notification',
+        })
+        showToast({
+          type: 'error',
+          title: 'Test Failed',
+          description: data.message || data.error || 'Please check your Firebase configuration',
+        })
+      }
+    } catch (error: any) {
+      setPushTestResult({
+        success: false,
+        error: error.message || 'Failed to send test notification',
+      })
+      showToast({
+        type: 'error',
+        title: 'Test Failed',
+        description: error.message || 'Could not send test notification',
+      })
+    } finally {
+      setIsTestingPush(false)
     }
   }
 
@@ -903,6 +1038,108 @@ export default function AdminSettingsPage() {
                   <li>Go to Cloud Messaging tab → Generate VAPID key pair if needed → Copy public key</li>
                   <li>Paste the entire Service Account JSON file content above</li>
                 </ol>
+              </div>
+
+              {/* Test Push Notifications */}
+              <div className="mt-6 pt-6 border-t border-bg-tertiary">
+                <h4 className="text-md font-semibold text-white mb-4">Test Push Notifications</h4>
+                
+                {/* Status */}
+                <div className="mb-4 p-3 bg-bg-tertiary rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-text-secondary">Browser Permission:</span>
+                    <span className={`text-sm font-medium ${
+                      notificationPermission === 'granted' ? 'text-green-400' :
+                      notificationPermission === 'denied' ? 'text-red-400' :
+                      'text-yellow-400'
+                    }`}>
+                      {notificationPermission === 'granted' ? '✅ Granted' :
+                       notificationPermission === 'denied' ? '❌ Denied' :
+                       '⚠️ Not Set'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-text-secondary">FCM Token Registered:</span>
+                    <span className={`text-sm font-medium ${
+                      hasFCMToken ? 'text-green-400' : 'text-yellow-400'
+                    }`}>
+                      {hasFCMToken ? '✅ Yes' : '⚠️ No'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Request Permission Button */}
+                {notificationPermission !== 'granted' && (
+                  <div className="mb-4">
+                    <Button
+                      variant="secondary"
+                      onClick={handleRequestNotificationPermission}
+                    >
+                      Request Notification Permission
+                    </Button>
+                  </div>
+                )}
+
+                {/* Test Form */}
+                {notificationPermission === 'granted' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Test Notification Title
+                      </label>
+                      <input
+                        type="text"
+                        value={testNotificationTitle}
+                        onChange={(e) => setTestNotificationTitle(e.target.value)}
+                        placeholder="Test Notification"
+                        className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-white mb-2">
+                        Test Notification Body
+                      </label>
+                      <input
+                        type="text"
+                        value={testNotificationBody}
+                        onChange={(e) => setTestNotificationBody(e.target.value)}
+                        placeholder="This is a test push notification!"
+                        className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                      />
+                    </div>
+                    <Button
+                      variant="primary"
+                      onClick={handleTestPushNotification}
+                      isLoading={isTestingPush}
+                    >
+                      Send Test Notification
+                    </Button>
+
+                    {/* Test Result */}
+                    {pushTestResult && (
+                      <div className={`p-3 rounded-lg ${
+                        pushTestResult.success
+                          ? 'bg-green-500/20 border border-green-500/30 text-green-400'
+                          : 'bg-red-500/20 border border-red-500/30 text-red-400'
+                      }`}>
+                        <p className="text-sm font-medium">
+                          {pushTestResult.success ? '✅ Success' : '❌ Error'}
+                        </p>
+                        <p className="text-xs mt-1">
+                          {pushTestResult.message || pushTestResult.error}
+                        </p>
+                      </div>
+                    )}
+
+                    {!hasFCMToken && notificationPermission === 'granted' && (
+                      <div className="p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+                        <p className="text-xs text-yellow-400">
+                          ⚠️ No FCM token registered yet. Make sure you're logged in and have visited a page that initializes Firebase (like the homepage). The token will be registered automatically.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

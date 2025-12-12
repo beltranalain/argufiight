@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/db/prisma'
 import { sendPushNotifications } from '@/lib/firebase/fcm-client'
+import { isNotificationTypeEnabled } from './notification-preferences'
 
 /**
  * Send push notification when it's a user's turn in a debate
@@ -15,6 +16,13 @@ export async function sendYourTurnPushNotification(
   debateTopic: string
 ): Promise<void> {
   try {
+    // Check if DEBATE_TURN notifications are enabled
+    const isEnabled = await isNotificationTypeEnabled('DEBATE_TURN')
+    if (!isEnabled) {
+      console.log(`[Push Notification] DEBATE_TURN notifications are disabled, skipping`)
+      return
+    }
+
     // Get user's FCM tokens
     const tokens = await prisma.fCMToken.findMany({
       where: { userId },
@@ -59,6 +67,13 @@ export async function sendPushNotificationForNotification(
   debateId?: string
 ): Promise<void> {
   try {
+    // Check if this notification type is enabled
+    const isEnabled = await isNotificationTypeEnabled(notificationType)
+    if (!isEnabled) {
+      console.log(`[Push Notification] ${notificationType} notifications are disabled, skipping`)
+      return
+    }
+
     // Get user's FCM tokens
     const tokens = await prisma.fCMToken.findMany({
       where: { userId },
