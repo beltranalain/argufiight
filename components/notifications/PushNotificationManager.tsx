@@ -64,6 +64,23 @@ export function PushNotificationManager() {
             
             // Wait for service worker to be ready
             await serviceWorkerRegistration.update()
+            
+            // Send Firebase config to service worker
+            if (serviceWorkerRegistration.active) {
+              serviceWorkerRegistration.active.postMessage({
+                type: 'FIREBASE_CONFIG',
+                config: config,
+              })
+            } else if (serviceWorkerRegistration.installing) {
+              serviceWorkerRegistration.installing.addEventListener('statechange', () => {
+                if (serviceWorkerRegistration.installing?.state === 'activated' && serviceWorkerRegistration.active) {
+                  serviceWorkerRegistration.active.postMessage({
+                    type: 'FIREBASE_CONFIG',
+                    config: config,
+                  })
+                }
+              })
+            }
           } catch (error) {
             console.error('[Push Notifications] Service worker registration failed:', error)
             return

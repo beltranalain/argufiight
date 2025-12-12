@@ -5,9 +5,7 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js')
 
-// Initialize Firebase - config will be set by the main app
-let messaging = null
-
+// Service worker lifecycle events
 self.addEventListener('install', (event) => {
   self.skipWaiting()
 })
@@ -16,54 +14,74 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim())
 })
 
-// Initialize Firebase when config is available
-// The main app will call this via postMessage or we'll fetch it
-async function initializeFirebase() {
-  try {
-    const response = await fetch('/api/firebase/config')
-    if (!response.ok) {
-      throw new Error('Failed to fetch Firebase config')
-    }
-    const config = await response.json()
-    
+// Initialize Firebase with config from main app
+// The main app will send the config via postMessage
+let firebaseConfig = null
+let messaging = null
+
+// Listen for config from main app
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'FIREBASE_CONFIG') {
+    firebaseConfig = event.data.config
+    initializeFirebase()
+  }
+})
+
+// Also try to fetch config on service worker startup
+fetch('/api/firebase/config')
+  .then((response) => response.json())
+  .then((config) => {
     if (config && config.apiKey) {
-      // Initialize Firebase if not already initialized
-      if (!firebase.apps || firebase.apps.length === 0) {
-        firebase.initializeApp({
-          apiKey: config.apiKey,
-          authDomain: config.authDomain,
-          projectId: config.projectId,
-          storageBucket: config.storageBucket,
-          messagingSenderId: config.messagingSenderId,
-          appId: config.appId,
-        })
-      }
+      firebaseConfig = config
+      initializeFirebase()
+    }
+  })
+  .catch((error) => {
+    console.error('[firebase-messaging-sw.js] Failed to fetch config:', error)
+  })
 
-      // Retrieve an instance of Firebase Messaging
-      messaging = firebase.messaging()
+// Initialize Firebase and register messaging handlers
+function initializeFirebase() {
+  if (!firebaseConfig || messaging) {
+    return
+  }
 
-      // Handle background messages
-      messaging.onBackgroundMessage((payload) => {
-        console.log('[firebase-messaging-sw.js] Received background message ', payload)
-
-        const notificationTitle = payload.notification?.title || 'New Notification'
-        const notificationOptions = {
-          body: payload.notification?.body || '',
-          icon: payload.notification?.icon || '/favicon.ico',
-          badge: '/favicon.ico',
-          data: payload.data || {},
-        }
-
-        return self.registration.showNotification(notificationTitle, notificationOptions)
+  try {
+    // Initialize Firebase if not already initialized
+    if (!firebase.apps || firebase.apps.length === 0) {
+      firebase.initializeApp({
+        apiKey: firebaseConfig.apiKey,
+        authDomain: firebaseConfig.authDomain,
+        projectId: firebaseConfig.projectId,
+        storageBucket: firebaseConfig.storageBucket,
+        messagingSenderId: firebaseConfig.messagingSenderId,
+        appId: firebaseConfig.appId,
       })
     }
+
+    // Retrieve an instance of Firebase Messaging
+    messaging = firebase.messaging()
+
+    // Handle background messages - MUST be registered synchronously
+    messaging.onBackgroundMessage((payload) => {
+      console.log('[firebase-messaging-sw.js] Received background message ', payload)
+
+      const notificationTitle = payload.notification?.title || 'New Notification'
+      const notificationOptions = {
+        body: payload.notification?.body || '',
+        icon: payload.notification?.icon || '/favicon.ico',
+        badge: '/favicon.ico',
+        data: payload.data || {},
+      }
+
+      return self.registration.showNotification(notificationTitle, notificationOptions)
+    })
+
+    console.log('[firebase-messaging-sw.js] Firebase initialized successfully')
   } catch (error) {
     console.error('[firebase-messaging-sw.js] Failed to initialize Firebase:', error)
   }
 }
-
-// Initialize on service worker activation
-initializeFirebase()
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
