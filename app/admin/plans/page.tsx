@@ -326,6 +326,35 @@ export default function PlansPage() {
     }
   }
 
+  const handleDeleteBoard = async (boardId: string) => {
+    if (!confirm('Are you sure you want to delete this board? All lists and cards will be permanently deleted.')) return
+
+    try {
+      const response = await fetch(`/api/admin/boards/${boardId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        const updatedBoards = boards.filter(b => b.id !== boardId)
+        setBoards(updatedBoards)
+        if (selectedBoard?.id === boardId) {
+          setSelectedBoard(updatedBoards.length > 0 ? updatedBoards[0] : null)
+        }
+        showToast({
+          type: 'success',
+          title: 'Board Deleted',
+          description: 'Board deleted successfully',
+        })
+      }
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to delete board',
+      })
+    }
+  }
+
   // Drag and drop handlers
   const handleCardDragStart = (card: Card) => {
     setDraggedCard(card)
@@ -489,13 +518,26 @@ export default function PlansPage() {
         <div className="space-y-4">
           {/* Board Header */}
           <div
-            className="rounded-lg p-6 text-white"
+            className="rounded-lg p-6 text-white relative"
             style={{ backgroundColor: selectedBoard.color }}
           >
-            <h2 className="text-2xl font-bold mb-2">{selectedBoard.name}</h2>
-            {selectedBoard.description && (
-              <p className="text-white/80">{selectedBoard.description}</p>
-            )}
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold mb-2">{selectedBoard.name}</h2>
+                {selectedBoard.description && (
+                  <p className="text-white/80">{selectedBoard.description}</p>
+                )}
+              </div>
+              <button
+                onClick={() => handleDeleteBoard(selectedBoard.id)}
+                className="ml-4 p-2 bg-white/20 hover:bg-red-500/80 rounded-lg transition-colors"
+                title="Delete board"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Lists Container - Horizontal Scroll */}
@@ -792,12 +834,15 @@ function ListColumn({
           </h3>
         )}
         <button
-          onClick={() => onDeleteList(list.id)}
-          className="text-text-secondary hover:text-red-400 transition-colors"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDeleteList(list.id)
+          }}
+          className="p-1.5 text-text-secondary hover:text-red-400 hover:bg-red-500/20 rounded transition-colors"
           title="Delete list"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
         </button>
       </div>
@@ -896,20 +941,20 @@ function CardItem({
             </div>
           )}
         </div>
-        {isHovered && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete()
-            }}
-            className="text-text-secondary hover:text-red-400 transition-colors"
-            title="Delete card"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+          className={`p-1.5 text-text-secondary hover:text-red-400 hover:bg-red-500/20 rounded transition-colors ${
+            isHovered ? 'opacity-100' : 'opacity-0'
+          }`}
+          title="Delete card"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
       </div>
     </div>
   )
@@ -1096,13 +1141,46 @@ function CardModal({
           </div>
         )}
 
-        <div className="flex justify-end gap-4 pt-4 border-t border-bg-tertiary">
-          <Button variant="secondary" onClick={onClose}>
-            {card ? 'Close' : 'Cancel'}
-          </Button>
-          <Button onClick={onSave}>
-            {card ? 'Save' : 'Create'}
-          </Button>
+        <div className="flex justify-between items-center pt-4 border-t border-bg-tertiary">
+          {card && (
+            <button
+              onClick={async () => {
+                if (confirm('Are you sure you want to delete this card? This action cannot be undone.')) {
+                  try {
+                    const response = await fetch(`/api/admin/cards/${card.id}`, {
+                      method: 'DELETE',
+                    })
+                    if (response.ok) {
+                      showToast({
+                        type: 'success',
+                        title: 'Card Deleted',
+                        description: 'Card deleted successfully',
+                      })
+                      onClose()
+                      window.location.reload()
+                    }
+                  } catch (error) {
+                    showToast({
+                      type: 'error',
+                      title: 'Error',
+                      description: 'Failed to delete card',
+                    })
+                  }
+                }
+              }}
+              className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors text-sm font-medium"
+            >
+              Delete Card
+            </button>
+          )}
+          <div className="flex gap-4 ml-auto">
+            <Button variant="secondary" onClick={onClose}>
+              {card ? 'Close' : 'Cancel'}
+            </Button>
+            <Button onClick={onSave}>
+              {card ? 'Save' : 'Create'}
+            </Button>
+          </div>
         </div>
       </div>
     </Modal>
