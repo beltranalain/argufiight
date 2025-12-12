@@ -14,13 +14,40 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    // Parse JSON fields
-    const parsedStrategies = strategies.map((s) => ({
-      ...s,
-      goals: JSON.parse(s.goals || '[]'),
-      themes: JSON.parse(s.themes || '[]'),
-      platforms: JSON.parse(s.platforms || '[]'),
-    }))
+    // Parse JSON fields with error handling
+    const parsedStrategies = strategies.map((s) => {
+      let goals: string[] = []
+      let themes: string[] = []
+      let platforms: string[] = []
+      
+      try {
+        goals = JSON.parse(s.goals || '[]')
+        if (!Array.isArray(goals)) goals = []
+      } catch {
+        goals = []
+      }
+      
+      try {
+        themes = JSON.parse(s.themes || '[]')
+        if (!Array.isArray(themes)) themes = []
+      } catch {
+        themes = []
+      }
+      
+      try {
+        platforms = JSON.parse(s.platforms || '[]')
+        if (!Array.isArray(platforms)) platforms = []
+      } catch {
+        platforms = []
+      }
+      
+      return {
+        ...s,
+        goals,
+        themes,
+        platforms,
+      }
+    })
 
     return NextResponse.json({ strategies: parsedStrategies })
   } catch (error: any) {

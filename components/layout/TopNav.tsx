@@ -68,6 +68,7 @@ export function TopNav({ currentPanel }: TopNavProps) {
       }
     } catch (error) {
       // Network error - assume not an advertiser
+      // Silently fail - don't log 404s as errors
       setIsAdvertiser(false)
     }
   }

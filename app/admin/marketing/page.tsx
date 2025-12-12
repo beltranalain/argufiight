@@ -275,18 +275,18 @@ export default function MarketingDashboardPage() {
                             <p className="text-sm text-text-secondary mb-3">{strategy.description}</p>
                           )}
                           <div className="flex flex-wrap gap-2 mb-2">
-                            {strategy.goals.map((goal, idx) => (
+                            {Array.isArray(strategy.goals) ? strategy.goals.map((goal, idx) => (
                               <Badge key={idx} variant="default" className="text-xs">
-                                {goal}
+                                {typeof goal === 'string' ? goal : JSON.stringify(goal)}
                               </Badge>
-                            ))}
+                            )) : null}
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            {strategy.platforms.map((platform, idx) => (
+                            {Array.isArray(strategy.platforms) ? strategy.platforms.map((platform, idx) => (
                               <Badge key={idx} className="bg-electric-blue/20 text-electric-blue text-xs">
-                                {platform}
+                                {typeof platform === 'string' ? platform : JSON.stringify(platform)}
                               </Badge>
-                            ))}
+                            )) : null}
                           </div>
                           {strategy.frequency && (
                             <p className="text-xs text-text-muted mt-2">
