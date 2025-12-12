@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
         aiPersonality: true,
         aiResponseDelay: true,
         aiPaused: true,
+        googleId: true,
         createdAt: true,
       },
     })
