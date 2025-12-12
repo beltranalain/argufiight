@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 // DELETE /api/admin/cards/[id]/attachments/[attachmentId] - Remove attachment from card
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; attachmentId: string } }
+  { params }: { params: Promise<{ id: string; attachmentId: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -13,8 +13,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { attachmentId } = await params
     await prisma.cardAttachment.delete({
-      where: { id: params.attachmentId },
+      where: { id: attachmentId },
     })
 
     return NextResponse.json({ success: true })

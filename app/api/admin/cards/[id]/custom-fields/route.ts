@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 // POST /api/admin/cards/[id]/custom-fields - Add custom field to card
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -13,6 +13,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const body = await request.json()
     const { name, value, fieldType } = body
 
@@ -22,13 +23,13 @@ export async function POST(
 
     // Get current max position
     const maxField = await prisma.cardCustomField.findFirst({
-      where: { cardId: params.id },
+      where: { cardId: id },
       orderBy: { position: 'desc' },
     })
 
     const customField = await prisma.cardCustomField.create({
       data: {
-        cardId: params.id,
+        cardId: id,
         name,
         value: value || '',
         fieldType: fieldType || 'text',
@@ -49,7 +50,7 @@ export async function POST(
 // GET /api/admin/cards/[id]/custom-fields - Get all custom fields for a card
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -57,8 +58,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const customFields = await prisma.cardCustomField.findMany({
-      where: { cardId: params.id },
+      where: { cardId: id },
       orderBy: { position: 'asc' },
     })
 

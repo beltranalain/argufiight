@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 // POST /api/admin/cards/[id]/attachments - Add attachment to card
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -13,6 +13,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const body = await request.json()
     const { name, url, type, mimeType, fileSize } = body
 
@@ -22,7 +23,7 @@ export async function POST(
 
     const attachment = await prisma.cardAttachment.create({
       data: {
-        cardId: params.id,
+        cardId: id,
         name,
         url,
         type: type || 'link',
@@ -45,7 +46,7 @@ export async function POST(
 // GET /api/admin/cards/[id]/attachments - Get all attachments for a card
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -53,8 +54,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const attachments = await prisma.cardAttachment.findMany({
-      where: { cardId: params.id },
+      where: { cardId: id },
       orderBy: { createdAt: 'desc' },
     })
 

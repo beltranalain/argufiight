@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 // POST /api/admin/cards/[id]/members - Add member to card
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -13,6 +13,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const body = await request.json()
     const { userId: memberUserId } = body
 
@@ -22,7 +23,7 @@ export async function POST(
 
     const member = await prisma.cardMember.create({
       data: {
-        cardId: params.id,
+        cardId: id,
         userId: memberUserId,
       },
       include: {
@@ -53,7 +54,7 @@ export async function POST(
 // GET /api/admin/cards/[id]/members - Get all members for a card
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -61,8 +62,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const members = await prisma.cardMember.findMany({
-      where: { cardId: params.id },
+      where: { cardId: id },
       include: {
         user: {
           select: {

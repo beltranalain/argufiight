@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 // DELETE /api/admin/cards/[id]/members/[memberId] - Remove member from card
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; memberId: string } }
+  { params }: { params: Promise<{ id: string; memberId: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -13,8 +13,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { memberId } = await params
     await prisma.cardMember.delete({
-      where: { id: params.memberId },
+      where: { id: memberId },
     })
 
     return NextResponse.json({ success: true })

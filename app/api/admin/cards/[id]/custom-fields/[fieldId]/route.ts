@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 // PATCH /api/admin/cards/[id]/custom-fields/[fieldId] - Update custom field
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; fieldId: string } }
+  { params }: { params: Promise<{ id: string; fieldId: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -13,11 +13,12 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { fieldId } = await params
     const body = await request.json()
     const { name, value, fieldType } = body
 
     const customField = await prisma.cardCustomField.update({
-      where: { id: params.fieldId },
+      where: { id: fieldId },
       data: {
         ...(name !== undefined && { name }),
         ...(value !== undefined && { value }),
@@ -38,7 +39,7 @@ export async function PATCH(
 // DELETE /api/admin/cards/[id]/custom-fields/[fieldId] - Remove custom field
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; fieldId: string } }
+  { params }: { params: Promise<{ id: string; fieldId: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -46,8 +47,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { fieldId } = await params
     await prisma.cardCustomField.delete({
-      where: { id: params.fieldId },
+      where: { id: fieldId },
     })
 
     return NextResponse.json({ success: true })

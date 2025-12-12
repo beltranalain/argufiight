@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 // POST /api/admin/cards/[id]/checklists/[checklistId]/items - Add item to checklist
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string; checklistId: string } }
+  { params }: { params: Promise<{ id: string; checklistId: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -13,6 +13,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { checklistId } = await params
     const body = await request.json()
     const { text } = body
 
@@ -22,13 +23,13 @@ export async function POST(
 
     // Get current max position
     const maxItem = await prisma.cardChecklistItem.findFirst({
-      where: { checklistId: params.checklistId },
+      where: { checklistId },
       orderBy: { position: 'desc' },
     })
 
     const item = await prisma.cardChecklistItem.create({
       data: {
-        checklistId: params.checklistId,
+        checklistId,
         text,
         position: (maxItem?.position || 0) + 1,
       },

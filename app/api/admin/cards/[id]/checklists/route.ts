@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 // POST /api/admin/cards/[id]/checklists - Create a checklist
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -13,6 +13,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const body = await request.json()
     const { title } = body
 
@@ -22,7 +23,7 @@ export async function POST(
 
     const checklist = await prisma.cardChecklist.create({
       data: {
-        cardId: params.id,
+        cardId: id,
         title: title || 'Checklist',
       },
       include: {
@@ -43,7 +44,7 @@ export async function POST(
 // GET /api/admin/cards/[id]/checklists - Get all checklists for a card
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const userId = await verifyAdmin()
@@ -51,8 +52,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     const checklists = await prisma.cardChecklist.findMany({
-      where: { cardId: params.id },
+      where: { cardId: id },
       include: {
         items: {
           orderBy: { position: 'asc' },
