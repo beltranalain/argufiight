@@ -24,6 +24,32 @@ export async function GET(
               where: { isArchived: false },
               include: {
                 labels: true,
+                checklists: {
+                  include: {
+                    items: {
+                      orderBy: { position: 'asc' },
+                    },
+                  },
+                  orderBy: { position: 'asc' },
+                },
+                members: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        email: true,
+                        avatarUrl: true,
+                      },
+                    },
+                  },
+                },
+                attachments: {
+                  orderBy: { createdAt: 'desc' },
+                },
+                customFields: {
+                  orderBy: { position: 'asc' },
+                },
               },
               orderBy: { position: 'asc' },
             },

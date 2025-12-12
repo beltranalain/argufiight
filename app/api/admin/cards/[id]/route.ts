@@ -18,6 +18,32 @@ export async function GET(
       where: { id },
       include: {
         labels: true,
+        checklists: {
+          include: {
+            items: {
+              orderBy: { position: 'asc' },
+            },
+          },
+          orderBy: { position: 'asc' },
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+        attachments: {
+          orderBy: { createdAt: 'desc' },
+        },
+        customFields: {
+          orderBy: { position: 'asc' },
+        },
         list: {
           include: {
             board: true,
@@ -53,7 +79,7 @@ export async function PATCH(
 
     const { id } = await params
     const body = await request.json()
-    const { title, description, listId, position, dueDate, isArchived } = body
+    const { title, description, listId, position, dueDate, startDate, reminderDate, location, latitude, longitude, isArchived } = body
 
     const card = await prisma.card.update({
       where: { id },
@@ -63,10 +89,41 @@ export async function PATCH(
         ...(listId !== undefined && { listId }),
         ...(position !== undefined && { position }),
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
+        ...(startDate !== undefined && { startDate: startDate ? new Date(startDate) : null }),
+        ...(reminderDate !== undefined && { reminderDate: reminderDate ? new Date(reminderDate) : null }),
+        ...(location !== undefined && { location }),
+        ...(latitude !== undefined && { latitude }),
+        ...(longitude !== undefined && { longitude }),
         ...(isArchived !== undefined && { isArchived }),
       },
       include: {
         labels: true,
+        checklists: {
+          include: {
+            items: {
+              orderBy: { position: 'asc' },
+            },
+          },
+          orderBy: { position: 'asc' },
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+        attachments: {
+          orderBy: { createdAt: 'desc' },
+        },
+        customFields: {
+          orderBy: { position: 'asc' },
+        },
       },
     })
 

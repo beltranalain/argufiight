@@ -139,6 +139,7 @@ model User {
 
   // FCM Push Notification Tokens
   fcmTokens FCMToken[] @relation("FCMTokens")
+  cardMembers CardMember[] @relation("CardMembers")
 
   // Direct messages
   sentMessages         DirectMessage[] @relation("MessageSender")
@@ -2365,8 +2366,17 @@ model Card {
   description String? // Rich text description
   position    Int         @default(0) // For ordering cards within a list
   dueDate     DateTime?   @map("due_date")
+  startDate   DateTime?   @map("start_date")
+  reminderDate DateTime?  @map("reminder_date")
+  location    String?     // Address or location name
+  latitude    Float?      // For map view
+  longitude   Float?      // For map view
   isArchived  Boolean     @default(false) @map("is_archived")
   labels      CardLabel[]
+  checklists  CardChecklist[]
+  members     CardMember[]
+  attachments CardAttachment[]
+  customFields CardCustomField[]
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
@@ -2385,4 +2395,81 @@ model CardLabel {
 
   @@index([cardId])
   @@map("card_labels")
+}
+
+// Checklist for cards (subtasks)
+model CardChecklist {
+  id        String   @id @default(uuid())
+  cardId    String   @map("card_id")
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  title     String   @default("Checklist")
+  items     CardChecklistItem[]
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([cardId])
+  @@map("card_checklists")
+}
+
+model CardChecklistItem {
+  id          String          @id @default(uuid())
+  checklistId String          @map("checklist_id")
+  checklist   CardChecklist   @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  text        String
+  isCompleted Boolean         @default(false) @map("is_completed")
+  position    Int             @default(0)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  @@index([checklistId])
+  @@map("card_checklist_items")
+}
+
+// Members assigned to cards
+model CardMember {
+  id        String   @id @default(uuid())
+  cardId    String   @map("card_id")
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id")
+  user      User     @relation("CardMembers", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([cardId, userId])
+  @@index([cardId])
+  @@index([userId])
+  @@map("card_members")
+}
+
+// Attachments (links, files, work items)
+model CardAttachment {
+  id          String   @id @default(uuid())
+  cardId      String   @map("card_id")
+  card        Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  name        String
+  url         String
+  type        String   // "link", "file", "work_item"
+  mimeType    String?  @map("mime_type")
+  fileSize    Int?     @map("file_size")
+  uploadedBy  String?  @map("uploaded_by") // User ID
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([cardId])
+  @@map("card_attachments")
+}
+
+// Custom fields for cards
+model CardCustomField {
+  id        String   @id @default(uuid())
+  cardId    String   @map("card_id")
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  name      String
+  value     String   @db.Text
+  fieldType String   @default("text") @map("field_type") // "text", "number", "date", "dropdown", "checkbox"
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([cardId])
+  @@map("card_custom_fields")
 }

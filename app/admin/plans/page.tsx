@@ -6,6 +6,7 @@ import { Modal } from '@/components/ui/Modal'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { RichTextEditor } from '@/components/admin/RichTextEditor'
+import { CardModalEnhanced } from '@/components/admin/CardModalEnhanced'
 
 interface Board {
   id: string
@@ -36,8 +37,44 @@ interface Card {
   description: string | null
   position: number
   dueDate: string | null
+  startDate: string | null
+  reminderDate: string | null
+  location: string | null
+  latitude: number | null
+  longitude: number | null
   isArchived: boolean
   labels: CardLabel[]
+  checklists?: Array<{
+    id: string
+    title: string
+    items: Array<{
+      id: string
+      text: string
+      isCompleted: boolean
+    }>
+  }>
+  members?: Array<{
+    id: string
+    userId: string
+    user: {
+      id: string
+      username: string
+      email: string
+      avatarUrl: string | null
+    }
+  }>
+  attachments?: Array<{
+    id: string
+    name: string
+    url: string
+    type: string
+  }>
+  customFields?: Array<{
+    id: string
+    name: string
+    value: string
+    fieldType: string
+  }>
   createdAt: string
   updatedAt: string
 }
@@ -66,6 +103,9 @@ export default function PlansPage() {
   const [cardTitle, setCardTitle] = useState('')
   const [cardDescription, setCardDescription] = useState('')
   const [cardDueDate, setCardDueDate] = useState('')
+  const [cardStartDate, setCardStartDate] = useState('')
+  const [cardReminderDate, setCardReminderDate] = useState('')
+  const [cardLocation, setCardLocation] = useState('')
 
   useEffect(() => {
     fetchBoards()
@@ -248,6 +288,9 @@ export default function PlansPage() {
           title: cardTitle,
           description: cardDescription || null,
           dueDate: cardDueDate || null,
+          startDate: cardStartDate || null,
+          reminderDate: cardReminderDate || null,
+          location: cardLocation || null,
         }),
       })
 
@@ -465,11 +508,17 @@ export default function PlansPage() {
       setCardTitle(card.title)
       setCardDescription(card.description || '')
       setCardDueDate(card.dueDate ? new Date(card.dueDate).toISOString().split('T')[0] : '')
+      setCardStartDate(card.startDate ? new Date(card.startDate).toISOString().split('T')[0] : '')
+      setCardReminderDate(card.reminderDate ? new Date(card.reminderDate).toISOString().slice(0, 16) : '')
+      setCardLocation(card.location || '')
     } else {
       setSelectedCard(null)
       setCardTitle('')
       setCardDescription('')
       setCardDueDate('')
+      setCardStartDate('')
+      setCardReminderDate('')
+      setCardLocation('')
       if (listId) {
         // Store listId for creating new card
         (window as any).__tempListId = listId
@@ -668,14 +717,20 @@ export default function PlansPage() {
 
       {/* Card Modal */}
       {isCardModalOpen && (
-        <CardModal
+        <CardModalEnhanced
           card={selectedCard}
           title={cardTitle}
           description={cardDescription}
           dueDate={cardDueDate}
+          startDate={cardStartDate}
+          reminderDate={cardReminderDate}
+          location={cardLocation}
           onTitleChange={setCardTitle}
           onDescriptionChange={setCardDescription}
           onDueDateChange={setCardDueDate}
+          onStartDateChange={setCardStartDate}
+          onReminderDateChange={setCardReminderDate}
+          onLocationChange={setCardLocation}
           onSave={() => {
             if (selectedCard) {
               handleUpdateCard()
@@ -692,7 +747,15 @@ export default function PlansPage() {
             setCardTitle('')
             setCardDescription('')
             setCardDueDate('')
+            setCardStartDate('')
+            setCardReminderDate('')
+            setCardLocation('')
             delete (window as any).__tempListId
+          }}
+          onRefresh={() => {
+            if (selectedBoard) {
+              fetchBoard(selectedBoard.id)
+            }
           }}
         />
       )}
