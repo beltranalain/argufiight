@@ -281,15 +281,58 @@ export default function MarketingDashboardPage() {
                               </Badge>
                             )) : null}
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            {Array.isArray(strategy.platforms) ? strategy.platforms.map((platform, idx) => (
-                              <Badge key={idx} className="bg-electric-blue/20 text-electric-blue text-xs">
-                                {typeof platform === 'string' ? platform : JSON.stringify(platform)}
-                              </Badge>
-                            )) : null}
-                          </div>
+                          {/* Platform-Specific Content Mix */}
+                          {Array.isArray(strategy.platforms) && strategy.platforms.length > 0 && (
+                            <div className="mt-4 space-y-3">
+                              <h4 className="text-sm font-semibold text-white">Platform-Specific Content Mix</h4>
+                              {strategy.platforms.map((platform, idx) => {
+                                // Handle both string and object formats
+                                let platformData: any = platform
+                                if (typeof platform === 'string') {
+                                  try {
+                                    platformData = JSON.parse(platform)
+                                  } catch {
+                                    // If it's not JSON, treat it as a simple platform name
+                                    return (
+                                      <Badge key={idx} className="bg-electric-blue/20 text-electric-blue text-xs">
+                                        {platform}
+                                      </Badge>
+                                    )
+                                  }
+                                }
+                                
+                                // If it's an object with platform, frequency, content_mix
+                                if (platformData && typeof platformData === 'object' && platformData.platform) {
+                                  return (
+                                    <div key={idx} className="p-3 bg-electric-blue/10 border border-electric-blue/30 rounded-lg">
+                                      <div className="flex items-start justify-between mb-2">
+                                        <h5 className="font-semibold text-electric-blue">{platformData.platform}</h5>
+                                        {platformData.frequency && (
+                                          <Badge className="bg-electric-blue/20 text-electric-blue text-xs">
+                                            {platformData.frequency}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {platformData.content_mix && (
+                                        <p className="text-sm text-text-secondary leading-relaxed">
+                                          {platformData.content_mix}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )
+                                }
+                                
+                                // Fallback for simple string platforms
+                                return (
+                                  <Badge key={idx} className="bg-electric-blue/20 text-electric-blue text-xs">
+                                    {typeof platform === 'string' ? platform : platformData?.platform || 'Platform'}
+                                  </Badge>
+                                )
+                              })}
+                            </div>
+                          )}
                           {strategy.frequency && (
-                            <p className="text-xs text-text-muted mt-2">
+                            <p className="text-xs text-text-secondary mt-2">
                               Frequency: {strategy.frequency}
                             </p>
                           )}
