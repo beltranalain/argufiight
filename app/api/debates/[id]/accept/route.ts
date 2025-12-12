@@ -169,17 +169,18 @@ export async function POST(
           },
         })
 
-        // Notify all participants that debate has started
+        // Notify all participants that debate has started (with push notifications)
+        const { createDebateNotification } = await import('@/lib/notifications/debateNotifications')
         const participantIds = allParticipants.map(p => p.userId)
-        await prisma.notification.createMany({
-          data: participantIds.map(participantId => ({
-            userId: participantId,
-            type: 'DEBATE_ACCEPTED' as any,
-            title: 'Group Challenge Started',
-            message: `The group challenge "${debate.topic}" has started!`,
-            debateId: debate.id,
-          })),
-        })
+        for (const participantId of participantIds) {
+          await createDebateNotification(
+            debate.id,
+            participantId,
+            'DEBATE_ACCEPTED',
+            'Group Challenge Started',
+            `The group challenge "${debate.topic}" has started!`
+          )
+        }
       }
 
       // Fetch updated debate with participants
@@ -311,17 +312,16 @@ export async function POST(
       },
     })
 
-    // Notify challenger
+    // Notify challenger (with push notification)
     try {
-      await prisma.notification.create({
-        data: {
-          userId: debate.challengerId,
-          type: 'DEBATE_ACCEPTED',
-          title: 'Challenge Accepted',
-          message: `Your challenge "${debate.topic}" has been accepted!`,
-          debateId: debate.id,
-        },
-      })
+      const { createDebateNotification } = await import('@/lib/notifications/debateNotifications')
+      await createDebateNotification(
+        debate.id,
+        debate.challengerId,
+        'DEBATE_ACCEPTED',
+        'Challenge Accepted',
+        `Your challenge "${debate.topic}" has been accepted!`
+      )
     } catch (notifError) {
       console.error('Failed to create notification (non-fatal):', notifError)
       // Don't fail the request if notification creation fails

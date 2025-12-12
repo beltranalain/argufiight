@@ -433,6 +433,77 @@ export default function AdminSettingsPage() {
     }
   }
 
+  const handleRegisterToken = async () => {
+    try {
+      // Get Firebase config
+      const configResponse = await fetch('/api/firebase/config')
+      if (!configResponse.ok) {
+        throw new Error('Firebase not configured. Please save your Firebase settings first.')
+      }
+      const config = await configResponse.json()
+
+      if (!config.vapidKey) {
+        throw new Error('VAPID key is missing. Please add it in Firebase settings.')
+      }
+
+      // Initialize Firebase
+      const { initializeApp, getApps } = await import('firebase/app')
+      const { getMessaging, getToken } = await import('firebase/messaging')
+
+      let app
+      const apps = getApps()
+      if (apps.length === 0) {
+        app = initializeApp(config)
+      } else {
+        app = apps[0]
+      }
+
+      const messaging = getMessaging(app)
+
+      // Get FCM token
+      const token = await getToken(messaging, {
+        vapidKey: config.vapidKey,
+      })
+
+      if (!token) {
+        throw new Error('Failed to get FCM token. Make sure notifications are allowed.')
+      }
+
+      // Register token with server
+      const device = navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'
+      const response = await fetch('/api/fcm/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token,
+          device,
+          userAgent: navigator.userAgent,
+        }),
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Token Registered',
+          description: 'FCM token has been registered successfully!',
+        })
+        // Refresh status
+        setTimeout(() => {
+          checkNotificationStatus()
+        }, 1000)
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to register token')
+      }
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Registration Failed',
+        description: error.message || 'Failed to register FCM token',
+      })
+    }
+  }
+
   const handleTestPushNotification = async () => {
     setIsTestingPush(true)
     setPushTestResult(null)
@@ -1077,6 +1148,21 @@ export default function AdminSettingsPage() {
                     >
                       Request Notification Permission
                     </Button>
+                  </div>
+                )}
+
+                {/* Register Token Button */}
+                {notificationPermission === 'granted' && !hasFCMToken && (
+                  <div className="mb-4">
+                    <Button
+                      variant="primary"
+                      onClick={handleRegisterToken}
+                    >
+                      Register FCM Token Now
+                    </Button>
+                    <p className="text-xs text-text-secondary mt-2">
+                      Click this button to manually register your FCM token. This will initialize Firebase and register your device for push notifications.
+                    </p>
                   </div>
                 )}
 

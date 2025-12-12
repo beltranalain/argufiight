@@ -482,28 +482,34 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Create notifications for invited users
+    // Create notifications for invited users (with push notifications)
     if (invitedUserIds && invitedUserIds.length > 0 && debate) {
       const challenger = await prisma.user.findUnique({
         where: { id: userId },
         select: { username: true },
       })
 
-      const notificationData = invitedUserIds.map((invitedUserId: string) => ({
-        userId: invitedUserId,
-        type: (challengeType === 'DIRECT' ? 'DEBATE_INVITATION' : 'DEBATE_INVITATION') as any, // DEBATE_GROUP_INVITATION not in enum
-        title: challengeType === 'DIRECT' 
-          ? 'Direct Challenge Received'
-          : 'Group Challenge Invitation',
-        message: challengeType === 'DIRECT'
-          ? `${challenger?.username || 'Someone'} has challenged you to a debate: "${topic}"`
-          : `${challenger?.username || 'Someone'} has invited you to a group challenge: "${topic}"`,
-        debateId: debate.id,
-      }))
+      // Import the notification function
+      const { createDebateNotification } = await import('@/lib/notifications/debateNotifications')
 
-      await prisma.notification.createMany({
-        data: notificationData,
-      })
+      // Create notifications for each invited user (this will also send push notifications)
+      for (const invitedUserId of invitedUserIds) {
+        const notificationType = challengeType === 'DIRECT' ? 'DEBATE_INVITATION' : 'DEBATE_GROUP_INVITATION'
+        const title = challengeType === 'DIRECT' 
+          ? 'Direct Challenge Received'
+          : 'Group Challenge Invitation'
+        const message = challengeType === 'DIRECT'
+          ? `${challenger?.username || 'Someone'} has challenged you to a debate: "${topic}"`
+          : `${challenger?.username || 'Someone'} has invited you to a group challenge: "${topic}"`
+
+        await createDebateNotification(
+          debate.id,
+          invitedUserId,
+          notificationType,
+          title,
+          message
+        )
+      }
     }
 
     if (!debate) {
