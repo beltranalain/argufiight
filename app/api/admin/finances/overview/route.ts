@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
             status: 'paid',
             expand: ['data.subscription', 'data.customer'],
             starting_after: startingAfter,
-          })
+          }) as Stripe.Response<Stripe.ApiList<Stripe.Invoice>>
           
           allInvoices = [...allInvoices, ...invoiceList.data]
           hasMore = invoiceList.has_more
@@ -87,14 +87,14 @@ export async function GET(request: NextRequest) {
         
         for (const invoice of allInvoices) {
           // Check if this is a subscription invoice
-          const subscriptionId = invoice.subscription 
-            ? (typeof invoice.subscription === 'string' 
-                ? invoice.subscription 
-                : (invoice.subscription as Stripe.Subscription)?.id)
+          const subscriptionId = (invoice as any).subscription 
+            ? (typeof (invoice as any).subscription === 'string' 
+                ? (invoice as any).subscription 
+                : ((invoice as any).subscription as Stripe.Subscription)?.id)
             : null
           
           // Check if invoice has subscription line items
-          const hasSubscriptionLine = invoice.lines?.data?.some(line => line.type === 'subscription')
+          const hasSubscriptionLine = invoice.lines?.data?.some((line: any) => line.type === 'subscription')
           
           // Only count subscription-related invoices (for subscription revenue)
           // But we'll include all paid invoices in transactions
@@ -132,16 +132,17 @@ export async function GET(request: NextRequest) {
               customerEmail = invoice.customer_email
             }
             
+            const invoiceAny = invoice as any
             subscriptionTransactions.push({
               id: invoice.id,
               type: 'subscription',
               amount,
-              stripeFee: invoice.application_fee_amount ? invoice.application_fee_amount / 100 : 0,
-              netAmount: amount - (invoice.application_fee_amount ? invoice.application_fee_amount / 100 : 0),
+              stripeFee: invoiceAny.application_fee_amount ? invoiceAny.application_fee_amount / 100 : 0,
+              netAmount: amount - (invoiceAny.application_fee_amount ? invoiceAny.application_fee_amount / 100 : 0),
               date: new Date(invoice.created * 1000),
               user: subscription?.user || { email: customerEmail || 'Unknown', username: 'Unknown' },
               subscriptionId: subscriptionId,
-              invoiceUrl: invoice.hosted_invoice_url,
+              invoiceUrl: invoiceAny.hosted_invoice_url,
             })
             
             console.log(`[Finances] Added invoice ${invoice.id}: $${amount} (subscription: ${subscriptionId || 'none'})`)
