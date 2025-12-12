@@ -7,6 +7,9 @@ import { Input } from '@/components/ui/Input'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
+import { ContentCalendar } from '@/components/admin/marketing/ContentCalendar'
+import { ContentGenerators } from '@/components/admin/marketing/ContentGenerators'
+import { AnalyticsDashboard } from '@/components/admin/marketing/AnalyticsDashboard'
 
 interface MarketingStrategy {
   id: string
@@ -303,62 +306,14 @@ export default function MarketingDashboardPage() {
 
       {/* Calendar Tab */}
       {activeTab === 'calendar' && (
-        <Card>
-          <CardHeader>
-            <h2 className="text-xl font-bold text-white">Content Calendar</h2>
-            <p className="text-sm text-text-secondary mt-1">
-              Schedule and manage all your content in one place
-            </p>
-          </CardHeader>
-          <CardBody>
-            <p className="text-text-secondary text-center py-8">
-              Content calendar view coming soon...
-            </p>
-          </CardBody>
-        </Card>
+        <ContentCalendar />
       )}
 
       {/* Posts Tab */}
-      {activeTab === 'posts' && (
-        <Card>
-          <CardHeader>
-            <h2 className="text-xl font-bold text-white">Social Media Posts</h2>
-            <p className="text-sm text-text-secondary mt-1">
-              Generate and manage social media content
-            </p>
-          </CardHeader>
-          <CardBody>
-            <p className="text-text-secondary text-center py-8">
-              Redirecting to social posts page...
-            </p>
-            <div className="flex justify-center">
-              <Button
-                variant="primary"
-                onClick={() => (window.location.href = '/admin/social-posts')}
-              >
-                Go to Social Posts
-              </Button>
-            </div>
-          </CardBody>
-        </Card>
-      )}
+      {activeTab === 'posts' && <ContentGenerators />}
 
       {/* Analytics Tab */}
-      {activeTab === 'analytics' && (
-        <Card>
-          <CardHeader>
-            <h2 className="text-xl font-bold text-white">Content Analytics</h2>
-            <p className="text-sm text-text-secondary mt-1">
-              Track performance and identify what's working
-            </p>
-          </CardHeader>
-          <CardBody>
-            <p className="text-text-secondary text-center py-8">
-              Analytics dashboard coming soon...
-            </p>
-          </CardBody>
-        </Card>
-      )}
+      {activeTab === 'analytics' && <AnalyticsDashboard />}
     </div>
   )
 }
