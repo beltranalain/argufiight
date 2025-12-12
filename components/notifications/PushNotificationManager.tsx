@@ -122,9 +122,20 @@ export function PushNotificationManager() {
         // Handle foreground messages (when user is on the site)
         onMessage(messaging, (payload) => {
           console.log('[Push Notifications] Message received:', payload)
-          // You can show a custom notification or update UI
-          if (payload.notification) {
-            // Optionally show a toast or update notification count
+          
+          // Show browser notification even when tab is in foreground
+          if (payload.notification && 'Notification' in window && Notification.permission === 'granted') {
+            const title = payload.notification.title || 'New Notification'
+            const options: NotificationOptions = {
+              body: payload.notification.body || '',
+              icon: payload.notification.icon || '/favicon.ico',
+              badge: '/favicon.ico',
+              data: payload.data || {},
+              tag: payload.data?.type || 'notification',
+            }
+            
+            // Show the notification
+            new Notification(title, options)
           }
         })
       } catch (error: any) {
