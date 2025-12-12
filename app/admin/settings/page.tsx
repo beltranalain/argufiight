@@ -472,7 +472,7 @@ export default function AdminSettingsPage() {
         }
       }
 
-      const messaging = getMessaging(app, serviceWorkerRegistration || undefined)
+      const messaging = getMessaging(app)
 
       // Get FCM token
       const token = await getToken(messaging, {
