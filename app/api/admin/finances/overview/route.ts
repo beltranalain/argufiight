@@ -73,26 +73,30 @@ export async function GET(request: NextRequest) {
             : null
           
           if (subscriptionId) {
+            const amount = invoice.amount_paid / 100 // Convert from cents
+            subscriptionRevenue += amount
+            subscriptionCount++
+            
+            // Try to find matching subscription in database
             const subscription = subscriptions.find(
               s => s.stripeSubscriptionId === subscriptionId
             )
             
-            if (subscription) {
-              const amount = invoice.amount_paid / 100 // Convert from cents
-              subscriptionRevenue += amount
-              subscriptionCount++
-              
-              subscriptionTransactions.push({
-                id: invoice.id,
-                type: 'subscription',
-                amount,
-                stripeFee: (invoice as any).application_fee_amount ? (invoice as any).application_fee_amount / 100 : 0,
-                netAmount: amount - ((invoice as any).application_fee_amount ? (invoice as any).application_fee_amount / 100 : 0),
-                date: new Date(invoice.created * 1000),
-                user: subscription.user,
-                subscriptionId: subscriptionId,
-              })
-            }
+            // Get customer email from invoice
+            const customerEmail = typeof invoice.customer === 'string' 
+              ? null 
+              : (invoice.customer as any)?.email || invoice.customer_email
+            
+            subscriptionTransactions.push({
+              id: invoice.id,
+              type: 'subscription',
+              amount,
+              stripeFee: (invoice as any).application_fee_amount ? (invoice as any).application_fee_amount / 100 : 0,
+              netAmount: amount - ((invoice as any).application_fee_amount ? (invoice as any).application_fee_amount / 100 : 0),
+              date: new Date(invoice.created * 1000),
+              user: subscription?.user || { email: customerEmail || 'Unknown', username: 'Unknown' },
+              subscriptionId: subscriptionId,
+            })
           }
         }
       } catch (error) {

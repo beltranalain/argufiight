@@ -70,6 +70,13 @@ export async function GET(request: NextRequest) {
         aiPaused: true,
         googleId: true,
         createdAt: true,
+        subscription: {
+          select: {
+            tier: true,
+            status: true,
+            billingCycle: true,
+          },
+        },
       },
     })
 

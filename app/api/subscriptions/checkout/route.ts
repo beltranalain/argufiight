@@ -73,9 +73,17 @@ export async function POST(request: NextRequest) {
     const yearlyPrice = parseFloat(pricingMap.PRO_YEARLY_PRICE || '89.00')
     
     const stripe = await createStripeClient()
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000'
+    // Use NEXT_PUBLIC_APP_URL if set, otherwise construct from VERCEL_URL, fallback to localhost
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    if (!baseUrl) {
+      if (process.env.VERCEL_URL) {
+        baseUrl = `https://${process.env.VERCEL_URL}`
+      } else {
+        baseUrl = 'http://localhost:3000'
+      }
+    }
+    // Ensure baseUrl doesn't have trailing slash
+    baseUrl = baseUrl.replace(/\/$/, '')
 
     // Create Stripe Checkout Session
     const sessionParams: any = {

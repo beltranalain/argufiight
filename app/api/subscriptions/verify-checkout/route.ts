@@ -3,6 +3,7 @@ import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { createStripeClient } from '@/lib/stripe/stripe-client'
+import { sendSubscriptionActivatedEmail } from '@/lib/email/subscription-notifications'
 import Stripe from 'stripe'
 
 export async function POST(request: NextRequest) {
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     // Get user
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true },
+      select: { email: true, username: true },
     })
 
     if (!user) {
@@ -121,6 +122,17 @@ export async function POST(request: NextRequest) {
       update: {
         monthlyLimit: 12,
       },
+    })
+
+    // Send email notification (don't await - send in background)
+    sendSubscriptionActivatedEmail(
+      user.email,
+      user.username,
+      'PRO',
+      billingCycle,
+      userSubscription.currentPeriodEnd
+    ).catch(error => {
+      console.error('Failed to send subscription activation email:', error)
     })
 
     return NextResponse.json({
