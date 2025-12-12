@@ -54,7 +54,7 @@ export function PushNotificationManager() {
         }
 
         // Register service worker first
-        let serviceWorkerRegistration = null
+        let serviceWorkerRegistration: ServiceWorkerRegistration | null = null
         if ('serviceWorker' in navigator) {
           try {
             serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
@@ -73,7 +73,7 @@ export function PushNotificationManager() {
               })
             } else if (serviceWorkerRegistration.installing) {
               serviceWorkerRegistration.installing.addEventListener('statechange', () => {
-                if (serviceWorkerRegistration.installing?.state === 'activated' && serviceWorkerRegistration.active) {
+                if (serviceWorkerRegistration?.installing?.state === 'activated' && serviceWorkerRegistration.active) {
                   serviceWorkerRegistration.active.postMessage({
                     type: 'FIREBASE_CONFIG',
                     config: config,
