@@ -132,6 +132,30 @@ export async function GET(request: NextRequest) {
               customerEmail = invoice.customer_email
             }
             
+            // If subscription not found in DB, try to find user by email
+            let userInfo = subscription?.user
+            if (!userInfo && customerEmail) {
+              try {
+                const userByEmail = await prisma.user.findFirst({
+                  where: { email: customerEmail },
+                  select: { email: true, username: true },
+                })
+                if (userByEmail) {
+                  userInfo = userByEmail
+                }
+              } catch (e) {
+                // Ignore errors
+              }
+            }
+            
+            // Fallback to email if we have it
+            if (!userInfo) {
+              userInfo = { 
+                email: customerEmail || 'Unknown', 
+                username: customerEmail ? customerEmail.split('@')[0] : 'Unknown' 
+              }
+            }
+            
             const invoiceAny = invoice as any
             subscriptionTransactions.push({
               id: invoice.id,
@@ -140,7 +164,7 @@ export async function GET(request: NextRequest) {
               stripeFee: invoiceAny.application_fee_amount ? invoiceAny.application_fee_amount / 100 : 0,
               netAmount: amount - (invoiceAny.application_fee_amount ? invoiceAny.application_fee_amount / 100 : 0),
               date: new Date(invoice.created * 1000),
-              user: subscription?.user || { email: customerEmail || 'Unknown', username: 'Unknown' },
+              user: userInfo,
               subscriptionId: subscriptionId,
               invoiceUrl: invoiceAny.hosted_invoice_url,
             })
@@ -181,19 +205,72 @@ export async function GET(request: NextRequest) {
                 subscriptionCount++
                 
                 const subscription = subscriptions.find(s => s.stripeSubscriptionId === subscriptionId)
-                let customerEmail = 'Unknown'
+                let customerEmail: string | null = null
                 
                 if (typeof session.customer === 'string') {
                   try {
                     const customer = await stripe.customers.retrieve(session.customer)
                     if (!customer.deleted && 'email' in customer) {
-                      customerEmail = customer.email || 'Unknown'
+                      customerEmail = customer.email || null
                     }
                   } catch (e) {
                     // Ignore
                   }
                 } else if (session.customer && 'email' in session.customer) {
-                  customerEmail = session.customer.email || 'Unknown'
+                  customerEmail = session.customer.email || null
+                }
+                
+                // Also check customer_details from checkout session
+                if (!customerEmail && session.customer_details?.email) {
+                  customerEmail = session.customer_details.email
+                }
+                
+                // Check metadata for userId
+                let userIdFromMetadata: string | null = null
+                if (session.metadata?.userId) {
+                  userIdFromMetadata = session.metadata.userId
+                }
+                
+                // Try to find user
+                let userInfo = subscription?.user
+                if (!userInfo) {
+                  // Try by userId from metadata
+                  if (userIdFromMetadata) {
+                    try {
+                      const userById = await prisma.user.findUnique({
+                        where: { id: userIdFromMetadata },
+                        select: { email: true, username: true },
+                      })
+                      if (userById) {
+                        userInfo = userById
+                      }
+                    } catch (e) {
+                      // Ignore
+                    }
+                  }
+                  
+                  // Try by email
+                  if (!userInfo && customerEmail) {
+                    try {
+                      const userByEmail = await prisma.user.findFirst({
+                        where: { email: customerEmail },
+                        select: { email: true, username: true },
+                      })
+                      if (userByEmail) {
+                        userInfo = userByEmail
+                      }
+                    } catch (e) {
+                      // Ignore
+                    }
+                  }
+                }
+                
+                // Fallback to email if we have it
+                if (!userInfo) {
+                  userInfo = { 
+                    email: customerEmail || 'Unknown', 
+                    username: customerEmail ? customerEmail.split('@')[0] : 'Unknown' 
+                  }
                 }
                 
                 subscriptionTransactions.push({
@@ -203,7 +280,7 @@ export async function GET(request: NextRequest) {
                   stripeFee: 0,
                   netAmount: amount,
                   date: new Date(session.created * 1000),
-                  user: subscription?.user || { email: customerEmail, username: 'Unknown' },
+                  user: userInfo,
                   subscriptionId: subscriptionId,
                   source: 'checkout_session',
                 })

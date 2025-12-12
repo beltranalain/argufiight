@@ -424,8 +424,13 @@ export default function FinancesPage() {
                                 >
                                   <div>
                                     <p className="font-semibold text-text-primary">
-                                      {tx.user?.username || tx.user?.email}
+                                      {tx.user?.username || tx.user?.email || 'Unknown'}
                                     </p>
+                                    {tx.user?.email && tx.user?.username && tx.user.email !== tx.user.username && (
+                                      <p className="text-xs text-text-muted">
+                                        {tx.user.email}
+                                      </p>
+                                    )}
                                     <p className="text-sm text-text-secondary">
                                       {formatDate(tx.date)}
                                     </p>
@@ -521,9 +526,14 @@ export default function FinancesPage() {
                                   <div>
                                     <p className="font-semibold text-text-primary">
                                       {tx.type === 'subscription' 
-                                        ? `Subscription - ${tx.user?.username || tx.user?.email}`
+                                        ? `Subscription - ${tx.user?.username || tx.user?.email || 'Unknown'}`
                                         : `Ad - ${tx.campaign?.name || 'Campaign'}`}
                                     </p>
+                                    {tx.type === 'subscription' && tx.user?.email && tx.user?.username && tx.user.email !== tx.user.username && (
+                                      <p className="text-xs text-text-muted">
+                                        {tx.user.email}
+                                      </p>
+                                    )}
                                     <p className="text-sm text-text-secondary">
                                       {formatDate(tx.date)}
                                     </p>
