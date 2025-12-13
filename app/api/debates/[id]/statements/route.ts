@@ -288,6 +288,14 @@ export async function POST(
                 roundNumber: tournamentMatch.round.roundNumber,
                 timestamp: new Date().toISOString(),
               })
+
+              // Now process the completion (this will advance to next round)
+              const matchModule = await import('@/lib/tournaments/match-completion')
+              await matchModule.updateTournamentMatchOnDebateComplete(id)
+              console.log('✅ [Debate Complete] King of the Hill round completion processed:', {
+                debateId: id,
+                timestamp: new Date().toISOString(),
+              })
             } catch (error: any) {
               console.error('❌ [Debate Complete] Error in King of the Hill verdict generation:', {
                 debateId: id,
