@@ -44,6 +44,7 @@ interface KingOfTheHillVerdictDisplayProps {
   participants: Participant[]
   tournamentParticipants: TournamentParticipant[]
   currentUserId?: string | null
+  currentRoundNumber?: number | null
 }
 
 interface ParticipantScore {
@@ -60,6 +61,7 @@ export function KingOfTheHillVerdictDisplay({
   participants,
   tournamentParticipants,
   currentUserId,
+  currentRoundNumber,
 }: KingOfTheHillVerdictDisplayProps) {
   const [showAnimations, setShowAnimations] = useState(false)
 
@@ -179,8 +181,16 @@ export function KingOfTheHillVerdictDisplay({
   const allSameScore = totalScores.length > 0 && totalScores.every(s => s.score === totalScores[0].score)
   const isTie = allSameScore
 
-  // Get eliminated participants
-  const eliminatedParticipants = totalScores.filter(p => p.isEliminated)
+  // Get eliminated participants - only those eliminated in the current round
+  const eliminatedParticipants = totalScores.filter(p => {
+    if (!p.isEliminated) return false
+    // If currentRoundNumber is provided, only show participants eliminated in this specific round
+    if (currentRoundNumber !== null && currentRoundNumber !== undefined) {
+      return p.eliminationRound === currentRoundNumber
+    }
+    // Otherwise show all eliminated participants (fallback)
+    return true
+  })
 
   return (
     <div className="space-y-6">
@@ -317,8 +327,10 @@ export function KingOfTheHillVerdictDisplay({
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-electric-blue/20 flex items-center justify-center text-2xl">
-                    {verdict.judge.emoji}
+                  <div className="w-12 h-12 rounded-full bg-electric-blue/20 flex items-center justify-center border border-electric-blue/30">
+                    <span className="text-electric-blue font-bold text-lg">
+                      {verdict.judge.name.charAt(0)}
+                    </span>
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-text-primary">

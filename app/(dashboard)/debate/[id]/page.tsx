@@ -883,6 +883,7 @@ export default function DebatePage() {
                 participants={debate.participants || []}
                 tournamentParticipants={debate.tournamentMatch.tournament.participants || []}
                 currentUserId={user?.id}
+                currentRoundNumber={debate.tournamentMatch?.round?.roundNumber || null}
               />
             </>
           )}
