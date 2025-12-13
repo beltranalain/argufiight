@@ -154,11 +154,12 @@ export async function POST(request: NextRequest) {
     baseUrl = baseUrl.replace(/\/$/, '')
 
     // Create Stripe Checkout Session for one-time payment
+    // Note: Payment is captured immediately and held in escrow in our Stripe account
+    // Funds will be transferred to creator when contract is completed
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'payment',
       payment_intent_data: {
-        capture_method: 'manual', // Hold in escrow
         description: description,
         metadata: metadata,
       },

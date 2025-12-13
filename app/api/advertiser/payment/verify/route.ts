@@ -54,12 +54,19 @@ export async function POST(request: NextRequest) {
     // Retrieve checkout session from Stripe
     const stripe = await createStripeClient()
     const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['payment_intent'],
+      expand: ['payment_intent', 'payment_intent.payment_method'],
     })
 
+    // Check payment status
+    // For Checkout Sessions, payment_status can be 'paid' when payment is successful
     if (checkoutSession.payment_status !== 'paid') {
+      console.log(`Payment status: ${checkoutSession.payment_status}, session status: ${checkoutSession.status}`)
       return NextResponse.json(
-        { error: 'Payment not completed' },
+        { 
+          error: 'Payment not completed',
+          paymentStatus: checkoutSession.payment_status,
+          sessionStatus: checkoutSession.status,
+        },
         { status: 400 }
       )
     }
@@ -72,6 +79,21 @@ export async function POST(request: NextRequest) {
         { error: 'Payment intent not found' },
         { status: 400 }
       )
+    }
+
+    // Verify payment intent status - should be 'succeeded' for captured payments
+    if (paymentIntent.status !== 'succeeded') {
+      console.log(`Payment intent status: ${paymentIntent.status}`)
+      // Allow 'processing' status as well, as it may take a moment to finalize
+      if (paymentIntent.status !== 'processing') {
+        return NextResponse.json(
+          { 
+            error: 'Payment intent not completed',
+            paymentIntentStatus: paymentIntent.status,
+          },
+          { status: 400 }
+        )
+      }
     }
 
     // Handle based on payment type
