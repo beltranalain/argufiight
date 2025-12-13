@@ -29,9 +29,12 @@ export default function TournamentDetailScreen() {
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
+  const [matches, setMatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
 
   useEffect(() => {
     fetchTournament();
@@ -83,6 +86,27 @@ export default function TournamentDetailScreen() {
       Alert.alert('Error', error.response?.data?.error || 'Failed to join tournament');
     } finally {
       setJoining(false);
+    }
+  };
+
+  const handleSubscribe = async () => {
+    if (!tournament) return;
+
+    setSubscribing(true);
+    try {
+      if (isSubscribed) {
+        await notificationsAPI.unsubscribeFromTournament(tournamentId);
+        setIsSubscribed(false);
+        Alert.alert('Success', 'You have unsubscribed from tournament notifications');
+      } else {
+        await notificationsAPI.subscribeToTournament(tournamentId);
+        setIsSubscribed(true);
+        Alert.alert('Success', 'You will receive notifications for this tournament');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.error || 'Failed to update subscription');
+    } finally {
+      setSubscribing(false);
     }
   };
 
@@ -502,5 +526,27 @@ const styles = StyleSheet.create({
   bracketWrapper: {
     height: 400,
     marginTop: 8,
+  },
+  subscribeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#333',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  subscribedButton: {
+    backgroundColor: '#00d9ff',
+  },
+  subscribeButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  subscribedButtonText: {
+    color: '#000',
   },
 });

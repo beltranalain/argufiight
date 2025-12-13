@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { tournamentsAPI, Tournament } from '../../services/tournamentsAPI';
 import { useAuth } from '../../context/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TournamentsScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -71,6 +72,8 @@ export default function TournamentsScreen({ navigation }: any) {
         return 'Championship';
       case 'BRACKET':
         return 'Bracket';
+      case 'ALL':
+        return 'All';
       default:
         return format;
     }
@@ -167,7 +170,59 @@ export default function TournamentsScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
+      {/* Filter Header */}
+      <View style={styles.filterHeader}>
+        <TouchableOpacity
+          style={styles.filterToggle}
+          onPress={() => setShowFilters(!showFilters)}
+        >
+          <Ionicons name={showFilters ? 'chevron-up' : 'chevron-down'} size={20} color="#fff" />
+          <Text style={styles.filterToggleText}>Filters</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Filter Buttons */}
+      {showFilters && (
+        <View style={styles.filtersContainer}>
+          {/* Status Filters */}
+          <View style={styles.filterSection}>
+            <Text style={styles.filterSectionTitle}>Status</Text>
+            <View style={styles.filterRow}>
+              {(['ALL', 'REGISTRATION_OPEN', 'IN_PROGRESS', 'COMPLETED'] as const).map((status) => (
+                <TouchableOpacity
+                  key={status}
+                  style={[styles.filterButton, filter === status && styles.filterButtonActive]}
+                  onPress={() => setFilter(status)}
+                >
+                  <Text style={[styles.filterText, filter === status && styles.filterTextActive]}>
+                    {formatStatus(status)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Format Filters */}
+          <View style={styles.filterSection}>
+            <Text style={styles.filterSectionTitle}>Format</Text>
+            <View style={styles.filterRow}>
+              {(['ALL', 'BRACKET', 'CHAMPIONSHIP', 'KING_OF_THE_HILL'] as const).map((format) => (
+                <TouchableOpacity
+                  key={format}
+                  style={[styles.filterButton, formatFilter === format && styles.filterButtonActive]}
+                  onPress={() => setFormatFilter(format)}
+                >
+                  <Text style={[styles.filterText, formatFilter === format && styles.filterTextActive]}>
+                    {formatFormat(format)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Quick Status Filters (always visible) */}
       <View style={styles.filterContainer}>
         {(['ALL', 'REGISTRATION_OPEN', 'IN_PROGRESS', 'COMPLETED'] as const).map((status) => (
           <TouchableOpacity
@@ -210,6 +265,47 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#000',
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    padding: 10,
+    backgroundColor: '#111',
+  },
+  filterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#222',
+    borderRadius: 6,
+  },
+  filterToggleText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  filtersContainer: {
+    backgroundColor: '#111',
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+  },
+  filterSection: {
+    marginBottom: 12,
+  },
+  filterSectionTitle: {
+    color: '#888',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   filterContainer: {
     flexDirection: 'row',
