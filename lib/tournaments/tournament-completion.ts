@@ -138,8 +138,41 @@ export async function completeTournament(tournamentId: string): Promise<void> {
       return
     }
 
-    // King of the Hill: Winner Takes All - Sum all eliminated participants' cumulative scores
+    // King of the Hill: Mark finals loser as eliminated if not already marked
     if (tournament.format === 'KING_OF_THE_HILL') {
+      // Get the final round (highest round number)
+      const finalRound = tournament.rounds.length > 0
+        ? tournament.rounds.reduce((latest, round) => 
+            round.roundNumber > latest.roundNumber ? round : latest
+          )
+        : null
+      
+      if (finalRound && finalRound.matches.length > 0) {
+        const finalMatch = finalRound.matches[0]
+        if (finalMatch.debate?.winnerId) {
+          // Find the loser (the participant who is not the winner)
+          const winnerUserId = finalMatch.debate.winnerId
+          const loserParticipant = tournament.participants.find(
+            p => p.userId !== winnerUserId && 
+                 (p.id === finalMatch.participant1Id || p.id === finalMatch.participant2Id)
+          )
+          
+          if (loserParticipant && loserParticipant.status !== 'ELIMINATED') {
+            console.log(`[Tournament Completion] Marking finals loser as eliminated: ${loserParticipant.user.username}`)
+            await prisma.tournamentParticipant.update({
+              where: { id: loserParticipant.id },
+              data: {
+                status: 'ELIMINATED',
+                eliminatedAt: new Date(),
+                eliminationRound: finalRound.roundNumber,
+                eliminationReason: 'Eliminated in finals - lost to champion',
+              },
+            })
+          }
+        }
+      }
+      
+      // Winner Takes All - Sum all eliminated participants' cumulative scores
       const eliminatedParticipants = tournament.participants.filter(
         (p) => p.status === 'ELIMINATED'
       )

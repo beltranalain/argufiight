@@ -482,7 +482,7 @@ export function TournamentBracket({
                                   : 'bg-bg-tertiary text-text-secondary'
                               }
                             >
-                              {formatStatus(slot1.matchStatus)}
+                              {formatStatus(slot1Status)}
                             </Badge>
                             {slot1.debateId && (
                               <Link href={`/debate/${slot1.debateId}`} className="flex-shrink-0">
