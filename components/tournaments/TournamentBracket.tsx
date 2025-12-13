@@ -94,16 +94,19 @@ export function TournamentBracket({
       // King of the Hill format: Show all participants in a single "Open Debate" card
       if (format === 'KING_OF_THE_HILL') {
         // For King of the Hill (non-finals), match is an array of all participants
-        // Get all active participants for this round
+        // Get all participants who were in this round (including eliminated ones)
         const roundParticipants = participants.filter((p) => {
-          // For elimination rounds, show all participants who were active at that point
+          // For elimination rounds, show ALL participants who participated in that round
+          // This includes those eliminated in that round or later
           // For finals, show the 2 finalists
           if (round === totalRounds) {
-            // Finals: Show only the 2 finalists
+            // Finals: Show only the 2 finalists (those who made it to finals)
             return p.status === 'ACTIVE' || (p.eliminationRound && p.eliminationRound >= round)
           } else {
-            // Elimination rounds: Show all participants (active + eliminated in later rounds)
-            return !p.eliminationRound || p.eliminationRound > round || p.status === 'ACTIVE'
+            // Elimination rounds: Show ALL participants who were in this round
+            // Include: active participants, eliminated in this round, or eliminated in later rounds
+            // Exclude: only those eliminated BEFORE this round
+            return !p.eliminationRound || p.eliminationRound >= round || p.status === 'ACTIVE'
           }
         })
         
@@ -229,8 +232,10 @@ export function TournamentBracket({
                               const participant = slot.participant
                               if (!participant) return null
                               
+                              // Check if participant was eliminated in this round or earlier
                               const isEliminated = participant.status === 'ELIMINATED' && 
-                                participant.eliminationRound === roundNum
+                                participant.eliminationRound !== null &&
+                                participant.eliminationRound <= roundNum
                               
                               return (
                                 <div
@@ -353,6 +358,9 @@ export function TournamentBracket({
                                 ? 'bg-cyber-green/30 border-2 border-cyber-green winner-animation'
                                 : slot1.isWinner
                                 ? 'bg-cyber-green/20 border border-cyber-green winner-animation'
+                                : slot1.participant && slot1.participant.status === 'ELIMINATED' && 
+                                  slot1.participant.eliminationRound === roundNum
+                                ? 'bg-red-500/20 border-2 border-red-500/50'
                                 : 'bg-bg-tertiary'
                             }`}
                           >
@@ -364,13 +372,22 @@ export function TournamentBracket({
                                   size="sm"
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-text-primary text-sm font-semibold truncate">
+                                  <p className={`text-sm font-semibold truncate ${
+                                    slot1.participant.status === 'ELIMINATED' && 
+                                    slot1.participant.eliminationRound === roundNum
+                                      ? 'text-red-400'
+                                      : 'text-text-primary'
+                                  }`}>
                                     ({slot1.participant.seed}) @{slot1.participant.user.username}
                                     {slot1.isWinner && isFinalWinner && (
                                       <span className="ml-2 text-cyber-green font-bold">Champion</span>
                                     )}
                                     {slot1.isWinner && !isFinalWinner && (
                                       <span className="ml-2 text-cyber-green">✓ Winner</span>
+                                    )}
+                                    {slot1.participant.status === 'ELIMINATED' && 
+                                     slot1.participant.eliminationRound === roundNum && (
+                                      <span className="ml-2 text-red-400">✗ Eliminated</span>
                                     )}
                                   </p>
                                   <p className="text-text-secondary text-xs">ELO: {slot1.participant.user.eloRating}</p>
@@ -396,6 +413,9 @@ export function TournamentBracket({
                                 ? 'bg-cyber-green/30 border-2 border-cyber-green winner-animation'
                                 : slot2.isWinner
                                 ? 'bg-cyber-green/20 border border-cyber-green winner-animation'
+                                : slot2.participant && slot2.participant.status === 'ELIMINATED' && 
+                                  slot2.participant.eliminationRound === roundNum
+                                ? 'bg-red-500/20 border-2 border-red-500/50'
                                 : 'bg-bg-tertiary'
                             }`}
                           >
@@ -407,13 +427,22 @@ export function TournamentBracket({
                                   size="sm"
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-text-primary text-sm font-semibold truncate">
+                                  <p className={`text-sm font-semibold truncate ${
+                                    slot2.participant.status === 'ELIMINATED' && 
+                                    slot2.participant.eliminationRound === roundNum
+                                      ? 'text-red-400'
+                                      : 'text-text-primary'
+                                  }`}>
                                     ({slot2.participant.seed}) @{slot2.participant.user.username}
                                     {slot2.isWinner && isFinalWinner && (
                                       <span className="ml-2 text-cyber-green font-bold">Champion</span>
                                     )}
                                     {slot2.isWinner && !isFinalWinner && (
                                       <span className="ml-2 text-cyber-green">✓ Winner</span>
+                                    )}
+                                    {slot2.participant.status === 'ELIMINATED' && 
+                                     slot2.participant.eliminationRound === roundNum && (
+                                      <span className="ml-2 text-red-400">✗ Eliminated</span>
                                     )}
                                   </p>
                                   <p className="text-text-secondary text-xs">ELO: {slot2.participant.user.eloRating}</p>

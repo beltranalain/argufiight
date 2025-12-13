@@ -452,6 +452,34 @@ export async function processKingOfTheHillDebateCompletion(debateId: string): Pr
         })
 
         if (updatedDebate?.winnerId) {
+          // Mark the loser as eliminated
+          const loserId = updatedDebate.winnerId === debate.challengerId 
+            ? debate.opponentId 
+            : debate.challengerId
+          
+          if (loserId) {
+            // Find the tournament participant for the loser
+            const loserParticipant = await prisma.tournamentParticipant.findFirst({
+              where: {
+                tournamentId: tournament.id,
+                userId: loserId,
+              },
+            })
+            
+            if (loserParticipant) {
+              await prisma.tournamentParticipant.update({
+                where: { id: loserParticipant.id },
+                data: {
+                  status: 'ELIMINATED',
+                  eliminatedAt: new Date(),
+                  eliminationRound: roundNumber, // Mark as eliminated in finals round
+                  eliminationReason: 'Eliminated in finals - lost to champion',
+                },
+              })
+              console.log(`[King of the Hill] Marked loser as eliminated in round ${roundNumber}`)
+            }
+          }
+          
           // Finals complete - complete tournament
           console.log(`[King of the Hill] Finals complete - completing tournament`)
           const { completeTournament } = await import('./tournament-completion')

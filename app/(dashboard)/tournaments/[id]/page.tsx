@@ -329,38 +329,7 @@ export default function TournamentDetailPage() {
             <div className="space-y-4">
                 <div className="flex items-center gap-3 mb-3">
                   <h1 className="text-4xl font-bold text-text-primary">{tournament.name}</h1>
-                  <Badge variant="default" className={getStatusColor(tournament.status)}>
-                    {formatStatus(tournament.status)}
-                  </Badge>
-                <Badge 
-                  variant="default" 
-                  className={tournament.isPrivate ? 'bg-neon-orange text-black' : 'bg-electric-blue text-black'}
-                >
-                  {tournament.isPrivate ? 'Private' : 'Public'}
-                </Badge>
-                <Badge 
-                  variant="default" 
-                  className={
-                    tournament.format === 'CHAMPIONSHIP' 
-                      ? 'bg-cyber-green text-black' 
-                      : 'bg-bg-tertiary text-text-primary'
-                  }
-                >
-                  {tournament.format === 'CHAMPIONSHIP' 
-                    ? 'Championship' 
-                    : 'Bracket'}
-                </Badge>
-                {tournament.format === 'CHAMPIONSHIP' && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowRulesModal(true)}
-                    className="text-text-secondary hover:text-text-primary text-xs"
-                  >
-                    How it works?
-                  </Button>
-                )}
-              </div>
+                </div>
               {tournament.description && (
                 <p className="text-text-secondary text-lg mb-4">{tournament.description}</p>
               )}
@@ -383,6 +352,30 @@ export default function TournamentDetailPage() {
                     {tournament.currentRound} / {tournament.totalRounds}
                   </span>
                 </div>
+                <div>
+                  <span className="text-text-secondary">Status: </span>
+                  <span className="text-text-primary font-semibold">
+                    {formatStatus(tournament.status)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-text-secondary">Privacy: </span>
+                  <span className="text-text-primary font-semibold">
+                    {tournament.isPrivate ? 'Private' : 'Public'}
+                  </span>
+                </div>
+                {tournament.format && (
+                  <div>
+                    <span className="text-text-secondary">Format: </span>
+                    <span className="text-text-primary font-semibold">
+                      {tournament.format === 'CHAMPIONSHIP' 
+                        ? 'Championship' 
+                        : tournament.format === 'KING_OF_THE_HILL'
+                        ? 'KOH'
+                        : 'Bracket'}
+                    </span>
+                  </div>
+                )}
                 {tournament.minElo && (
                   <div>
                     <span className="text-text-secondary">Min ELO: </span>
