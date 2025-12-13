@@ -150,22 +150,6 @@ export default function TournamentsPage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'UPCOMING':
-        return 'bg-blue-500'
-      case 'REGISTRATION_OPEN':
-        return 'bg-green-500'
-      case 'IN_PROGRESS':
-        return 'bg-yellow-500'
-      case 'COMPLETED':
-        return 'bg-cyber-green'
-      case 'CANCELLED':
-        return 'bg-red-500'
-      default:
-        return 'bg-gray-500'
-    }
-  }
 
   const handleCreateClick = () => {
     if (!user) {
