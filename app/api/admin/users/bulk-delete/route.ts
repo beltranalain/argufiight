@@ -73,7 +73,21 @@ export async function POST(request: NextRequest) {
       console.warn(`[ADMIN] Admin users being deleted: ${adminUsers.map(u => `${u.username} (${u.email})`).join(', ')} by admin ${userId}`)
     }
 
-    // Delete users (cascade will handle related records)
+    // Manually delete related records that don't have cascade delete
+    // TournamentParticipant and TournamentSubscription don't have onDelete: Cascade
+    await prisma.tournamentParticipant.deleteMany({
+      where: {
+        userId: { in: userIds },
+      },
+    })
+
+    await prisma.tournamentSubscription.deleteMany({
+      where: {
+        userId: { in: userIds },
+      },
+    })
+
+    // Delete users (cascade will handle other related records)
     const deleteResult = await prisma.user.deleteMany({
       where: {
         id: { in: userIds },
@@ -87,10 +101,18 @@ export async function POST(request: NextRequest) {
       message: `${deleteResult.count} user(s) deleted successfully`,
       deletedCount: deleteResult.count,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to delete users:', error)
+    // Return more detailed error message for debugging
+    const errorMessage = error?.message || 'Failed to delete users'
+    const errorCode = error?.code || 'UNKNOWN_ERROR'
+    
     return NextResponse.json(
-      { error: 'Failed to delete users' },
+      { 
+        error: 'Failed to delete users',
+        details: errorMessage,
+        code: errorCode,
+      },
       { status: 500 }
     )
   }

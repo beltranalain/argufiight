@@ -244,7 +244,21 @@ export async function DELETE(
       console.warn(`[ADMIN] Admin user being deleted: ${user.username} (${user.email}) by admin ${userId}`)
     }
 
-    // Delete user (cascade will handle related records)
+    // Manually delete related records that don't have cascade delete
+    // TournamentParticipant and TournamentSubscription don't have onDelete: Cascade
+    await prisma.tournamentParticipant.deleteMany({
+      where: {
+        userId: id,
+      },
+    })
+
+    await prisma.tournamentSubscription.deleteMany({
+      where: {
+        userId: id,
+      },
+    })
+
+    // Delete user (cascade will handle other related records)
     await prisma.user.delete({
       where: { id },
     })
@@ -255,10 +269,18 @@ export async function DELETE(
       success: true,
       message: 'User deleted successfully',
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to delete user:', error)
+    // Return more detailed error message for debugging
+    const errorMessage = error?.message || 'Failed to delete user'
+    const errorCode = error?.code || 'UNKNOWN_ERROR'
+    
     return NextResponse.json(
-      { error: 'Failed to delete user' },
+      { 
+        error: 'Failed to delete user',
+        details: errorMessage,
+        code: errorCode,
+      },
       { status: 500 }
     )
   }
