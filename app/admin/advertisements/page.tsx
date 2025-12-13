@@ -978,6 +978,41 @@ function CreatorMarketplaceTab() {
     }
   }
 
+  const handlePayout = async (contractId: string) => {
+    if (!confirm('Are you sure you want to process the payout for this contract? This will transfer funds to the creator.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/admin/contracts/${contractId}/payout`, {
+        method: 'POST',
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        showToast({
+          type: 'success',
+          title: 'Payout Processed',
+          description: `Successfully transferred $${data.contract.creatorPayout.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to creator. Platform fee of $${data.contract.platformFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} retained.`,
+        })
+        fetchData()
+      } else {
+        const error = await response.json()
+        showToast({
+          type: 'error',
+          title: 'Payout Failed',
+          description: error.error || 'Failed to process payout',
+        })
+      }
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to process payout',
+      })
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
