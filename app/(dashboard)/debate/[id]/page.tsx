@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { SubmitArgumentForm } from '@/components/debate/SubmitArgumentForm'
 import { VerdictDisplay } from '@/components/debate/VerdictDisplay'
+import { KingOfTheHillVerdictDisplay } from '@/components/debate/KingOfTheHillVerdictDisplay'
 import { AppealButton } from '@/components/debate/AppealButton'
 import { RematchButton } from '@/components/debate/RematchButton'
 import { LiveChat } from '@/components/debate/LiveChat'
@@ -867,8 +868,24 @@ export default function DebatePage() {
           )}
 
 
+          {/* King of the Hill GROUP Verdict Display */}
+          {debate.status === 'VERDICT_READY' && 
+           debate.verdicts && 
+           debate.verdicts.length > 0 && 
+           debate.challengeType === 'GROUP' &&
+           debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL' && (
+            <>
+              <KingOfTheHillVerdictDisplay
+                verdicts={debate.verdicts}
+                participants={debate.participants || []}
+                tournamentParticipants={debate.tournamentMatch.tournament.participants || []}
+                currentUserId={user?.id}
+              />
+            </>
+          )}
+
           {/* Regular 2-Person Verdict Display */}
-          {debate.status === 'VERDICT_READY' && debate.verdicts && debate.verdicts.length > 0 && debate.opponent && (
+          {debate.status === 'VERDICT_READY' && debate.verdicts && debate.verdicts.length > 0 && debate.opponent && debate.challengeType !== 'GROUP' && (
             <>
               <VerdictDisplay
                 verdicts={debate.appealedAt && debate.verdicts
