@@ -448,9 +448,16 @@ export default function DebatePage() {
   
   // For GROUP debates (King of the Hill), check if user is a participant
   // Check both userId (direct field) and user.id (relation) for compatibility
-  const isGroupParticipant = isGroupChallenge && debate?.participants?.some(
-    p => (p as any).userId === user?.id || p.user?.id === user?.id
-  )
+  // Also check if participants array exists and has items
+  const isGroupParticipant = isGroupChallenge && 
+    debate?.participants && 
+    debate.participants.length > 0 &&
+    debate.participants.some(
+      p => {
+        const participantUserId = (p as any).userId || p.user?.id
+        return participantUserId === user?.id
+      }
+    )
   
   const noStatementsInRound = currentRoundStatements.length === 0
   
