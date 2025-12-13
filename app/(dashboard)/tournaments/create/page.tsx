@@ -28,7 +28,7 @@ export default function CreateTournamentPage() {
     roundDuration: 24,
     reseedAfterRound: true,
     isPrivate: false,
-    format: 'BRACKET' as 'BRACKET' | 'CHAMPIONSHIP',
+    format: 'BRACKET' as 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL',
     selectedPosition: null as 'PRO' | 'CON' | null,
   })
   const [invitedUsers, setInvitedUsers] = useState<Array<{ id: string; username: string; avatarUrl: string | null; eloRating: number }>>([])
@@ -115,6 +115,27 @@ export default function CreateTournamentPage() {
         type: 'error',
         title: 'Validation Error',
         description: 'Championship format requires selecting a position (PRO or CON)',
+      })
+      return
+    }
+
+    // Validate King of the Hill format requires at least 3 participants
+    if (formData.format === 'KING_OF_THE_HILL' && formData.maxParticipants < 3) {
+      showToast({
+        type: 'error',
+        title: 'Validation Error',
+        description: 'King of the Hill format requires at least 3 participants',
+      })
+      return
+    }
+
+    // Validate Bracket and Championship formats require power of 2
+    if ((formData.format === 'BRACKET' || formData.format === 'CHAMPIONSHIP') && 
+        ![4, 8, 16, 32, 64].includes(formData.maxParticipants)) {
+      showToast({
+        type: 'error',
+        title: 'Validation Error',
+        description: 'Bracket and Championship formats require 4, 8, 16, 32, or 64 participants',
       })
       return
     }
@@ -310,7 +331,7 @@ export default function CreateTournamentPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Tournament Format *
                   </label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <button
                       type="button"
                       onClick={() => {
@@ -347,11 +368,36 @@ export default function CreateTournamentPage() {
                         </p>
                       </div>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, format: 'KING_OF_THE_HILL', selectedPosition: null })
+                      }}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        formData.format === 'KING_OF_THE_HILL'
+                          ? 'border-electric-blue bg-electric-blue/10'
+                          : 'border-bg-tertiary bg-bg-secondary hover:border-electric-blue/50'
+                      }`}
+                    >
+                      <div className="text-left">
+                        <h3 className="font-semibold text-text-primary mb-1">King of the Hill</h3>
+                        <p className="text-sm text-text-secondary">
+                          Free-for-all elimination. Bottom 25% eliminated each round. Winner takes all.
+                        </p>
+                      </div>
+                    </button>
                   </div>
                   {formData.format === 'CHAMPIONSHIP' && (
                     <div className="mt-3 p-3 bg-cyber-green/10 border border-cyber-green/30 rounded-lg">
                       <p className="text-sm text-text-primary">
                         <strong>How it works:</strong> Players choose PRO or CON position. Advancement is based on individual scores within your position group. You can lose your match but still advance if you score higher than peers on your side!
+                      </p>
+                    </div>
+                  )}
+                  {formData.format === 'KING_OF_THE_HILL' && (
+                    <div className="mt-3 p-3 bg-neon-orange/10 border border-neon-orange/30 rounded-lg">
+                      <p className="text-sm text-text-primary">
+                        <strong>How it works:</strong> All participants compete in open GROUP debates. Each round, the bottom 25% are eliminated based on cumulative scores. The final two face off in a traditional 1v1 debate. The champion receives all eliminated participants' scores!
                       </p>
                     </div>
                   )}
@@ -406,24 +452,42 @@ export default function CreateTournamentPage() {
                   <label className="block text-sm font-medium text-text-primary mb-2">
                     Max Participants *
                   </label>
-                  <select
-                    value={formData.maxParticipants}
-                    onChange={(e) => setFormData({ ...formData, maxParticipants: parseInt(e.target.value) })}
-                    className="w-full px-4 py-3 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-electric-blue transition-colors"
-                    required
-                  >
-                    <option value={4}>4 participants</option>
-                    <option value={8}>8 participants</option>
-                    <option value={16}>16 participants</option>
-                    <option value={32}>32 participants</option>
-                    <option value={64}>64 participants</option>
-                  </select>
+                  {formData.format === 'KING_OF_THE_HILL' ? (
+                    <Input
+                      type="number"
+                      value={formData.maxParticipants}
+                      onChange={(e) => setFormData({ ...formData, maxParticipants: parseInt(e.target.value) || 3 })}
+                      min={3}
+                      max={64}
+                      required
+                    />
+                  ) : (
+                    <select
+                      value={formData.maxParticipants}
+                      onChange={(e) => setFormData({ ...formData, maxParticipants: parseInt(e.target.value) })}
+                      className="w-full px-4 py-3 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-electric-blue transition-colors"
+                      required
+                    >
+                      <option value={4}>4 participants</option>
+                      <option value={8}>8 participants</option>
+                      <option value={16}>16 participants</option>
+                      <option value={32}>32 participants</option>
+                      <option value={64}>64 participants</option>
+                    </select>
+                  )}
                   <p className="text-text-secondary text-sm mt-1">
                     {formData.format === 'CHAMPIONSHIP' 
                       ? `${formData.maxParticipants / 2} PRO + ${formData.maxParticipants / 2} CON positions`
+                      : formData.format === 'KING_OF_THE_HILL'
+                      ? `Minimum 3 participants. Bottom 25% eliminated each round until finals.`
                       : `Tournament will have ${Math.log2(formData.maxParticipants)} rounds`
                     }
                   </p>
+                  {formData.format !== 'KING_OF_THE_HILL' && (
+                    <p className="text-xs text-text-secondary mt-1">
+                      Must be a power of 2 (4, 8, 16, 32, or 64)
+                    </p>
+                  )}
                 </div>
 
                 {/* Start Date */}
