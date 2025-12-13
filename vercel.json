@@ -1,10 +1,6 @@
 {
   "crons": [
     {
-      "path": "/api/cron/process-ad-payouts",
-      "schedule": "0 2 * * 0"
-    },
-    {
       "path": "/api/cron/process-ad-tasks",
       "schedule": "0 2 * * *"
     },
