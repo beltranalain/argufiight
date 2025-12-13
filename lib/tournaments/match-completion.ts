@@ -224,7 +224,7 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
           status: 'ELIMINATED',
           eliminatedAt: new Date(),
           // For King of the Hill finals, set eliminationRound
-          ...(match.round.tournament.format === 'KING_OF_THE_HILL' && {
+          ...((match.round.tournament.format as string) === 'KING_OF_THE_HILL' && {
             eliminationRound: match.round.roundNumber,
             eliminationReason: 'Eliminated in finals - lost to champion',
           }),
