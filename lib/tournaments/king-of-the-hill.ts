@@ -480,6 +480,15 @@ export async function processKingOfTheHillDebateCompletion(debateId: string): Pr
             }
           }
           
+          // Update match status to COMPLETED
+          await prisma.tournamentMatch.update({
+            where: { id: match.id },
+            data: {
+              status: 'COMPLETED',
+              completedAt: new Date(),
+            },
+          })
+          
           // Finals complete - complete tournament
           console.log(`[King of the Hill] Finals complete - completing tournament`)
           const { completeTournament } = await import('./tournament-completion')
