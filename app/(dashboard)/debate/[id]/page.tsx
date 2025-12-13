@@ -472,9 +472,12 @@ export default function DebatePage() {
         )
   )
 
-  const canSubmit = debate && user && isParticipant && 
+  // For GROUP debates (King of the Hill), use isGroupParticipant instead of isParticipant
+  // This allows simultaneous submissions for all participants
+  const canSubmit = debate && user && 
     debate.status === 'ACTIVE' &&
     !userSubmitted &&
+    (isGroupChallenge ? isGroupParticipant : isParticipant) &&
     isMyTurn
 
   // Debug logging for submit form visibility
