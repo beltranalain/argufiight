@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Avatar } from '@/components/ui/Avatar'
@@ -46,7 +47,8 @@ interface TournamentStats {
 }
 
 export default function ProfilePage() {
-  const { user, refetch } = useAuth()
+  const router = useRouter()
+  const { user, isLoading: authLoading } = useAuth()
   const { showToast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -61,12 +63,16 @@ export default function ProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [tournamentStats, setTournamentStats] = useState<TournamentStats | null>(null)
 
+  // Redirect to username-based URL once user is loaded
   useEffect(() => {
-    if (user) {
-      fetchProfile()
-      fetchTournamentStats()
+    if (!authLoading && user?.username) {
+      // Use replace to avoid adding to history
+      router.replace(`/${user.username}`)
+    } else if (!authLoading && !user) {
+      // Not logged in, redirect to home
+      router.replace('/')
     }
-  }, [user])
+  }, [user, authLoading, router])
 
   const fetchProfile = async () => {
     try {
@@ -103,7 +109,6 @@ export default function ProfilePage() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      // Validate file type
       if (!file.type.startsWith('image/')) {
         showToast({
           type: 'error',
@@ -113,7 +118,6 @@ export default function ProfilePage() {
         return
       }
 
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         showToast({
           type: 'error',
@@ -125,7 +129,6 @@ export default function ProfilePage() {
 
       setAvatarFile(file)
       
-      // Create preview
       const reader = new FileReader()
       reader.onloadend = () => {
         setAvatarPreview(reader.result as string)
@@ -162,7 +165,6 @@ export default function ProfilePage() {
         description: 'Your profile picture has been updated',
       })
 
-      // Refresh user data
       refetch()
       fetchProfile()
     } catch (error: any) {
@@ -209,7 +211,8 @@ export default function ProfilePage() {
     }
   }
 
-  if (isLoading) {
+  // Show loading while redirecting
+  if (authLoading || !user?.username) {
     return (
       <div className="min-h-screen bg-bg-primary">
         <TopNav currentPanel="PROFILE" />
@@ -220,9 +223,15 @@ export default function ProfilePage() {
     )
   }
 
-  if (!profile) {
-    return null
-  }
+  // This should not render as we redirect, but just in case
+  return (
+    <div className="min-h-screen bg-bg-primary">
+      <TopNav currentPanel="PROFILE" />
+      <div className="pt-20 flex items-center justify-center min-h-[calc(100vh-80px)]">
+        <LoadingSpinner size="lg" />
+      </div>
+    </div>
+  )
 
   const winRate = profile.totalDebates > 0 
     ? ((profile.debatesWon / profile.totalDebates) * 100).toFixed(1)
@@ -297,7 +306,7 @@ export default function ProfilePage() {
                     <p className="text-text-secondary">{profile.email}</p>
                   </div>
 
-                  {/* ELO and Overall Score - Prominent Display */}
+                  {/* ELO and Overall Score */}
                   <div className="flex items-center gap-4 mb-6">
                     <div className="flex-1 bg-electric-blue/20 border border-electric-blue/30 rounded-lg px-6 py-4">
                       <p className="text-xs text-text-secondary mb-1">ELO Rating</p>
@@ -344,10 +353,10 @@ export default function ProfilePage() {
                     <div className="bg-bg-tertiary rounded-lg p-3">
                       <p className="text-xs text-text-secondary mb-1">Win Rate</p>
                       <p className="text-xl font-bold text-electric-blue">{winRate}%</p>
-                  </div>
+                    </div>
                   </div>
 
-                  {/* Deep Analytics Section - Always Visible */}
+                  {/* Deep Analytics Section */}
                   <div className="mt-6 pt-6 border-t border-bg-tertiary">
                     <h3 className="text-lg font-bold text-text-primary mb-4">Performance Analytics</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
