@@ -25,7 +25,7 @@ interface Tournament {
   participantCount: number
   startDate: string
   minElo: number | null
-  format?: string // 'BRACKET' or 'CHAMPIONSHIP'
+  format?: string // 'BRACKET', 'CHAMPIONSHIP', or 'KING_OF_THE_HILL'
   creator: {
     id: string
     username: string
@@ -379,14 +379,6 @@ export default function TournamentsPage() {
                           >
                             {tournament.isPrivate ? 'Private' : 'Public'}
                           </Badge>
-                          {tournament.format && (
-                            <Badge 
-                              variant="default" 
-                              className="bg-purple-500 text-white"
-                            >
-                              {tournament.format === 'CHAMPIONSHIP' ? 'Championship' : 'Bracket'}
-                            </Badge>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -410,6 +402,21 @@ export default function TournamentsPage() {
                           {tournament.currentRound} / {tournament.totalRounds}
                         </span>
                       </div>
+                      {tournament.format && (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-text-secondary">Format</span>
+                          <Badge 
+                            variant="default" 
+                            className="bg-purple-500 text-white"
+                          >
+                            {tournament.format === 'CHAMPIONSHIP' 
+                              ? 'Championship' 
+                              : tournament.format === 'KING_OF_THE_HILL'
+                              ? 'KOH'
+                              : 'Bracket'}
+                          </Badge>
+                        </div>
+                      )}
                       {tournament.minElo && (
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-text-secondary">Min ELO</span>
