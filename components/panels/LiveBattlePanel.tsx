@@ -122,14 +122,7 @@ export function LiveBattlePanel() {
     )
   }
 
-  // For tournament debates, use tournament round number; otherwise use debate round
-  const displayRound = activeDebate.tournamentMatch 
-    ? activeDebate.tournamentMatch.round.roundNumber 
-    : activeDebate.currentRound
-  const displayTotalRounds = activeDebate.tournamentMatch 
-    ? activeDebate.tournamentMatch.tournament.totalRounds 
-    : activeDebate.totalRounds
-  const progress = (displayRound / displayTotalRounds) * 100
+  const progress = (activeDebate.currentRound / activeDebate.totalRounds) * 100
   
   // Determine if it's user's turn based on statements in current round
   let isMyTurn = false
@@ -207,7 +200,7 @@ export function LiveBattlePanel() {
           </div>
         )}
         <div className="flex items-center gap-2 text-sm text-text-secondary mb-3">
-          <span>Round {activeDebate.currentRound}/{activeDebate.totalRounds}</span>
+          <span>Round {displayRound}/{displayTotalRounds}</span>
           {isMyTurn && (
             <Badge variant="default" size="sm" className="bg-neon-orange text-black">
               Your Turn

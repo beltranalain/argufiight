@@ -12,6 +12,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { BattleHistory } from '@/components/profile/BattleHistory'
+import { PastDebates } from '@/components/profile/PastDebates'
 import { CreatorCTA } from '@/components/profile/CreatorCTA'
 import { AdDisplay } from '@/components/ads/AdDisplay'
 
@@ -454,6 +455,19 @@ export default function UsernameProfilePage() {
               createdAt={new Date(profile.createdAt)}
             />
           )}
+
+          {/* Past Debates - Show for all profiles */}
+          <Card>
+            <CardHeader>
+              <h2 className="text-xl font-bold text-text-primary">Past Debates</h2>
+              <p className="text-sm text-text-secondary mt-1">
+                {isOwnProfile ? 'Your completed debates' : `${profile.username}'s completed debates`}
+              </p>
+            </CardHeader>
+            <CardBody>
+              <PastDebates userId={profile.id} currentUserId={currentUser?.id} />
+            </CardBody>
+          </Card>
 
           {/* Battle History - Only for own profile */}
           {isOwnProfile && currentUser && (
