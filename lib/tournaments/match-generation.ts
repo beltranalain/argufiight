@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@/lib/db/prisma'
+import { createKingOfTheHillRound1 } from './king-of-the-hill'
 
 export interface TournamentParticipantData {
   id: string
@@ -53,6 +54,13 @@ export async function generateTournamentMatches(
   // Don't create matches for completed tournaments
   if (tournament.status === 'COMPLETED') {
     console.log(`[Match Generation] Tournament ${tournamentId} is already COMPLETED - skipping match generation`)
+    return
+  }
+
+  // King of the Hill format: Rounds are created by createKingOfTheHillRound() functions
+  // Don't create standard 1v1 matches
+  if (tournament.format === 'KING_OF_THE_HILL') {
+    console.log(`[Match Generation] King of the Hill format - rounds created separately, skipping match generation`)
     return
   }
 
@@ -324,8 +332,13 @@ export async function startTournament(tournamentId: string): Promise<void> {
   })
 
   // Generate first round matches
-  // For King of the Hill, generateTournamentMatches already creates the debate via createKingOfTheHillDebate
-  // For other formats, we need to create debates for each match
+  // For King of the Hill, use special round creation function
+  if (tournament.format === 'KING_OF_THE_HILL') {
+    await createKingOfTheHillRound1(tournamentId)
+    return // Don't create standard matches
+  }
+
+  // For other formats, generate standard matches
   await generateTournamentMatches(tournamentId, 1)
 
   // Create debates for each match

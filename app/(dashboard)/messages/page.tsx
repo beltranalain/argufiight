@@ -572,7 +572,7 @@ export default function MessagesPage() {
                         {selectedConversation.otherUser.username}
                       </p>
                       <Link
-                        href={`/profile/${selectedConversation.otherUser.id}`}
+                        href={`/${selectedConversation.otherUser.username}`}
                         className="text-sm text-electric-blue hover:underline"
                       >
                         View Profile

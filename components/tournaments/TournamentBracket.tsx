@@ -14,6 +14,8 @@ interface Participant {
   status: string
   selectedPosition: string | null
   eliminationRound: number | null
+  eliminationReason: string | null
+  cumulativeScore: number | null
   user: {
     id: string
     username: string
@@ -53,7 +55,7 @@ interface TournamentBracketProps {
   matches: Match[]
   totalRounds: number
   currentRound: number
-  format?: 'BRACKET' | 'CHAMPIONSHIP'
+  format?: 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL'
 }
 
 interface BracketSlot {
@@ -87,10 +89,40 @@ export function TournamentBracket({
     for (let round = 1; round <= totalRounds; round++) {
       let roundMatches = matches.filter((m) => m.round === round)
       
-      
       const roundSlots: BracketSlot[][] = []
       
-      // Traditional bracket format: 1v1 matches
+      // King of the Hill format: Show all participants in a single "Open Debate" card
+      if (format === 'KING_OF_THE_HILL') {
+        // For King of the Hill (non-finals), match is an array of all participants
+        // Get all active participants for this round
+        const roundParticipants = participants.filter((p) => {
+          // For elimination rounds, show all participants who were active at that point
+          // For finals, show the 2 finalists
+          if (round === totalRounds) {
+            // Finals: Show only the 2 finalists
+            return p.status === 'ACTIVE' || (p.eliminationRound && p.eliminationRound >= round)
+          } else {
+            // Elimination rounds: Show all participants (active + eliminated in later rounds)
+            return !p.eliminationRound || p.eliminationRound > round || p.status === 'ACTIVE'
+          }
+        })
+        
+        // Create a single "match" with all participants
+        if (roundMatches.length > 0) {
+          const match = roundMatches[0] // King of the Hill has one match per round
+          const allParticipants: BracketSlot[] = roundParticipants.map((p) => ({
+            participant: p,
+            matchId: match.id,
+            isWinner: false, // No individual winners in elimination rounds
+            debateId: match.debate?.id || null,
+            matchStatus: match.status,
+            score: null, // Scores shown separately for King of the Hill
+          }))
+          
+          roundSlots.push(allParticipants)
+        }
+      } else {
+        // Traditional bracket format: 1v1 matches
         // Sort matches by matchNumber to maintain order
         roundMatches.sort((a, b) => a.matchNumber - b.matchNumber)
         
@@ -117,6 +149,7 @@ export function TournamentBracket({
             },
           ])
         }
+      }
       
       structure.push(roundSlots)
     }
@@ -163,14 +196,106 @@ export function TournamentBracket({
                 <div className="flex flex-col gap-2" style={{ minHeight: `${round.length * getSlotHeight(roundNum)}px` }}>
                   {round.map((match, matchIndex) => {
                     // For King of the Hill (non-finals), match is an array of all participants
+                    const isKingOfTheHill = format === 'KING_OF_THE_HILL'
+                    const isFinals = isKingOfTheHill && roundNum === totalRounds
+                    const isEliminationRound = isKingOfTheHill && !isFinals
+                    
+                    // For King of the Hill elimination rounds, match is an array of all participants
+                    if (isEliminationRound && Array.isArray(match) && match.length > 2) {
+                      // Display all participants in a grid
+                      const matchStatus = match[0]?.matchStatus || 'UPCOMING'
+                      const isActive = matchStatus === 'IN_PROGRESS'
+                      const isCompleted = matchStatus === 'COMPLETED'
+                      
+                      return (
+                        <div
+                          key={matchIndex}
+                          className={`relative z-10 p-4 rounded-lg border-2 ${
+                            isActive
+                              ? 'border-electric-blue bg-electric-blue/10'
+                              : isCompleted
+                              ? 'border-cyber-green/50 bg-cyber-green/5'
+                              : 'border-bg-tertiary bg-bg-secondary'
+                          }`}
+                        >
+                          <div className="mb-3">
+                            <h4 className="text-sm font-semibold text-text-primary">Open Debate</h4>
+                            <p className="text-xs text-text-secondary">
+                              {match.length} participants
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {match.map((slot, idx) => {
+                              const participant = slot.participant
+                              if (!participant) return null
+                              
+                              const isEliminated = participant.status === 'ELIMINATED' && 
+                                participant.eliminationRound === roundNum
+                              
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`p-2 rounded border ${
+                                    isEliminated
+                                      ? 'bg-red-500/20 border-red-500/50'
+                                      : 'bg-bg-tertiary border-bg-tertiary'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    {participant.user.avatarUrl ? (
+                                      <img
+                                        src={participant.user.avatarUrl}
+                                        alt={participant.user.username}
+                                        className="w-6 h-6 rounded-full"
+                                      />
+                                    ) : (
+                                      <div className="w-6 h-6 rounded-full bg-bg-secondary flex items-center justify-center">
+                                        <span className="text-text-secondary text-xs">
+                                          {participant.user.username[0].toUpperCase()}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-xs font-semibold truncate ${
+                                        isEliminated ? 'text-red-400' : 'text-text-primary'
+                                      }`}>
+                                        {participant.user.username}
+                                      </p>
+                                      {participant.cumulativeScore !== null && (
+                                        <p className="text-xs text-electric-blue">
+                                          {participant.cumulativeScore}/300
+                                        </p>
+                                      )}
+                                    </div>
+                                    {isEliminated && (
+                                      <Badge variant="default" className="bg-red-500 text-white text-xs">
+                                        ✗
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                          {match[0]?.debateId && (
+                            <Link
+                              href={`/debate/${match[0].debateId}`}
+                              className="mt-3 block text-center text-xs text-electric-blue hover:underline"
+                            >
+                              View Debate →
+                            </Link>
+                          )}
+                        </div>
+                      )
+                    }
+                    
+                    // Traditional 1v1 match display (or King of the Hill finals)
                     const slot1 = match[0]
                     const slot2 = match[1]
                     const isActive = slot1?.matchStatus === 'IN_PROGRESS' || slot2?.matchStatus === 'IN_PROGRESS'
                     const isCompleted = slot1?.matchStatus === 'COMPLETED' || slot2?.matchStatus === 'COMPLETED'
                     const isFinalRound = roundNum === totalRounds
                     const isFinalWinner = isFinalRound && isCompleted && (slot1?.isWinner || slot2?.isWinner)
-                    
-                    // Traditional 1v1 match display
 
                     return (
                       <div

@@ -363,29 +363,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate format
-    if (format !== 'BRACKET' && format !== 'CHAMPIONSHIP') {
+    if (format !== 'BRACKET' && format !== 'CHAMPIONSHIP' && format !== 'KING_OF_THE_HILL') {
       return NextResponse.json(
-        { error: 'Format must be BRACKET or CHAMPIONSHIP' },
-        { status: 400 }
-      )
-    }
-    
-    // Reject King of the Hill format (removed from system)
-    if (format === 'KING_OF_THE_HILL') {
-      return NextResponse.json(
-        { error: 'King of the Hill format is no longer available' },
+        { error: 'Format must be BRACKET, CHAMPIONSHIP, or KING_OF_THE_HILL' },
         { status: 400 }
       )
     }
 
-    // Validate maxParticipants
-    // For BRACKET and CHAMPIONSHIP: must be power of 2 (4, 8, 16, 32, 64)
-    const validSizes = [4, 8, 16, 32, 64]
-    if (!validSizes.includes(maxParticipants)) {
-      return NextResponse.json(
-        { error: 'Max participants must be 4, 8, 16, 32, or 64 for Bracket and Championship formats' },
-        { status: 400 }
-      )
+    // Validate maxParticipants based on format
+    if (format === 'KING_OF_THE_HILL') {
+      // King of the Hill: minimum 3 participants, no power of 2 requirement
+      if (maxParticipants < 3) {
+        return NextResponse.json(
+          { error: 'King of the Hill format requires at least 3 participants' },
+          { status: 400 }
+        )
+      }
+    } else {
+      // BRACKET and CHAMPIONSHIP: must be power of 2 (4, 8, 16, 32, 64)
+      const validSizes = [4, 8, 16, 32, 64]
+      if (!validSizes.includes(maxParticipants)) {
+        return NextResponse.json(
+          { error: 'Max participants must be 4, 8, 16, 32, or 64 for Bracket and Championship formats' },
+          { status: 400 }
+        )
+      }
     }
 
     // For Championship format, require position selection
@@ -407,14 +409,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate total rounds
-    // For BRACKET/CHAMPIONSHIP: log2 of maxParticipants (power of 2)
     let totalRounds: number
     if (format === 'KING_OF_THE_HILL') {
-      // This should never happen due to validation above, but handle it just in case
-      return NextResponse.json(
-        { error: 'King of the Hill format is no longer available' },
-        { status: 400 }
-      )
+      // King of the Hill: Calculate rounds based on elimination (25% per round)
+      // Rough estimate: log base 0.75 of (2/maxParticipants)
+      // More accurate: count rounds until 2 remain
+      // For now, use a conservative estimate: ceil(log(2/maxParticipants) / log(0.75)) + 1 (for finals)
+      // Simplified: estimate based on maxParticipants
+      // 10 participants: ~7 rounds, 16: ~9 rounds, 32: ~11 rounds
+      // Formula: rounds needed to eliminate (maxParticipants - 2) at 25% per round
+      // This is approximate - actual rounds depend on elimination math
+      totalRounds = Math.ceil(Math.log(2 / maxParticipants) / Math.log(0.75)) + 1
+      // Ensure minimum of 2 rounds (at least one elimination + finals)
+      totalRounds = Math.max(2, totalRounds)
     } else {
       // BRACKET and CHAMPIONSHIP use power of 2
       totalRounds = Math.log2(maxParticipants)

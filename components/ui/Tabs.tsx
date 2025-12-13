@@ -68,7 +68,7 @@ export function Tabs({ tabs, defaultTab, activeTab: controlledActiveTab, onTabCh
 
       {/* Tab Content - Only render if content is provided */}
       {activeTabContent && (
-        <div className="p-6">
+        <div className="p-6 max-w-full overflow-hidden [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain">
           {activeTabContent}
         </div>
       )}

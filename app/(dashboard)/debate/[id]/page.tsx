@@ -127,7 +127,7 @@ interface Debate {
       name: string
       currentRound: number
       totalRounds: number
-      format?: 'BRACKET' | 'CHAMPIONSHIP'
+      format?: 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL'
       participants?: Array<{
         id: string
         userId: string
@@ -603,26 +603,67 @@ export default function DebatePage() {
                 // Show all participants for GROUP debates
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-text-primary mb-4">
-                    All Participants (${debate.participants?.length || 0})
+                    All Participants ({debate.participants?.length || 0})
                   </h3>
                   {debate.participants && debate.participants.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {debate.participants.map((participant) => (
-                        <div key={participant.id} className="flex items-center gap-4 p-3 rounded-lg border border-bg-tertiary bg-bg-secondary/50">
-                          <Avatar 
-                            src={participant.user.avatarUrl}
-                            username={participant.user.username}
-                            size="lg"
-                          />
-                          <div>
-                            <p className="font-semibold text-text-primary">{participant.user.username}</p>
-                            <p className="text-sm text-text-secondary">ELO: {participant.user.eloRating}</p>
-                            <Badge variant="default" size="sm" className="mt-1">
-                              {participant.position}
-                            </Badge>
+                      {debate.participants.map((participant) => {
+                        // Get tournament participant data for King of the Hill
+                        const tournamentParticipant = debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL'
+                          ? debate.tournamentMatch.tournament.participants?.find(
+                              (tp) => tp.userId === participant.userId
+                            )
+                          : null
+                        
+                        const isEliminated = tournamentParticipant?.status === 'ELIMINATED'
+                        const cumulativeScore = tournamentParticipant?.cumulativeScore
+                        const eliminationRound = tournamentParticipant?.eliminationRound
+                        
+                        return (
+                          <div 
+                            key={participant.id} 
+                            className={`flex items-center gap-4 p-3 rounded-lg border ${
+                              isEliminated
+                                ? 'border-red-500/50 bg-red-500/10'
+                                : 'border-bg-tertiary bg-bg-secondary/50'
+                            }`}
+                          >
+                            <Avatar 
+                              src={participant.user.avatarUrl}
+                              username={participant.user.username}
+                              size="lg"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className={`font-semibold ${
+                                  isEliminated ? 'text-red-400' : 'text-text-primary'
+                                }`}>
+                                  {participant.user.username}
+                                </p>
+                                {isEliminated && (
+                                  <Badge variant="default" size="sm" className="bg-red-500 text-white">
+                                    ✗ Eliminated
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-text-secondary">ELO: {participant.user.eloRating}</p>
+                              {debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL' && cumulativeScore !== null && (
+                                <p className="text-sm text-electric-blue font-semibold mt-1">
+                                  Score: {cumulativeScore}/300
+                                </p>
+                              )}
+                              {eliminationRound && (
+                                <p className="text-xs text-text-secondary mt-1">
+                                  Eliminated in Round {eliminationRound}
+                                </p>
+                              )}
+                              <Badge variant="default" size="sm" className="mt-1">
+                                {participant.position}
+                              </Badge>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   ) : (
                     <div className="p-4 rounded-lg border border-bg-tertiary bg-bg-secondary/50">

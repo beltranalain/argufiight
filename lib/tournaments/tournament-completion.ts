@@ -97,6 +97,16 @@ export async function completeTournament(tournamentId: string): Promise<void> {
       }
     }
 
+    // For King of the Hill: Also check debate winner if no active participant
+    if (!champion && tournament.format === 'KING_OF_THE_HILL') {
+      const finalRound = tournament.rounds.find((r) => r.roundNumber === tournamentInfo.totalRounds)
+      if (finalRound && finalRound.matches.length > 0) {
+        const finalMatch = finalRound.matches[0]
+        if (finalMatch.debate?.winnerId) {
+          champion = tournament.participants.find((p) => p.userId === finalMatch.debate!.winnerId)
+        }
+      }
+    }
 
     if (!champion) {
       console.error(`[Tournament Completion] Could not determine champion for tournament ${tournamentId}`)
@@ -109,6 +119,35 @@ export async function completeTournament(tournamentId: string): Promise<void> {
         },
       })
       return
+    }
+
+    // King of the Hill: Winner Takes All - Sum all eliminated participants' cumulative scores
+    if (tournament.format === 'KING_OF_THE_HILL') {
+      const eliminatedParticipants = tournament.participants.filter(
+        (p) => p.status === 'ELIMINATED'
+      )
+
+      const totalEliminatedScore = eliminatedParticipants.reduce(
+        (sum, p) => sum + (p.cumulativeScore || 0),
+        0
+      )
+
+      if (totalEliminatedScore > 0) {
+        // Add eliminated participants' scores to champion's cumulative score
+        const championCurrentScore = champion.cumulativeScore || 0
+        const newChampionScore = championCurrentScore + totalEliminatedScore
+
+        await prisma.tournamentParticipant.update({
+          where: { id: champion.id },
+          data: {
+            cumulativeScore: newChampionScore,
+          },
+        })
+
+        console.log(
+          `[Tournament Completion] King of the Hill - Winner Takes All: Champion ${champion.user.username} received ${totalEliminatedScore} points from ${eliminatedParticipants.length} eliminated participants. New total: ${newChampionScore}`
+        )
+      }
     }
 
     // Update tournament

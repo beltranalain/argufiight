@@ -119,6 +119,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    console.log('[API] Received offer request:', JSON.stringify(body, null, 2))
+    
     const {
       creatorId,
       campaignId,
@@ -133,24 +135,33 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Validate required fields
-    if (!creatorId || !campaignId || !placement || !paymentType) {
+    const missingFields: string[] = []
+    if (!creatorId) missingFields.push('creatorId')
+    if (!campaignId) missingFields.push('campaignId')
+    if (!placement) missingFields.push('placement')
+    if (!paymentType) missingFields.push('paymentType')
+    
+    if (missingFields.length > 0) {
+      console.error('Missing required fields:', missingFields)
       return NextResponse.json(
-        { error: 'Missing required fields: creatorId, campaignId, placement, paymentType' },
+        { error: `Missing required fields: ${missingFields.join(', ')}` },
         { status: 400 }
       )
     }
     
     // Validate numeric fields
-    if (!duration || typeof duration !== 'number' || duration <= 0) {
+    if (duration === undefined || duration === null || typeof duration !== 'number' || duration <= 0) {
+      console.error('Invalid duration:', duration, typeof duration)
       return NextResponse.json(
-        { error: 'Duration must be a positive number' },
+        { error: `Duration must be a positive number. Received: ${duration} (${typeof duration})` },
         { status: 400 }
       )
     }
     
-    if (!amount || typeof amount !== 'number' || amount <= 0) {
+    if (amount === undefined || amount === null || typeof amount !== 'number' || amount <= 0) {
+      console.error('Invalid amount:', amount, typeof amount)
       return NextResponse.json(
-        { error: 'Amount must be a positive number' },
+        { error: `Amount must be a positive number. Received: ${amount} (${typeof amount})` },
         { status: 400 }
       )
     }
@@ -170,8 +181,9 @@ export async function POST(request: NextRequest) {
 
     // Verify campaign is approved
     if (campaign.status !== 'APPROVED') {
+      console.error('Campaign not approved:', campaign.id, campaign.status)
       return NextResponse.json(
-        { error: 'Campaign must be approved to make offers' },
+        { error: `Campaign must be approved to make offers. Current status: ${campaign.status}` },
         { status: 400 }
       )
     }

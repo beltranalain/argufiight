@@ -8,6 +8,7 @@ import { generateTournamentMatches } from './match-generation'
 import { reseedTournamentParticipants } from './reseed'
 import { completeTournament } from './tournament-completion'
 import { calculateChampionshipAdvancement } from './championship-advancement'
+import { processKingOfTheHillDebateCompletion } from './king-of-the-hill'
 
 /**
  * Check if all matches in a round are complete, and advance if needed
@@ -58,7 +59,45 @@ export async function checkAndAdvanceTournamentRound(
       return
     }
 
-    // Check if all matches are complete
+    // King of the Hill format: Check if single GROUP debate is complete
+    if (round.tournament.format === 'KING_OF_THE_HILL') {
+      // Find the debate for this round
+      const debate = await prisma.debate.findFirst({
+        where: {
+          tournamentMatches: {
+            some: {
+              roundId: round.id,
+            },
+          },
+        },
+        select: {
+          id: true,
+          status: true,
+        },
+      })
+
+      if (!debate) {
+        console.log(`[Tournament Round] King of the Hill round ${roundNumber} has no debate`)
+        return
+      }
+
+      // Check if debate is ready (VERDICT_READY means verdicts generated and elimination processed)
+      if (debate.status !== 'VERDICT_READY') {
+        console.log(
+          `[Tournament Round] King of the Hill round ${roundNumber} not complete: debate status is ${debate.status}`
+        )
+        return
+      }
+
+      // Process completion and advance
+      console.log(
+        `[Tournament Round] King of the Hill round ${roundNumber} complete - processing advancement`
+      )
+      await processKingOfTheHillDebateCompletion(debate.id)
+      return
+    }
+
+    // Standard formats: Check if all matches are complete
     const allMatchesComplete = round.matches.every((m) => m.status === 'COMPLETED')
     const hasMatches = round.matches.length > 0
 

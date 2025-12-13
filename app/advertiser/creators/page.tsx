@@ -118,11 +118,20 @@ export default function CreatorDiscoveryPage() {
     if (!selectedCreator) return
 
     // Validate form
-    if (!offerForm.campaignId || !offerForm.amount || !offerForm.duration) {
+    if (!offerForm.campaignId) {
       showToast({
         type: 'error',
         title: 'Validation Error',
-        description: 'Please fill in all required fields',
+        description: 'Please select a campaign',
+      })
+      return
+    }
+    
+    if (!offerForm.amount || !offerForm.duration) {
+      showToast({
+        type: 'error',
+        title: 'Validation Error',
+        description: 'Please fill in all required fields (amount and duration)',
       })
       return
     }
@@ -164,7 +173,7 @@ export default function CreatorDiscoveryPage() {
         message: offerForm.message || null,
       }
       
-      console.log('Submitting offer:', requestBody)
+      console.log('Submitting offer:', JSON.stringify(requestBody, null, 2))
       
       const response = await fetch('/api/advertiser/offers', {
         method: 'POST',
@@ -174,7 +183,16 @@ export default function CreatorDiscoveryPage() {
         body: JSON.stringify(requestBody),
       })
 
-      const responseData = await response.json().catch(() => ({ error: 'Failed to parse response' }))
+      let responseData: any = {}
+      try {
+        const text = await response.text()
+        if (text) {
+          responseData = JSON.parse(text)
+        }
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError)
+        responseData = { error: 'Failed to parse server response' }
+      }
       
       if (response.ok) {
         showToast({
@@ -184,11 +202,20 @@ export default function CreatorDiscoveryPage() {
         })
         handleCloseOfferModal()
       } else {
-        console.error('Offer submission failed:', response.status, responseData)
+        console.error('Offer submission failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          responseData: JSON.stringify(responseData, null, 2),
+          requestBody: JSON.stringify(requestBody, null, 2),
+        })
+        
+        const errorMessage = responseData.error || responseData.message || `Failed to send offer (${response.status})`
+        console.error('Error message:', errorMessage)
+        
         showToast({
           type: 'error',
           title: 'Error',
-          description: responseData.error || `Failed to send offer (${response.status})`,
+          description: errorMessage,
         })
       }
     } catch (error: any) {

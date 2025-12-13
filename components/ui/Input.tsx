@@ -30,6 +30,7 @@ export function Input({
           error && 'border-neon-orange',
           className
         )}
+        value={props.value ?? ''}
         {...props}
       />
       {error && (

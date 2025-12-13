@@ -46,6 +46,8 @@ export async function GET(
             status: true,
             selectedPosition: true,
             eliminationRound: true,
+            eliminationReason: true,
+            cumulativeScore: true,
             wins: true,
             losses: true,
             user: {
@@ -181,6 +183,8 @@ export async function GET(
           status: p.status,
           selectedPosition: p.selectedPosition,
           eliminationRound: p.eliminationRound,
+          eliminationReason: p.eliminationReason,
+          cumulativeScore: p.cumulativeScore,
           wins: p.wins,
           losses: p.losses,
           user: p.user,

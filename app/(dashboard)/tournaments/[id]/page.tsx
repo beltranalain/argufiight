@@ -29,7 +29,7 @@ interface Tournament {
   roundDuration: number
   reseedAfterRound: boolean
   reseedMethod: string
-  format: 'BRACKET' | 'CHAMPIONSHIP'
+  format: 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL'
   assignedJudges: string[] | null
   creator: {
     id: string
@@ -50,6 +50,8 @@ interface Tournament {
     status: string
     selectedPosition: string | null
     eliminationRound: number | null
+    eliminationReason: string | null
+    cumulativeScore: number | null
     wins: number
     losses: number
     user: {
@@ -497,10 +499,28 @@ export default function TournamentDetailPage() {
                                 </span>
                               </div>
                             )}
-                            {averageScore !== null && (
+                            {averageScore !== null && tournament.format !== 'KING_OF_THE_HILL' && (
                               <p className="text-electric-blue text-xs font-semibold mt-0.5">
                                 Avg Score: {averageScore}/100
                               </p>
+                            )}
+                            {tournament.format === 'KING_OF_THE_HILL' && participant.cumulativeScore !== null && (
+                              <p className="text-electric-blue text-xs font-semibold mt-0.5">
+                                Cumulative Score: {participant.cumulativeScore}/300
+                              </p>
+                            )}
+                            {tournament.format === 'KING_OF_THE_HILL' && participant.status === 'ELIMINATED' && participant.eliminationRound && (
+                              <div className="mt-1">
+                                <Badge variant="default" className="bg-red-500 text-white text-xs">
+                                  ✗ Eliminated Round {participant.eliminationRound}
+                                </Badge>
+                                {participant.eliminationReason && (
+                                  <p className="text-text-secondary text-xs mt-1 italic">
+                                    {participant.eliminationReason.substring(0, 100)}
+                                    {participant.eliminationReason.length > 100 ? '...' : ''}
+                                  </p>
+                                )}
+                              </div>
                             )}
                             {tournament.format === 'CHAMPIONSHIP' && participant.selectedPosition && (
                               <Badge 

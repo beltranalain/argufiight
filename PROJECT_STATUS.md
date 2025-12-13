@@ -1,187 +1,437 @@
-# Project Status - ArguFight
+# Project Status & Next Steps
 
-## Current Status
-**Last Updated:** 2025-12-05  
-**Repository:** `argufight/argufight` (GitHub)  
-**Latest Commit:** `1f859d1d` - Fix: Remove reset-usage cron job to stay within Vercel plan limit (2 cron jobs)
+**Last Updated:** December 13, 2024  
+**Status:** Active Development - Uncommitted Changes Present
 
-## Recent Work - Build Error Fixes
+---
 
-### Context
-We've been fixing TypeScript build errors that occurred after migrating to a new GitHub repository (`argufight/argufight`) and updating Stripe API version. The errors were primarily related to:
+## 🚨 QUICK START - Where We Left Off
 
-1. **Stripe TypeScript SDK Version Mismatch** - Updated from older API version to `2025-11-17.clover`
-2. **Property Naming Differences** - Stripe API uses snake_case but TypeScript types expect different formats
-3. **API Method Changes** - Some Stripe methods changed their parameters
+### Current Git Status
+- **Branch:** `main`
+- **Status:** 7 commits ahead of `origin/main` (need to push)
+- **Uncommitted Changes:** Multiple modified files + new untracked files
+- **GitHub Remote:** Already configured with token (see below)
 
-### Fixes Applied
+### Immediate Actions Needed
+1. **Review uncommitted changes** (see list below)
+2. **Commit changes** if ready
+3. **Push 7 commits** to GitHub: `git push origin main`
+4. **Test profile routes** after deployment
 
-#### 1. Subscription Tier Types
-- **File:** `app/(dashboard)/profile/[id]/page.tsx`
-- **Issue:** `UserProfile` interface missing `subscription` property
-- **Fix:** Added `subscription: { tier: 'FREE' | 'PRO' }` to interface
+---
 
-#### 2. Badge Variant Issues
-- **Files:** 
-  - `app/(dashboard)/settings/subscription/page.tsx`
-  - `components/subscriptions/TierBadge.tsx`
-- **Issue:** Badge component doesn't have `'secondary'` variant
-- **Fix:** Changed to `'default'` variant
+## Current State (December 13, 2024)
 
-#### 3. AdContract OrderBy
-- **Files:**
-  - `app/api/admin/contracts/route.ts`
-  - `app/api/ads/select/route.ts`
-  - `app/api/creator/contracts/route.ts`
-  - `app/api/creator/earnings/detailed/route.ts`
-- **Issue:** `AdContract` model uses `signedAt` not `createdAt`
-- **Fix:** Changed `orderBy: { createdAt: 'desc' }` to `orderBy: { signedAt: 'desc' }`
+### Recent Changes Completed
 
-#### 4. Missing Imports
-- **File:** `app/(dashboard)/profile/[id]/page.tsx`, `app/(dashboard)/profile/page.tsx`
-- **Issue:** Missing `AdDisplay` import
-- **Fix:** Added `import { AdDisplay } from '@/components/ads/AdDisplay'`
+1. **Profile URL Migration**
+   - ✅ Created `app/[username]/page.tsx` for username-based profile URLs (e.g., `argufight.com/kubancane`)
+   - ✅ Created API route `app/api/users/username/[username]/profile/route.ts`
+   - ✅ Updated `/profile` page to work directly without redirects
+   - ✅ Updated all internal links to use `/{username}` format instead of `/profile/{id}`
+   - ✅ Added blocked username validation system
 
-#### 5. Stripe Property Access Issues
-- **Files:**
-  - `app/api/subscriptions/verify-checkout/route.ts`
-  - `app/api/webhooks/stripe/route.ts`
-- **Issue:** Stripe API uses snake_case properties that don't match TypeScript types
-- **Fix:** Used type assertions:
-  - `(subscription as any).current_period_start`
-  - `(subscription as any).current_period_end`
-  - `(subscription as any).cancel_at_period_end`
-  - `(invoice as any).subscription`
+2. **Profile Page Fixes**
+   - ✅ Removed redirect logic from `/profile` page
+   - ✅ `/profile` now works directly using `/api/profile` endpoint
+   - ✅ No more redirects to `/{username}` or dashboard
+   - ✅ Profile page displays all features: stats, edit profile, battle history, etc.
 
-#### 6. Stripe API Version
-- **File:** `lib/stripe/stripe-client.ts`
-- **Issue:** API version mismatch
-- **Fix:** Updated from `'2024-11-20.acacia'` to `'2025-11-17.clover'`
+3. **Build Fixes**
+   - ✅ Fixed TypeScript errors (missing `refetch` in useAuth hook)
+   - ✅ Removed unreachable code after return statements
+   - ✅ Fixed cron job limit (reduced from 3 to 2 to comply with Vercel Hobby plan)
 
-#### 7. Stripe Promotion Code Lookup
-- **File:** `lib/stripe/stripe-client.ts`
-- **Issue:** `coupons.list()` doesn't accept `code` parameter in new API
-- **Fix:** Changed to use `promotionCodes.list()` instead, with type assertion for `promotion_code` property
+4. **Username Validation**
+   - ✅ Added blocked username list in `lib/utils/validation.ts`
+   - ✅ Integrated validation into signup and profile update APIs
+   - ✅ Created scripts to check and update blocked usernames
 
-#### 8. Missing isCreator Field
-- **File:** `app/api/creator/profile/route.ts`
-- **Issue:** `isCreator` not included in Prisma select
-- **Fix:** Added `isCreator: true` to select statement
+## Current Issues & Things to Fix
 
-#### 9. Duplicate Property
-- **File:** `app/api/cron/process-ad-payouts/route.ts`
-- **Issue:** Duplicate `errors` property in return object
-- **Fix:** Changed to `errorCount: errors.length`
+### 1. ⚠️ Uncommitted Changes (HIGH PRIORITY)
+**Status:** Multiple files modified but not committed
 
-#### 10. Syntax Error
-- **File:** `app/api/subscriptions/verify-checkout/route.ts`
-- **Issue:** Extra closing brace causing syntax error
-- **Fix:** Removed extra brace
+**Modified Files:**
+- `PROJECT_STATUS.md` (this file)
+- `app/(auth)/signup/page.tsx`
+- `app/(dashboard)/leaderboard/page.tsx`
+- `app/(dashboard)/messages/page.tsx`
+- `app/admin/advertisements/CreatorsTab.tsx`
+- `app/admin/advertisements/page.tsx`
+- `app/advertiser/creators/page.tsx`
+- `app/api/advertiser/offers/route.ts`
+- `app/api/auth/login/route.ts`
+- `app/api/auth/signup/route.ts`
+- `app/api/profile/route.ts`
+- `components/panels/LeaderboardPanel.tsx`
+- `components/profile/BattleHistory.tsx`
+- `components/ui/Input.tsx`
+- `components/ui/Tabs.tsx`
+- `lib/utils/validation.ts`
+- `package.json`
+- `scripts/check-advertiser.ts`
 
-#### 11. Stripe Coupon Property Type Error
-- **File:** `lib/stripe/stripe-client.ts`
-- **Issue:** `coupon` property doesn't exist on `SubscriptionCreateParams` type
-- **Fix:** Used type assertion `(subscriptionData as any).coupon = coupon.id`
+**New Untracked Files:**
+- `app/api/users/username/` (new directory)
+- `scripts/approve-advertiser.ts`
+- `scripts/check-blocked-usernames.ts`
+- `scripts/clear-test-data.ts`
+- `scripts/disable-creator-marketplace.ts`
+- `scripts/enable-creator-marketplace.ts`
+- `scripts/update-blocked-username.ts`
 
-#### 12. useSearchParams Suspense Boundary (Next.js 15)
-- **Files:**
-  - `app/(auth)/signup/payment/page.tsx`
-  - `app/(auth)/signup/success/page.tsx`
-  - `app/(auth)/reset-password/page.tsx`
-- **Issue:** `useSearchParams()` must be wrapped in Suspense boundary in Next.js 15
-- **Fix:** Extracted components using `useSearchParams()` and wrapped them in `<Suspense>` boundaries
+**Action Needed:**
+```bash
+# Review changes
+git status
+git diff
 
-#### 13. Vercel Cron Jobs Limit
-- **File:** `vercel.json`
-- **Issue:** Vercel Hobby plan allows only 2 cron jobs, but 3 were configured
-- **Fix:** Removed `reset-usage` cron job (monthly job can be run manually if needed)
+# Stage and commit when ready
+git add .
+git commit -m "Description of changes"
 
-### Cron Job Configuration
-- **File:** `vercel.json`
-- **Issue:** Hobby plan only allows daily cron jobs
-- **Fix:** Changed `check-expired-offers` from hourly (`0 * * * *`) to daily (`0 3 * * *`)
+# Push to GitHub
+git push origin main
+```
 
-## Git Configuration
-- **Remote:** `argufight` pointing to `https://github.com/argufight/argufight.git`
-- **Token:** Configured with Personal Access Token (embedded in remote URL)
-- **No authentication prompts:** Token is working correctly
+### 2. Profile Route API 404 Error
+**Issue:** `/api/users/username/[username]/profile` returns 404 for some usernames
+- **Status:** Route exists and is deployed
+- **Possible Causes:**
+  - Username doesn't exist in database
+  - User is banned (`isBanned: true`)
+  - Case sensitivity issues with username lookup
+- **Action Needed:** Verify username exists and is not banned in database
 
-## Current Build Status
-- **Build Status:** ✅ Build succeeded! 
-- **Deployment Status:** ✅ Deployed successfully!
-- **Runtime Issue:** Database connection errors - see below
+### 3. Profile Page Behavior
+**Current State:**
+- `/profile` - Works directly, shows current user's profile (no redirect)
+- `/{username}` - Shows public profile for any username
+- `/profile/{id}` - Old route, redirects to `/{username}`
 
-## Current Runtime Issue
+**Note:** The 404 error for `/api/users/username/kubancane/profile` is expected if:
+- The user is viewing `/profile` (which uses `/api/profile` instead)
+- The username doesn't exist
+- The user is banned
 
-**Error:** `Can't reach database server at db.prisma.io:5432`
+### 4. Advertiser API 404 Errors
+**Issue:** `/api/advertiser/me` returns 404
+- **Status:** This is expected behavior for non-advertiser users
+- **Action:** No fix needed - this is by design
 
-**Cause:** `DATABASE_URL` environment variable is either:
-1. Not set in Vercel Production environment
-2. Set incorrectly or expired
-3. Not enabled for Production environment
+### 5. Pending Commits
+**Status:** 7 commits ready to push to GitHub
+- **Action:** Run `git push origin main` to sync with remote
 
-**Quick Fix:**
-1. Go to Vercel Dashboard → Settings → Environment Variables
-2. Verify `DATABASE_URL` and `DIRECT_URL` are set
-3. **Critical:** Make sure both are enabled for **Production** environment
-4. Redeploy after making changes
+### 6. Other Known Issues (From Previous Sessions)
 
-**See:** `DATABASE_CONNECTION_TROUBLESHOOTING.md` for detailed steps
+**Google OAuth 401 Errors** (if still occurring)
+- Issue: Session cookie not persisting after OAuth callback
+- Files: `app/api/auth/google/callback/route.ts`, `lib/auth/session.ts`
+- Status: May need further investigation
 
-## Key Files Modified
-1. `app/(dashboard)/profile/[id]/page.tsx` - Added subscription property, AdDisplay import
-2. `app/(dashboard)/profile/page.tsx` - Added AdDisplay import
-3. `app/(dashboard)/settings/subscription/page.tsx` - Fixed Badge variant
-4. `components/subscriptions/TierBadge.tsx` - Fixed Badge variant
-5. `app/api/subscriptions/verify-checkout/route.ts` - Stripe property fixes, syntax fix
-6. `app/api/webhooks/stripe/route.ts` - Stripe property fixes
-7. `lib/stripe/stripe-client.ts` - API version update, promotion code fix
-8. `app/api/admin/contracts/route.ts` - Fixed orderBy
-9. `app/api/ads/select/route.ts` - Fixed orderBy
-10. `app/api/creator/contracts/route.ts` - Fixed orderBy
-11. `app/api/creator/earnings/detailed/route.ts` - Fixed orderBy
-12. `app/api/creator/profile/route.ts` - Added isCreator to select
-13. `app/api/cron/process-ad-payouts/route.ts` - Fixed duplicate property
-14. `vercel.json` - Fixed cron schedule
-15. `lib/stripe/stripe-client.ts` - Fixed coupon property type assertion
-16. `app/(auth)/signup/payment/page.tsx` - Added Suspense boundary for useSearchParams
-17. `app/(auth)/signup/success/page.tsx` - Added Suspense boundary for useSearchParams
-18. `app/(auth)/reset-password/page.tsx` - Added Suspense boundary for useSearchParams
-19. `vercel.json` - Removed reset-usage cron job to stay within plan limit
+**Notification Raw SQL Error** (if still occurring)
+- Issue: Boolean/integer type mismatch in notifications
+- File: `app/api/notifications/route.ts` (line 42)
+- Fix: Change `n.read = 0` to `n.read = false`
 
-## Next Steps (If Build Still Fails)
-1. Check Vercel dashboard to confirm it's building commit `1f859d1d`
-2. If new errors appear, they'll likely be similar Stripe type issues - use type assertions
-3. Check for any remaining Badge variant issues (search for `variant="secondary"`)
-4. Verify all Stripe property accesses use type assertions where needed
-5. Check for any other `useSearchParams()` usage that might need Suspense boundaries
+**Debate API 500 Errors** (if still occurring)
+- Issue: Some debate endpoints returning 500 errors
+- Files: `app/api/debates/[id]/route.ts`
+- Status: Error logging improved, may need database investigation
+
+**Mobile App Avatar Upload** (if still occurring)
+- Issue: "Not authenticated" error on avatar upload
+- File: `mobile/ProfileScreen.tsx`
+- Fix: Check `useAuth()` hook instead of just token
+
+## GitHub Connection Setup
+
+### ✅ Current Status: Already Connected!
+
+**Git Remotes Configured:**
+- `origin`: `https://github.com/argufight/argufight.git`
+- `argufight`: `https://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@github.com/argufight/argufight.git` (with token)
+
+**Connection Status:** ✅ Working - Both remotes are configured
+
+### Git Personal Access Token
+```
+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
+```
+
+**⚠️ Security Note:** This token is embedded in the remote URL. For better security, consider:
+1. Using SSH keys instead
+2. Using Git credential helper
+3. Rotating this token periodically
+
+### How to Connect to GitHub (If Starting Fresh)
+
+#### Option 1: Using Git Credential Helper (Recommended)
+
+1. **Set up credential helper:**
+   ```bash
+   git config --global credential.helper store
+   ```
+
+2. **Add remote with token:**
+   ```bash
+   git remote add origin https://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@github.com/argufight/argufight.git
+   ```
+
+3. **Or update existing remote:**
+   ```bash
+   git remote set-url origin https://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@github.com/argufight/argufight.git
+   ```
+
+#### Option 2: Using SSH (Alternative)
+
+1. **Generate SSH key (if you don't have one):**
+   ```bash
+   ssh-keygen -t ed25519 -C "your_email@example.com"
+   ```
+
+2. **Add SSH key to GitHub:**
+   - Copy public key: `cat ~/.ssh/id_ed25519.pub`
+   - Go to GitHub → Settings → SSH and GPG keys → New SSH key
+   - Paste the key
+
+3. **Update remote to use SSH:**
+   ```bash
+   git remote set-url origin git@github.com:argufight/argufight.git
+   ```
+
+#### Option 3: Using Personal Access Token in URL
+
+For one-time operations, you can use the token directly in the URL:
+```bash
+git clone https://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@github.com/argufight/argufight.git
+```
+
+### Verify Connection
+
+```bash
+# Check remote URL
+git remote -v
+
+# Test connection
+git fetch origin
+
+# Push changes (you have 7 commits to push)
+git push origin main
+
+# Or push to the token-authenticated remote
+git push argufight main
+```
+
+### Quick Push Commands
+
+**To push your 7 pending commits:**
+```bash
+# Option 1: Push to origin (may require authentication)
+git push origin main
+
+# Option 2: Push to argufight remote (has token embedded)
+git push argufight main
+
+# Option 3: Set origin to use token
+git remote set-url origin https://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@github.com/argufight/argufight.git
+git push origin main
+```
+
+## Important Files & Routes
+
+### Profile Routes
+- `app/(dashboard)/profile/page.tsx` - Current user's profile (no redirect)
+- `app/[username]/page.tsx` - Public profile by username
+- `app/(dashboard)/profile/[id]/page.tsx` - Old route (redirects to username)
+
+### API Routes
+- `/api/profile` - Get/update current user's profile
+- `/api/users/username/[username]/profile` - Get public profile by username
+- `/api/users/[id]/profile` - Get public profile by ID (legacy)
+
+### Validation
+- `lib/utils/validation.ts` - Username validation and blocked username list
+
+## Database Schema Notes
+
+### User Model
+- `username` - Required for username-based URLs
+- `isBanned` - Banned users return 404 on profile lookup
+- `email` - Only shown on own profile
+
+### Username Requirements
+- 3-20 characters
+- Letters, numbers, underscores, hyphens only
+- Cannot be on blocked list (admin, argufight, etc.)
+
+## Testing Checklist
+
+### Profile Functionality
+- [ ] `/profile` loads without redirect
+- [ ] `/profile` shows current user's data
+- [ ] `/{username}` loads for valid usernames
+- [ ] `/{username}` returns 404 for invalid/banned users
+- [ ] Profile edit works on `/profile`
+- [ ] Avatar upload works
+- [ ] Username update works
+
+### Username Validation
+- [ ] Blocked usernames rejected on signup
+- [ ] Blocked usernames rejected on profile update
+- [ ] Existing blocked usernames identified (use script)
+
+### GitHub Connection
+- [ ] Git remote configured correctly
+- [ ] Can fetch from GitHub
+- [ ] Can push to GitHub
+- [ ] Token has correct permissions
+
+## Scripts Available
+
+### Username Management
+```bash
+# Check for blocked usernames
+npx tsx scripts/check-blocked-usernames.ts
+
+# Update a blocked username
+npx tsx scripts/update-blocked-username.ts <userId> <newUsername>
+```
+
+### User Management
+```bash
+# Reset user subscription
+npx tsx scripts/reset-user-subscription.ts <email>
+
+# Reset password
+npx tsx scripts/reset-password.ts <email> <newPassword>
+```
+
+## Environment Variables
+
+Make sure these are set in Vercel:
+- `DATABASE_URL` - PostgreSQL connection string
+- `NEXT_PUBLIC_APP_URL` - Production URL (https://www.argufight.com)
+- `STRIPE_SECRET_KEY` - Stripe API key
+- `STRIPE_PUBLISHABLE_KEY` - Stripe publishable key
+- `RESEND_API_KEY` - Email service key
+- `CRON_SECRET` - Secret for cron job authentication
 
 ## Deployment Notes
-- **Cron Jobs:** Limited to 2 on Hobby plan. Currently configured:
-  - `process-ad-payouts` - Daily at 2 AM
-  - `check-expired-offers` - Daily at 3 AM
-- **Removed:** `reset-usage` cron job (monthly) - can be run manually if needed
 
-## Important Notes
-- **Stripe API Version:** `2025-11-17.clover` (latest)
-- **Type Assertions:** Used extensively for Stripe properties due to type mismatches
-- **Badge Variants:** Only supports: `'default' | 'sports' | 'politics' | 'tech' | 'entertainment' | 'science' | 'success' | 'warning' | 'error'`
-- **AdContract Model:** Uses `signedAt` field, not `createdAt`
-- **Cron Jobs:** Limited to daily on Hobby plan
+### Vercel Configuration
+- **Cron Jobs:** Limited to 2 on Hobby plan
+  - `/api/cron/process-ad-tasks` - Daily at 2 AM UTC
+  - `/api/cron/ai-tasks` - Daily at 4 AM UTC
 
-## Environment
-- **Node.js:** (Check package.json)
-- **Next.js:** 15.2.4
-- **Prisma:** 6.19.0
-- **Stripe:** 20.0.0
+### Build Process
+1. Prisma schema verification
+2. Clean build artifacts
+3. Regenerate Prisma Client
+4. Next.js build
+5. Fix client manifest
+6. Verify build
 
-## Database
-- **Provider:** PostgreSQL
-- **Connection:** Via `DATABASE_URL` environment variable
-- **Migrations:** Managed through Prisma
+## Next Steps / TODO
 
-## Deployment
-- **Platform:** Vercel
-- **Repository:** `argufight/argufight`
-- **Branch:** `main`
-- **Auto-deploy:** Enabled (on push to main)
+### Immediate (Do First)
+1. **Review and Commit Changes**
+   - Review all modified files: `git diff`
+   - Stage changes: `git add .`
+   - Commit with descriptive message: `git commit -m "Your message"`
+   - Push to GitHub: `git push origin main`
+
+2. **Push Pending Commits**
+   - You have 7 commits ready to push
+   - Run: `git push origin main` or `git push argufight main`
+
+### Short Term
+3. **Monitor Profile Route**
+   - Check if `/api/users/username/[username]/profile` 404s are legitimate
+   - Verify username lookup is case-insensitive if needed
+   - Add better error messages for banned users
+
+4. **Username Migration**
+   - Consider migrating existing users without usernames
+   - Update any remaining `/profile/{id}` links
+   - Add username requirement to signup flow
+
+5. **Testing**
+   - Test profile page on production
+   - Test username-based URLs
+   - Test blocked username validation
+   - Test profile editing
+
+### Long Term
+6. **Documentation**
+   - Update API documentation
+   - Document username requirements for users
+   - Create migration guide if needed
+
+7. **Security**
+   - Consider rotating GitHub token
+   - Move to SSH keys for authentication
+   - Review token permissions
+
+## Recent Commits
+
+- `9920fe81` - Fix: Remove redirect from /profile page
+- `619dc8ae` - Fix: Handle users without username in profile redirect
+- `2982d7f6` - Fix: Add missing [username] route file
+- `26e96248` - Fix: Add missing refetch to useAuth hook
+
+## Contact & Support
+
+For issues or questions:
+- Check Vercel logs for deployment errors
+- Check database for user data
+- Verify environment variables are set
+- Test locally with `npm run dev`
+
+---
+
+---
+
+## 📋 Summary for Next Session
+
+### What Was Done
+- ✅ Profile URL migration to username-based routes
+- ✅ Profile page fixes (removed redirects)
+- ✅ Username validation system
+- ✅ Build fixes and TypeScript errors resolved
+- ✅ Multiple new scripts for username management
+
+### What Needs Attention
+- ⚠️ **7 commits need to be pushed to GitHub**
+- ⚠️ **Multiple uncommitted changes** (modified + new files)
+- ⚠️ **Profile route 404 errors** need investigation
+- ⚠️ **Testing** of new features needed
+
+### Quick Commands for Next Session
+```bash
+# Check status
+git status
+
+# Review changes
+git diff
+
+# Commit and push
+git add .
+git commit -m "Your message"
+git push origin main
+
+# Test locally
+npm run dev
+
+# Check for blocked usernames
+npx tsx scripts/check-blocked-usernames.ts
+```
+
+---
+
+**Last Updated:** December 13, 2024  
+**Status:** Active Development - Uncommitted changes present, 7 commits ready to push  
+**GitHub:** ✅ Connected (token embedded in remote URL)

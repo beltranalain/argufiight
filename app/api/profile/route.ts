@@ -65,9 +65,19 @@ export async function PUT(request: NextRequest) {
 
     // Validate username if provided
     if (username !== undefined) {
-      if (!username.trim() || username.length < 3) {
+      const { isValidUsername, isBlockedUsername } = await import('@/lib/utils/validation')
+      
+      // Check if username is blocked/reserved
+      if (isBlockedUsername(username)) {
         return NextResponse.json(
-          { error: 'Username must be at least 3 characters' },
+          { error: 'This username is reserved and cannot be used' },
+          { status: 400 }
+        )
+      }
+      
+      if (!isValidUsername(username)) {
+        return NextResponse.json(
+          { error: 'Username must be 3-20 characters and contain only letters, numbers, underscores, and hyphens' },
           { status: 400 }
         )
       }

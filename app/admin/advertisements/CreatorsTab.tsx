@@ -93,22 +93,22 @@ export function CreatorsTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full overflow-hidden [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain">
       {/* Filters */}
-      <div className="flex gap-4 items-center">
+      <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
         <Input
           type="text"
           placeholder="Search creators by username or email..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="flex-1"
+          className="flex-1 min-w-0"
         />
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           {(['all', 'active', 'pending_setup'] as const).map((status) => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
                 statusFilter === status
                   ? 'bg-electric-blue text-white'
                   : 'bg-bg-secondary text-text-secondary hover:bg-bg-tertiary'
@@ -130,21 +130,21 @@ export function CreatorsTab() {
           </CardBody>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 max-w-full">
           {creators.map((creator) => (
-            <Card key={creator.id}>
-              <CardBody>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-bold text-text-primary">
+            <Card key={creator.id} className="max-w-full overflow-hidden">
+              <CardBody className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                      <h3 className="text-base sm:text-lg font-bold text-text-primary truncate">
                         @{creator.username}
                       </h3>
                       {getTierBadge(creator.creatorStatus)}
                       {getStatusBadge(creator)}
                     </div>
-                    <div className="text-sm text-text-secondary space-y-1">
-                      <p>Email: {creator.email}</p>
+                    <div className="text-xs sm:text-sm text-text-secondary space-y-1">
+                      <p className="truncate">Email: {creator.email}</p>
                       <p>ELO: {creator.eloRating} • Debates: {creator.totalDebates}</p>
                       <p>Contracts: {creator.totalContracts} • Total Earned: ${creator.totalEarned.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                       {creator.pendingPayout > 0 && (
@@ -155,14 +155,14 @@ export function CreatorsTab() {
                       <p>Joined: {new Date(creator.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 flex-shrink-0">
                     {!creator.stripeAccountId && (
-                      <Badge className="bg-red-500/20 text-red-400 text-xs">
+                      <Badge className="bg-red-500/20 text-red-400 text-xs whitespace-nowrap">
                         Stripe Not Set Up
                       </Badge>
                     )}
                     {creator.stripeAccountId && !creator.payoutEnabled && (
-                      <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">
+                      <Badge className="bg-yellow-500/20 text-yellow-400 text-xs whitespace-nowrap">
                         Onboarding Incomplete
                       </Badge>
                     )}

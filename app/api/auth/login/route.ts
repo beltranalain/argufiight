@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
 
     // Normalize email
     const normalizedEmail = email.toLowerCase().trim()
+    console.log(`[LOGIN] Attempting login for: ${normalizedEmail}`)
     
     // Find user
     const user = await prisma.user.findUnique({
@@ -43,12 +44,15 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       console.log(`[LOGIN] User not found for email: ${normalizedEmail}`)
+      console.log(`[LOGIN] Original email input: ${email}`)
       // Don't reveal if user exists or not (security best practice)
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
       )
     }
+    
+    console.log(`[LOGIN] User found: ${user.username} (${user.email})`)
 
     // Note: We allow suspended users to log in, they just can't debate
     // Only check isBanned (permanent ban), not bannedUntil (temporary suspension)
@@ -82,6 +86,8 @@ export async function POST(request: NextRequest) {
 
     if (!isValid) {
       console.log(`[LOGIN] Invalid password for user: ${user.email}`)
+      console.log(`[LOGIN] Password provided: ${password ? 'Yes' : 'No'}`)
+      console.log(`[LOGIN] User has password hash: ${user.passwordHash ? 'Yes' : 'No'}`)
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }

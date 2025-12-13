@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/db/prisma'
 import { checkAndAdvanceTournamentRound } from './round-advancement'
+import { processKingOfTheHillDebateCompletion } from './king-of-the-hill'
 
 /**
  * Update tournament match when linked debate completes
@@ -46,6 +47,21 @@ export async function updateTournamentMatchOnDebateComplete(debateId: string): P
 
     if (!match) {
       // Not a tournament debate, nothing to do
+      return
+    }
+
+    // King of the Hill format: Use special completion logic
+    if (match.round.tournament.format === 'KING_OF_THE_HILL') {
+      // For King of the Hill, check if debate is VERDICT_READY (verdicts generated and elimination processed)
+      if (!match.debate || match.debate.status !== 'VERDICT_READY') {
+        console.log(
+          `[Tournament Match] King of the Hill debate ${debateId} not ready (status: ${match.debate?.status})`
+        )
+        return
+      }
+
+      // Process King of the Hill completion (this will advance to next round if needed)
+      await processKingOfTheHillDebateCompletion(debateId)
       return
     }
 

@@ -2022,6 +2022,17 @@ function EmailTemplatesTab() {
 export default function AdvertisementsPage() {
   const [activeTab, setActiveTab] = useState('basic')
 
+  // Support tab from URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const tab = urlParams.get('tab')
+      if (tab && ['basic', 'platform', 'marketplace', 'creators', 'advertisers', 'email'].includes(tab)) {
+        setActiveTab(tab)
+      }
+    }
+  }, [])
+
   const tabs = [
     { id: 'basic', label: 'Basic Ads', content: <BasicAdsTab /> },
     { id: 'platform', label: 'Platform Ads', content: <PlatformAdsTab /> },

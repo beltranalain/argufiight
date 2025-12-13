@@ -1,0 +1,504 @@
+/**
+ * King of the Hill Tournament Round Creation
+ * Handles creating GROUP debates for elimination rounds and ONE_ON_ONE for finals
+ */
+
+import { prisma } from '@/lib/db/prisma'
+import { generateKingOfTheHillRoundVerdicts } from './king-of-the-hill-ai'
+
+/**
+ * Create Round 1 for King of the Hill tournament
+ * All registered participants debate simultaneously in a GROUP debate
+ */
+export async function createKingOfTheHillRound1(tournamentId: string): Promise<void> {
+  // Get tournament with all participants
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    include: {
+      participants: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              eloRating: true,
+            },
+          },
+        },
+        orderBy: {
+          seed: 'asc', // Order by seed
+        },
+      },
+    },
+  })
+
+  if (!tournament) {
+    throw new Error('Tournament not found')
+  }
+
+  // Get all registered/active participants (for Round 1, all should be REGISTERED)
+  const participants = tournament.participants.filter(
+    (p) => p.status === 'REGISTERED' || p.status === 'ACTIVE'
+  )
+
+  if (participants.length < 3) {
+    throw new Error('King of the Hill requires at least 3 participants')
+  }
+
+  // Create tournament round
+  const round = await prisma.tournamentRound.create({
+    data: {
+      tournamentId,
+      roundNumber: 1,
+      status: 'UPCOMING',
+      startDate: new Date(),
+    },
+  })
+
+  // Create GROUP debate with all participants
+  const debate = await prisma.debate.create({
+    data: {
+      topic: tournament.name, // Tournament name as topic
+      description: `King of the Hill Tournament - Round 1: ${participants.length} participants`,
+      category: 'SPORTS', // Default category
+      challengerId: participants[0].userId, // First participant as challenger (required field)
+      challengerPosition: 'FOR',
+      opponentPosition: 'AGAINST',
+      opponentId: participants[1]?.userId || participants[0].userId, // Second participant or fallback
+      totalRounds: 1, // Single submission per participant
+      currentRound: 1,
+      roundDuration: tournament.roundDuration * 3600000, // Convert hours to milliseconds
+      speedMode: false,
+      allowCopyPaste: true,
+      status: 'ACTIVE',
+      challengeType: 'GROUP', // Critical: GROUP challenge type
+      startedAt: new Date(), // Mark as started
+    },
+  })
+
+  // Create DebateParticipant records for all participants
+  // Alternating positions: FOR, AGAINST, FOR, AGAINST, ...
+  for (let i = 0; i < participants.length; i++) {
+    const position = i % 2 === 0 ? 'FOR' : 'AGAINST'
+    await prisma.debateParticipant.create({
+      data: {
+        debateId: debate.id,
+        userId: participants[i].userId,
+        position: position,
+        status: 'ACTIVE', // All participants are active
+        joinedAt: new Date(),
+      },
+    })
+  }
+
+  // Create TournamentMatch record to link debate to round
+  // For GROUP debates, we use the first two participants as placeholders
+  // The actual participants are tracked via DebateParticipant
+  const match = await prisma.tournamentMatch.create({
+    data: {
+      tournamentId,
+      roundId: round.id,
+      participant1Id: participants[0].id,
+      participant2Id: participants[1]?.id || participants[0].id, // Use second or fallback
+      debateId: debate.id,
+      status: 'IN_PROGRESS',
+    },
+  })
+
+  // Update tournament status and current round
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: {
+      status: 'IN_PROGRESS',
+      currentRound: 1,
+    },
+  })
+
+  console.log(
+    `[King of the Hill] Created Round 1: Debate ${debate.id} with ${participants.length} participants`
+  )
+}
+
+/**
+ * Create subsequent elimination rounds for King of the Hill tournament
+ * Only ACTIVE participants (survivors) participate
+ */
+export async function createKingOfTheHillRound(
+  tournamentId: string,
+  roundNumber: number
+): Promise<void> {
+  // Get tournament with participants
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    include: {
+      participants: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              eloRating: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!tournament) {
+    throw new Error('Tournament not found')
+  }
+
+  // Get only ACTIVE participants (survivors from previous rounds)
+  const participants = tournament.participants.filter((p) => p.status === 'ACTIVE')
+
+  if (participants.length < 2) {
+    throw new Error(
+      `Not enough active participants for round ${roundNumber}. Expected at least 2, got ${participants.length}`
+    )
+  }
+
+  // If exactly 2 participants, create finals instead
+  if (participants.length === 2) {
+    await createKingOfTheHillFinals(tournamentId, roundNumber, participants)
+    return
+  }
+
+  // Create tournament round
+  const round = await prisma.tournamentRound.create({
+    data: {
+      tournamentId,
+      roundNumber,
+      status: 'UPCOMING',
+      startDate: new Date(),
+    },
+  })
+
+  // Create GROUP debate with all active participants
+  const debate = await prisma.debate.create({
+    data: {
+      topic: tournament.name, // Tournament name as topic
+      description: `King of the Hill Tournament - Round ${roundNumber}: ${participants.length} participants`,
+      category: 'SPORTS',
+      challengerId: participants[0].userId,
+      challengerPosition: 'FOR',
+      opponentPosition: 'AGAINST',
+      opponentId: participants[1]?.userId || participants[0].userId,
+      totalRounds: 1, // Single submission per participant
+      currentRound: 1,
+      roundDuration: tournament.roundDuration * 3600000,
+      speedMode: false,
+      allowCopyPaste: true,
+      status: 'ACTIVE',
+      challengeType: 'GROUP', // Critical: GROUP challenge type
+      startedAt: new Date(),
+    },
+  })
+
+  // Create DebateParticipant records for all active participants
+  for (let i = 0; i < participants.length; i++) {
+    const position = i % 2 === 0 ? 'FOR' : 'AGAINST'
+    await prisma.debateParticipant.create({
+      data: {
+        debateId: debate.id,
+        userId: participants[i].userId,
+        position: position,
+        status: 'ACTIVE',
+        joinedAt: new Date(),
+      },
+    })
+  }
+
+  // Create TournamentMatch record
+  const match = await prisma.tournamentMatch.create({
+    data: {
+      tournamentId,
+      roundId: round.id,
+      participant1Id: participants[0].id,
+      participant2Id: participants[1]?.id || participants[0].id,
+      debateId: debate.id,
+      status: 'IN_PROGRESS',
+    },
+  })
+
+  // Update tournament current round
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: {
+      currentRound: roundNumber,
+    },
+  })
+
+  console.log(
+    `[King of the Hill] Created Round ${roundNumber}: Debate ${debate.id} with ${participants.length} participants`
+  )
+}
+
+/**
+ * Create finals for King of the Hill tournament
+ * Finals is a traditional 3-round ONE_ON_ONE debate between the last 2 participants
+ */
+export async function createKingOfTheHillFinals(
+  tournamentId: string,
+  roundNumber: number,
+  participants: Array<{
+    id: string
+    userId: string
+    user: {
+      id: string
+      username: string
+      eloRating: number
+    }
+  }>
+): Promise<void> {
+  if (participants.length !== 2) {
+    throw new Error(`Finals requires exactly 2 participants, got ${participants.length}`)
+  }
+
+  // Get tournament
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+  })
+
+  if (!tournament) {
+    throw new Error('Tournament not found')
+  }
+
+  // Create tournament round
+  const round = await prisma.tournamentRound.create({
+    data: {
+      tournamentId,
+      roundNumber,
+      status: 'UPCOMING',
+      startDate: new Date(),
+    },
+  })
+
+  // Create ONE_ON_ONE debate (traditional 3-round debate)
+  const debate = await prisma.debate.create({
+    data: {
+      topic: tournament.name, // Tournament name as topic
+      description: `King of the Hill Tournament - Finals: ${participants[0].user.username} vs ${participants[1].user.username}`,
+      category: 'SPORTS',
+      challengerId: participants[0].userId,
+      challengerPosition: 'FOR',
+      opponentPosition: 'AGAINST',
+      opponentId: participants[1].userId,
+      totalRounds: 3, // Traditional 3-round debate for finals
+      currentRound: 1,
+      roundDuration: tournament.roundDuration * 3600000,
+      speedMode: false,
+      allowCopyPaste: true,
+      status: 'ACTIVE',
+      challengeType: 'ONE_ON_ONE', // Finals use ONE_ON_ONE, not GROUP
+      startedAt: new Date(), // Critical: Frontend needs this to recognize debate has started
+    },
+  })
+
+  // Create DebateParticipant records for both participants
+  await prisma.debateParticipant.create({
+    data: {
+      debateId: debate.id,
+      userId: participants[0].userId,
+      position: 'FOR',
+      status: 'ACTIVE',
+      joinedAt: new Date(),
+    },
+  })
+
+  await prisma.debateParticipant.create({
+    data: {
+      debateId: debate.id,
+      userId: participants[1].userId,
+      position: 'AGAINST',
+      status: 'ACTIVE',
+      joinedAt: new Date(),
+    },
+  })
+
+  // Create TournamentMatch record
+  const match = await prisma.tournamentMatch.create({
+    data: {
+      tournamentId,
+      roundId: round.id,
+      participant1Id: participants[0].id,
+      participant2Id: participants[1].id,
+      debateId: debate.id,
+      status: 'IN_PROGRESS',
+    },
+  })
+
+  // Update tournament current round
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: {
+      currentRound: roundNumber,
+    },
+  })
+
+  console.log(
+    `[King of the Hill] Created Finals (Round ${roundNumber}): Debate ${debate.id} - ${participants[0].user.username} vs ${participants[1].user.username}`
+  )
+}
+
+/**
+ * Process King of the Hill debate completion
+ * Generates verdicts, eliminates bottom 25%, and advances to next round or finals
+ */
+export async function processKingOfTheHillDebateCompletion(debateId: string): Promise<void> {
+  try {
+    console.log(`[King of the Hill] Processing debate completion for debate ${debateId}`)
+
+    // Get debate with tournament info
+    const debate = await prisma.debate.findUnique({
+      where: { id: debateId },
+      include: {
+        tournamentMatches: {
+          include: {
+            round: {
+              include: {
+                tournament: {
+                  select: {
+                    id: true,
+                    format: true,
+                    currentRound: true,
+                    totalRounds: true,
+                    status: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!debate) {
+      throw new Error('Debate not found')
+    }
+
+    const match = debate.tournamentMatches[0]
+    if (!match) {
+      throw new Error('Tournament match not found for debate')
+    }
+
+    const tournament = match.round.tournament
+    if (tournament.format !== 'KING_OF_THE_HILL') {
+      throw new Error('This function is only for King of the Hill tournaments')
+    }
+
+    const roundNumber = match.round.roundNumber
+
+    // Check if this is finals (ONE_ON_ONE debate)
+    const isFinals = debate.challengeType === 'ONE_ON_ONE' && debate.totalRounds === 3
+
+    if (isFinals) {
+      // Finals: Use standard verdict system, then complete tournament
+      console.log(`[King of the Hill] Finals debate completed - checking if ready for tournament completion`)
+      
+      // Check if debate has a winner (standard 1v1 verdict system)
+      if (debate.status === 'VERDICT_READY' && debate.winnerId) {
+        // Finals complete - complete tournament
+        console.log(`[King of the Hill] Finals complete - completing tournament`)
+        const { completeTournament } = await import('./tournament-completion')
+        await completeTournament(tournament.id)
+        
+        // Update round status
+        await prisma.tournamentRound.update({
+          where: { id: match.round.id },
+          data: {
+            status: 'COMPLETED',
+            endDate: new Date(),
+          },
+        })
+        return
+      } else {
+        // Finals not ready yet
+        console.log(`[King of the Hill] Finals not ready yet (status: ${debate.status}, winner: ${debate.winnerId})`)
+        return
+      }
+    }
+
+    // Elimination round: Use King of the Hill verdict system
+    // Check if verdicts already exist
+    const existingVerdicts = await prisma.verdict.count({
+      where: { debateId },
+    })
+
+    if (existingVerdicts === 0) {
+      // Generate verdicts if not already generated
+      console.log(`[King of the Hill] Generating verdicts for round ${roundNumber}`)
+      await generateKingOfTheHillRoundVerdicts(debateId, tournament.id, roundNumber)
+    } else {
+      console.log(`[King of the Hill] Verdicts already exist for round ${roundNumber}`)
+    }
+
+    // Get active participants after elimination
+    const activeParticipants = await prisma.tournamentParticipant.findMany({
+      where: {
+        tournamentId: tournament.id,
+        status: 'ACTIVE',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            eloRating: true,
+          },
+        },
+      },
+    })
+
+    console.log(
+      `[King of the Hill] After round ${roundNumber}: ${activeParticipants.length} active participants remaining`
+    )
+
+    // Check if tournament should advance
+    if (activeParticipants.length === 2) {
+      // Finals: Create 1v1 debate
+      console.log(`[King of the Hill] 2 participants remaining - creating finals`)
+      const nextRoundNumber = roundNumber + 1
+      await createKingOfTheHillFinals(tournament.id, nextRoundNumber, activeParticipants)
+    } else if (activeParticipants.length > 2) {
+      // Next elimination round: Create GROUP debate
+      console.log(
+        `[King of the Hill] ${activeParticipants.length} participants remaining - creating next elimination round`
+      )
+      const nextRoundNumber = roundNumber + 1
+      await createKingOfTheHillRound(tournament.id, nextRoundNumber)
+    } else if (activeParticipants.length === 1) {
+      // Only 1 participant left - tournament complete (shouldn't happen, but handle it)
+      console.log(`[King of the Hill] Only 1 participant remaining - completing tournament`)
+      const { completeTournament } = await import('./tournament-completion')
+      await completeTournament(tournament.id)
+    } else if (activeParticipants.length < 1) {
+      // Error: No participants
+      console.error(
+        `[King of the Hill] ERROR: No participants remaining (${activeParticipants.length})`
+      )
+      // Complete tournament anyway
+      await prisma.tournament.update({
+        where: { id: tournament.id },
+        data: {
+          status: 'COMPLETED',
+          endDate: new Date(),
+        },
+      })
+    }
+
+    // Update round status to COMPLETED
+    await prisma.tournamentRound.update({
+      where: { id: match.round.id },
+      data: {
+        status: 'COMPLETED',
+        endDate: new Date(),
+      },
+    })
+
+    console.log(`[King of the Hill] ✅ Round ${roundNumber} processed and advanced`)
+  } catch (error: any) {
+    console.error('[King of the Hill] Error processing debate completion:', error)
+    throw error
+  }
+}

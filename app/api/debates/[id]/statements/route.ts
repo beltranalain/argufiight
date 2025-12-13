@@ -265,42 +265,75 @@ export async function POST(
         // Trigger verdict generation automatically (direct function call)
         console.log(`[Debate Complete] Triggering automatic verdict generation for debate ${id}`)
         
-        // Import and call the generate function directly (no network calls = more reliable)
-        import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
-          try {
-            console.log(`[Debate Complete] Starting direct verdict generation for debate ${id}`)
-            const result = await generateModule.generateInitialVerdicts(id)
-            console.log('✅ [Debate Complete] Verdict generation completed successfully:', {
-              debateId: id,
-              result,
-              timestamp: new Date().toISOString(),
-            })
-          } catch (error: any) {
-            console.error('❌ [Debate Complete] Error in direct verdict generation:', {
-              debateId: id,
-              error: error.message,
-              stack: error.stack,
-              timestamp: new Date().toISOString(),
-            })
-          }
-        }).catch((importError: any) => {
-          console.error('❌ [Debate Complete] Failed to import generate module:', importError.message)
-          // Fallback to fetch if import fails (shouldn't happen, but safety net)
-          let baseUrl = 'http://localhost:3000'
-          if (process.env.NEXT_PUBLIC_APP_URL) {
-            baseUrl = process.env.NEXT_PUBLIC_APP_URL
-          } else if (process.env.VERCEL_URL) {
-            baseUrl = `https://${process.env.VERCEL_URL}`
-          }
-          
-          fetch(`${baseUrl}/api/verdicts/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ debateId: id }),
-          }).catch((fetchError: any) => {
-            console.error('❌ [Debate Complete] Fallback fetch also failed:', fetchError.message)
+        // Check if this is a King of the Hill tournament
+        const isKingOfTheHill = tournamentMatch?.round?.tournament?.format === 'KING_OF_THE_HILL'
+        
+        if (isKingOfTheHill && tournamentMatch) {
+          // King of the Hill: Use special verdict generation
+          console.log(`[Debate Complete] King of the Hill tournament - using special verdict generation`)
+          import('@/lib/tournaments/king-of-the-hill-ai').then(async (kothModule) => {
+            try {
+              console.log(`[Debate Complete] Starting King of the Hill verdict generation for debate ${id}`)
+              await kothModule.generateKingOfTheHillRoundVerdicts(
+                id,
+                tournamentMatch.round.tournament.id,
+                tournamentMatch.round.roundNumber
+              )
+              console.log('✅ [Debate Complete] King of the Hill verdict generation completed successfully:', {
+                debateId: id,
+                tournamentId: tournamentMatch.round.tournament.id,
+                roundNumber: tournamentMatch.round.roundNumber,
+                timestamp: new Date().toISOString(),
+              })
+            } catch (error: any) {
+              console.error('❌ [Debate Complete] Error in King of the Hill verdict generation:', {
+                debateId: id,
+                error: error.message,
+                stack: error.stack,
+                timestamp: new Date().toISOString(),
+              })
+            }
+          }).catch((importError: any) => {
+            console.error('❌ [Debate Complete] Failed to import King of the Hill module:', importError.message)
           })
-        })
+        } else {
+          // Standard format: Use regular verdict generation
+          import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
+            try {
+              console.log(`[Debate Complete] Starting direct verdict generation for debate ${id}`)
+              const result = await generateModule.generateInitialVerdicts(id)
+              console.log('✅ [Debate Complete] Verdict generation completed successfully:', {
+                debateId: id,
+                result,
+                timestamp: new Date().toISOString(),
+              })
+            } catch (error: any) {
+              console.error('❌ [Debate Complete] Error in direct verdict generation:', {
+                debateId: id,
+                error: error.message,
+                stack: error.stack,
+                timestamp: new Date().toISOString(),
+              })
+            }
+          }).catch((importError: any) => {
+            console.error('❌ [Debate Complete] Failed to import generate module:', importError.message)
+            // Fallback to fetch if import fails (shouldn't happen, but safety net)
+            let baseUrl = 'http://localhost:3000'
+            if (process.env.NEXT_PUBLIC_APP_URL) {
+              baseUrl = process.env.NEXT_PUBLIC_APP_URL
+            } else if (process.env.VERCEL_URL) {
+              baseUrl = `https://${process.env.VERCEL_URL}`
+            }
+            
+            fetch(`${baseUrl}/api/verdicts/generate`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ debateId: id }),
+            }).catch((fetchError: any) => {
+              console.error('❌ [Debate Complete] Fallback fetch also failed:', fetchError.message)
+            })
+          })
+        }
 
         // Notify participants and watchers
         await notifyDebateWatchers(

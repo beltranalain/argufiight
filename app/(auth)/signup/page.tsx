@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { AuthLayout } from '@/components/auth/AuthLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { isValidEmail, isValidPassword, isValidUsername } from '@/lib/utils/validation'
+import { isValidEmail, isValidPassword, isValidUsername, isBlockedUsername } from '@/lib/utils/validation'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -39,8 +39,11 @@ export default function SignupPage() {
 
     // Validation
     const newErrors: Record<string, string> = {}
-
-    if (!isValidUsername(username)) {
+    
+    // Check for blocked usernames
+    if (isBlockedUsername(username)) {
+      newErrors.username = 'This username is reserved and cannot be used'
+    } else if (!isValidUsername(username)) {
       newErrors.username = 'Username must be 3-20 characters and contain only letters, numbers, underscores, and hyphens'
     }
 

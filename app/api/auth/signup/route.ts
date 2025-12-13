@@ -17,6 +17,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isValidUsername(username)) {
+      // Check if it's a blocked username
+      const { isBlockedUsername } = await import('@/lib/utils/validation')
+      if (isBlockedUsername(username)) {
+        return NextResponse.json(
+          { error: 'This username is reserved and cannot be used' },
+          { status: 400 }
+        )
+      }
       return NextResponse.json(
         { error: 'Username must be 3-20 characters and contain only letters, numbers, underscores, and hyphens' },
         { status: 400 }
