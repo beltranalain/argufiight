@@ -657,9 +657,12 @@ export default function DebatePage() {
                                   Eliminated in Round {eliminationRound}
                                 </p>
                               )}
-                              <Badge variant="default" size="sm" className="mt-1">
-                                {participant.position}
-                              </Badge>
+                              {/* Don't show position for King of the Hill - it's an open debate */}
+                              {participant.position && debate.tournamentMatch?.tournament?.format !== 'KING_OF_THE_HILL' && (
+                                <Badge variant="default" size="sm" className="mt-1">
+                                  {participant.position}
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         )

@@ -62,8 +62,8 @@ export async function createKingOfTheHillRound1(tournamentId: string): Promise<v
       description: `King of the Hill Tournament - Round 1: ${participants.length} participants`,
       category: 'SPORTS', // Default category
       challengerId: participants[0].userId, // First participant as challenger (required field)
-      challengerPosition: 'FOR',
-      opponentPosition: 'AGAINST',
+      challengerPosition: 'FOR', // Required field, but not used for GROUP debates
+      opponentPosition: 'AGAINST', // Required field, but not used for GROUP debates
       opponentId: participants[1]?.userId || participants[0].userId, // Second participant or fallback
       totalRounds: 1, // Single submission per participant
       currentRound: 1,
@@ -77,14 +77,13 @@ export async function createKingOfTheHillRound1(tournamentId: string): Promise<v
   })
 
   // Create DebateParticipant records for all participants
-  // Alternating positions: FOR, AGAINST, FOR, AGAINST, ...
+  // King of the Hill is an open debate - no FOR/AGAINST positions
   for (let i = 0; i < participants.length; i++) {
-    const position = i % 2 === 0 ? 'FOR' : 'AGAINST'
     await prisma.debateParticipant.create({
       data: {
         debateId: debate.id,
         userId: participants[i].userId,
-        position: position,
+        position: null, // No positions in King of the Hill - it's an open debate
         status: 'ACTIVE', // All participants are active
         joinedAt: new Date(),
       },
@@ -183,8 +182,8 @@ export async function createKingOfTheHillRound(
       description: `King of the Hill Tournament - Round ${roundNumber}: ${participants.length} participants`,
       category: 'SPORTS',
       challengerId: participants[0].userId,
-      challengerPosition: 'FOR',
-      opponentPosition: 'AGAINST',
+      challengerPosition: 'FOR', // Required field, but not used for GROUP debates
+      opponentPosition: 'AGAINST', // Required field, but not used for GROUP debates
       opponentId: participants[1]?.userId || participants[0].userId,
       totalRounds: 1, // Single submission per participant
       currentRound: 1,
@@ -198,13 +197,13 @@ export async function createKingOfTheHillRound(
   })
 
   // Create DebateParticipant records for all active participants
+  // King of the Hill is an open debate - no FOR/AGAINST positions
   for (let i = 0; i < participants.length; i++) {
-    const position = i % 2 === 0 ? 'FOR' : 'AGAINST'
     await prisma.debateParticipant.create({
       data: {
         debateId: debate.id,
         userId: participants[i].userId,
-        position: position,
+        position: null, // No positions in King of the Hill - it's an open debate
         status: 'ACTIVE',
         joinedAt: new Date(),
       },
