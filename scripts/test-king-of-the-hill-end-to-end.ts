@@ -421,11 +421,19 @@ async function runEndToEndTest() {
         })
 
         if (match) {
-          await generateKingOfTheHillRoundVerdicts(
-            debate.id,
-            match.round.tournament.id,
-            match.round.roundNumber
-          )
+          // Finals (ONE_ON_ONE) uses standard verdict generation
+          if (debate.challengeType === 'ONE_ON_ONE') {
+            console.log('   📌 Finals debate - using standard verdict generation')
+            const { generateInitialVerdicts } = await import('../lib/verdicts/generate-initial')
+            await generateInitialVerdicts(debate.id)
+          } else {
+            // GROUP debates use King of the Hill verdict generation
+            await generateKingOfTheHillRoundVerdicts(
+              debate.id,
+              match.round.tournament.id,
+              match.round.roundNumber
+            )
+          }
           
           // Wait for verdicts
           const hasVerdicts = await waitForVerdicts(debate.id, 10000)
