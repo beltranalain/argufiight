@@ -190,29 +190,91 @@ async function submitStatementsForAllParticipants(debateId: string, users: any[]
 async function processRound(debateId: string, roundNumber: number) {
   console.log(`\n⏳ Processing Round ${roundNumber}...`)
   
-  // Wait for verdict generation (this happens automatically via API)
-  // In a real scenario, we'd call the verdict generation endpoint
-  // For now, we'll wait and check status
-  let attempts = 0
-  const maxAttempts = 30
+  // Get debate with tournament match info
+  const debate = await prisma.debate.findUnique({
+    where: { id: debateId },
+    include: {
+      tournamentMatch: {
+        include: {
+          round: {
+            include: {
+              tournament: {
+                select: {
+                  id: true,
+                  format: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
   
-  while (attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 2000))
+  if (!debate || !debate.tournamentMatch) {
+    throw new Error(`Debate or tournament match not found for ${debateId}`)
+  }
+  
+  const tournamentId = debate.tournamentMatch.round.tournament.id
+  const isKingOfTheHill = debate.tournamentMatch.round.tournament.format === 'KING_OF_THE_HILL'
+  
+  // Manually trigger verdict generation for King of the Hill
+  if (isKingOfTheHill && debate.challengeType === 'GROUP') {
+    console.log(`  🔧 Triggering King of the Hill verdict generation...`)
+    try {
+      const { generateKingOfTheHillRoundVerdicts } = await import('../lib/tournaments/king-of-the-hill-ai')
+      await generateKingOfTheHillRoundVerdicts(debateId, tournamentId, roundNumber)
+      console.log(`  ✅ Verdicts generated`)
+    } catch (error: any) {
+      console.error(`  ❌ Error generating verdicts:`, error.message)
+      throw error
+    }
     
-    const debate = await prisma.debate.findUnique({
-      where: { id: debateId },
-      include: {
-        verdicts: true,
-        tournamentMatch: {
-          include: {
-            round: {
-              include: {
-                tournament: {
-                  include: {
-                    participants: {
-                      include: {
-                        user: true,
-                      },
+    // Process debate completion to advance round
+    console.log(`  🔧 Processing debate completion...`)
+    try {
+      const { processKingOfTheHillDebateCompletion } = await import('../lib/tournaments/king-of-the-hill')
+      await processKingOfTheHillDebateCompletion(debateId)
+      console.log(`  ✅ Debate completion processed`)
+    } catch (error: any) {
+      console.error(`  ❌ Error processing completion:`, error.message)
+      throw error
+    }
+  } else {
+    // For finals (1v1), use standard verdict generation
+    console.log(`  🔧 Triggering standard verdict generation for finals...`)
+    try {
+      const { generateInitialVerdicts } = await import('../lib/verdicts/generate-initial')
+      await generateInitialVerdicts(debateId)
+      console.log(`  ✅ Verdicts generated`)
+      
+      // Process match completion
+      const { updateTournamentMatchOnDebateComplete } = await import('../lib/tournaments/match-completion')
+      await updateTournamentMatchOnDebateComplete(debateId)
+      console.log(`  ✅ Match completion processed`)
+    } catch (error: any) {
+      console.error(`  ❌ Error generating verdicts:`, error.message)
+      throw error
+    }
+  }
+  
+  // Wait a bit for processing
+  await new Promise(resolve => setTimeout(resolve, 3000))
+  
+  // Check final status
+  const finalDebate = await prisma.debate.findUnique({
+    where: { id: debateId },
+    include: {
+      verdicts: true,
+      tournamentMatch: {
+        include: {
+          round: {
+            include: {
+              tournament: {
+                include: {
+                  participants: {
+                    include: {
+                      user: true,
                     },
                   },
                 },
@@ -221,33 +283,34 @@ async function processRound(debateId: string, roundNumber: number) {
           },
         },
       },
-    })
+    },
+  })
+  
+  if (finalDebate) {
+    console.log(`  ✅ Round ${roundNumber} complete - Status: ${finalDebate.status}, Verdicts: ${finalDebate.verdicts.length}`)
     
-    if (debate?.status === 'VERDICT_READY' && debate.verdicts.length > 0) {
-      console.log(`  ✅ Round ${roundNumber} verdicts generated (${debate.verdicts.length} verdicts)`)
+    // Show elimination results
+    const tournament = finalDebate.tournamentMatch?.round?.tournament
+    if (tournament) {
+      const eliminated = tournament.participants.filter(p => p.status === 'ELIMINATED')
+      const active = tournament.participants.filter(p => p.status === 'ACTIVE')
+      console.log(`  📊 Eliminated: ${eliminated.length}, Active: ${active.length}`)
       
-      // Show elimination results
-      const tournament = debate.tournamentMatch?.round?.tournament
-      if (tournament) {
-        const eliminated = tournament.participants.filter(p => p.status === 'ELIMINATED')
-        const active = tournament.participants.filter(p => p.status === 'ACTIVE')
-        console.log(`  📊 Eliminated: ${eliminated.length}, Active: ${active.length}`)
-        
+      if (eliminated.length > 0) {
         eliminated.forEach(p => {
           console.log(`    ❌ @${p.user.username} - Round ${p.eliminationRound || '?'}`)
         })
       }
       
-      return debate
-    }
-    
-    attempts++
-    if (attempts % 5 === 0) {
-      console.log(`  ⏳ Waiting for verdicts... (attempt ${attempts}/${maxAttempts})`)
+      if (active.length > 0) {
+        active.forEach(p => {
+          console.log(`    ✅ @${p.user.username} - Score: ${p.cumulativeScore || 0}`)
+        })
+      }
     }
   }
   
-  throw new Error(`Round ${roundNumber} did not complete within ${maxAttempts * 2} seconds`)
+  return finalDebate
 }
 
 // Main test function
