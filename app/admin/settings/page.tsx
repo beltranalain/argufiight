@@ -1325,13 +1325,25 @@ export default function AdminSettingsPage() {
                         className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
                       />
                     </div>
-                    <Button
-                      variant="primary"
-                      onClick={handleTestPushNotification}
-                      isLoading={isTestingPush}
-                    >
-                      Send Test Notification
-                    </Button>
+                    <div className="flex gap-3">
+                      <Button
+                        variant="secondary"
+                        onClick={handleTestBrowserNotification}
+                      >
+                        Test Browser Notification
+                      </Button>
+                      <Button
+                        variant="primary"
+                        onClick={handleTestPushNotification}
+                        isLoading={isTestingPush}
+                      >
+                        Send FCM Test Notification
+                      </Button>
+                    </div>
+                    <p className="text-xs text-text-secondary mt-2">
+                      <strong>Test Browser Notification:</strong> Tests if your browser can show notifications at all (bypasses FCM).<br/>
+                      <strong>Send FCM Test Notification:</strong> Sends a real push notification through Firebase (works even when tab is closed).
+                    </p>
 
                     {/* Test Result */}
                     {pushTestResult && (
@@ -1346,6 +1358,20 @@ export default function AdminSettingsPage() {
                         <p className="text-xs mt-1">
                           {pushTestResult.message || pushTestResult.error}
                         </p>
+                        {pushTestResult.success && (
+                          <div className="mt-3 p-3 bg-bg-secondary rounded border border-bg-tertiary">
+                            <p className="text-xs text-text-secondary mb-2">
+                              <strong>💡 Troubleshooting Tips:</strong>
+                            </p>
+                            <ul className="text-xs text-text-secondary space-y-1 list-disc list-inside">
+                              <li>If you don't see a notification, check <strong>Windows Focus Assist</strong> (Press Windows Key + A, turn off Focus Assist)</li>
+                              <li>Try <strong>closing this tab</strong> and sending another test notification</li>
+                              <li>Check browser notification settings: {typeof window !== 'undefined' && 'chrome' in window ? 'chrome://settings/content/notifications' : 'edge://settings/content/notifications'}</li>
+                              <li>Open DevTools (F12) → Application → Service Workers to check service worker status</li>
+                              <li>See <a href="/PUSH_NOTIFICATION_TROUBLESHOOTING.md" target="_blank" className="underline text-electric-blue">full troubleshooting guide</a> for more help</li>
+                            </ul>
+                          </div>
+                        )}
                       </div>
                     )}
 
