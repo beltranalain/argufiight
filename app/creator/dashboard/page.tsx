@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -8,6 +9,9 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { Badge } from '@/components/ui/Badge'
 import { Tabs } from '@/components/ui/Tabs'
 import Link from 'next/link'
+import { OffersTab } from './OffersTab'
+import { EarningsTab } from './EarningsTab'
+import { SettingsTab } from './SettingsTab'
 
 interface Contract {
   id: string
@@ -39,7 +43,12 @@ interface Offer {
   }
 }
 
-export default function CreatorDashboardPage() {
+function CreatorDashboardContent() {
+  const searchParams = useSearchParams()
+  const tabFromUrl = searchParams.get('tab') as 'overview' | 'offers' | 'earnings' | 'settings' | 'how-it-works' | null
+  const [activeTab, setActiveTab] = useState<'overview' | 'offers' | 'earnings' | 'settings' | 'how-it-works'>(
+    tabFromUrl || 'overview'
+  )
   const [isLoading, setIsLoading] = useState(true)
   const [earnings, setEarnings] = useState({
     totalEarned: 0,
@@ -60,6 +69,12 @@ export default function CreatorDashboardPage() {
     GOLD: number
     PLATINUM: number
   } | null>(null)
+
+  useEffect(() => {
+    if (tabFromUrl && ['overview', 'offers', 'earnings', 'settings', 'how-it-works'].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl)
+    }
+  }, [tabFromUrl])
 
   useEffect(() => {
     fetchData()
@@ -458,19 +473,9 @@ export default function CreatorDashboardPage() {
       <div className="pt-20 px-4 md:px-8 pb-8">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-text-primary">Creator Dashboard</h1>
-              <p className="text-text-secondary mt-2">Manage your sponsorships and earnings</p>
-            </div>
-            <div className="flex gap-3">
-              <Link href="/creator/settings">
-                <Button variant="secondary">Ad Slot Settings</Button>
-              </Link>
-              <Link href="/creator/earnings">
-                <Button variant="secondary">View Earnings</Button>
-              </Link>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold text-text-primary">Creator Dashboard</h1>
+            <p className="text-text-secondary mt-2">Manage your sponsorships and earnings</p>
           </div>
 
           {/* Tabs */}
@@ -478,14 +483,33 @@ export default function CreatorDashboardPage() {
             <Tabs
               tabs={[
                 { id: 'overview', label: 'Overview', content: <OverviewTab /> },
+                { id: 'offers', label: 'Offers', content: <OffersTab /> },
+                { id: 'earnings', label: 'Earnings', content: <EarningsTab /> },
+                { id: 'settings', label: 'Settings', content: <SettingsTab /> },
                 { id: 'how-it-works', label: 'How It Works', content: <HowItWorksTab /> },
               ]}
-              defaultTab="overview"
+              defaultTab={activeTab}
+              onChange={(tab) => setActiveTab(tab as typeof activeTab)}
             />
           </Card>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function CreatorDashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-bg-primary">
+        <TopNav currentPanel="CREATOR" />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <LoadingSpinner size="lg" />
+        </div>
+      </div>
+    }>
+      <CreatorDashboardContent />
+    </Suspense>
   )
 }
 

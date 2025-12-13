@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Tabs } from '@/components/ui/Tabs'
 import { Modal } from '@/components/ui/Modal'
 import { EmailTemplateEditor } from '@/components/admin/EmailTemplateEditor'
+import { CreatorsTab } from './CreatorsTab'
 
 // ============================================
 // BASIC ADS TAB (Legacy System)
@@ -2025,6 +2026,7 @@ export default function AdvertisementsPage() {
     { id: 'basic', label: 'Basic Ads', content: <BasicAdsTab /> },
     { id: 'platform', label: 'Platform Ads', content: <PlatformAdsTab /> },
     { id: 'marketplace', label: 'Creator Marketplace', content: <CreatorMarketplaceTab /> },
+    { id: 'creators', label: 'Creators', content: <CreatorsTab /> },
     { id: 'advertisers', label: 'Advertisers', content: <AdvertisersManagementTab /> },
     { id: 'email', label: 'Email', content: <EmailTemplatesTab /> },
   ]

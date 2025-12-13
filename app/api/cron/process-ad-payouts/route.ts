@@ -6,12 +6,12 @@ import { payoutToCreator, capturePaymentIntent } from '@/lib/stripe/stripe-clien
  * Cron job to process completed advertising contracts and release payouts
  * Should be called by Vercel Cron or external scheduler
  * 
- * Expected cron schedule: Daily at 2 AM UTC
+ * Expected cron schedule: Weekly on Sunday at 2 AM UTC
  * vercel.json:
  * {
  *   "crons": [{
  *     "path": "/api/cron/process-ad-payouts",
- *     "schedule": "0 2 * * *"
+ *     "schedule": "0 2 * * 0"
  *   }]
  * }
  */
