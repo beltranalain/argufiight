@@ -3,6 +3,7 @@ import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { getOrCreateCustomer, createStripeClient, getStripeKeys } from '@/lib/stripe/stripe-client'
+import { calculateStripeFees } from '@/lib/stripe/fee-calculator'
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get offer or contract details
-    let amount: number
+    let baseAmount: number // Original amount without fees
     let description: string
     let metadata: Record<string, string>
 
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      amount = Number(offer.amount)
+      baseAmount = Number(offer.amount)
       description = `Campaign: ${offer.campaign.name} - Creator: ${offer.creator.username}`
       metadata = {
         advertiserId: advertiser.id,
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
         campaignId: offer.campaignId,
         creatorId: offer.creatorId,
         type: 'offer_payment',
+        baseAmount: baseAmount.toString(), // Store original amount
       }
     } else if (contractId) {
       const contract = await prisma.adContract.findUnique({
@@ -111,7 +113,7 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      amount = Number(contract.totalAmount)
+      baseAmount = Number(contract.totalAmount)
       description = `Campaign: ${contract.campaign.name} - Creator: ${contract.creator.username}`
       metadata = {
         advertiserId: advertiser.id,
@@ -119,6 +121,7 @@ export async function POST(request: NextRequest) {
         campaignId: contract.campaignId,
         creatorId: contract.creatorId,
         type: 'contract_payment',
+        baseAmount: baseAmount.toString(), // Store original amount
       }
     } else {
       return NextResponse.json(
@@ -126,6 +129,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Calculate Stripe transaction fees and add to total
+    // Fees are passed to the advertiser
+    const { fee, total } = calculateStripeFees(baseAmount)
+    const totalAmount = total // Amount advertiser will pay (includes fees)
 
     // Get Stripe keys
     const { publishableKey } = await getStripeKeys()
@@ -169,9 +177,9 @@ export async function POST(request: NextRequest) {
             currency: 'usd',
             product_data: {
               name: description,
-              description: `Payment for advertising contract`,
+              description: `Payment for advertising contract (includes processing fees)`,
             },
-            unit_amount: Math.round(amount * 100), // Convert to cents
+            unit_amount: Math.round(totalAmount * 100), // Convert to cents (includes fees)
           },
           quantity: 1,
         },
@@ -184,6 +192,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       checkoutUrl: checkoutSession.url,
       sessionId: checkoutSession.id,
+      amount: baseAmount, // Original amount
+      fee: fee, // Stripe transaction fee
+      total: totalAmount, // Total amount advertiser pays
     })
   } catch (error: any) {
     console.error('Failed to create advertiser checkout session:', error)

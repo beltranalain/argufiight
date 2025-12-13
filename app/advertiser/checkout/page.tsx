@@ -189,10 +189,14 @@ function CheckoutPageContent() {
   }
 
   const paymentInfo = offer || contract
-  const amount = offer ? Number(offer.amount) : (contract ? Number(contract.totalAmount) : 0)
+  const baseAmount = offer ? Number(offer.amount) : (contract ? Number(contract.totalAmount) : 0)
   const description = offer 
     ? `Campaign: ${offer.campaign?.name || 'N/A'} - Creator: ${offer.creator?.username || 'N/A'}`
     : (contract ? `Campaign: ${contract.campaign?.name || 'N/A'} - Creator: ${contract.creator?.username || 'N/A'}` : 'Payment')
+  
+  // Calculate Stripe fees (2.9% + $0.30)
+  const stripeFee = baseAmount * 0.029 + 0.30
+  const totalAmount = baseAmount + stripeFee
 
   return (
     <div className="min-h-screen bg-bg-primary">
@@ -206,16 +210,30 @@ function CheckoutPageContent() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-lg font-semibold text-text-primary mb-2">Payment Details</h2>
-                <div className="bg-bg-tertiary rounded-lg p-4 space-y-2">
+                <div className="bg-bg-tertiary rounded-lg p-4 space-y-3">
                   <div className="flex justify-between">
                     <span className="text-text-secondary">Description:</span>
                     <span className="text-text-primary font-medium">{description}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-secondary">Amount:</span>
-                    <span className="text-electric-blue font-bold text-xl">
-                      ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
+                  <div className="border-t border-bg-secondary pt-2 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-text-secondary">Contract Amount:</span>
+                      <span className="text-text-primary font-medium">
+                        ${baseAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-text-secondary">Processing Fee (2.9% + $0.30):</span>
+                      <span className="text-text-secondary">
+                        ${stripeFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t border-bg-secondary pt-2">
+                      <span className="text-text-primary font-semibold">Total Amount:</span>
+                      <span className="text-electric-blue font-bold text-xl">
+                        ${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>

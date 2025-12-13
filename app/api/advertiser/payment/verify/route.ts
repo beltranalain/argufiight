@@ -4,6 +4,7 @@ import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { createStripeClient } from '@/lib/stripe/stripe-client'
 import { calculatePlatformFee } from '@/lib/ads/helpers'
+import { Prisma } from '@prisma/client'
 import Stripe from 'stripe'
 
 export async function POST(request: NextRequest) {
@@ -118,10 +119,14 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Calculate fees
+      // Use baseAmount from metadata (original amount without Stripe fees)
+      // Stripe fees are paid by advertiser, so contract uses original amount
+      const contractAmount = metadata.baseAmount ? Number(metadata.baseAmount) : Number(offer.amount)
+
+      // Calculate platform fees based on original contract amount
       const { platformFee, creatorPayout } = await calculatePlatformFee(
         offer.creator.creatorStatus,
-        Number(offer.amount)
+        contractAmount
       )
 
       // Create contract
@@ -132,7 +137,7 @@ export async function POST(request: NextRequest) {
           creatorId: offer.creatorId,
           campaignId: offer.campaignId,
           placement: offer.placement,
-          totalAmount: offer.amount,
+          totalAmount: new Prisma.Decimal(contractAmount),
           platformFee,
           creatorPayout,
           startDate: offer.campaign.startDate,
