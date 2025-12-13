@@ -6,6 +6,8 @@ import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import Image from '@tiptap/extension-image'
 import OrderedList from '@tiptap/extension-ordered-list'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
 import { useEffect } from 'react'
 
 interface RichTextEditorProps {
@@ -50,6 +52,17 @@ export function RichTextEditor({ value, onChange, placeholder = 'Enter content..
         allowBase64: true,
         HTMLAttributes: {
           class: 'max-w-full h-auto rounded-lg',
+        },
+      }),
+      TaskList.configure({
+        HTMLAttributes: {
+          class: 'task-list',
+        },
+      }),
+      TaskItem.configure({
+        nested: true,
+        HTMLAttributes: {
+          class: 'task-item',
         },
       }),
     ],
@@ -188,6 +201,17 @@ export function RichTextEditor({ value, onChange, placeholder = 'Enter content..
         >
           1.
         </button>
+        <button
+          onClick={() => editor.chain().focus().toggleTaskList().run()}
+          className={`px-3 py-1.5 rounded text-sm font-semibold transition-colors ${
+            editor.isActive('taskList')
+              ? 'bg-electric-blue text-black'
+              : 'bg-bg-tertiary text-white hover:bg-bg-tertiary/80'
+          }`}
+          title="Checklist"
+        >
+          ✓
+        </button>
 
         <div className="w-px h-6 bg-bg-tertiary mx-1" />
 
@@ -258,6 +282,39 @@ export function RichTextEditor({ value, onChange, placeholder = 'Enter content..
         .rich-text-editor .ProseMirror ol {
           padding-left: 1.5em;
           margin: 0.5em 0;
+        }
+        .rich-text-editor .ProseMirror ul[data-type="taskList"] {
+          padding-left: 0;
+          margin: 0.5em 0;
+          list-style: none;
+        }
+        .rich-text-editor .ProseMirror li[data-type="taskItem"] {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.5em;
+          margin: 0.25em 0;
+        }
+        .rich-text-editor .ProseMirror li[data-type="taskItem"] > label {
+          display: flex;
+          align-items: center;
+          cursor: pointer;
+          user-select: none;
+          flex-shrink: 0;
+        }
+        .rich-text-editor .ProseMirror li[data-type="taskItem"] > label > input[type="checkbox"] {
+          width: 1.2em;
+          height: 1.2em;
+          cursor: pointer;
+          margin: 0;
+          accent-color: #00d9ff;
+          flex-shrink: 0;
+        }
+        .rich-text-editor .ProseMirror li[data-type="taskItem"] > div {
+          flex: 1;
+        }
+        .rich-text-editor .ProseMirror li[data-type="taskItem"][data-checked="true"] > div {
+          text-decoration: line-through;
+          opacity: 0.7;
         }
         .rich-text-editor .ProseMirror h1,
         .rich-text-editor .ProseMirror h2,
