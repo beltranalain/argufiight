@@ -218,10 +218,10 @@ export async function generateKingOfTheHillRoundVerdicts(
               },
             },
           },
-          orderBy: {
-            round: 'asc',
-            createdAt: 'asc',
-          },
+          orderBy: [
+            { round: 'asc' },
+            { createdAt: 'asc' },
+          ],
         },
       },
     })
