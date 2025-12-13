@@ -77,6 +77,7 @@ export function LiveBattlePanel() {
             setActiveDebate({
               ...active,
               challengeType: fullDebate.challengeType || active.challengeType,
+              tournamentMatch: fullDebate.tournamentMatch || active.tournamentMatch,
               images: fullDebate.images || [],
               statements: fullDebate.statements?.map((s: any) => ({
                 id: s.id,
@@ -122,7 +123,14 @@ export function LiveBattlePanel() {
     )
   }
 
-  const progress = (activeDebate.currentRound / activeDebate.totalRounds) * 100
+  // For tournament debates, use tournament round number; otherwise use debate round
+  const displayRound = activeDebate.tournamentMatch 
+    ? activeDebate.tournamentMatch.round.roundNumber 
+    : activeDebate.currentRound
+  const displayTotalRounds = activeDebate.tournamentMatch 
+    ? activeDebate.tournamentMatch.tournament.totalRounds 
+    : activeDebate.totalRounds
+  const progress = (displayRound / displayTotalRounds) * 100
   
   // Determine if it's user's turn based on statements in current round
   let isMyTurn = false
