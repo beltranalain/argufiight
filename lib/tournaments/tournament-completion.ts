@@ -109,7 +109,7 @@ export async function completeTournament(tournamentId: string): Promise<void> {
     }
 
     // For King of the Hill: Also check debate winner if no active participant
-    if (!champion && tournament.format === 'KING_OF_THE_HILL') {
+    if (!champion && (tournament.format as string) === 'KING_OF_THE_HILL') {
       // Get the final round (highest round number)
       const finalRound = tournament.rounds.length > 0
         ? tournament.rounds.reduce((latest, round) => 
@@ -139,7 +139,7 @@ export async function completeTournament(tournamentId: string): Promise<void> {
     }
 
     // King of the Hill: Mark finals loser as eliminated if not already marked
-    if (tournament.format === 'KING_OF_THE_HILL') {
+    if ((tournament.format as string) === 'KING_OF_THE_HILL') {
       // Get the final round (highest round number)
       const finalRound = tournament.rounds.length > 0
         ? tournament.rounds.reduce((latest, round) => 
