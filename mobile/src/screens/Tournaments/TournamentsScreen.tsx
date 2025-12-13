@@ -22,6 +22,8 @@ export default function TournamentsScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'ALL' | 'REGISTRATION_OPEN' | 'IN_PROGRESS' | 'COMPLETED'>('ALL');
+  const [formatFilter, setFormatFilter] = useState<'ALL' | 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL'>('ALL');
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchTournaments();
@@ -32,6 +34,7 @@ export default function TournamentsScreen({ navigation }: any) {
       setLoading(true);
       const response = await tournamentsAPI.getTournaments({
         status: filter !== 'ALL' ? filter : undefined,
+        format: formatFilter !== 'ALL' ? formatFilter : undefined,
       });
       setTournaments(response.tournaments || []);
     } catch (error) {

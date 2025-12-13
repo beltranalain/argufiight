@@ -7,9 +7,15 @@ export interface Notification {
   title: string;
   message: string;
   debateId: string | null;
+  tournamentId?: string | null;
   debate?: {
     id: string;
     topic: string;
+    status: string;
+  };
+  tournament?: {
+    id: string;
+    name: string;
     status: string;
   };
   read: boolean;
@@ -57,6 +63,16 @@ export const notificationsAPI = {
   // Mark all notifications as read
   markAllAsRead: async (): Promise<void> => {
     await api.post('/notifications/read-all');
+  },
+
+  // Subscribe to tournament notifications
+  subscribeToTournament: async (tournamentId: string): Promise<void> => {
+    await api.post(`/tournaments/${tournamentId}/subscribe`);
+  },
+
+  // Unsubscribe from tournament notifications
+  unsubscribeFromTournament: async (tournamentId: string): Promise<void> => {
+    await api.post(`/tournaments/${tournamentId}/unsubscribe`);
   },
 };
 

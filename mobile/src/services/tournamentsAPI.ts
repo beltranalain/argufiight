@@ -24,11 +24,33 @@ export interface Tournament {
     avatarUrl: string | null;
   };
   participants: Array<{
+    id?: string;
     userId: string;
     status: string;
     seed?: number;
     cumulativeScore?: number;
     eliminationRound?: number;
+    user?: {
+      id: string;
+      username: string;
+      avatarUrl: string | null;
+      eloRating: number;
+    };
+  }>;
+  matches?: Array<{
+    id: string;
+    round: number;
+    matchNumber: number;
+    participant1Id: string | null;
+    participant2Id: string | null;
+    winnerId: string | null;
+    status: string;
+    participant1Score: number | null;
+    participant2Score: number | null;
+    debate: {
+      id: string;
+      status: string;
+    } | null;
   }>;
   _count: {
     participants: number;

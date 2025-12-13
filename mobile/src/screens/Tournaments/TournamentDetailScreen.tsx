@@ -18,6 +18,8 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { tournamentsAPI, Tournament, TournamentParticipant } from '../../services/tournamentsAPI';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import TournamentBracket from '../../components/TournamentBracket';
+import { notificationsAPI } from '../../services/notificationsAPI';
 
 export default function TournamentDetailScreen() {
   const route = useRoute();
@@ -40,6 +42,11 @@ export default function TournamentDetailScreen() {
       setLoading(true);
       const data = await tournamentsAPI.getTournament(tournamentId);
       setTournament(data);
+      
+      // Extract matches from tournament data
+      if (data.matches) {
+        setMatches(data.matches);
+      }
       
       // Fetch leaderboard for King of the Hill
       if (data.format === 'KING_OF_THE_HILL') {
@@ -257,6 +264,30 @@ export default function TournamentDetailScreen() {
           )}
         </View>
 
+        {/* Bracket View for BRACKET and CHAMPIONSHIP formats */}
+        {(tournament.format === 'BRACKET' || tournament.format === 'CHAMPIONSHIP') && 
+         matches.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Tournament Bracket</Text>
+            <View style={styles.bracketWrapper}>
+              <TournamentBracket
+                participants={tournament.participants.map((p: any) => ({
+                  id: p.id || p.userId,
+                  userId: p.userId,
+                  seed: p.seed || 0,
+                  status: p.status,
+                  user: p.user,
+                }))}
+                matches={matches}
+                totalRounds={tournament.totalRounds}
+                currentRound={tournament.currentRound}
+                format={tournament.format}
+                tournamentStatus={tournament.status}
+              />
+            </View>
+          </View>
+        )}
+
         {/* Leaderboard for King of the Hill */}
         {tournament.format === 'KING_OF_THE_HILL' && participants.length > 0 && (
           <View style={styles.section}>
@@ -467,5 +498,9 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#ff4444',
     fontSize: 16,
+  },
+  bracketWrapper: {
+    height: 400,
+    marginTop: 8,
   },
 });
