@@ -56,9 +56,23 @@ export async function GET(request: NextRequest) {
     }
 
     if (userId) {
+      // Get debate IDs where user is a participant via DebateParticipant (for GROUP/tournament debates)
+      const participantDebates = await prisma.debateParticipant.findMany({
+        where: {
+          userId: userId,
+          status: { in: ['ACCEPTED', 'ACTIVE', 'INVITED'] }, // Include active participants
+        },
+        select: {
+          debateId: true,
+        },
+      })
+      const participantDebateIds = participantDebates.map(p => p.debateId)
+
+      // Include debates where user is challenger, opponent, OR a participant in GROUP debates
       where.OR = [
         { challengerId: userId },
-        { opponentId: userId }
+        { opponentId: userId },
+        ...(participantDebateIds.length > 0 ? [{ id: { in: participantDebateIds } }] : [])
       ]
     }
 

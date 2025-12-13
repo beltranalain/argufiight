@@ -14,6 +14,7 @@ interface ActiveDebate {
   currentRound: number
   totalRounds: number
   status: string
+  challengeType?: string
   challenger: {
     id: string
     username: string
@@ -67,6 +68,7 @@ export function LiveBattlePanel() {
             const fullDebate = await detailResponse.json()
             setActiveDebate({
               ...active,
+              challengeType: fullDebate.challengeType || active.challengeType,
               images: fullDebate.images || [],
               statements: fullDebate.statements?.map((s: any) => ({
                 id: s.id,
@@ -116,31 +118,44 @@ export function LiveBattlePanel() {
   
   // Determine if it's user's turn based on statements in current round
   let isMyTurn = false
+  let isGroupDebate = false
+  
   if (activeDebate.status === 'ACTIVE' && user && activeDebate.statements) {
     const currentRoundStatements = activeDebate.statements.filter(
       s => s.round === activeDebate.currentRound
     )
-    const challengerSubmitted = currentRoundStatements.some(
-      s => s.authorId === activeDebate.challenger.id
-    )
-    const opponentSubmitted = activeDebate.opponent && currentRoundStatements.some(
-      s => s.authorId === activeDebate.opponent!.id
-    )
     const userSubmitted = currentRoundStatements.some(s => s.authorId === user.id)
-    const isChallenger = user.id === activeDebate.challenger.id
-    const isOpponent = activeDebate.opponent && user.id === activeDebate.opponent.id
     
-    // First round: challenger goes first if no statements yet
-    if (currentRoundStatements.length === 0 && isChallenger) {
-      isMyTurn = true
-    }
-    // Challenger's turn: opponent submitted but challenger hasn't
-    else if (isChallenger && opponentSubmitted && !challengerSubmitted) {
-      isMyTurn = true
-    }
-    // Opponent's turn: challenger submitted but opponent hasn't
-    else if (isOpponent && challengerSubmitted && !opponentSubmitted) {
-      isMyTurn = true
+    // Check if this is a GROUP debate (tournament debate)
+    // GROUP debates don't have opponent set, or we can check via the challengeType
+    isGroupDebate = !activeDebate.opponent || activeDebate.challengeType === 'GROUP'
+    
+    if (isGroupDebate) {
+      // For GROUP debates (tournament): user can submit if they haven't submitted yet
+      isMyTurn = !userSubmitted
+    } else {
+      // For regular 2-person debates: turn-based logic
+      const challengerSubmitted = currentRoundStatements.some(
+        s => s.authorId === activeDebate.challenger.id
+      )
+      const opponentSubmitted = activeDebate.opponent && currentRoundStatements.some(
+        s => s.authorId === activeDebate.opponent!.id
+      )
+      const isChallenger = user.id === activeDebate.challenger.id
+      const isOpponent = activeDebate.opponent && user.id === activeDebate.opponent.id
+      
+      // First round: challenger goes first if no statements yet
+      if (currentRoundStatements.length === 0 && isChallenger) {
+        isMyTurn = true
+      }
+      // Challenger's turn: opponent submitted but challenger hasn't
+      else if (isChallenger && opponentSubmitted && !challengerSubmitted) {
+        isMyTurn = true
+      }
+      // Opponent's turn: challenger submitted but opponent hasn't
+      else if (isOpponent && challengerSubmitted && !opponentSubmitted) {
+        isMyTurn = true
+      }
     }
   }
 
