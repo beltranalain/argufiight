@@ -56,6 +56,7 @@ interface TournamentBracketProps {
   totalRounds: number
   currentRound: number
   format?: 'BRACKET' | 'CHAMPIONSHIP' | 'KING_OF_THE_HILL'
+  tournamentStatus?: string // Tournament status to override match status if tournament is completed
 }
 
 interface BracketSlot {
@@ -73,6 +74,7 @@ export function TournamentBracket({
   totalRounds,
   currentRound,
   format = 'BRACKET',
+  tournamentStatus,
 }: TournamentBracketProps) {
   // Build bracket structure
   const bracketStructure = useMemo(() => {
@@ -303,8 +305,11 @@ export function TournamentBracket({
                       return null
                     }
                     
-                    const isActive = slot1?.matchStatus === 'IN_PROGRESS' || slot2?.matchStatus === 'IN_PROGRESS'
-                    const isCompleted = slot1?.matchStatus === 'COMPLETED' || slot2?.matchStatus === 'COMPLETED'
+                    // If tournament is completed, all matches should show as completed
+                    const slot1Status = tournamentStatus === 'COMPLETED' ? 'COMPLETED' : (slot1?.matchStatus || 'UPCOMING')
+                    const slot2Status = tournamentStatus === 'COMPLETED' ? 'COMPLETED' : (slot2?.matchStatus || 'UPCOMING')
+                    const isActive = slot1Status === 'IN_PROGRESS' || slot2Status === 'IN_PROGRESS'
+                    const isCompleted = slot1Status === 'COMPLETED' || slot2Status === 'COMPLETED'
                     const isFinalRound = roundNum === totalRounds
                     const isFinalWinner = isFinalRound && isCompleted && (slot1?.isWinner || slot2?.isWinner)
 
