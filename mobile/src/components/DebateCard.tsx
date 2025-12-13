@@ -135,41 +135,78 @@ export default function DebateCard({ debate, onPress }: DebateCardProps) {
         </View>
       )}
 
-      <View style={styles.participants}>
-        <TouchableOpacity
-          style={styles.participant}
-          onPress={(e) => debate.challenger && handleUserPress(debate.challenger.id, e)}
-          disabled={!debate.challenger}
-        >
-          <Text style={styles.participantLabel}>Challenger:</Text>
-          <Text style={styles.participantName}>
-            {debate.challenger?.username || 'Unknown'}
+      {/* Tournament Badge */}
+      {debate.tournamentMatch && (
+        <View style={styles.tournamentBadge}>
+          <Text style={styles.tournamentBadgeText}>
+            Tournament: Round {debate.tournamentMatch.round.roundNumber}/{debate.tournamentMatch.tournament.totalRounds}
           </Text>
-          <Text style={styles.participantPosition}>
-            {debate.challengerPosition}
-          </Text>
-        </TouchableOpacity>
+        </View>
+      )}
 
-        {debate.opponent && (
+      {/* Participants - Show all for GROUP debates, otherwise show challenger vs opponent */}
+      {debate.challengeType === 'GROUP' && debate.participants && debate.participants.length > 0 ? (
+        <View style={styles.groupParticipants}>
+          <Text style={styles.participantLabel}>Participants:</Text>
+          <View style={styles.participantsList}>
+            {debate.participants.slice(0, 5).map((participant) => (
+              <TouchableOpacity
+                key={participant.id}
+                onPress={(e) => handleUserPress(participant.userId, e)}
+              >
+                <Text style={styles.participantName}>
+                  {participant.user.username}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            {debate.participants.length > 5 && (
+              <Text style={styles.moreParticipants}>
+                +{debate.participants.length - 5} more
+              </Text>
+            )}
+          </View>
+        </View>
+      ) : (
+        <View style={styles.participants}>
           <TouchableOpacity
             style={styles.participant}
-            onPress={(e) => handleUserPress(debate.opponent!.id, e)}
+            onPress={(e) => debate.challenger && handleUserPress(debate.challenger.id, e)}
+            disabled={!debate.challenger}
           >
-            <Text style={styles.participantLabel}>Opponent:</Text>
+            <Text style={styles.participantLabel}>Challenger:</Text>
             <Text style={styles.participantName}>
-              {debate.opponent.username}
+              {debate.challenger?.username || 'Unknown'}
             </Text>
             <Text style={styles.participantPosition}>
-              {debate.opponentPosition}
+              {debate.challengerPosition}
             </Text>
           </TouchableOpacity>
-        )}
-      </View>
+
+          {debate.opponent && (
+            <TouchableOpacity
+              style={styles.participant}
+              onPress={(e) => handleUserPress(debate.opponent!.id, e)}
+            >
+              <Text style={styles.participantLabel}>Opponent:</Text>
+              <Text style={styles.participantName}>
+                {debate.opponent.username}
+              </Text>
+              <Text style={styles.participantPosition}>
+                {debate.opponentPosition}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       <View style={styles.footer}>
         <View style={styles.footerLeft}>
           <Text style={styles.roundInfo}>
-            Round {debate.currentRound} / {debate.totalRounds}
+            Round {debate.tournamentMatch 
+              ? debate.tournamentMatch.round.roundNumber 
+              : debate.currentRound} / {debate.tournamentMatch 
+              ? debate.tournamentMatch.tournament.totalRounds 
+              : debate.totalRounds}
           </Text>
           {debate.spectatorCount > 0 && (
             <Text style={styles.spectators}>
@@ -319,6 +356,36 @@ const styles = StyleSheet.create({
     color: '#888',
     alignSelf: 'center',
     marginLeft: 4,
+  },
+  tournamentBadge: {
+    backgroundColor: '#6b46c1',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  tournamentBadgeText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  groupParticipants: {
+    marginBottom: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  participantsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  moreParticipants: {
+    fontSize: 12,
+    color: '#888',
+    fontStyle: 'italic',
   },
 });
 

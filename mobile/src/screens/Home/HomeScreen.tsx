@@ -20,6 +20,7 @@ import Pagination from '../../components/Pagination';
 import { haptics } from '../../utils/haptics';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import LiveBattlePanel from '../../components/LiveBattlePanel';
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -136,6 +137,9 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Live Battle Panel */}
+        {user && <LiveBattlePanel />}
 
         {/* Quick Actions */}
         {user && <QuickActions />}

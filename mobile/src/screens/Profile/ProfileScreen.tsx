@@ -62,18 +62,11 @@ export default function ProfileScreen() {
     if (!user) return;
 
     try {
-      // Load recent debates
-      const response = await debatesAPI.getDebates({ userId: user.id, status: 'COMPLETED,VERDICT_READY' });
-      // API returns { debates: Debate[], total, page, totalPages }
-      const debates = response?.debates || (Array.isArray(response) ? response : []);
-      console.log('Loaded user debates:', debates?.length || 0, 'for user:', user.id);
-      // Ensure debates is an array before calling slice
-      if (Array.isArray(debates)) {
-        setRecentDebates(debates.slice(0, 5)); // Show last 5
-      } else {
-        console.warn('Debates is not an array:', debates);
-        setRecentDebates([]);
-      }
+      // Load past debates using the new API
+      const response = await profileAPI.getPastDebates(user.id, { limit: 10 });
+      const debates = response.debates || [];
+      console.log('Loaded past debates:', debates.length, 'for user:', user.id);
+      setRecentDebates(debates);
     } catch (error: any) {
       console.error('Failed to load profile data:', error);
       console.error('Error details:', error.message || error);
@@ -440,7 +433,7 @@ export default function ProfileScreen() {
         {/* Recent Debates */}
         {recentDebates.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recent Debates</Text>
+            <Text style={styles.sectionTitle}>Past Debates</Text>
             {recentDebates.map((debate) => (
               <TouchableOpacity
                 key={debate.id}
@@ -471,12 +464,20 @@ export default function ProfileScreen() {
                     <Text style={styles.statusText}>{debate.status}</Text>
                   </View>
                 </View>
-                <Text style={styles.debateInfo}>
-                  vs.{' '}
-                  {debate.challengerId === user?.id
-                    ? debate.opponent?.username || 'Waiting...'
-                    : debate.challenger?.username}
-                </Text>
+                {/* Show participants - all for GROUP, challenger vs opponent for regular */}
+                {debate.challengeType === 'GROUP' && debate.participants && debate.participants.length > 0 ? (
+                  <Text style={styles.debateInfo} numberOfLines={1}>
+                    {debate.participants.slice(0, 3).map(p => p.user.username).join(', ')}
+                    {debate.participants.length > 3 && ` +${debate.participants.length - 3}`}
+                  </Text>
+                ) : (
+                  <Text style={styles.debateInfo}>
+                    vs.{' '}
+                    {debate.challengerId === user?.id
+                      ? debate.opponent?.username || 'Waiting...'
+                      : debate.challenger?.username}
+                  </Text>
+                )}
                 {debate.winnerId && (
                   <Text
                     style={[

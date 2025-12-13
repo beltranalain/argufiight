@@ -34,6 +34,8 @@ import ActivityScreen from '../screens/Activity/ActivityScreen';
 import ChallengesScreen from '../screens/Challenges/ChallengesScreen';
 import FollowersScreen from '../screens/Followers/FollowersScreen';
 import PreviewDebateScreen from '../screens/Preview/PreviewDebateScreen';
+import TournamentsScreen from '../screens/Tournaments/TournamentsScreen';
+import TournamentDetailScreen from '../screens/Tournaments/TournamentDetailScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -252,6 +254,16 @@ const MainStack = () => (
             name="PreviewDebate"
             component={PreviewDebateScreen}
             options={{ title: 'Preview Debate' }}
+          />
+          <Stack.Screen
+            name="Tournaments"
+            component={TournamentsScreen}
+            options={{ title: 'Tournaments' }}
+          />
+          <Stack.Screen
+            name="TournamentDetail"
+            component={TournamentDetailScreen}
+            options={{ title: 'Tournament Details' }}
           />
         </Stack.Navigator>
 );

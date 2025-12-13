@@ -41,6 +41,30 @@ export interface Debate {
   recommendationScore?: number;
   reason?: string;
   tags?: Tag[];
+  challengeType?: 'OPEN' | 'DIRECT' | 'GROUP';
+  participants?: Array<{
+    id: string;
+    userId: string;
+    status: string;
+    user: {
+      id: string;
+      username: string;
+      avatarUrl: string | null;
+      eloRating: number;
+    };
+  }>;
+  tournamentMatch?: {
+    id: string;
+    round: {
+      roundNumber: number;
+    };
+    tournament: {
+      id: string;
+      name: string;
+      format: string;
+      totalRounds: number;
+    };
+  } | null;
 }
 
 export interface CreateDebateData {
@@ -298,6 +322,25 @@ export const debatesAPI = {
       responseType: 'text',
     });
     return response.data;
+  },
+
+  // Get user's active debate (for Live Battle)
+  getActiveDebate: async (userId: string): Promise<Debate | null> => {
+    try {
+      const response = await api.get(`/debates?userId=${userId}&status=ACTIVE`);
+      const data = response.data;
+      const debates = Array.isArray(data) ? data : (data.debates || []);
+      const active = debates.find((d: Debate) => d.status === 'ACTIVE');
+      
+      if (active) {
+        // Fetch full details
+        return await debatesAPI.getDebate(active.id);
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get active debate:', error);
+      return null;
+    }
   },
 };
 

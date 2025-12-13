@@ -599,8 +599,18 @@ export default function DebateDetailScreen() {
     }
   };
 
+  // Check if this is a GROUP debate (tournament debate)
+  const isGroupDebate = debate?.challengeType === 'GROUP' || 
+                       (debate?.participants && debate.participants.length > 2);
+
+  // For GROUP debates, check participants array; for regular debates, check challenger/opponent
   const isParticipant = debate && user && (
-    debate.challengerId === user.id || debate.opponentId === user.id
+    isGroupDebate
+      ? (debate.participants?.some(p => 
+          (p.userId === user.id || (p as any).user?.id === user.id) &&
+          ((p as any).status === 'ACTIVE' || (p as any).status === 'ACCEPTED')
+        ) || false)
+      : (debate.challengerId === user.id || debate.opponentId === user.id)
   );
 
   const isChallenger = debate && user && debate.challengerId === user.id;
@@ -614,22 +624,27 @@ export default function DebateDetailScreen() {
   const userSubmitted = currentRoundStatements.some(s => s.authorId === user?.id);
   const noStatementsInRound = currentRoundStatements.length === 0;
 
+  // For GROUP debates: user can submit if they haven't submitted yet (simultaneous submissions)
+  // For regular debates: turn-based logic
   const isUserTurn = debate && user && debate.status === 'ACTIVE' && (
-    // First round: challenger goes first if no statements yet
-    (noStatementsInRound && isChallenger) ||
-    // Challenger's turn: opponent submitted but challenger hasn't
-    (isChallenger && opponentSubmitted && !challengerSubmitted) ||
-    // Opponent's turn: challenger submitted but opponent hasn't
-    (isOpponent && challengerSubmitted && !opponentSubmitted)
+    isGroupDebate
+      ? !userSubmitted // For GROUP: anyone can submit if they haven't
+      : (
+        // First round: challenger goes first if no statements yet
+        (noStatementsInRound && isChallenger) ||
+        // Challenger's turn: opponent submitted but challenger hasn't
+        (isChallenger && opponentSubmitted && !challengerSubmitted) ||
+        // Opponent's turn: challenger submitted but opponent hasn't
+        (isOpponent && challengerSubmitted && !opponentSubmitted)
+      )
   );
 
   // Can submit if: debate is active, user is participant, hasn't submitted yet, and it's their turn
-  // OR if it's the first round and challenger (fallback for edge cases)
   const canSubmit = debate && 
     debate.status === 'ACTIVE' && 
     isParticipant &&
     !userSubmitted &&
-    (isUserTurn || (noStatementsInRound && isChallenger));
+    isUserTurn;
 
   if (loading) {
     return (
@@ -698,55 +713,103 @@ export default function DebateDetailScreen() {
           </View>
         )}
 
+        {/* Tournament Badge */}
+        {debate.tournamentMatch && (
+          <View style={styles.tournamentBadge}>
+            <Text style={styles.tournamentBadgeText}>
+              Tournament: {debate.tournamentMatch.tournament.name} • Round {debate.tournamentMatch.round.roundNumber}/{debate.tournamentMatch.tournament.totalRounds}
+            </Text>
+          </View>
+        )}
+
         {/* Participants */}
         <View style={styles.participantsSection}>
-          <TouchableOpacity
-            style={styles.participantCard}
-            onPress={() =>
-              debate.challenger &&
-              navigation.navigate('UserProfile' as never, {
-                userId: debate.challenger.id,
-              })
-            }
-          >
-            <Text style={styles.participantLabel}>Challenger</Text>
-            <Text style={styles.participantName}>
-              {debate.challenger?.username || 'Unknown'}
-            </Text>
-            <Text style={styles.participantPosition}>
-              Position: {debate.challengerPosition}
-            </Text>
-            <Text style={styles.participantElo}>
-              ELO: {debate.challenger?.eloRating || 1200}
-            </Text>
-            {voteData && (debate.status === 'ACTIVE' || debate.status === 'WAITING') && (
-              <View style={styles.voteCount}>
-                <Ionicons name="people" size={14} color="#888" />
-                <Text style={styles.voteCountText}>
-                  {voteData.voteCounts.challenger} votes
+          {isGroupDebate && debate.participants && debate.participants.length > 0 ? (
+            // GROUP debate: Show all participants
+            <>
+              <Text style={styles.sectionTitle}>Participants ({debate.participants.length})</Text>
+              {debate.participants.map((participant) => {
+                const participantUser = (participant as any).user;
+                const isEliminated = (participant as any).status === 'ELIMINATED';
+                
+                return (
+                  <TouchableOpacity
+                    key={participant.id}
+                    style={[
+                      styles.participantCard,
+                      isEliminated && styles.eliminatedCard,
+                    ]}
+                    onPress={() =>
+                      navigation.navigate('UserProfile' as never, {
+                        userId: participant.userId,
+                      })
+                    }
+                  >
+                    <Text style={styles.participantName}>
+                      {participantUser?.username || 'Unknown'}
+                    </Text>
+                    <Text style={styles.participantElo}>
+                      ELO: {participantUser?.eloRating || 1200}
+                    </Text>
+                    {isEliminated && (
+                      <Text style={styles.eliminatedText}>
+                        ✗ Eliminated
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          ) : (
+            // Regular 1v1 debate: Show challenger vs opponent
+            <>
+              <TouchableOpacity
+                style={styles.participantCard}
+                onPress={() =>
+                  debate.challenger &&
+                  navigation.navigate('UserProfile' as never, {
+                    userId: debate.challenger.id,
+                  })
+                }
+              >
+                <Text style={styles.participantLabel}>Challenger</Text>
+                <Text style={styles.participantName}>
+                  {debate.challenger?.username || 'Unknown'}
                 </Text>
-              </View>
-            )}
-          </TouchableOpacity>
+                <Text style={styles.participantPosition}>
+                  Position: {debate.challengerPosition}
+                </Text>
+                <Text style={styles.participantElo}>
+                  ELO: {debate.challenger?.eloRating || 1200}
+                </Text>
+                {voteData && (debate.status === 'ACTIVE' || debate.status === 'WAITING') && (
+                  <View style={styles.voteCount}>
+                    <Ionicons name="people" size={14} color="#888" />
+                    <Text style={styles.voteCountText}>
+                      {voteData.voteCounts.challenger} votes
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
 
-          {debate.opponent ? (
-            <TouchableOpacity
-              style={styles.participantCard}
-              onPress={() =>
-                navigation.navigate('UserProfile' as never, {
-                  userId: debate.opponent!.id,
-                })
-              }
-            >
-              <Text style={styles.participantLabel}>Opponent</Text>
-              <Text style={styles.participantName}>
-                {debate.opponent.username}
-              </Text>
-              <Text style={styles.participantPosition}>
-                Position: {debate.opponentPosition}
-              </Text>
-              <Text style={styles.participantElo}>
-                ELO: {debate.opponent.eloRating}
+              {debate.opponent ? (
+                <TouchableOpacity
+                  style={styles.participantCard}
+                  onPress={() =>
+                    navigation.navigate('UserProfile' as never, {
+                      userId: debate.opponent!.id,
+                    })
+                  }
+                >
+                  <Text style={styles.participantLabel}>Opponent</Text>
+                  <Text style={styles.participantName}>
+                    {debate.opponent.username}
+                  </Text>
+                  <Text style={styles.participantPosition}>
+                    Position: {debate.opponentPosition}
+                  </Text>
+                  <Text style={styles.participantElo}>
+                    ELO: {debate.opponent.eloRating}
               </Text>
               {voteData && (debate.status === 'ACTIVE' || debate.status === 'WAITING') && (
                 <View style={styles.voteCount}>
@@ -776,7 +839,11 @@ export default function DebateDetailScreen() {
         <View style={styles.roundInfo}>
           <View style={styles.roundHeader}>
             <Text style={styles.roundText}>
-              Round {debate.currentRound} / {debate.totalRounds}
+              Round {debate.tournamentMatch 
+                ? debate.tournamentMatch.round.roundNumber 
+                : debate.currentRound} / {debate.tournamentMatch 
+                ? debate.tournamentMatch.tournament.totalRounds 
+                : debate.totalRounds}
             </Text>
             {debate.status === 'ACTIVE' && isUserTurn && (
               <View style={styles.turnIndicator}>
@@ -1484,6 +1551,35 @@ const styles = StyleSheet.create({
   },
   participantsSection: {
     marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 12,
+  },
+  tournamentBadge: {
+    backgroundColor: '#6b46c1',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  tournamentBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  eliminatedCard: {
+    backgroundColor: '#2a1111',
+    borderColor: '#ff4444',
+    opacity: 0.7,
+  },
+  eliminatedText: {
+    fontSize: 12,
+    color: '#ff6666',
+    marginTop: 4,
+    fontWeight: '600',
   },
   participantCard: {
     backgroundColor: '#111',
