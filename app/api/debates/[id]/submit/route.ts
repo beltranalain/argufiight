@@ -173,30 +173,90 @@ export async function POST(
           },
         })
 
-        // For GROUP challenges (King of the Hill), use tournament match completion logic
+        // For GROUP challenges (King of the Hill), generate verdicts first, then process completion
         if (debate.challengeType === 'GROUP') {
-          console.log(`[Debate Complete] GROUP debate - triggering tournament match completion for debate ${id}`)
+          console.log(`[Debate Complete] GROUP debate - checking if King of the Hill tournament`)
           
-          // Import and call tournament match completion (handles King of the Hill evaluation)
-          import('@/lib/tournaments/match-completion').then(async (matchModule) => {
-            try {
-              console.log(`[Debate Complete] Starting tournament match completion for GROUP debate ${id}`)
-              await matchModule.updateTournamentMatchOnDebateComplete(id)
-              console.log('✅ [Debate Complete] Tournament match completion completed successfully:', {
-                debateId: id,
-                timestamp: new Date().toISOString(),
-              })
-            } catch (error: any) {
-              console.error('❌ [Debate Complete] Error in tournament match completion:', {
-                debateId: id,
-                error: error.message,
-                stack: error.stack,
-                timestamp: new Date().toISOString(),
-              })
-            }
-          }).catch((importError: any) => {
-            console.error('❌ [Debate Complete] Failed to import match completion module:', importError.message)
+          // Check if this is a King of the Hill tournament
+          const tournamentMatch = await prisma.tournamentMatch.findUnique({
+            where: { debateId: id },
+            include: {
+              round: {
+                select: {
+                  id: true,
+                  roundNumber: true,
+                  tournament: {
+                    select: {
+                      id: true,
+                      format: true,
+                    },
+                  },
+                },
+              },
+            },
           })
+
+          const isKingOfTheHill = tournamentMatch?.round?.tournament?.format === 'KING_OF_THE_HILL'
+
+          if (isKingOfTheHill && tournamentMatch) {
+            // King of the Hill: Generate verdicts first, then process completion
+            console.log(`[Debate Complete] King of the Hill tournament - generating verdicts for debate ${id}`)
+            import('@/lib/tournaments/king-of-the-hill-ai').then(async (kothModule) => {
+              try {
+                console.log(`[Debate Complete] Starting King of the Hill verdict generation for debate ${id}`)
+                await kothModule.generateKingOfTheHillRoundVerdicts(
+                  id,
+                  tournamentMatch.round.tournament.id,
+                  tournamentMatch.round.roundNumber
+                )
+                console.log('✅ [Debate Complete] King of the Hill verdict generation completed:', {
+                  debateId: id,
+                  tournamentId: tournamentMatch.round.tournament.id,
+                  roundNumber: tournamentMatch.round.roundNumber,
+                  timestamp: new Date().toISOString(),
+                })
+
+                // Now process the completion (this will advance to next round)
+                const matchModule = await import('@/lib/tournaments/match-completion')
+                await matchModule.updateTournamentMatchOnDebateComplete(id)
+                console.log('✅ [Debate Complete] King of the Hill round completion processed:', {
+                  debateId: id,
+                  timestamp: new Date().toISOString(),
+                })
+              } catch (error: any) {
+                console.error('❌ [Debate Complete] Error in King of the Hill verdict generation:', {
+                  debateId: id,
+                  error: error.message,
+                  stack: error.stack,
+                  timestamp: new Date().toISOString(),
+                })
+              }
+            }).catch((importError: any) => {
+              console.error('❌ [Debate Complete] Failed to import King of the Hill module:', importError.message)
+            })
+          } else {
+            // Non-King of the Hill GROUP debate - use standard tournament match completion
+            console.log(`[Debate Complete] GROUP debate (non-KoTH) - triggering tournament match completion for debate ${id}`)
+            import('@/lib/tournaments/match-completion').then(async (matchModule) => {
+              try {
+                console.log(`[Debate Complete] Starting tournament match completion for GROUP debate ${id}`)
+                await matchModule.updateTournamentMatchOnDebateComplete(id)
+                console.log('✅ [Debate Complete] Tournament match completion completed successfully:', {
+                  debateId: id,
+                  timestamp: new Date().toISOString(),
+                })
+              } catch (error: any) {
+                console.error('❌ [Debate Complete] Error in tournament match completion:', {
+                  debateId: id,
+                  error: error.message,
+                  stack: error.stack,
+                  timestamp: new Date().toISOString(),
+                })
+              }
+            }).catch((importError: any) => {
+              console.error('❌ [Debate Complete] Failed to import match completion module:', importError.message)
+            })
+          }
         } else {
           // For 2-person debates, trigger standard verdict generation
           console.log(`[Debate Complete] Triggering automatic verdict generation for debate ${id}`)
