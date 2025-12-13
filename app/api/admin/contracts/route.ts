@@ -31,6 +31,19 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             username: true,
+            creatorStatus: true,
+            creatorTaxInfo: {
+              select: {
+                stripeAccountId: true,
+                payoutEnabled: true,
+              },
+            },
+          },
+        },
+        campaign: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },

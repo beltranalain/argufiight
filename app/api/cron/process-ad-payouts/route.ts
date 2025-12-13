@@ -78,12 +78,11 @@ export async function GET(request: NextRequest) {
           continue
         }
 
-        // First, capture the payment intent (release from escrow)
-        if (contract.stripePaymentId) {
-          await capturePaymentIntent(contract.stripePaymentId)
-        }
+        // Note: Payment is already captured (from Checkout Session)
+        // We just need to transfer the creator's portion to their Stripe account
+        // Platform fee stays in our account automatically
 
-        // Then transfer to creator
+        // Transfer creator payout (totalAmount - platformFee)
         const transfer = await payoutToCreator(
           Number(contract.totalAmount), // Total amount (platform fee already calculated)
           Number(contract.platformFee),

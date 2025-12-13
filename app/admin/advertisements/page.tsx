@@ -1253,23 +1253,64 @@ function CreatorMarketplaceTab() {
                 <p className="text-text-secondary">No active contracts</p>
               ) : (
                 <div className="space-y-4">
-                  {activeContracts.map((contract) => (
-                    <div
-                      key={contract.id}
-                      className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
-                    >
-                      <div>
-                        <h4 className="text-lg font-bold text-text-primary">
-                          {contract.advertiser.companyName} × @{contract.creator.username}
-                        </h4>
-                        <div className="text-sm text-text-secondary space-y-1 mt-2">
-                          <p>Amount: ${Number(contract.totalAmount).toLocaleString()}</p>
-                          <p>Ends: {new Date(contract.endDate).toLocaleDateString()}</p>
+                  {activeContracts.map((contract: any) => {
+                    const isReadyForPayout = contract.escrowHeld && !contract.payoutSent && 
+                      new Date(contract.endDate) <= new Date()
+                    const canPayout = contract.creator?.creatorTaxInfo?.stripeAccountId && 
+                      contract.creator?.creatorTaxInfo?.payoutEnabled
+                    
+                    return (
+                      <div
+                        key={contract.id}
+                        className="p-4 bg-bg-secondary rounded-lg border border-bg-tertiary space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h4 className="text-lg font-bold text-text-primary">
+                              {contract.advertiser.companyName} × @{contract.creator.username}
+                            </h4>
+                            <div className="text-sm text-text-secondary space-y-1 mt-2">
+                              <p>Campaign: {contract.campaign?.name || 'N/A'}</p>
+                              <p>Total Amount: ${Number(contract.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                              <p>Platform Fee: ${Number(contract.platformFee).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                              <p>Creator Payout: ${Number(contract.creatorPayout).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                              <p>Ends: {new Date(contract.endDate).toLocaleDateString()}</p>
+                              {contract.payoutSent && contract.payoutDate && (
+                                <p className="text-cyber-green">Paid out: {new Date(contract.payoutDate).toLocaleDateString()}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <Badge className={
+                              contract.payoutSent 
+                                ? "bg-cyber-green/20 text-cyber-green"
+                                : contract.status === 'ACTIVE'
+                                ? "bg-cyber-green/20 text-cyber-green"
+                                : "bg-electric-blue/20 text-electric-blue"
+                            }>
+                              {contract.payoutSent ? 'PAID' : contract.status}
+                            </Badge>
+                            {isReadyForPayout && !contract.payoutSent && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handlePayout(contract.id)}
+                                disabled={!canPayout}
+                                title={!canPayout ? 'Creator must complete Stripe onboarding' : ''}
+                              >
+                                Process Payout
+                              </Button>
+                            )}
+                            {!canPayout && isReadyForPayout && (
+                              <p className="text-xs text-text-muted text-right">
+                                Creator needs Stripe setup
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <Badge className="bg-cyber-green/20 text-cyber-green">ACTIVE</Badge>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </CardBody>
