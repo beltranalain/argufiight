@@ -38,9 +38,7 @@ export async function completeTournament(tournamentId: string): Promise<void> {
           },
         },
         rounds: {
-          where: {
-            roundNumber: tournamentInfo.totalRounds, // Get the final round
-          },
+          // Get all rounds to find the final round
           include: {
             matches: {
               where: {
@@ -67,8 +65,10 @@ export async function completeTournament(tournamentId: string): Promise<void> {
               orderBy: {
                 completedAt: 'desc',
               },
-              take: 1, // Get the last completed match (should be the final)
             },
+          },
+          orderBy: {
+            roundNumber: 'desc',
           },
         },
       },
@@ -87,12 +87,23 @@ export async function completeTournament(tournamentId: string): Promise<void> {
     let champion = tournament.participants.find((p) => p.status === 'ACTIVE')
 
     // If no active participant, try to find from final match winner
+    // For King of the Hill, get the highest round number (finals)
     if (!champion) {
-      const finalRound = tournament.rounds.find((r) => r.roundNumber === tournamentInfo.totalRounds)
+      // Get the final round (highest round number)
+      const finalRound = tournament.rounds.length > 0
+        ? tournament.rounds.reduce((latest, round) => 
+            round.roundNumber > latest.roundNumber ? round : latest
+          )
+        : null
+      
       if (finalRound && finalRound.matches.length > 0) {
-        const finalMatch = finalRound.matches[0]
-        if (finalMatch.winner) {
-          champion = tournament.participants.find((p) => p.id === finalMatch.winner!.id)
+        // Get the most recently completed match from the final round
+        const completedMatches = finalRound.matches.filter(m => m.status === 'COMPLETED')
+        if (completedMatches.length > 0) {
+          const finalMatch = completedMatches[0] // Already ordered by completedAt desc
+          if (finalMatch.winner) {
+            champion = tournament.participants.find((p) => p.id === finalMatch.winner!.id)
+          }
         }
       }
     }

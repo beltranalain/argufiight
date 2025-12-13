@@ -106,11 +106,13 @@ export async function createKingOfTheHillRound1(tournamentId: string): Promise<v
   })
 
   // Update tournament status and current round
+  // For King of the Hill, totalRounds will be updated dynamically as rounds are created
   await prisma.tournament.update({
     where: { id: tournamentId },
     data: {
       status: 'IN_PROGRESS',
       currentRound: 1,
+      totalRounds: 1, // Will be updated as more rounds are created
     },
   })
 
