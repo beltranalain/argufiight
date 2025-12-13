@@ -69,11 +69,16 @@ export async function GET(request: NextRequest) {
       const participantDebateIds = participantDebates.map(p => p.debateId)
 
       // Include debates where user is challenger, opponent, OR a participant in GROUP debates
-      where.OR = [
+      const orConditions: any[] = [
         { challengerId: userId },
         { opponentId: userId },
-        ...(participantDebateIds.length > 0 ? [{ id: { in: participantDebateIds } }] : [])
       ]
+      
+      if (participantDebateIds.length > 0) {
+        orConditions.push({ id: { in: participantDebateIds } })
+      }
+      
+      where.OR = orConditions
     }
 
     // Privacy filtering: Exclude private debates unless:
