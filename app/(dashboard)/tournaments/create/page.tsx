@@ -462,18 +462,18 @@ export default function CreateTournamentPage() {
                       required
                     />
                   ) : (
-                    <select
-                      value={formData.maxParticipants}
-                      onChange={(e) => setFormData({ ...formData, maxParticipants: parseInt(e.target.value) })}
-                      className="w-full px-4 py-3 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-electric-blue transition-colors"
-                      required
-                    >
-                      <option value={4}>4 participants</option>
-                      <option value={8}>8 participants</option>
-                      <option value={16}>16 participants</option>
-                      <option value={32}>32 participants</option>
-                      <option value={64}>64 participants</option>
-                    </select>
+                  <select
+                    value={formData.maxParticipants}
+                    onChange={(e) => setFormData({ ...formData, maxParticipants: parseInt(e.target.value) })}
+                    className="w-full px-4 py-3 bg-bg-secondary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-electric-blue transition-colors"
+                    required
+                  >
+                    <option value={4}>4 participants</option>
+                    <option value={8}>8 participants</option>
+                    <option value={16}>16 participants</option>
+                    <option value={32}>32 participants</option>
+                    <option value={64}>64 participants</option>
+                  </select>
                   )}
                   <p className="text-text-secondary text-sm mt-1">
                     {formData.format === 'CHAMPIONSHIP' 

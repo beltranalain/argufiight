@@ -309,41 +309,41 @@ export async function POST(
           })
         } else {
           // Standard format: Use regular verdict generation
-          import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
-            try {
-              console.log(`[Debate Complete] Starting direct verdict generation for debate ${id}`)
-              const result = await generateModule.generateInitialVerdicts(id)
-              console.log('✅ [Debate Complete] Verdict generation completed successfully:', {
-                debateId: id,
-                result,
-                timestamp: new Date().toISOString(),
-              })
-            } catch (error: any) {
-              console.error('❌ [Debate Complete] Error in direct verdict generation:', {
-                debateId: id,
-                error: error.message,
-                stack: error.stack,
-                timestamp: new Date().toISOString(),
-              })
-            }
-          }).catch((importError: any) => {
-            console.error('❌ [Debate Complete] Failed to import generate module:', importError.message)
-            // Fallback to fetch if import fails (shouldn't happen, but safety net)
-            let baseUrl = 'http://localhost:3000'
-            if (process.env.NEXT_PUBLIC_APP_URL) {
-              baseUrl = process.env.NEXT_PUBLIC_APP_URL
-            } else if (process.env.VERCEL_URL) {
-              baseUrl = `https://${process.env.VERCEL_URL}`
-            }
-            
-            fetch(`${baseUrl}/api/verdicts/generate`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ debateId: id }),
-            }).catch((fetchError: any) => {
-              console.error('❌ [Debate Complete] Fallback fetch also failed:', fetchError.message)
+        import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
+          try {
+            console.log(`[Debate Complete] Starting direct verdict generation for debate ${id}`)
+            const result = await generateModule.generateInitialVerdicts(id)
+            console.log('✅ [Debate Complete] Verdict generation completed successfully:', {
+              debateId: id,
+              result,
+              timestamp: new Date().toISOString(),
             })
+          } catch (error: any) {
+            console.error('❌ [Debate Complete] Error in direct verdict generation:', {
+              debateId: id,
+              error: error.message,
+              stack: error.stack,
+              timestamp: new Date().toISOString(),
+            })
+          }
+        }).catch((importError: any) => {
+          console.error('❌ [Debate Complete] Failed to import generate module:', importError.message)
+          // Fallback to fetch if import fails (shouldn't happen, but safety net)
+          let baseUrl = 'http://localhost:3000'
+          if (process.env.NEXT_PUBLIC_APP_URL) {
+            baseUrl = process.env.NEXT_PUBLIC_APP_URL
+          } else if (process.env.VERCEL_URL) {
+            baseUrl = `https://${process.env.VERCEL_URL}`
+          }
+          
+          fetch(`${baseUrl}/api/verdicts/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ debateId: id }),
+          }).catch((fetchError: any) => {
+            console.error('❌ [Debate Complete] Fallback fetch also failed:', fetchError.message)
           })
+        })
         }
 
         // Notify participants and watchers

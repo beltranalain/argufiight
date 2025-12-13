@@ -329,7 +329,7 @@ export default function TournamentDetailPage() {
             <div className="space-y-4">
                 <div className="flex items-center gap-3 mb-3">
                   <h1 className="text-4xl font-bold text-text-primary">{tournament.name}</h1>
-                </div>
+              </div>
               {tournament.description && (
                 <p className="text-text-secondary text-lg mb-4">{tournament.description}</p>
               )}

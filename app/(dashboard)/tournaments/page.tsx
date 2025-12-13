@@ -381,18 +381,15 @@ export default function TournamentsPage() {
                     <div className="space-y-3 mb-4">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-text-secondary">Status</span>
-                        <Badge variant="default" className={getStatusColor(tournament.status)}>
+                        <span className="text-text-primary font-semibold">
                           {formatStatus(tournament.status)}
-                        </Badge>
+                        </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-text-secondary">Privacy</span>
-                        <Badge 
-                          variant="default" 
-                          className={tournament.isPrivate ? 'bg-neon-orange text-black' : 'bg-electric-blue text-black'}
-                        >
+                        <span className="text-text-primary font-semibold">
                           {tournament.isPrivate ? 'Private' : 'Public'}
-                        </Badge>
+                        </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-text-secondary">Participants</span>
@@ -409,16 +406,13 @@ export default function TournamentsPage() {
                       {tournament.format && (
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-text-secondary">Format</span>
-                          <Badge 
-                            variant="default" 
-                            className="bg-purple-500 text-white"
-                          >
+                          <span className="text-text-primary font-semibold">
                             {tournament.format === 'CHAMPIONSHIP' 
                               ? 'Championship' 
                               : tournament.format === 'KING_OF_THE_HILL'
                               ? 'KOH'
                               : 'Bracket'}
-                          </Badge>
+                          </span>
                         </div>
                       )}
                       {tournament.minElo && (

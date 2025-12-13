@@ -457,7 +457,7 @@ export default function DebatePage() {
         const participantUserId = (p as any).userId || p.user?.id
         return participantUserId === user?.id
       }
-    )
+  )
   
   const noStatementsInRound = currentRoundStatements.length === 0
   
@@ -639,11 +639,11 @@ export default function DebatePage() {
                                 : 'border-bg-tertiary bg-bg-secondary/50'
                             }`}
                           >
-                            <Avatar 
-                              src={participant.user.avatarUrl}
-                              username={participant.user.username}
-                              size="lg"
-                            />
+                          <Avatar 
+                            src={participant.user.avatarUrl}
+                            username={participant.user.username}
+                            size="lg"
+                          />
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <p className={`font-semibold ${
@@ -657,7 +657,7 @@ export default function DebatePage() {
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-sm text-text-secondary">ELO: {participant.user.eloRating}</p>
+                            <p className="text-sm text-text-secondary">ELO: {participant.user.eloRating}</p>
                               {debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL' && cumulativeScore !== null && (
                                 <p className="text-sm text-electric-blue font-semibold mt-1">
                                   Score: {cumulativeScore}/300
@@ -670,12 +670,12 @@ export default function DebatePage() {
                               )}
                               {/* Don't show position for King of the Hill - it's an open debate */}
                               {participant.position && debate.tournamentMatch?.tournament?.format !== 'KING_OF_THE_HILL' && (
-                                <Badge variant="default" size="sm" className="mt-1">
-                                  {participant.position}
-                                </Badge>
+                            <Badge variant="default" size="sm" className="mt-1">
+                              {participant.position}
+                            </Badge>
                               )}
-                            </div>
                           </div>
+                        </div>
                         )
                       })}
                     </div>

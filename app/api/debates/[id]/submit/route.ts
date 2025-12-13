@@ -237,25 +237,25 @@ export async function POST(
           } else {
             // Non-King of the Hill GROUP debate - use standard tournament match completion
             console.log(`[Debate Complete] GROUP debate (non-KoTH) - triggering tournament match completion for debate ${id}`)
-            import('@/lib/tournaments/match-completion').then(async (matchModule) => {
-              try {
-                console.log(`[Debate Complete] Starting tournament match completion for GROUP debate ${id}`)
-                await matchModule.updateTournamentMatchOnDebateComplete(id)
-                console.log('✅ [Debate Complete] Tournament match completion completed successfully:', {
-                  debateId: id,
-                  timestamp: new Date().toISOString(),
-                })
-              } catch (error: any) {
-                console.error('❌ [Debate Complete] Error in tournament match completion:', {
-                  debateId: id,
-                  error: error.message,
-                  stack: error.stack,
-                  timestamp: new Date().toISOString(),
-                })
-              }
-            }).catch((importError: any) => {
-              console.error('❌ [Debate Complete] Failed to import match completion module:', importError.message)
-            })
+          import('@/lib/tournaments/match-completion').then(async (matchModule) => {
+            try {
+              console.log(`[Debate Complete] Starting tournament match completion for GROUP debate ${id}`)
+              await matchModule.updateTournamentMatchOnDebateComplete(id)
+              console.log('✅ [Debate Complete] Tournament match completion completed successfully:', {
+                debateId: id,
+                timestamp: new Date().toISOString(),
+              })
+            } catch (error: any) {
+              console.error('❌ [Debate Complete] Error in tournament match completion:', {
+                debateId: id,
+                error: error.message,
+                stack: error.stack,
+                timestamp: new Date().toISOString(),
+              })
+            }
+          }).catch((importError: any) => {
+            console.error('❌ [Debate Complete] Failed to import match completion module:', importError.message)
+          })
           }
         } else {
           // For 2-person debates, trigger standard verdict generation

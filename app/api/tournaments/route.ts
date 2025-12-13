@@ -369,24 +369,24 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
+    
     // Validate maxParticipants based on format
     if (format === 'KING_OF_THE_HILL') {
       // King of the Hill: minimum 3 participants, no power of 2 requirement
       if (maxParticipants < 3) {
-        return NextResponse.json(
+      return NextResponse.json(
           { error: 'King of the Hill format requires at least 3 participants' },
-          { status: 400 }
-        )
-      }
+        { status: 400 }
+      )
+    }
     } else {
       // BRACKET and CHAMPIONSHIP: must be power of 2 (4, 8, 16, 32, 64)
-      const validSizes = [4, 8, 16, 32, 64]
-      if (!validSizes.includes(maxParticipants)) {
-        return NextResponse.json(
-          { error: 'Max participants must be 4, 8, 16, 32, or 64 for Bracket and Championship formats' },
-          { status: 400 }
-        )
+    const validSizes = [4, 8, 16, 32, 64]
+    if (!validSizes.includes(maxParticipants)) {
+      return NextResponse.json(
+        { error: 'Max participants must be 4, 8, 16, 32, or 64 for Bracket and Championship formats' },
+        { status: 400 }
+      )
       }
     }
 

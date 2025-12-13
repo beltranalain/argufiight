@@ -127,7 +127,7 @@ export function TournamentBracket({
           roundSlots.push(allParticipants)
         }
       } else {
-        // Traditional bracket format: 1v1 matches
+      // Traditional bracket format: 1v1 matches
         // Sort matches by matchNumber to maintain order
         roundMatches.sort((a, b) => a.matchNumber - b.matchNumber)
         
@@ -154,7 +154,7 @@ export function TournamentBracket({
             },
           ])
         }
-      }
+        }
       
       structure.push(roundSlots)
     }

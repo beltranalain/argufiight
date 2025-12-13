@@ -101,11 +101,11 @@ export async function completeTournament(tournamentId: string): Promise<void> {
         const completedMatches = finalRound.matches.filter(m => m.status === 'COMPLETED')
         if (completedMatches.length > 0) {
           const finalMatch = completedMatches[0] // Already ordered by completedAt desc
-          if (finalMatch.winner) {
-            champion = tournament.participants.find((p) => p.id === finalMatch.winner!.id)
-          }
+        if (finalMatch.winner) {
+          champion = tournament.participants.find((p) => p.id === finalMatch.winner!.id)
         }
       }
+    }
     }
 
     // For King of the Hill: Also check debate winner if no active participant
