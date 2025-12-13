@@ -229,7 +229,9 @@ export default function LeaderboardPage() {
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                 <div>
                                   <span className="text-text-secondary block text-xs mb-0.5">Tournament Score</span>
-                                  <span className="text-electric-blue font-bold">{(entry as TournamentLeaderboardEntry).tournamentScore}</span>
+                                  <span className="text-electric-blue font-bold">
+                                    {Number((entry as TournamentLeaderboardEntry).tournamentScore).toFixed(2)}
+                                  </span>
                                 </div>
                                 <div>
                                   <span className="text-text-secondary block text-xs mb-0.5">Championships</span>
