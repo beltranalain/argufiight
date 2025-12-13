@@ -78,12 +78,13 @@ export async function createKingOfTheHillRound1(tournamentId: string): Promise<v
 
   // Create DebateParticipant records for all participants
   // King of the Hill is an open debate - no FOR/AGAINST positions
+  // Position field is required in schema, but we'll hide it in the UI
   for (let i = 0; i < participants.length; i++) {
     await prisma.debateParticipant.create({
       data: {
         debateId: debate.id,
         userId: participants[i].userId,
-        position: null, // No positions in King of the Hill - it's an open debate
+        position: 'FOR', // Required field, but not displayed/used for King of the Hill GROUP debates
         status: 'ACTIVE', // All participants are active
         joinedAt: new Date(),
       },
@@ -198,12 +199,13 @@ export async function createKingOfTheHillRound(
 
   // Create DebateParticipant records for all active participants
   // King of the Hill is an open debate - no FOR/AGAINST positions
+  // Position field is required in schema, but we'll hide it in the UI
   for (let i = 0; i < participants.length; i++) {
     await prisma.debateParticipant.create({
       data: {
         debateId: debate.id,
         userId: participants[i].userId,
-        position: null, // No positions in King of the Hill - it's an open debate
+        position: 'FOR', // Required field, but not displayed/used for King of the Hill GROUP debates
         status: 'ACTIVE',
         joinedAt: new Date(),
       },
