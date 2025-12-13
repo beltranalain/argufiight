@@ -397,24 +397,75 @@ export async function processKingOfTheHillDebateCompletion(debateId: string): Pr
       console.log(`[King of the Hill] Finals debate completed - checking if ready for tournament completion`)
       
       // Check if debate has a winner (standard 1v1 verdict system)
-      if (debate.status === 'VERDICT_READY' && debate.winnerId) {
-        // Finals complete - complete tournament
-        console.log(`[King of the Hill] Finals complete - completing tournament`)
-        const { completeTournament } = await import('./tournament-completion')
-        await completeTournament(tournament.id)
-        
-        // Update round status
-        await prisma.tournamentRound.update({
-          where: { id: match.round.id },
-          data: {
-            status: 'COMPLETED',
-            endDate: new Date(),
-          },
+      if (debate.status === 'VERDICT_READY') {
+        // If no winnerId but verdicts exist, check for tie-breaker
+        if (!debate.winnerId) {
+          // Check verdicts to determine winner from scores
+          const verdicts = await prisma.verdict.findMany({
+            where: { debateId },
+            select: {
+              challengerScore: true,
+              opponentScore: true,
+              decision: true,
+            },
+          })
+
+          if (verdicts.length > 0) {
+            // Calculate total scores
+            const challengerTotal = verdicts.reduce((sum, v) => sum + (v.challengerScore || 0), 0)
+            const opponentTotal = verdicts.reduce((sum, v) => sum + (v.opponentScore || 0), 0)
+
+            // Determine winner based on total scores
+            let winnerId: string | null = null
+            if (challengerTotal > opponentTotal) {
+              winnerId = debate.challengerId
+            } else if (opponentTotal > challengerTotal) {
+              winnerId = debate.opponentId
+            } else {
+              // True tie - use first participant as winner (or could be random)
+              winnerId = debate.challengerId
+              console.log(`[King of the Hill] Finals ended in tie - using challenger as winner`)
+            }
+
+            // Update debate with winner
+            if (winnerId) {
+              await prisma.debate.update({
+                where: { id: debateId },
+                data: { winnerId },
+              })
+              console.log(`[King of the Hill] Finals winner determined: ${winnerId}`)
+            }
+          }
+        }
+
+        // Now complete tournament if we have a winner
+        const updatedDebate = await prisma.debate.findUnique({
+          where: { id: debateId },
+          select: { winnerId: true },
         })
-        return
+
+        if (updatedDebate?.winnerId) {
+          // Finals complete - complete tournament
+          console.log(`[King of the Hill] Finals complete - completing tournament`)
+          const { completeTournament } = await import('./tournament-completion')
+          await completeTournament(tournament.id)
+          
+          // Update round status
+          await prisma.tournamentRound.update({
+            where: { id: match.round.id },
+            data: {
+              status: 'COMPLETED',
+              endDate: new Date(),
+            },
+          })
+          return
+        } else {
+          console.log(`[King of the Hill] Finals still no winner after tie-breaker check`)
+          return
+        }
       } else {
         // Finals not ready yet
-        console.log(`[King of the Hill] Finals not ready yet (status: ${debate.status}, winner: ${debate.winnerId})`)
+        console.log(`[King of the Hill] Finals not ready yet (status: ${debate.status})`)
         return
       }
     }

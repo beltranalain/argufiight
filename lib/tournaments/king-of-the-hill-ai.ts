@@ -120,20 +120,51 @@ IMPORTANT:
     const responseText = completion.choices[0].message.content || '{}'
 
     // Clean response (remove markdown code blocks if present)
-    const cleanedResponse = responseText
+    let cleanedResponse = responseText
       .replace(/```json\n?/g, '')
       .replace(/```\n?/g, '')
       .trim()
 
+    // Try to extract JSON object if there's extra text
+    const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      cleanedResponse = jsonMatch[0]
+    }
+
+    // Fix common JSON issues: duplicate keys, trailing commas
+    cleanedResponse = cleanedResponse
+      .replace(/,\s*}/g, '}') // Remove trailing commas
+      .replace(/,\s*]/g, ']') // Remove trailing commas in arrays
+      .replace(/"username":\s*"username":/g, '"username":') // Fix duplicate username key
+
     try {
       const verdict = JSON.parse(cleanedResponse)
 
-      // Validate and map scores
+      // Validate and map scores - handle both correct format and malformed format
       const participantScores = participants.map((p) => {
-        const scoreEntry = verdict.scores?.find(
+        // Try to find score entry - handle both correct and malformed formats
+        let scoreEntry = verdict.scores?.find(
           (s: any) => s.username === p.username
         )
-        const score = scoreEntry?.score ?? 0
+        
+        // If not found, try to find by index (in case of malformed JSON)
+        if (!scoreEntry && verdict.scores && Array.isArray(verdict.scores)) {
+          const index = participants.findIndex(part => part.username === p.username)
+          if (index >= 0 && index < verdict.scores.length) {
+            scoreEntry = verdict.scores[index]
+          }
+        }
+        
+        // Extract score - handle malformed entries with duplicate keys
+        let score = 0
+        if (scoreEntry) {
+          if (typeof scoreEntry.score === 'number') {
+            score = scoreEntry.score
+          } else if (scoreEntry.username && typeof scoreEntry[scoreEntry.username] === 'number') {
+            // Handle weird malformed entries
+            score = scoreEntry[scoreEntry.username]
+          }
+        }
 
         // Ensure score is between 0-100
         const clampedScore = Math.max(0, Math.min(100, Math.round(score)))
