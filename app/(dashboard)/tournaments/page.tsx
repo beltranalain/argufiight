@@ -369,17 +369,6 @@ export default function TournamentsPage() {
                         <h3 className="text-xl font-bold text-text-primary mb-2 line-clamp-2">
                           {tournament.name}
                         </h3>
-                        <div className="flex gap-2 flex-wrap">
-                          <Badge variant="default" className={getStatusColor(tournament.status)}>
-                            {formatStatus(tournament.status)}
-                          </Badge>
-                          <Badge 
-                            variant="default" 
-                            className={tournament.isPrivate ? 'bg-neon-orange text-black' : 'bg-electric-blue text-black'}
-                          >
-                            {tournament.isPrivate ? 'Private' : 'Public'}
-                          </Badge>
-                        </div>
                       </div>
                     </div>
                     {tournament.description && (
@@ -390,6 +379,21 @@ export default function TournamentsPage() {
                   </CardHeader>
                   <CardBody>
                     <div className="space-y-3 mb-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-text-secondary">Status</span>
+                        <Badge variant="default" className={getStatusColor(tournament.status)}>
+                          {formatStatus(tournament.status)}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-text-secondary">Privacy</span>
+                        <Badge 
+                          variant="default" 
+                          className={tournament.isPrivate ? 'bg-neon-orange text-black' : 'bg-electric-blue text-black'}
+                        >
+                          {tournament.isPrivate ? 'Private' : 'Public'}
+                        </Badge>
+                      </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-text-secondary">Participants</span>
                         <span className="text-text-primary font-semibold">
