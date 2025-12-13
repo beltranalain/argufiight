@@ -738,12 +738,26 @@ interface Contract {
   id: string
   status: string
   totalAmount: number
+  platformFee: number
+  creatorPayout: number
+  escrowHeld: boolean
+  payoutSent: boolean
+  payoutDate: string | null
   advertiser: {
     companyName: string
   }
   creator: {
     username: string
+    creatorStatus: string | null
+    creatorTaxInfo: {
+      stripeAccountId: string | null
+      payoutEnabled: boolean
+    } | null
   }
+  campaign: {
+    id: string
+    name: string
+  } | null
   endDate: string
 }
 
