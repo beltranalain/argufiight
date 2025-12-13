@@ -63,18 +63,24 @@ export default function ProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [tournamentStats, setTournamentStats] = useState<TournamentStats | null>(null)
 
-  // Fetch profile data when component mounts or user changes
+  // Redirect to username-based URL once user is loaded (to show username in URL)
   useEffect(() => {
-    if (!authLoading) {
-      if (user) {
-        fetchProfile()
-        fetchTournamentStats()
-      } else {
-        // Not logged in, redirect to home
-        router.replace('/')
-      }
+    if (!authLoading && user?.username) {
+      // Redirect to username-based profile URL
+      router.replace(`/${user.username}`)
+    } else if (!authLoading && !user) {
+      // Not logged in, redirect to home
+      router.replace('/')
     }
   }, [user, authLoading, router])
+
+  // Fetch profile data when component mounts or user changes
+  useEffect(() => {
+    if (!authLoading && user) {
+      fetchProfile()
+      fetchTournamentStats()
+    }
+  }, [user, authLoading])
 
   const fetchProfile = async () => {
     try {
