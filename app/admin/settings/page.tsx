@@ -533,11 +533,86 @@ export default function AdminSettingsPage() {
     }
   }
 
+  const handleTestBrowserNotification = async () => {
+    if (!('Notification' in window)) {
+      showToast({
+        type: 'error',
+        title: 'Not Supported',
+        description: 'Your browser does not support notifications',
+      })
+      return
+    }
+
+    if (Notification.permission !== 'granted') {
+      showToast({
+        type: 'error',
+        title: 'Permission Required',
+        description: 'Please grant notification permission first',
+      })
+      return
+    }
+
+    try {
+      new Notification('Browser Test Notification', {
+        body: 'If you see this, browser notifications work! This tests the browser directly, not FCM.',
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+      })
+      showToast({
+        type: 'success',
+        title: 'Browser Notification Test',
+        description: 'A notification should have appeared. If not, check Windows Focus Assist or browser settings.',
+      })
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Test Failed',
+        description: error.message || 'Failed to show browser notification',
+      })
+    }
+  }
+
+  const checkServiceWorkerStatus = async () => {
+    if (!('serviceWorker' in navigator)) {
+      return { registered: false, error: 'Service workers not supported' }
+    }
+
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      const fcmWorker = registrations.find(
+        (reg) => reg.scope.includes('firebase-cloud-messaging-push-scope')
+      )
+
+      if (!fcmWorker) {
+        return { registered: false, error: 'FCM service worker not found' }
+      }
+
+      const state = fcmWorker.active?.state || fcmWorker.installing?.state || 'unknown'
+      return {
+        registered: true,
+        state,
+        scope: fcmWorker.scope,
+      }
+    } catch (error: any) {
+      return { registered: false, error: error.message }
+    }
+  }
+
   const handleTestPushNotification = async () => {
     setIsTestingPush(true)
     setPushTestResult(null)
 
     try {
+      // Check service worker status first
+      const swStatus = await checkServiceWorkerStatus()
+      if (!swStatus.registered) {
+        showToast({
+          type: 'warning',
+          title: 'Service Worker Issue',
+          description: `Service worker not registered: ${swStatus.error}. Notifications may not work.`,
+        })
+      }
+
       // Get current user ID
       const userResponse = await fetch('/api/auth/me')
       if (!userResponse.ok) {
@@ -575,7 +650,7 @@ export default function AdminSettingsPage() {
         showToast({
           type: 'success',
           title: 'Test Notification Sent',
-          description: 'Check your browser for the push notification!',
+          description: 'Check your browser for the push notification! If you don\'t see it, try closing this tab and sending again.',
         })
       } else {
         setPushTestResult({
