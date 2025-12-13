@@ -65,12 +65,17 @@ export default function ProfilePage() {
 
   // Redirect to username-based URL once user is loaded
   useEffect(() => {
-    if (!authLoading && user?.username) {
-      // Use replace to avoid adding to history
-      router.replace(`/${user.username}`)
-    } else if (!authLoading && !user) {
-      // Not logged in, redirect to home
-      router.replace('/')
+    if (!authLoading) {
+      if (user?.username) {
+        // User has username, redirect to username-based profile
+        router.replace(`/${user.username}`)
+      } else if (user && !user.username) {
+        // User exists but no username - redirect to settings to set username
+        router.replace('/settings')
+      } else if (!user) {
+        // Not logged in, redirect to home
+        router.replace('/')
+      }
     }
   }, [user, authLoading, router])
 
