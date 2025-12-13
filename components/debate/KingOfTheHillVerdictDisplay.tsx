@@ -23,7 +23,7 @@ interface Verdict {
 
 interface Participant {
   id: string
-  userId?: string
+  userId: string
   user: {
     id: string
     username: string
@@ -86,25 +86,18 @@ export function KingOfTheHillVerdictDisplay({
         const username = match[1].trim()
         const score = parseInt(match[2], 10)
         
-        // Find participant info - check both userId field and user.id relation
-        const participant = participants.find(
-          p => p.user.username === username || (p as any).userId === username
-        )
-        
-        // Get userId from either direct field or relation
-        const participantUserId = participant 
-          ? ((participant as any).userId || participant.user.id)
-          : null
-        
-        const tournamentParticipant = participantUserId
-          ? tournamentParticipants.find(tp => tp.userId === participantUserId)
-          : null
+        // Find participant info by username
+        const participant = participants.find(p => p.user.username === username)
         
         if (participant) {
+          const tournamentParticipant = tournamentParticipants.find(
+            tp => tp.userId === participant.userId
+          )
+          
           scores.push({
             username,
             score,
-            userId: participantUserId || participant.user.id,
+            userId: participant.userId,
             avatarUrl: participant.user.avatarUrl,
             isEliminated: tournamentParticipant?.status === 'ELIMINATED' || false,
             eliminationRound: tournamentParticipant?.eliminationRound || null,
@@ -125,23 +118,19 @@ export function KingOfTheHillVerdictDisplay({
       
       for (const scoreData of scores) {
           if (!scoreMap.has(scoreData.userId)) {
-          // Find participant by userId (check both direct field and user.id)
-          const participant = participants.find(
-            p => ((p as any).userId === scoreData.userId || p.user.id === scoreData.userId)
-          )
+          const participant = participants.find(p => p.userId === scoreData.userId)
           const tournamentParticipant = tournamentParticipants.find(
             tp => tp.userId === scoreData.userId
           )
           
           if (participant) {
-            const participantUserId = ((participant as any).userId || participant.user.id)
             scoreMap.set(scoreData.userId, {
               total: 0,
               count: 0,
               participant: {
                 username: participant.user.username,
                 score: 0,
-                userId: participantUserId,
+                userId: participant.userId,
                 avatarUrl: participant.user.avatarUrl,
                 isEliminated: tournamentParticipant?.status === 'ELIMINATED' || false,
                 eliminationRound: tournamentParticipant?.eliminationRound || null,
