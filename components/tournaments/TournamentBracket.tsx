@@ -297,6 +297,12 @@ export function TournamentBracket({
                     // Traditional 1v1 match display (or King of the Hill finals)
                     const slot1 = match[0]
                     const slot2 = match[1]
+                    
+                    // Safety check: ensure slots exist
+                    if (!slot1 || !slot2) {
+                      return null
+                    }
+                    
                     const isActive = slot1?.matchStatus === 'IN_PROGRESS' || slot2?.matchStatus === 'IN_PROGRESS'
                     const isCompleted = slot1?.matchStatus === 'COMPLETED' || slot2?.matchStatus === 'COMPLETED'
                     const isFinalRound = roundNum === totalRounds
@@ -354,11 +360,11 @@ export function TournamentBracket({
                           {/* Participant 1 */}
                           <div
                             className={`mb-3 p-3 rounded transition-all ${
-                              slot1.isWinner && isFinalWinner
+                              slot1?.isWinner && isFinalWinner
                                 ? 'bg-cyber-green/30 border-2 border-cyber-green winner-animation'
-                                : slot1.isWinner
+                                : slot1?.isWinner
                                 ? 'bg-cyber-green/20 border border-cyber-green winner-animation'
-                                : slot1.participant && slot1.participant.status === 'ELIMINATED' && 
+                                : slot1?.participant && slot1.participant.status === 'ELIMINATED' && 
                                   slot1.participant.eliminationRound === roundNum
                                 ? 'bg-red-500/20 border-2 border-red-500/50'
                                 : 'bg-bg-tertiary'
@@ -379,10 +385,10 @@ export function TournamentBracket({
                                       : 'text-text-primary'
                                   }`}>
                                     ({slot1.participant.seed}) @{slot1.participant.user.username}
-                                    {slot1.isWinner && isFinalWinner && (
+                                    {slot1?.isWinner && isFinalWinner && (
                                       <span className="ml-2 text-cyber-green font-bold">Champion</span>
                                     )}
-                                    {slot1.isWinner && !isFinalWinner && (
+                                    {slot1?.isWinner && !isFinalWinner && (
                                       <span className="ml-2 text-cyber-green">✓ Winner</span>
                                     )}
                                     {slot1.participant.status === 'ELIMINATED' && 
@@ -409,11 +415,11 @@ export function TournamentBracket({
                           {/* Participant 2 */}
                           <div
                             className={`p-3 rounded transition-all ${
-                              slot2.isWinner && isFinalWinner
+                              slot2?.isWinner && isFinalWinner
                                 ? 'bg-cyber-green/30 border-2 border-cyber-green winner-animation'
-                                : slot2.isWinner
+                                : slot2?.isWinner
                                 ? 'bg-cyber-green/20 border border-cyber-green winner-animation'
-                                : slot2.participant && slot2.participant.status === 'ELIMINATED' && 
+                                : slot2?.participant && slot2.participant.status === 'ELIMINATED' && 
                                   slot2.participant.eliminationRound === roundNum
                                 ? 'bg-red-500/20 border-2 border-red-500/50'
                                 : 'bg-bg-tertiary'
@@ -434,10 +440,10 @@ export function TournamentBracket({
                                       : 'text-text-primary'
                                   }`}>
                                     ({slot2.participant.seed}) @{slot2.participant.user.username}
-                                    {slot2.isWinner && isFinalWinner && (
+                                    {slot2?.isWinner && isFinalWinner && (
                                       <span className="ml-2 text-cyber-green font-bold">Champion</span>
                                     )}
-                                    {slot2.isWinner && !isFinalWinner && (
+                                    {slot2?.isWinner && !isFinalWinner && (
                                       <span className="ml-2 text-cyber-green">✓ Winner</span>
                                     )}
                                     {slot2.participant.status === 'ELIMINATED' && 
