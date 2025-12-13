@@ -72,6 +72,8 @@ export default function AdminUsersPage() {
   const [employees, setEmployees] = useState<UserData[]>([])
   const [isAIUserModalOpen, setIsAIUserModalOpen] = useState(false)
   const [editingAIUser, setEditingAIUser] = useState<UserData | null>(null)
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false)
 
   useEffect(() => {
     fetchUsers()
@@ -125,6 +127,63 @@ export default function AdminUsersPage() {
     setActionUserId(userId)
     setActionType('delete')
     setIsActionModalOpen(true)
+  }
+
+  const handleSelectUser = (userId: string) => {
+    setSelectedUserIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(userId)) {
+        newSet.delete(userId)
+      } else {
+        newSet.add(userId)
+      }
+      return newSet
+    })
+  }
+
+  const handleSelectAll = (userList: UserData[]) => {
+    if (selectedUserIds.size === userList.length) {
+      setSelectedUserIds(new Set())
+    } else {
+      setSelectedUserIds(new Set(userList.map(u => u.id)))
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedUserIds.size === 0) return
+
+    setIsProcessing(true)
+    try {
+      const response = await fetch('/api/admin/users/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: Array.from(selectedUserIds) }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        showToast({
+          type: 'success',
+          title: 'Users Deleted',
+          description: data.message || `${selectedUserIds.size} user(s) have been permanently deleted`,
+        })
+        setSelectedUserIds(new Set())
+        setIsBulkDeleteModalOpen(false)
+        fetchUsers()
+        fetchUserLimitInfo()
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete users')
+      }
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Deletion Failed',
+        description: error.message || 'Failed to delete users',
+      })
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   const confirmAction = async () => {
@@ -515,8 +574,35 @@ export default function AdminUsersPage() {
         {/* Regular Users Section */}
         <Card>
           <CardHeader>
-            <h2 className="text-xl font-bold text-white">All Users</h2>
-            <p className="text-sm text-text-secondary mt-1">Platform users and participants</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-white">All Users</h2>
+                <p className="text-sm text-text-secondary mt-1">Platform users and participants</p>
+              </div>
+              {regularUsers.length > 0 && (
+                <div className="flex items-center gap-3">
+                  {selectedUserIds.size > 0 && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setIsBulkDeleteModalOpen(true)}
+                    >
+                      Delete Selected ({selectedUserIds.size})
+                    </Button>
+                  )}
+                  <label className="flex items-center gap-2 cursor-pointer text-sm text-text-secondary hover:text-white transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={regularUsers.length > 0 && selectedUserIds.size === regularUsers.length}
+                      onChange={() => handleSelectAll(regularUsers)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-4 h-4 rounded border-bg-tertiary bg-bg-tertiary text-electric-blue focus:ring-electric-blue focus:ring-2"
+                    />
+                    <span>Select All</span>
+                  </label>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardBody>
             {regularUsers.length === 0 ? (
@@ -544,6 +630,13 @@ export default function AdminUsersPage() {
                     >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedUserIds.has(user.id)}
+                          onChange={() => handleSelectUser(user.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-4 h-4 rounded border-bg-tertiary bg-bg-tertiary text-electric-blue focus:ring-electric-blue focus:ring-2 flex-shrink-0"
+                        />
                         <Avatar 
                           username={user.username}
                           src={user.avatarUrl}
@@ -728,6 +821,40 @@ export default function AdminUsersPage() {
               isLoading={isProcessing}
             >
               {actionType === 'delete' ? 'Delete User' : actionType === 'suspend' ? 'Suspend User' : 'Unsuspend User'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Bulk Delete Confirmation Modal */}
+      <Modal
+        isOpen={isBulkDeleteModalOpen}
+        onClose={() => {
+          if (!isProcessing) {
+            setIsBulkDeleteModalOpen(false)
+          }
+        }}
+        title="Delete Selected Users"
+      >
+        <div className="space-y-4">
+          <p className="text-text-secondary">
+            Are you sure you want to permanently delete {selectedUserIds.size} user(s)? This action cannot be undone.
+            All user data, debates, and related information will be permanently removed.
+          </p>
+          <div className="flex justify-end gap-3 pt-4 border-t border-bg-tertiary">
+            <Button
+              variant="secondary"
+              onClick={() => setIsBulkDeleteModalOpen(false)}
+              disabled={isProcessing}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleBulkDelete}
+              isLoading={isProcessing}
+            >
+              Delete {selectedUserIds.size} User(s)
             </Button>
           </div>
         </div>
