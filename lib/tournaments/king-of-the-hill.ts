@@ -353,7 +353,7 @@ export async function processKingOfTheHillDebateCompletion(debateId: string): Pr
     const debate = await prisma.debate.findUnique({
       where: { id: debateId },
       include: {
-        tournamentMatches: {
+        tournamentMatch: {
           include: {
             round: {
               include: {
@@ -377,7 +377,7 @@ export async function processKingOfTheHillDebateCompletion(debateId: string): Pr
       throw new Error('Debate not found')
     }
 
-    const match = debate.tournamentMatches[0]
+    const match = debate.tournamentMatch
     if (!match) {
       throw new Error('Tournament match not found for debate')
     }

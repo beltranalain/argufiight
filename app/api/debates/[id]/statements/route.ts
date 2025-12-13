@@ -238,9 +238,12 @@ export async function POST(
       where: { debateId: id },
       include: {
         round: {
-          include: {
+          select: {
+            id: true,
+            roundNumber: true,
             tournament: {
               select: {
+                id: true,
                 format: true,
               },
             },

@@ -361,6 +361,7 @@ export async function generateKingOfTheHillRoundVerdicts(
         data: {
           debateId: debate.id,
           judgeId: vr.judgeId,
+          decision: 'TIE', // GROUP debates don't have a single winner, use TIE
           reasoning: fullReasoning,
           challengerScore: null, // Not applicable for GROUP debates
           opponentScore: null, // Not applicable for GROUP debates

@@ -64,10 +64,8 @@ export async function checkAndAdvanceTournamentRound(
       // Find the debate for this round
       const debate = await prisma.debate.findFirst({
         where: {
-          tournamentMatches: {
-            some: {
-              roundId: round.id,
-            },
+          tournamentMatch: {
+            roundId: round.id,
           },
         },
         select: {
