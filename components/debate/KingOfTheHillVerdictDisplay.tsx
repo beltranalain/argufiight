@@ -96,12 +96,16 @@ export function KingOfTheHillVerdictDisplay({
             tp => tp.userId === participant.userId
           )
           
+          // Only mark as eliminated if eliminated in the current round
+          const isEliminatedInThisRound = tournamentParticipant?.status === 'ELIMINATED' &&
+            tournamentParticipant?.eliminationRound === currentRoundNumber
+          
           scores.push({
             username,
             score,
             userId: participant.userId,
             avatarUrl: participant.user.avatarUrl,
-            isEliminated: tournamentParticipant?.status === 'ELIMINATED' || false,
+            isEliminated: isEliminatedInThisRound || false,
             eliminationRound: tournamentParticipant?.eliminationRound || null,
           })
         }
@@ -126,6 +130,10 @@ export function KingOfTheHillVerdictDisplay({
           )
           
           if (participant) {
+            // Only mark as eliminated if eliminated in the current round
+            const isEliminatedInThisRound = tournamentParticipant?.status === 'ELIMINATED' &&
+              tournamentParticipant?.eliminationRound === currentRoundNumber
+            
             scoreMap.set(scoreData.userId, {
               total: 0,
               count: 0,
@@ -134,7 +142,7 @@ export function KingOfTheHillVerdictDisplay({
                 score: 0,
                 userId: participant.userId,
                 avatarUrl: participant.user.avatarUrl,
-                isEliminated: tournamentParticipant?.status === 'ELIMINATED' || false,
+                isEliminated: isEliminatedInThisRound || false,
                 eliminationRound: tournamentParticipant?.eliminationRound || null,
               },
             })
