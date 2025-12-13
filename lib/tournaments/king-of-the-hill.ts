@@ -67,7 +67,7 @@ export async function createKingOfTheHillRound1(tournamentId: string): Promise<v
       opponentId: participants[1]?.userId || participants[0].userId, // Second participant or fallback
       totalRounds: 1, // Single submission per participant
       currentRound: 1,
-      roundDuration: tournament.roundDuration * 3600000, // Convert hours to milliseconds
+      roundDuration: tournament.roundDuration, // Already in milliseconds
       speedMode: false,
       allowCopyPaste: true,
       status: 'ACTIVE',
@@ -186,7 +186,7 @@ export async function createKingOfTheHillRound(
       opponentId: participants[1]?.userId || participants[0].userId,
       totalRounds: 1, // Single submission per participant
       currentRound: 1,
-      roundDuration: tournament.roundDuration * 3600000,
+      roundDuration: tournament.roundDuration, // Already in milliseconds
       speedMode: false,
       allowCopyPaste: true,
       status: 'ACTIVE',
@@ -286,7 +286,7 @@ export async function createKingOfTheHillFinals(
       opponentId: participants[1].userId,
       totalRounds: 3, // Traditional 3-round debate for finals
       currentRound: 1,
-      roundDuration: tournament.roundDuration * 3600000,
+      roundDuration: tournament.roundDuration, // Already in milliseconds
       speedMode: false,
       allowCopyPaste: true,
       status: 'ACTIVE',

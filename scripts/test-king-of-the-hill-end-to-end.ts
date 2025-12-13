@@ -30,6 +30,21 @@ interface TestUser {
 const testUsers: TestUser[] = []
 
 async function createTestUser(username: string, email: string, password: string): Promise<TestUser> {
+  // Check if user already exists
+  const existing = await prisma.user.findUnique({
+    where: { email },
+  })
+
+  if (existing) {
+    console.log(`   ⚠️  User already exists: ${username}, using existing user`)
+    return {
+      id: existing.id,
+      username: existing.username,
+      email: existing.email,
+      password,
+    }
+  }
+
   const passwordHash = await hash(password, 10)
   
   const user = await prisma.user.create({
@@ -72,11 +87,19 @@ async function createTournament(creatorId: string) {
       description: 'End-to-end test tournament',
       format: 'KING_OF_THE_HILL',
       maxParticipants: 4,
+      totalRounds: 3, // Default for King of the Hill
+      roundDuration: 86400000, // 24 hours in milliseconds
       status: 'UPCOMING',
       creatorId,
       startDate: new Date(),
       isPrivate: false,
     },
+  })
+
+  // Get creator's ELO
+  const creator = await prisma.user.findUnique({
+    where: { id: creatorId },
+    select: { eloRating: true },
   })
 
   // Add creator as participant
@@ -86,6 +109,7 @@ async function createTournament(creatorId: string) {
       userId: creatorId,
       seed: 1,
       status: 'ACTIVE',
+      eloAtStart: creator?.eloRating || 1200,
     },
   })
 
@@ -94,12 +118,19 @@ async function createTournament(creatorId: string) {
 }
 
 async function joinTournament(tournamentId: string, userId: string, seed: number) {
+  // Get user's ELO
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { eloRating: true },
+  })
+
   await prisma.tournamentParticipant.create({
     data: {
       tournamentId,
       userId,
       seed,
       status: 'ACTIVE',
+      eloAtStart: user?.eloRating || 1200,
     },
   })
   console.log(`   ✅ User joined tournament (seed ${seed})`)
@@ -108,15 +139,9 @@ async function joinTournament(tournamentId: string, userId: string, seed: number
 async function startTournament(tournamentId: string) {
   console.log('\n🚀 Starting tournament...')
   
-  // Import match generation
-  const { generateTournamentMatches } = await import('../lib/tournaments/match-generation')
-  await generateTournamentMatches(tournamentId)
-  
-  // Update tournament status
-  await prisma.tournament.update({
-    where: { id: tournamentId },
-    data: { status: 'IN_PROGRESS' },
-  })
+  // Import startTournament function which handles King of the Hill correctly
+  const { startTournament: startTournamentFn } = await import('../lib/tournaments/match-generation')
+  await startTournamentFn(tournamentId)
   
   console.log('   ✅ Tournament started')
 }
@@ -153,7 +178,7 @@ async function getCurrentDebate(tournamentId: string) {
       },
     },
     orderBy: {
-      createdAt: 'desc',
+      id: 'desc',
     },
   })
 
@@ -256,10 +281,11 @@ async function runEndToEndTest() {
   try {
     // Step 1: Create 4 test users
     console.log('\n👥 Step 1: Creating 4 test users...')
+    const timestamp = Date.now()
     for (let i = 1; i <= 4; i++) {
       const user = await createTestUser(
-        `koth_test_user_${i}`,
-        `koth_test_${i}@test.com`,
+        `koth_test_user_${i}_${timestamp}`,
+        `koth_test_${i}_${timestamp}@test.com`,
         'TestPassword123!'
       )
       testUsers.push(user)
