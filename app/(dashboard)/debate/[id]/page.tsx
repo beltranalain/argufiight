@@ -449,13 +449,18 @@ export default function DebatePage() {
   // For GROUP debates (King of the Hill), check if user is a participant
   // Check both userId (direct field) and user.id (relation) for compatibility
   // Also check if participants array exists and has items
+  // Include status check to match isParticipant logic
   const isGroupParticipant = isGroupChallenge && 
     debate?.participants && 
     debate.participants.length > 0 &&
     debate.participants.some(
       p => {
         const participantUserId = (p as any).userId || p.user?.id
-        return participantUserId === user?.id
+        const participantStatus = (p as any).status
+        // For King of the Hill, participants should be ACTIVE (they're created as ACTIVE)
+        // But also accept ACCEPTED for compatibility
+        return participantUserId === user?.id && 
+               (participantStatus === 'ACTIVE' || participantStatus === 'ACCEPTED')
       }
   )
   
@@ -500,14 +505,20 @@ export default function DebatePage() {
         userId: user.id,
         username: user.username,
         isParticipant,
+        isGroupParticipant,
         userSubmitted,
         isMyTurn,
         canSubmit,
         currentRoundStatementsCount: currentRoundStatements.length,
         participantsCount: debate.participants?.length || 0,
+        participants: debate.participants?.map((p: any) => ({
+          userId: (p as any).userId || p.user?.id,
+          status: (p as any).status,
+          username: p.user?.username,
+        })) || [],
       })
     }
-  }, [debate, user, isParticipant, userSubmitted, isMyTurn, canSubmit, currentRoundStatements.length, isGroupChallenge])
+  }, [debate, user, isParticipant, isGroupParticipant, userSubmitted, isMyTurn, canSubmit, currentRoundStatements.length, isGroupChallenge])
 
   if (isLoading) {
     return (
