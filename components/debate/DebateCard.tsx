@@ -11,6 +11,7 @@ interface DebateCardProps {
     id: string
     topic: string
     category: string
+    challengeType?: string
     challenger: {
       id: string
       username: string
@@ -33,6 +34,7 @@ interface DebateCardProps {
       tournament: {
         id: string
         name: string
+        format?: string
         currentRound: number
         totalRounds: number
       }
@@ -40,6 +42,17 @@ interface DebateCardProps {
         roundNumber: number
       }
     } | null
+    participants?: Array<{
+      id: string
+      userId: string
+      status: string
+      user: {
+        id: string
+        username: string
+        avatarUrl: string | null
+        eloRating: number
+      }
+    }>
     images?: Array<{
       id: string
       url: string
@@ -51,8 +64,24 @@ interface DebateCardProps {
 }
 
 export function DebateCard({ debate }: DebateCardProps) {
-  const progress = (debate.currentRound / debate.totalRounds) * 100
+  // For tournament debates, use tournament round number; otherwise use debate round
+  const displayRound = debate.tournamentMatch 
+    ? debate.tournamentMatch.round.roundNumber 
+    : debate.currentRound
+  const displayTotalRounds = debate.tournamentMatch 
+    ? debate.tournamentMatch.tournament.totalRounds 
+    : debate.totalRounds
+  const progress = (displayRound / displayTotalRounds) * 100
   const timeLeft = calculateTimeLeft(debate.roundDeadline)
+  
+  // Check if this is a GROUP debate (King of the Hill)
+  const isGroupDebate = debate.challengeType === 'GROUP' || (debate.participants && debate.participants.length > 2)
+  const isKingOfTheHill = debate.tournamentMatch?.tournament?.format === 'KING_OF_THE_HILL'
+  
+  // Get active participants for GROUP debates
+  const activeParticipants = isGroupDebate && debate.participants
+    ? debate.participants.filter(p => p.status === 'ACTIVE' || p.status === 'ACCEPTED')
+    : []
 
   return (
     <motion.div
@@ -158,7 +187,7 @@ export function DebateCard({ debate }: DebateCardProps) {
       <div className="mb-5">
         <div className="flex justify-between text-sm mb-2">
           <span className="text-text-secondary">
-            Round {debate.currentRound}/{debate.totalRounds}
+            Round {displayRound}/{displayTotalRounds}
           </span>
           <span className="text-electric-blue font-medium">
             {timeLeft}

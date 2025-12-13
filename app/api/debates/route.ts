@@ -162,6 +162,7 @@ export async function GET(request: NextRequest) {
               select: {
                 id: true,
                 name: true,
+                format: true,
                 currentRound: true,
                 totalRounds: true,
               },
@@ -169,6 +170,21 @@ export async function GET(request: NextRequest) {
             round: {
               select: {
                 roundNumber: true,
+              },
+            },
+          },
+        },
+        participants: {
+          select: {
+            id: true,
+            userId: true,
+            status: true,
+            user: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+                eloRating: true,
               },
             },
           },
