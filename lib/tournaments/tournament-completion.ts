@@ -110,7 +110,13 @@ export async function completeTournament(tournamentId: string): Promise<void> {
 
     // For King of the Hill: Also check debate winner if no active participant
     if (!champion && tournament.format === 'KING_OF_THE_HILL') {
-      const finalRound = tournament.rounds.find((r) => r.roundNumber === tournamentInfo.totalRounds)
+      // Get the final round (highest round number)
+      const finalRound = tournament.rounds.length > 0
+        ? tournament.rounds.reduce((latest, round) => 
+            round.roundNumber > latest.roundNumber ? round : latest
+          )
+        : null
+      
       if (finalRound && finalRound.matches.length > 0) {
         const finalMatch = finalRound.matches[0]
         if (finalMatch.debate?.winnerId) {

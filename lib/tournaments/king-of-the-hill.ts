@@ -223,11 +223,13 @@ export async function createKingOfTheHillRound(
     },
   })
 
-  // Update tournament current round
+  // Update tournament current round and totalRounds
+  // For King of the Hill, totalRounds should match the highest round number created
   await prisma.tournament.update({
     where: { id: tournamentId },
     data: {
       currentRound: roundNumber,
+      totalRounds: roundNumber, // Update totalRounds to match actual rounds created
     },
   })
 
@@ -330,11 +332,13 @@ export async function createKingOfTheHillFinals(
     },
   })
 
-  // Update tournament current round
+  // Update tournament current round and totalRounds
+  // Finals is the last round, so totalRounds should equal roundNumber
   await prisma.tournament.update({
     where: { id: tournamentId },
     data: {
       currentRound: roundNumber,
+      totalRounds: roundNumber, // Finals is the final round, so totalRounds = roundNumber
     },
   })
 
