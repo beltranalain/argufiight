@@ -23,6 +23,14 @@ interface ActiveDebate {
     id: string
     username: string
   } | null
+  tournamentMatch?: {
+    round: {
+      roundNumber: number
+    }
+    tournament: {
+      totalRounds: number
+    }
+  } | null
   images?: Array<{
     id: string
     url: string
@@ -114,7 +122,14 @@ export function LiveBattlePanel() {
     )
   }
 
-  const progress = (activeDebate.currentRound / activeDebate.totalRounds) * 100
+  // For tournament debates, use tournament round number; otherwise use debate round
+  const displayRound = activeDebate.tournamentMatch 
+    ? activeDebate.tournamentMatch.round.roundNumber 
+    : activeDebate.currentRound
+  const displayTotalRounds = activeDebate.tournamentMatch 
+    ? activeDebate.tournamentMatch.tournament.totalRounds 
+    : activeDebate.totalRounds
+  const progress = (displayRound / displayTotalRounds) * 100
   
   // Determine if it's user's turn based on statements in current round
   let isMyTurn = false
