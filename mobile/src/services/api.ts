@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Make sure your phone and computer are on the same WiFi network
 const API_URL = __DEV__ 
   ? 'http://192.168.1.152:3000/api'  // Your local IP - update if needed
-  : 'https://your-production-url.com/api';
+  : 'https://www.argufight.com/api';
 
 const api = axios.create({
   baseURL: API_URL,

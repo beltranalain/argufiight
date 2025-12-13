@@ -110,6 +110,14 @@ export default function QuickActions() {
       color: '#ff0000',
       onPress: () => navigation.navigate('Reminders' as never),
     },
+    {
+      id: 'tournaments',
+      label: 'Tournaments',
+      count: 0, // Could fetch tournament count if needed
+      icon: 'trophy',
+      color: '#6b46c1',
+      onPress: () => navigation.navigate('Tournaments' as never),
+    },
   ];
 
   return (
