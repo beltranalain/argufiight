@@ -36,7 +36,6 @@ export async function POST(request: NextRequest) {
       },
       select: {
         token: true,
-        subscription: true,
       },
     })
 
@@ -48,20 +47,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Convert tokens to web push subscriptions
+    // The token field contains the subscription JSON for Web Push
     const subscriptions = tokens
       .map((t) => {
-        // If subscription is stored, use it
-        if (t.subscription) {
-          try {
-            return JSON.parse(t.subscription)
-          } catch {
-            return null
-          }
-        }
-        // Otherwise, try to parse token as subscription
+        // Try to parse token as subscription JSON
         try {
-          return JSON.parse(t.token)
+          const parsed = JSON.parse(t.token)
+          // Verify it's a valid subscription object
+          if (parsed && parsed.endpoint && parsed.keys && parsed.keys.p256dh && parsed.keys.auth) {
+            return parsed
+          }
+          return null
         } catch {
+          // Not JSON, might be an old FCM token format - skip it
           return null
         }
       })

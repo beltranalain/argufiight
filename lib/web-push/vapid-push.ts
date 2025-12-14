@@ -183,22 +183,20 @@ export async function sendPushNotificationToToken(
     try {
       // Try to parse as JSON (if it's a stored subscription)
       subscription = JSON.parse(token)
-    } catch {
-      // If parsing fails, it might be an FCM token format
-      // For web push, we need the subscription object
-      // Check if we have the subscription stored in the database
-      const fcmToken = await prisma.fCMToken.findUnique({
-        where: { token },
-        select: { subscription: true },
-      })
-
-      if (fcmToken?.subscription) {
-        subscription = JSON.parse(fcmToken.subscription)
-      } else {
+      // Verify it's a valid subscription object
+      if (!subscription.endpoint || !subscription.keys || !subscription.keys.p256dh || !subscription.keys.auth) {
         return {
           success: false,
           error: 'Invalid subscription format. Token must be a web push subscription object.',
         }
+      }
+    } catch {
+      // If parsing fails, it might be an FCM token format
+      // For web push, we need the subscription object
+      // The token field should contain the subscription JSON
+      return {
+        success: false,
+        error: 'Invalid subscription format. Token must be a web push subscription object.',
       }
     }
 

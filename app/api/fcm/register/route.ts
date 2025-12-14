@@ -24,25 +24,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // For Web Push subscriptions, use the endpoint as the unique token
+    // For Web Push subscriptions, store the subscription as JSON in the token field
     // For FCM tokens, use the token itself
-    const uniqueToken = token || (subscription?.endpoint || JSON.stringify(subscription))
+    // Use endpoint as unique identifier for Web Push subscriptions
+    const uniqueToken = subscription 
+      ? subscription.endpoint 
+      : token
+
+    // Store subscription as JSON string in token field for Web Push
+    const tokenValue = subscription 
+      ? JSON.stringify(subscription)
+      : token
 
     // Upsert FCM token (update if exists, create if new)
     await prisma.fCMToken.upsert({
       where: { token: uniqueToken },
       update: {
         userId,
-        token: uniqueToken,
-        subscription: subscription ? subscription : undefined,
+        token: tokenValue, // Store subscription JSON or FCM token
         device: device || null,
         userAgent: userAgent || null,
         updatedAt: new Date(),
       },
       create: {
         userId,
-        token: uniqueToken,
-        subscription: subscription ? subscription : undefined,
+        token: tokenValue, // Store subscription JSON or FCM token
         device: device || null,
         userAgent: userAgent || null,
       },

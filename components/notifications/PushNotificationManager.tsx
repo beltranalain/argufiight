@@ -67,9 +67,10 @@ export function PushNotificationManager() {
 
         if (!subscription) {
           // Create new subscription with VAPID public key
+          const vapidKeyArray = urlBase64ToUint8Array(config.vapidKey)
           subscription = await serviceWorkerRegistration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(config.vapidKey),
+            applicationServerKey: vapidKeyArray.buffer as ArrayBuffer,
           })
         }
 
@@ -119,7 +120,7 @@ export function PushNotificationManager() {
     for (let i = 0; i < rawData.length; ++i) {
       outputArray[i] = rawData.charCodeAt(i)
     }
-    return outputArray
+    return outputArray as Uint8Array
   }
 
   // Request notification permission

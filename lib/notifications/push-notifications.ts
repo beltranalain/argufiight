@@ -26,7 +26,7 @@ export async function sendYourTurnPushNotification(
     // Get user's web push subscriptions
     const tokens = await prisma.fCMToken.findMany({
       where: { userId },
-      select: { token: true, subscription: true },
+      select: { token: true },
     })
 
     if (tokens.length === 0) {
@@ -35,18 +35,19 @@ export async function sendYourTurnPushNotification(
     }
 
     // Convert to web push subscriptions
+    // The token field contains the subscription JSON for Web Push
     const subscriptions = tokens
       .map((t) => {
-        if (t.subscription) {
-          try {
-            return JSON.parse(t.subscription)
-          } catch {
-            return null
-          }
-        }
+        // Try to parse token as subscription JSON
         try {
-          return JSON.parse(t.token)
+          const parsed = JSON.parse(t.token)
+          // Verify it's a valid subscription object
+          if (parsed && parsed.endpoint && parsed.keys && parsed.keys.p256dh && parsed.keys.auth) {
+            return parsed
+          }
+          return null
         } catch {
+          // Not JSON, might be an old FCM token format - skip it
           return null
         }
       })
@@ -99,7 +100,7 @@ export async function sendPushNotificationForNotification(
     // Get user's web push subscriptions
     const tokens = await prisma.fCMToken.findMany({
       where: { userId },
-      select: { token: true, subscription: true },
+      select: { token: true },
     })
 
     if (tokens.length === 0) {
@@ -107,18 +108,19 @@ export async function sendPushNotificationForNotification(
     }
 
     // Convert to web push subscriptions
+    // The token field contains the subscription JSON for Web Push
     const subscriptions = tokens
       .map((t) => {
-        if (t.subscription) {
-          try {
-            return JSON.parse(t.subscription)
-          } catch {
-            return null
-          }
-        }
+        // Try to parse token as subscription JSON
         try {
-          return JSON.parse(t.token)
+          const parsed = JSON.parse(t.token)
+          // Verify it's a valid subscription object
+          if (parsed && parsed.endpoint && parsed.keys && parsed.keys.p256dh && parsed.keys.auth) {
+            return parsed
+          }
+          return null
         } catch {
+          // Not JSON, might be an old FCM token format - skip it
           return null
         }
       })
