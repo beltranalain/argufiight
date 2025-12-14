@@ -226,8 +226,8 @@ export default function SettingsScreen() {
 
   const handleAbout = () => {
     Alert.alert(
-      'About Honorable.AI',
-      'Honorable.AI\nVersion 1.0.0\n\nA platform for intelligent debates and discussions.',
+      'About Argu Fight',
+      'Argu Fight\nVersion 1.0.0\n\nA platform for intelligent debates and discussions.',
       [{ text: 'OK' }]
     );
   };
