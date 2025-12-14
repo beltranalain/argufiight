@@ -84,8 +84,22 @@ export function PushNotificationManager() {
         // Get existing subscription or create new one
         let subscription = await serviceWorkerRegistration.pushManager.getSubscription()
 
+        // Check if existing subscription is from Firebase (old system)
+        if (subscription && subscription.endpoint.includes('fcm.googleapis.com')) {
+          console.log('[Push Notifications] Found old Firebase subscription, unsubscribing...')
+          try {
+            await subscription.unsubscribe()
+            console.log('[Push Notifications] Old Firebase subscription unsubscribed')
+            subscription = null
+          } catch (error: any) {
+            console.error('[Push Notifications] Failed to unsubscribe from old subscription:', error)
+            // Continue anyway - we'll try to create a new one
+            subscription = null
+          }
+        }
+
         if (!subscription) {
-          console.log('[Push Notifications] No existing subscription, creating new one...')
+          console.log('[Push Notifications] No valid subscription, creating new Web Push subscription...')
           // Create new subscription with VAPID public key
           try {
             const vapidKeyArray = urlBase64ToUint8Array(config.vapidKey)
@@ -93,13 +107,39 @@ export function PushNotificationManager() {
               userVisibleOnly: true,
               applicationServerKey: vapidKeyArray.buffer as ArrayBuffer,
             })
-            console.log('[Push Notifications] New subscription created:', subscription.endpoint.substring(0, 50) + '...')
+            console.log('[Push Notifications] New Web Push subscription created:', subscription.endpoint.substring(0, 50) + '...')
+            
+            // Verify it's not a Firebase endpoint
+            if (subscription.endpoint.includes('fcm.googleapis.com')) {
+              console.error('[Push Notifications] ERROR: New subscription is still using Firebase endpoint!')
+              throw new Error('Browser is still using Firebase subscription. Please clear browser cache and try again.')
+            }
           } catch (error: any) {
             console.error('[Push Notifications] Failed to create subscription:', error)
             throw error
           }
         } else {
-          console.log('[Push Notifications] Found existing subscription:', subscription.endpoint.substring(0, 50) + '...')
+          console.log('[Push Notifications] Found existing Web Push subscription:', subscription.endpoint.substring(0, 50) + '...')
+          
+          // Verify it's not a Firebase endpoint
+          if (subscription.endpoint.includes('fcm.googleapis.com')) {
+            console.warn('[Push Notifications] WARNING: Existing subscription is from Firebase, will unsubscribe and recreate...')
+            try {
+              await subscription.unsubscribe()
+              subscription = null
+              
+              // Create new one
+              const vapidKeyArray = urlBase64ToUint8Array(config.vapidKey)
+              subscription = await serviceWorkerRegistration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: vapidKeyArray.buffer as ArrayBuffer,
+              })
+              console.log('[Push Notifications] Recreated as Web Push subscription:', subscription.endpoint.substring(0, 50) + '...')
+            } catch (error: any) {
+              console.error('[Push Notifications] Failed to recreate subscription:', error)
+              throw error
+            }
+          }
         }
 
         if (subscription) {

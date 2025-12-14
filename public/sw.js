@@ -3,6 +3,7 @@
 
 self.addEventListener('push', function(event) {
   console.log('[Service Worker] Push received:', event)
+  console.log('[Service Worker] Push data:', event.data ? 'present' : 'missing')
 
   let notificationData = {
     title: 'New Notification',
@@ -15,6 +16,7 @@ self.addEventListener('push', function(event) {
   if (event.data) {
     try {
       const payload = event.data.json()
+      console.log('[Service Worker] Parsed payload:', payload)
       notificationData = {
         title: payload.title || notificationData.title,
         body: payload.body || notificationData.body,
@@ -23,13 +25,20 @@ self.addEventListener('push', function(event) {
         data: payload.data || notificationData.data,
       }
     } catch (e) {
-      console.error('[Service Worker] Failed to parse push data:', e)
-      notificationData.body = event.data.text() || notificationData.body
+      console.error('[Service Worker] Failed to parse push data as JSON:', e)
+      try {
+        const text = event.data.text()
+        console.log('[Service Worker] Push data as text:', text)
+        notificationData.body = text || notificationData.body
+      } catch (e2) {
+        console.error('[Service Worker] Failed to parse push data as text:', e2)
+      }
     }
+  } else {
+    console.warn('[Service Worker] Push event has no data')
   }
 
   const options = {
-    title: notificationData.title,
     body: notificationData.body,
     icon: notificationData.icon,
     badge: notificationData.badge,
@@ -37,10 +46,18 @@ self.addEventListener('push', function(event) {
     requireInteraction: false,
     tag: notificationData.data?.debateId || 'default',
     renotify: true,
+    vibrate: [200, 100, 200],
+    timestamp: Date.now(),
   }
 
+  console.log('[Service Worker] Showing notification:', notificationData.title, options)
+
   event.waitUntil(
-    self.registration.showNotification(notificationData.title, options)
+    self.registration.showNotification(notificationData.title, options).then(() => {
+      console.log('[Service Worker] Notification shown successfully')
+    }).catch((error) => {
+      console.error('[Service Worker] Failed to show notification:', error)
+    })
   )
 })
 
