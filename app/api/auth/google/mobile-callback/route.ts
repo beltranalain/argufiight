@@ -172,33 +172,12 @@ export async function GET(request: NextRequest) {
       })
 
       // This is the mobile-callback endpoint
-      // Redirect to deep link with token in URL - WebBrowser.openAuthSessionAsync handles this better
+      // Redirect to deep link with token in URL using HTTP redirect
+      // WebBrowser.openAuthSessionAsync will follow this redirect
       const deepLinkUrl = `honorableai://auth/callback?token=${encodeURIComponent(sessionJWT)}&success=true&userId=${user.id}`
       
-      // Return HTML that immediately redirects to deep link
-      // This ensures WebBrowser.openAuthSessionAsync can capture the deep link
-      return new NextResponse(
-        `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Redirecting...</title>
-  <script>
-    // Immediately redirect to deep link
-    window.location.replace('${deepLinkUrl}');
-  </script>
-</head>
-<body>
-  <p>Redirecting...</p>
-</body>
-</html>`,
-        {
-          headers: {
-            'Content-Type': 'text/html',
-          },
-        }
-      )
+      // Use HTTP 302 redirect - this is more reliable than JavaScript redirect
+      return NextResponse.redirect(deepLinkUrl, 302)
     } catch (error: any) {
       console.error('[Mobile Google OAuth Callback] Error:', error)
       return NextResponse.json(
