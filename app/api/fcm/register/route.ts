@@ -36,6 +36,11 @@ export async function POST(request: NextRequest) {
       ? JSON.stringify(subscription)
       : token
 
+    console.log(`[FCM Register] Registering ${subscription ? 'Web Push subscription' : 'FCM token'} for user ${userId}`)
+    if (subscription) {
+      console.log(`[FCM Register] Subscription endpoint: ${subscription.endpoint.substring(0, 50)}...`)
+    }
+
     // Upsert FCM token (update if exists, create if new)
     await prisma.fCMToken.upsert({
       where: { token: uniqueToken },
@@ -54,7 +59,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    console.log(`[FCM] Registered token for user ${userId}`)
+    console.log(`[FCM] Registered ${subscription ? 'Web Push subscription' : 'FCM token'} for user ${userId}`)
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

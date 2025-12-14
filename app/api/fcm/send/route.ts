@@ -57,18 +57,36 @@ export async function POST(request: NextRequest) {
           if (parsed && parsed.endpoint && parsed.keys && parsed.keys.p256dh && parsed.keys.auth) {
             return parsed
           }
+          console.log('[FCM Send] Invalid subscription format:', { token: t.token.substring(0, 50) + '...' })
           return null
-        } catch {
+        } catch (e) {
           // Not JSON, might be an old FCM token format - skip it
+          console.log('[FCM Send] Token is not JSON (old FCM format?):', { token: t.token.substring(0, 50) + '...', error: e })
           return null
         }
       })
       .filter((sub): sub is { endpoint: string; keys: { p256dh: string; auth: string } } => sub !== null)
 
+    console.log('[FCM Send] Found tokens:', tokens.length, 'Valid subscriptions:', subscriptions.length)
+
     if (subscriptions.length === 0) {
+      // Provide helpful error message
+      const sampleToken = tokens.length > 0 ? tokens[0].token.substring(0, 100) : 'none'
       return NextResponse.json({
         success: false,
-        message: 'No valid web push subscriptions found',
+        message: `No valid web push subscriptions found. Found ${tokens.length} token(s), but they appear to be old FCM tokens (not Web Push subscriptions). Please refresh the page to register a new Web Push subscription.`,
+        debug: {
+          tokenCount: tokens.length,
+          sampleToken: sampleToken,
+          isJSON: tokens.length > 0 ? (() => {
+            try {
+              JSON.parse(tokens[0].token)
+              return true
+            } catch {
+              return false
+            }
+          })() : false,
+        },
       })
     }
 

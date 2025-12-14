@@ -66,22 +66,37 @@ export function PushNotificationManager() {
         let subscription = await serviceWorkerRegistration.pushManager.getSubscription()
 
         if (!subscription) {
+          console.log('[Push Notifications] No existing subscription, creating new one...')
           // Create new subscription with VAPID public key
-          const vapidKeyArray = urlBase64ToUint8Array(config.vapidKey)
-          subscription = await serviceWorkerRegistration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: vapidKeyArray.buffer as ArrayBuffer,
-          })
+          try {
+            const vapidKeyArray = urlBase64ToUint8Array(config.vapidKey)
+            subscription = await serviceWorkerRegistration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: vapidKeyArray.buffer as ArrayBuffer,
+            })
+            console.log('[Push Notifications] New subscription created:', subscription.endpoint.substring(0, 50) + '...')
+          } catch (error: any) {
+            console.error('[Push Notifications] Failed to create subscription:', error)
+            throw error
+          }
+        } else {
+          console.log('[Push Notifications] Found existing subscription:', subscription.endpoint.substring(0, 50) + '...')
         }
 
         if (subscription) {
           // Register subscription with server
           const device = navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'
+          const subscriptionJSON = subscription.toJSON()
+          console.log('[Push Notifications] Registering subscription with server...', {
+            endpoint: subscriptionJSON.endpoint?.substring(0, 50) + '...',
+            hasKeys: !!subscriptionJSON.keys,
+          })
+          
           const response = await fetch('/api/fcm/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              subscription: subscription.toJSON(),
+              subscription: subscriptionJSON,
               device,
               userAgent: navigator.userAgent,
             }),
@@ -91,7 +106,8 @@ export function PushNotificationManager() {
             setIsRegistered(true)
             console.log('[Push Notifications] Subscription registered successfully')
           } else {
-            console.error('[Push Notifications] Failed to register subscription')
+            const errorText = await response.text()
+            console.error('[Push Notifications] Failed to register subscription:', response.status, errorText)
           }
         }
       } catch (error: any) {
