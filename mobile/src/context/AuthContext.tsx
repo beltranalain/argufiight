@@ -142,55 +142,84 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // Deep link - parse it directly
           await handleDeepLink(resultUrl);
         } else if (resultUrl.includes('/api/auth/google/mobile-callback')) {
-          console.log('[Google Login] Callback URL detected, fetching redirect...');
-          // If we got the callback URL, the redirect might not have been followed
-          // Try to fetch it and see if we get redirected
+          console.log('[Google Login] Callback URL detected');
+          
+          // First, try to get token from URL query params (if callback appended it)
+          try {
+            const urlObj = new URL(resultUrl);
+            const token = urlObj.searchParams.get('token');
+            const success = urlObj.searchParams.get('success');
+            
+            if (token && success === 'true') {
+              console.log('[Google Login] Token found in callback URL params');
+              await AsyncStorage.setItem('auth_token', token);
+              await refreshUser();
+              return; // Success, exit early
+            }
+          } catch (urlError) {
+            console.log('[Google Login] Could not parse callback URL:', urlError);
+          }
+          
+          // If token not in URL, try fetching the callback to get the redirect
+          console.log('[Google Login] Fetching callback to get redirect...');
           try {
             const response = await fetch(resultUrl, { 
               method: 'GET',
-              redirect: 'follow',
+              redirect: 'manual', // Don't follow redirects automatically
             });
             
-            console.log('[Google Login] Fetch response URL:', response.url);
             console.log('[Google Login] Fetch response status:', response.status);
+            console.log('[Google Login] Fetch response headers:', Object.fromEntries(response.headers.entries()));
             
-            // Check if the final URL is a deep link
-            if (response.url && response.url.startsWith('honorableai://')) {
-              console.log('[Google Login] Redirect to deep link detected');
-              await handleDeepLink(response.url);
-            } else {
-              // Try to get token from the callback URL query params
-              const urlObj = new URL(resultUrl);
-              const token = urlObj.searchParams.get('token');
-              if (token) {
-                console.log('[Google Login] Token found in URL params');
-                await AsyncStorage.setItem('auth_token', token);
-                await refreshUser();
-              } else {
-                // Try to parse JSON response if callback returned JSON
-                try {
-                  const data = await response.json();
-                  if (data.success && data.token) {
-                    console.log('[Google Login] Token found in JSON response');
-                    await AsyncStorage.setItem('auth_token', data.token);
-                    if (data.user) {
-                      setUser(data.user);
-                      await AsyncStorage.setItem('user', JSON.stringify(data.user));
-                    } else {
-                      await refreshUser();
-                    }
-                  } else {
-                    throw new Error(data.error || 'Failed to get token from callback');
-                  }
-                } catch (jsonError) {
-                  console.error('[Google Login] Could not parse JSON:', jsonError);
-                  throw new Error('Could not extract token from callback. Response URL: ' + response.url);
-                }
+            // Check Location header for redirect
+            const location = response.headers.get('Location');
+            if (location && location.startsWith('honorableai://')) {
+              console.log('[Google Login] Location header contains deep link');
+              await handleDeepLink(location);
+              return;
+            }
+            
+            // If redirected (3xx status), try to get the final URL
+            if (response.status >= 300 && response.status < 400) {
+              const redirectUrl = response.headers.get('Location') || response.url;
+              if (redirectUrl && redirectUrl.startsWith('honorableai://')) {
+                console.log('[Google Login] Redirect URL is deep link');
+                await handleDeepLink(redirectUrl);
+                return;
               }
             }
+            
+            // Try to parse response as HTML and extract deep link
+            const html = await response.text();
+            const deepLinkMatch = html.match(/honorableai:\/\/auth\/callback[^"'\s<>]*/);
+            if (deepLinkMatch) {
+              console.log('[Google Login] Deep link found in HTML');
+              await handleDeepLink(deepLinkMatch[0]);
+              return;
+            }
+            
+            // Last resort: try JSON
+            try {
+              const data = JSON.parse(html);
+              if (data.success && data.token) {
+                console.log('[Google Login] Token found in JSON response');
+                await AsyncStorage.setItem('auth_token', data.token);
+                if (data.user) {
+                  setUser(data.user);
+                  await AsyncStorage.setItem('user', JSON.stringify(data.user));
+                } else {
+                  await refreshUser();
+                }
+                return;
+              }
+            } catch (jsonError) {
+              // Not JSON, that's okay
+            }
+            
+            throw new Error('Could not extract token or deep link from callback');
           } catch (fetchError: any) {
             console.error('[Google Login] Error processing callback:', fetchError);
-            console.error('[Google Login] Error details:', fetchError.message, fetchError.stack);
+            console.error('[Google Login] Error details:', fetchError.message);
             throw new Error(`Failed to complete Google login: ${fetchError.message}`);
           }
         } else {
