@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import * as AuthSession from 'expo-auth-session';
 import { authAPI, User } from '../services/api';
 import api from '../services/api';
 
@@ -118,55 +119,95 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const authUrl = `${baseUrl}/api/auth/google?returnTo=${encodeURIComponent('honorableai://auth/callback')}`;
       const redirectUri = `${baseUrl}/api/auth/google/mobile-callback`;
       
+      console.log('[Google Login] Starting OAuth flow...');
+      console.log('[Google Login] Auth URL:', authUrl);
+      console.log('[Google Login] Redirect URI:', redirectUri);
+      
       // Use WebBrowser with the mobile callback URL
-      // The callback will return JSON which we'll parse
+      // The callback will redirect to a deep link
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
         redirectUri
       );
 
+      console.log('[Google Login] OAuth result:', result.type, result.url);
+
       if (result.type === 'success') {
-        console.log('OAuth result URL:', result.url);
+        const resultUrl = result.url;
+        console.log('[Google Login] Result URL:', resultUrl);
         
         // The callback redirects to a deep link, so result.url should be the deep link
-        if (result.url.startsWith('honorableai://')) {
+        if (resultUrl.startsWith('honorableai://')) {
+          console.log('[Google Login] Deep link detected, parsing...');
           // Deep link - parse it directly
-          await handleDeepLink(result.url);
-        } else if (result.url.includes('/api/auth/google/mobile-callback')) {
-          // If we somehow got the callback URL instead of the deep link,
-          // try to extract token from query params or fetch the redirect
+          await handleDeepLink(resultUrl);
+        } else if (resultUrl.includes('/api/auth/google/mobile-callback')) {
+          console.log('[Google Login] Callback URL detected, fetching redirect...');
+          // If we got the callback URL, the redirect might not have been followed
+          // Try to fetch it and see if we get redirected
           try {
-            // The callback should have redirected, but if not, try fetching
-            const response = await fetch(result.url, { redirect: 'follow' });
-            const finalUrl = response.url;
+            const response = await fetch(resultUrl, { 
+              method: 'GET',
+              redirect: 'follow',
+            });
             
-            if (finalUrl.startsWith('honorableai://')) {
-              await handleDeepLink(finalUrl);
+            console.log('[Google Login] Fetch response URL:', response.url);
+            console.log('[Google Login] Fetch response status:', response.status);
+            
+            // Check if the final URL is a deep link
+            if (response.url && response.url.startsWith('honorableai://')) {
+              console.log('[Google Login] Redirect to deep link detected');
+              await handleDeepLink(response.url);
             } else {
-              // Try to get token from URL query params as fallback
-              const urlObj = new URL(result.url);
+              // Try to get token from the callback URL query params
+              const urlObj = new URL(resultUrl);
               const token = urlObj.searchParams.get('token');
               if (token) {
+                console.log('[Google Login] Token found in URL params');
                 await AsyncStorage.setItem('auth_token', token);
                 await refreshUser();
               } else {
-                throw new Error('Could not extract token from callback');
+                // Try to parse JSON response if callback returned JSON
+                try {
+                  const data = await response.json();
+                  if (data.success && data.token) {
+                    console.log('[Google Login] Token found in JSON response');
+                    await AsyncStorage.setItem('auth_token', data.token);
+                    if (data.user) {
+                      setUser(data.user);
+                      await AsyncStorage.setItem('user', JSON.stringify(data.user));
+                    } else {
+                      await refreshUser();
+                    }
+                  } else {
+                    throw new Error(data.error || 'Failed to get token from callback');
+                  }
+                } catch (jsonError) {
+                  console.error('[Google Login] Could not parse JSON:', jsonError);
+                  throw new Error('Could not extract token from callback. Response URL: ' + response.url);
+                }
               }
             }
           } catch (fetchError: any) {
-            console.error('Error processing callback:', fetchError);
-            throw new Error('Failed to complete Google login. Please try again.');
+            console.error('[Google Login] Error processing callback:', fetchError);
+            console.error('[Google Login] Error details:', fetchError.message, fetchError.stack);
+            throw new Error(`Failed to complete Google login: ${fetchError.message}`);
           }
         } else {
-          throw new Error('Unexpected callback URL: ' + result.url);
+          console.error('[Google Login] Unexpected callback URL:', resultUrl);
+          throw new Error('Unexpected callback URL: ' + resultUrl);
         }
       } else if (result.type === 'cancel') {
+        console.log('[Google Login] User cancelled');
         throw new Error('Google login cancelled');
       } else {
+        console.error('[Google Login] Failed with type:', result.type);
         throw new Error('Google login failed');
       }
     } catch (error: any) {
-      console.error('Google login error:', error);
+      console.error('[Google Login] Error:', error);
+      console.error('[Google Login] Error message:', error.message);
+      console.error('[Google Login] Error stack:', error.stack);
       throw new Error(error.message || 'Google login failed');
     }
   };
