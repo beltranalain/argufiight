@@ -434,9 +434,15 @@ export default function AdminSettingsPage() {
         setTimeout(() => {
           checkNotificationStatus()
         }, 2000)
-      } else {
+      } else if (permission === 'denied') {
         showToast({
           type: 'error',
+          title: 'Permission Denied',
+          description: 'Notification permission was denied. Please enable it in your browser settings (click the lock icon in the address bar).',
+        })
+      } else {
+        showToast({
+          type: 'warning',
           title: 'Permission Denied',
           description: 'Please allow notifications to test push notifications',
         })
@@ -1380,12 +1386,31 @@ export default function AdminSettingsPage() {
                 {/* Request Permission Button */}
                 {notificationPermission !== 'granted' && (
                   <div className="mb-4">
-                    <Button
-                      variant="secondary"
-                      onClick={handleRequestNotificationPermission}
-                    >
-                      Request Notification Permission
-                    </Button>
+                    {notificationPermission === 'denied' ? (
+                      <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg mb-3">
+                        <p className="text-sm text-red-400 mb-2">
+                          <strong>⚠️ Notification Permission Denied</strong>
+                        </p>
+                        <p className="text-xs text-text-secondary mb-2">
+                          You previously denied notification permission. To re-enable it:
+                        </p>
+                        <ol className="text-xs text-text-secondary space-y-1 list-decimal list-inside mb-2">
+                          <li><strong>Chrome/Edge:</strong> Click the lock icon (🔒) in the address bar → Site settings → Notifications → Allow</li>
+                          <li><strong>Or:</strong> Go to <code className="bg-bg-secondary px-1 rounded">chrome://settings/content/notifications</code> → Find "argufight.com" → Change to "Allow"</li>
+                          <li><strong>Or:</strong> Use a different browser/Incognito mode to test</li>
+                        </ol>
+                        <p className="text-xs text-text-secondary">
+                          After changing the setting, refresh this page.
+                        </p>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        onClick={handleRequestNotificationPermission}
+                      >
+                        Request Notification Permission
+                      </Button>
+                    )}
                   </div>
                 )}
 
