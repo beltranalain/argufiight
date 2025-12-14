@@ -8,9 +8,6 @@ import api from '../services/api';
 
 // Complete web browser authentication session
 WebBrowser.maybeCompleteAuthSession();
-  scheme: 'honorableai',
-  path: 'auth/callback',
-});
 
 interface AuthContextType {
   user: User | null;
