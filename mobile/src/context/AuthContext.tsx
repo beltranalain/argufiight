@@ -154,8 +154,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log('[Google Login] No URL in result');
       }
 
-      if (result.type === 'success' && result.url) {
-        const resultUrl = result.url;
+      // Handle both AuthRequest and WebBrowser results
+      let resultUrl: string | null = null;
+      if (result.type === 'success') {
+        if (result.params && result.params.url) {
+          // AuthRequest format
+          resultUrl = result.params.url;
+        } else if ((result as any).url) {
+          // WebBrowser format
+          resultUrl = (result as any).url;
+        }
+      }
+      
+      if (resultUrl) {
         console.log('[Google Login] Result URL:', resultUrl);
         
         // The callback redirects to a deep link, so result.url should be the deep link
