@@ -99,7 +99,18 @@ export async function sendPushNotifications(
   if (!messaging) {
     // Fallback to REST API with OAuth2
     console.log('Firebase Admin SDK not available, using REST API with OAuth2')
-    return await sendPushNotificationsREST(tokens, payload)
+    const restResult = await sendPushNotificationsREST(tokens, payload)
+    
+    // Check if REST API also failed due to missing config
+    if (restResult.success === 0 && restResult.errors.some(err => err.includes('OAuth2 not configured'))) {
+      return {
+        success: 0,
+        failed: tokens.length,
+        errors: ['Firebase Service Account not configured. Please add Service Account JSON in Admin Settings → Firebase Push Notifications.'],
+      }
+    }
+    
+    return restResult
   }
 
   // FCM allows up to 500 tokens per batch with sendMulticast

@@ -64,7 +64,7 @@ export default function AdminSettingsPage() {
   const [testResendResult, setTestResendResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [testStripeResult, setTestStripeResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [isTestingPush, setIsTestingPush] = useState(false)
-  const [pushTestResult, setPushTestResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
+  const [pushTestResult, setPushTestResult] = useState<{ success: boolean; message?: string; error?: string; isServiceAccountError?: boolean } | null>(null)
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
   const [hasFCMToken, setHasFCMToken] = useState(false)
   const [testNotificationTitle, setTestNotificationTitle] = useState('Test Notification')
