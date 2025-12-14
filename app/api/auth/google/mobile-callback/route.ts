@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { OAuth2Client } from 'google-auth-library'
+import { SignJWT } from 'jose'
 import { prisma } from '@/lib/db/prisma'
-import { createSession } from '@/lib/auth/session'
-import crypto from 'crypto'
 
 /**
  * Mobile-specific Google OAuth callback
@@ -146,8 +145,31 @@ export async function GET(request: NextRequest) {
       }
 
       // Create session and get JWT token
-      const session = await createSession(user.id)
-      const sessionJWT = session.token
+      // For mobile, we need to create a session without setting a cookie
+      // and return the JWT token directly
+      const crypto = require('crypto')
+      const { SignJWT } = require('jose')
+      
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      const sessionToken = crypto.randomBytes(32).toString('hex')
+      
+      const secretKey = process.env.AUTH_SECRET || 'your-secret-key-change-in-production'
+      const encodedKey = new TextEncoder().encode(secretKey)
+      
+      const sessionJWT = await new SignJWT({ sessionToken })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime(expiresAt)
+        .sign(encodedKey)
+      
+      // Store session in database
+      await prisma.session.create({
+        data: {
+          userId: user.id,
+          token: sessionToken,
+          expiresAt,
+        },
+      })
 
       // Return token for mobile app
       return NextResponse.json({
