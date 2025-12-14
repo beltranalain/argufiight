@@ -123,14 +123,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log('[Google Login] Auth URL:', authUrl);
       console.log('[Google Login] Redirect URI:', redirectUri);
       
-      // Use WebBrowser with the mobile callback URL
-      // The callback will redirect to a deep link
+      // Use WebBrowser with the deep link as the redirect URI
+      // This tells WebBrowser to expect a deep link redirect
+      const deepLinkRedirect = 'honorableai://auth/callback';
+      
+      // Open auth session - the second parameter is what we expect to receive back
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        redirectUri
+        deepLinkRedirect  // This is what we expect to receive, not the web callback
       );
 
-      console.log('[Google Login] OAuth result:', result.type, result.url);
+      console.log('[Google Login] OAuth result type:', result.type);
+      console.log('[Google Login] OAuth result URL:', result.url);
 
       if (result.type === 'success') {
         const resultUrl = result.url;
