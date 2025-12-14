@@ -598,18 +598,88 @@ export default function AdminSettingsPage() {
     }
   }
 
+  const [serviceWorkerStatus, setServiceWorkerStatus] = useState<any>(null)
+  const [diagnostics, setDiagnostics] = useState<any>(null)
+
+  const runDiagnostics = async () => {
+    const diag: any = {
+      browser: navigator.userAgent,
+      platform: navigator.platform,
+      notificationSupport: 'Notification' in window,
+      serviceWorkerSupport: 'serviceWorker' in navigator,
+      permission: Notification.permission,
+      focusAssist: 'Windows Focus Assist cannot be detected programmatically. Check manually: Press Windows Key + A',
+    }
+
+    // Check service worker
+    if ('serviceWorker' in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        diag.serviceWorkers = registrations.map(reg => ({
+          scope: reg.scope,
+          state: reg.active?.state || reg.installing?.state || 'unknown',
+        }))
+        
+        const fcmWorker = registrations.find(
+          (reg) => reg.scope.includes('firebase-cloud-messaging-push-scope')
+        )
+        diag.fcmWorker = fcmWorker ? {
+          registered: true,
+          state: fcmWorker.active?.state || fcmWorker.installing?.state || 'unknown',
+          scope: fcmWorker.scope,
+        } : { registered: false }
+      } catch (error: any) {
+        diag.serviceWorkerError = error.message
+      }
+    }
+
+    // Check if tab is active
+    diag.tabActive = !document.hidden
+    diag.tabVisibility = document.visibilityState
+
+    // Check FCM token
+    try {
+      const tokenResponse = await fetch('/api/fcm/check-token')
+      if (tokenResponse.ok) {
+        const tokenData = await tokenResponse.json()
+        diag.hasToken = tokenData.hasToken
+        diag.tokenCount = tokenData.count || 0
+      }
+    } catch (error) {
+      diag.tokenCheckError = 'Could not check token status'
+    }
+
+    setDiagnostics(diag)
+    return diag
+  }
+
   const handleTestPushNotification = async () => {
     setIsTestingPush(true)
     setPushTestResult(null)
 
     try {
-      // Check service worker status first
+      // Run diagnostics first
+      const diag = await runDiagnostics()
+      setDiagnostics(diag)
+
+      // Check service worker status
       const swStatus = await checkServiceWorkerStatus()
+      setServiceWorkerStatus(swStatus)
+      
       if (!swStatus.registered) {
         showToast({
           type: 'warning',
           title: 'Service Worker Issue',
           description: `Service worker not registered: ${swStatus.error}. Notifications may not work.`,
+        })
+      }
+
+      // Warn if tab is active
+      if (!document.hidden) {
+        showToast({
+          type: 'info',
+          title: 'Tab is Active',
+          description: 'Notifications work best when the tab is closed. Try closing this tab and sending again.',
         })
       }
 
@@ -1325,12 +1395,18 @@ export default function AdminSettingsPage() {
                         className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
                       />
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 flex-wrap">
                       <Button
                         variant="secondary"
                         onClick={handleTestBrowserNotification}
                       >
                         Test Browser Notification
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={runDiagnostics}
+                      >
+                        Run Diagnostics
                       </Button>
                       <Button
                         variant="primary"
@@ -1372,6 +1448,78 @@ export default function AdminSettingsPage() {
                             </ul>
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* Diagnostics Display */}
+                    {diagnostics && (
+                      <div className="mt-4 p-4 bg-bg-secondary rounded-lg border border-bg-tertiary">
+                        <h5 className="text-sm font-semibold text-white mb-3">🔍 Diagnostic Information</h5>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-text-secondary">Browser:</span>
+                            <span className="text-white">{diagnostics.browser?.split(' ')[0] || 'Unknown'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-text-secondary">Platform:</span>
+                            <span className="text-white">{diagnostics.platform || 'Unknown'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-text-secondary">Notification Support:</span>
+                            <span className={diagnostics.notificationSupport ? 'text-green-400' : 'text-red-400'}>
+                              {diagnostics.notificationSupport ? '✅ Yes' : '❌ No'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-text-secondary">Service Worker Support:</span>
+                            <span className={diagnostics.serviceWorkerSupport ? 'text-green-400' : 'text-red-400'}>
+                              {diagnostics.serviceWorkerSupport ? '✅ Yes' : '❌ No'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-text-secondary">Permission:</span>
+                            <span className={
+                              diagnostics.permission === 'granted' ? 'text-green-400' :
+                              diagnostics.permission === 'denied' ? 'text-red-400' :
+                              'text-yellow-400'
+                            }>
+                              {diagnostics.permission === 'granted' ? '✅ Granted' :
+                               diagnostics.permission === 'denied' ? '❌ Denied' :
+                               '⚠️ Not Set'}
+                            </span>
+                          </div>
+                          {diagnostics.fcmWorker && (
+                            <div className="flex justify-between">
+                              <span className="text-text-secondary">FCM Service Worker:</span>
+                              <span className={diagnostics.fcmWorker.registered ? 'text-green-400' : 'text-red-400'}>
+                                {diagnostics.fcmWorker.registered 
+                                  ? `✅ Registered (${diagnostics.fcmWorker.state})` 
+                                  : '❌ Not Registered'}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-text-secondary">Tab Active:</span>
+                            <span className={diagnostics.tabActive ? 'text-yellow-400' : 'text-green-400'}>
+                              {diagnostics.tabActive ? '⚠️ Yes (notifications may be suppressed)' : '✅ No (ideal for notifications)'}
+                            </span>
+                          </div>
+                          {diagnostics.hasToken !== undefined && (
+                            <div className="flex justify-between">
+                              <span className="text-text-secondary">FCM Token:</span>
+                              <span className={diagnostics.hasToken ? 'text-green-400' : 'text-red-400'}>
+                                {diagnostics.hasToken ? `✅ Registered (${diagnostics.tokenCount || 1} token(s))` : '❌ Not Registered'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-bg-tertiary">
+                          <p className="text-xs text-text-secondary">
+                            <strong>⚠️ Important:</strong> {diagnostics.focusAssist}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                       </div>
                     )}
 
