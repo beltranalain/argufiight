@@ -149,7 +149,7 @@ export default function ProfileScreen() {
           console.log('Image converted to base64, size:', base64.length, 'chars');
 
           // Send base64 data URL to backend
-          const apiUrl = 'http://192.168.1.152:3000';
+          const apiUrl = 'https://www.argufight.com';
           console.log('Uploading avatar to:', `${apiUrl}/api/users/avatar`);
           
           const response = await fetch(`${apiUrl}/api/users/avatar`, {

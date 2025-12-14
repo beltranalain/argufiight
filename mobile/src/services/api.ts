@@ -5,9 +5,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // For local development: Use your computer's local IP address
 // Find it by running: ipconfig (Windows) or ifconfig (Mac/Linux)
 // Make sure your phone and computer are on the same WiFi network
-const API_URL = __DEV__ 
-  ? 'http://192.168.1.152:3000/api'  // Your local IP - update if needed
-  : 'https://www.argufight.com/api';
+// Set USE_LOCAL_API=true in your environment to use local development server
+const USE_LOCAL_API = false; // Set to true to use local API
+const LOCAL_API_URL = 'http://192.168.1.152:3000/api'; // Update with your local IP if needed
+const PRODUCTION_API_URL = 'https://www.argufight.com/api';
+
+const API_URL = (__DEV__ && USE_LOCAL_API) 
+  ? LOCAL_API_URL
+  : PRODUCTION_API_URL;
 
 const api = axios.create({
   baseURL: API_URL,

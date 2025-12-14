@@ -123,7 +123,7 @@ export default function SettingsScreen() {
           const dataUrl = `data:${mimeType};base64,${base64}`;
 
           // Send base64 data URL to backend
-          const apiUrl = 'http://192.168.1.152:3000';
+          const apiUrl = 'https://www.argufight.com';
           
           const response = await fetch(`${apiUrl}/api/users/avatar`, {
             method: 'POST',
