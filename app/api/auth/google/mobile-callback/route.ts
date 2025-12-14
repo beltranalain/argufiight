@@ -171,23 +171,62 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      // Return token for mobile app
-      return NextResponse.json({
-        success: true,
-        token: sessionJWT,
-        user: {
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          avatar_url: user.avatarUrl,
-          bio: user.bio,
-          elo_rating: user.eloRating,
-          debates_won: user.debatesWon,
-          debates_lost: user.debatesLost,
-          debates_tied: user.debatesTied,
-          total_debates: user.totalDebates,
-        },
-      })
+      // Return token for mobile app via deep link redirect
+      // This allows the mobile app to receive the token via deep link
+      const deepLinkUrl = `honorableai://auth/callback?token=${encodeURIComponent(sessionJWT)}&success=true&userId=${user.id}`
+      
+      // Return HTML page that redirects to deep link (for WebBrowser.openAuthSessionAsync)
+      // The deep link will be handled by the mobile app
+      return new NextResponse(
+        `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redirecting...</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      text-align: center;
+    }
+    .container {
+      padding: 20px;
+    }
+    h2 {
+      margin-bottom: 10px;
+    }
+  </style>
+  <script>
+    // Immediately try to redirect to deep link
+    window.location.href = '${deepLinkUrl}';
+    
+    // Fallback message
+    setTimeout(function() {
+      document.querySelector('.container').innerHTML = '<h2>✅ Authentication Successful</h2><p>You can close this window and return to the app.</p>';
+    }, 1000);
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h2>Redirecting to app...</h2>
+    <p>Please wait...</p>
+  </div>
+</body>
+</html>`,
+        {
+          headers: {
+            'Content-Type': 'text/html',
+          },
+        }
+      )
     } catch (error: any) {
       console.error('[Mobile Google OAuth Callback] Error:', error)
       return NextResponse.json(

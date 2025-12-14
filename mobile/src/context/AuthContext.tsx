@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { authAPI, User } from '../services/api';
 import api from '../services/api';
 
@@ -26,6 +27,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     loadUser();
+    
+    // Handle deep links for OAuth callback
+    const handleDeepLink = (event: { url: string }) => {
+      const url = new URL(event.url);
+      if (url.protocol === 'honorableai:' && url.pathname === '//auth/callback') {
+        const token = url.searchParams.get('token');
+        const success = url.searchParams.get('success');
+        
+        if (success === 'true' && token) {
+          // Store token and refresh user
+          AsyncStorage.setItem('auth_token', token).then(() => {
+            refreshUser();
+          });
+        }
+      }
+    };
+    
+    // Listen for deep links
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    
+    // Check if app was opened via deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink({ url });
+      }
+    });
+    
+    return () => {
+      subscription.remove();
+    };
   }, []);
 
   const loadUser = async () => {
@@ -62,51 +93,45 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const baseUrl = api.defaults.baseURL?.replace('/api', '') || 'https://www.argufight.com';
       
       // Construct Google OAuth URL with mobile callback indicator
-      const authUrl = `${baseUrl}/api/auth/google?returnTo=${encodeURIComponent('mobile://auth/callback')}`;
+      const authUrl = `${baseUrl}/api/auth/google?returnTo=${encodeURIComponent('honorableai://auth/callback')}`;
       const redirectUri = `${baseUrl}/api/auth/google/mobile-callback`;
       
       // Open browser for OAuth with mobile callback URL
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        redirectUri
+        'honorableai://auth/callback'
       );
 
       if (result.type === 'success') {
-        // The mobile-callback endpoint returns JSON
-        // We need to fetch the callback URL to get the JSON response
-        try {
-          // Make a request to the callback URL to get the JSON response
-          const response = await fetch(result.url, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-            },
-            credentials: 'include', // Include cookies if any
-          });
+        // Parse the deep link URL to extract token
+        const url = new URL(result.url);
+        const token = url.searchParams.get('token');
+        const success = url.searchParams.get('success');
+        const userId = url.searchParams.get('userId');
+        
+        if (success === 'true' && token) {
+          // Store token
+          await AsyncStorage.setItem('auth_token', token);
           
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-          }
-          
-          const data = await response.json();
-          
-          if (data.success && data.user && data.token) {
-            setUser(data.user);
-            await AsyncStorage.setItem('user', JSON.stringify(data.user));
-            await AsyncStorage.setItem('auth_token', data.token);
+          // Fetch user data using the token
+          if (userId) {
+            try {
+              const userResponse = await api.get(`/auth/me`);
+              const userData = userResponse.data.user || userResponse.data;
+              setUser(userData);
+              await AsyncStorage.setItem('user', JSON.stringify(userData));
+            } catch (userError: any) {
+              // If we can't get user data, try to use the token anyway
+              console.error('Error fetching user data:', userError);
+              // Token is stored, user can refresh
+            }
           } else {
-            throw new Error(data.error || 'Failed to get user data');
+            // Refresh user data
+            await refreshUser();
           }
-        } catch (fetchError: any) {
-          console.error('Error fetching callback data:', fetchError);
-          // If the URL is the callback endpoint, try parsing it differently
-          if (result.url.includes('/api/auth/google/mobile-callback')) {
-            // The endpoint should return JSON, but if it redirects, we need to handle it
-            throw new Error(fetchError.message || 'Failed to complete Google login');
-          } else {
-            throw new Error('Unexpected callback URL');
-          }
+        } else {
+          const error = url.searchParams.get('error');
+          throw new Error(error || 'Failed to complete Google login');
         }
       } else if (result.type === 'cancel') {
         throw new Error('Google login cancelled');
