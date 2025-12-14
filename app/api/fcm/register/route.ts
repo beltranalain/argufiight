@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE /api/fcm/register - Unregister FCM token
+// DELETE /api/fcm/register - Unregister FCM token(s)
 export async function DELETE(request: NextRequest) {
   try {
     const session = await verifySession()
@@ -84,22 +84,24 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const token = searchParams.get('token')
 
-    if (!token) {
-      return NextResponse.json(
-        { error: 'FCM token is required' },
-        { status: 400 }
-      )
+    if (token) {
+      // Delete specific token (only if it belongs to this user)
+      await prisma.fCMToken.deleteMany({
+        where: {
+          token,
+          userId,
+        },
+      })
+      console.log(`[FCM] Unregistered token for user ${userId}`)
+    } else {
+      // Delete all tokens for this user (useful for clearing old tokens)
+      const deleted = await prisma.fCMToken.deleteMany({
+        where: {
+          userId,
+        },
+      })
+      console.log(`[FCM] Unregistered all ${deleted.count} token(s) for user ${userId}`)
     }
-
-    // Delete token (only if it belongs to this user)
-    await prisma.fCMToken.deleteMany({
-      where: {
-        token,
-        userId,
-      },
-    })
-
-    console.log(`[FCM] Unregistered token for user ${userId}`)
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
