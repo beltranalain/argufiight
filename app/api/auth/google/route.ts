@@ -33,7 +33,8 @@ export async function GET(request: NextRequest) {
   const returnTo = searchParams.get('returnTo') || '/'
   const userType = searchParams.get('userType') || 'user' // 'user', 'advertiser', or 'employee'
   const addAccount = searchParams.get('addAccount') === 'true'
-  const isMobile = returnTo.startsWith('mobile://')
+  // Detect mobile by checking for custom scheme (honorableai://) or mobile://
+  const isMobile = returnTo.startsWith('mobile://') || returnTo.startsWith('honorableai://')
 
   // Use mobile callback if it's a mobile request
   const finalRedirectUri = isMobile 
