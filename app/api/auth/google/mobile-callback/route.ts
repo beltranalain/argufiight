@@ -171,85 +171,24 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      // Check if request wants JSON (mobile app) or HTML (browser redirect)
-      const acceptHeader = request.headers.get('accept') || ''
-      const wantsJson = acceptHeader.includes('application/json')
-      
-      // Return token for mobile app
-      // Option 1: Return JSON if Accept header includes application/json
-      if (wantsJson) {
-        return NextResponse.json({
-          success: true,
-          token: sessionJWT,
-          user: {
-            id: user.id,
-            email: user.email,
-            username: user.username,
-            avatar_url: user.avatarUrl,
-            bio: user.bio,
-            elo_rating: user.eloRating,
-            debates_won: user.debatesWon,
-            debates_lost: user.debatesLost,
-            debates_tied: user.debatesTied,
-            total_debates: user.totalDebates,
-          },
-        })
-      }
-      
-      // Option 2: Return HTML that redirects to deep link (for browser-based OAuth)
-      const deepLinkUrl = `honorableai://auth/callback?token=${encodeURIComponent(sessionJWT)}&success=true&userId=${user.id}`
-      
-      return new NextResponse(
-        `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="0;url=${deepLinkUrl}">
-  <title>Redirecting...</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #000;
-      color: #fff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      text-align: center;
-    }
-    .container {
-      padding: 20px;
-    }
-    h2 {
-      margin-bottom: 10px;
-    }
-  </style>
-  <script>
-    // Immediately redirect to deep link
-    window.location.href = '${deepLinkUrl}';
-    
-    // Fallback message
-    setTimeout(function() {
-      document.querySelector('.container').innerHTML = '<h2>✅ Authentication Successful</h2><p>If you are not redirected, please close this window and return to the app.</p>';
-    }, 1000);
-  </script>
-</head>
-<body>
-  <div class="container">
-    <h2>Redirecting to app...</h2>
-    <p>Please wait...</p>
-  </div>
-</body>
-</html>`,
-        {
-          headers: {
-            'Content-Type': 'text/html',
-          },
-        }
-      )
+      // This is the mobile-callback endpoint - always return JSON for mobile apps
+      // The mobile app will parse this JSON and store the token
+      return NextResponse.json({
+        success: true,
+        token: sessionJWT,
+        user: {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          avatar_url: user.avatarUrl,
+          bio: user.bio,
+          elo_rating: user.eloRating,
+          debates_won: user.debatesWon,
+          debates_lost: user.debatesLost,
+          debates_tied: user.debatesTied,
+          total_debates: user.totalDebates,
+        },
+      })
     } catch (error: any) {
       console.error('[Mobile Google OAuth Callback] Error:', error)
       return NextResponse.json(
