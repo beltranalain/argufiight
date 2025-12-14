@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     // If session override is provided, try to use that session
-    if (sessionOverride && !session) {
+    if (sessionOverride && !session && !userId) {
       try {
         const overrideSession = await prisma.session.findUnique({
           where: { token: sessionOverride },
@@ -63,13 +63,6 @@ export async function GET(request: NextRequest) {
       } catch (error) {
         // Invalid override, fall through to normal session check
       }
-    }
-
-    if (!session) {
-      return NextResponse.json(
-        { user: null },
-        { status: 401 }
-      )
     }
 
     // Get userId from session if we don't have it from Bearer token
@@ -155,4 +148,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-
