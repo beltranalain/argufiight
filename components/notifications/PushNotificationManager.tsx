@@ -140,18 +140,21 @@ export function PushNotificationManager() {
           
           console.log('[Push Notifications] Subscription created:', subscription.endpoint.substring(0, 50) + '...')
           
-          // Verify it's not a Firebase endpoint
+          // Check if it's a Firebase endpoint (Chrome/Edge sometimes routes VAPID through Firebase)
           if (subscription.endpoint.includes('fcm.googleapis.com')) {
-            console.error('[Push Notifications] ERROR: Browser created Firebase subscription despite VAPID keys!')
-            console.error('[Push Notifications] This usually means the browser has cached Firebase configuration.')
-            console.error('[Push Notifications] Please try:')
-            console.error('[Push Notifications] 1. Close all tabs with this site')
-            console.error('[Push Notifications] 2. Clear site data (Settings > Privacy > Clear browsing data > Cookies and site data)')
-            console.error('[Push Notifications] 3. Or use a different browser/incognito mode')
-            throw new Error('Browser is still using Firebase. Please clear browser cache or use incognito mode.')
+            console.warn('[Push Notifications] ⚠️ Browser created Firebase subscription despite VAPID keys')
+            console.warn('[Push Notifications] This is a known Chrome/Edge behavior where the browser caches push service preferences.')
+            console.warn('[Push Notifications] The subscription may still work, but for best results:')
+            console.warn('[Push Notifications] 1. Close ALL tabs with argufight.com')
+            console.warn('[Push Notifications] 2. Open Chrome Settings (chrome://settings/content/all)')
+            console.warn('[Push Notifications] 3. Search for "argufight.com" and click "Delete"')
+            console.warn('[Push Notifications] 4. Or use Incognito/Private mode to test')
+            console.warn('[Push Notifications] 5. Refresh this page after clearing')
+            // Don't throw error - try to register it anyway, it might work
+            // The backend will handle it if it's a valid subscription format
+          } else {
+            console.log('[Push Notifications] ✅ Valid Web Push subscription created (not Firebase)')
           }
-          
-          console.log('[Push Notifications] ✅ Valid Web Push subscription created (not Firebase)')
         } catch (error: any) {
           console.error('[Push Notifications] Failed to create subscription:', error)
           throw error

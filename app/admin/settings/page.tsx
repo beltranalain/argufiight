@@ -1482,7 +1482,8 @@ export default function AdminSettingsPage() {
                     <p className="text-xs text-text-secondary mt-2">
                       <strong>Test Browser Notification:</strong> Tests if your browser can show notifications at all (bypasses Web Push).<br/>
                       <strong>Send Web Push Test Notification:</strong> Sends a real push notification through Web Push API (works even when tab is closed).<br/>
-                      <strong>Clear Old Tokens & Refresh:</strong> Removes old FCM tokens and refreshes the page to register a new Web Push subscription.
+                      <strong>Clear Old Tokens & Refresh:</strong> Removes old FCM tokens and refreshes the page to register a new Web Push subscription.<br/>
+                      <strong>⚠️ If notifications don't work:</strong> Your browser may have cached Firebase settings. Try: (1) Close all tabs, (2) Go to <code className="bg-gray-800 px-1 rounded">chrome://settings/content/all</code> and delete "argufight.com", (3) Refresh this page, or (4) Use Incognito mode.
                     </p>
 
                     {/* Test Result */}
