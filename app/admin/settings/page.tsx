@@ -725,7 +725,8 @@ export default function AdminSettingsPage() {
       } else {
         const errorMessage = data.message || data.error || 'Failed to send notification'
         const isServiceAccountError = errorMessage.includes('Service Account not configured') || 
-                                     errorMessage.includes('OAuth2 not configured')
+                                     errorMessage.includes('OAuth2 not configured') ||
+                                     (data.errors && Array.isArray(data.errors) && data.errors.some((err: string) => err.includes('Service Account not configured')))
         
         setPushTestResult({
           success: false,

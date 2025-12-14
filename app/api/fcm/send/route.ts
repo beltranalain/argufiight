@@ -56,6 +56,24 @@ export async function POST(request: NextRequest) {
       }
     )
 
+    // Check if the error is about missing service account
+    if (result.success === 0 && result.errors.length > 0) {
+      const hasServiceAccountError = result.errors.some(err => 
+        err.includes('Service Account not configured') || 
+        err.includes('OAuth2 not configured')
+      )
+      
+      if (hasServiceAccountError) {
+        return NextResponse.json({
+          success: false,
+          sent: 0,
+          failed: tokens.length,
+          errors: result.errors,
+          message: 'Firebase Service Account not configured. Please go to Admin Settings → Firebase Push Notifications and add your Service Account JSON.',
+        })
+      }
+    }
+
     return NextResponse.json({
       success: result.success > 0,
       sent: result.success,
