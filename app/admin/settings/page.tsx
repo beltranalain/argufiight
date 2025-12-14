@@ -723,15 +723,29 @@ export default function AdminSettingsPage() {
           description: 'Check your browser for the push notification! If you don\'t see it, try closing this tab and sending again.',
         })
       } else {
+        const errorMessage = data.message || data.error || 'Failed to send notification'
+        const isServiceAccountError = errorMessage.includes('Service Account not configured') || 
+                                     errorMessage.includes('OAuth2 not configured')
+        
         setPushTestResult({
           success: false,
-          error: data.message || data.error || 'Failed to send notification',
+          error: errorMessage,
+          isServiceAccountError,
         })
-        showToast({
-          type: 'error',
-          title: 'Test Failed',
-          description: data.message || data.error || 'Please check your Firebase configuration',
-        })
+        
+        if (isServiceAccountError) {
+          showToast({
+            type: 'error',
+            title: 'Firebase Not Configured',
+            description: 'Please add your Firebase Service Account JSON in the settings above, then save and try again.',
+          })
+        } else {
+          showToast({
+            type: 'error',
+            title: 'Test Failed',
+            description: errorMessage,
+          })
+        }
       }
     } catch (error: any) {
       setPushTestResult({
@@ -1434,6 +1448,23 @@ export default function AdminSettingsPage() {
                         <p className="text-xs mt-1">
                           {pushTestResult.message || pushTestResult.error}
                         </p>
+                        {pushTestResult.isServiceAccountError && (
+                          <div className="mt-3 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded">
+                            <p className="text-xs text-yellow-400 font-semibold mb-2">
+                              ⚠️ Firebase Service Account Required
+                            </p>
+                            <ol className="text-xs text-yellow-300 space-y-1 list-decimal list-inside">
+                              <li>Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline">Firebase Console</a></li>
+                              <li>Select your project → Gear icon → Project Settings</li>
+                              <li>Go to <strong>Service Accounts</strong> tab</li>
+                              <li>Click <strong>"Generate new private key"</strong></li>
+                              <li>Download the JSON file</li>
+                              <li>Copy the <strong>entire JSON content</strong> and paste it in the "Service Account JSON" field above</li>
+                              <li>Click <strong>"Save Settings"</strong></li>
+                              <li>Try sending a test notification again</li>
+                            </ol>
+                          </div>
+                        )}
                         {pushTestResult.success && (
                           <div className="mt-3 p-3 bg-bg-secondary rounded border border-bg-tertiary">
                             <p className="text-xs text-text-secondary mb-2">
