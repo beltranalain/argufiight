@@ -118,42 +118,54 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const authUrl = `${baseUrl}/api/auth/google?returnTo=${encodeURIComponent('honorableai://auth/callback')}`;
       const redirectUri = `${baseUrl}/api/auth/google/mobile-callback`;
       
-      // Open browser for OAuth with mobile callback URL
+      // Use WebBrowser with the web callback URL, but expect deep link in result
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        'honorableai://auth/callback'
+        redirectUri
       );
 
       if (result.type === 'success') {
-        // Check if the result URL is a deep link
+        console.log('OAuth result URL:', result.url);
+        
+        // Check if the result URL is a deep link (after HTML redirect)
         if (result.url.startsWith('honorableai://')) {
           // Deep link - parse it directly
           await handleDeepLink(result.url);
         } else if (result.url.includes('/api/auth/google/mobile-callback')) {
-          // Web callback - the HTML page should redirect to deep link
-          // WebBrowser should automatically follow the redirect
-          // If we get here, the redirect might not have happened yet
-          // Wait a bit and check if we get redirected
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Try to extract token from URL if it's in the query params
+          // Web callback URL - fetch the response to get token
+          // The callback returns HTML that redirects to deep link
+          // But if we're here, the redirect might not have been followed
+          // Try to fetch the callback and extract token from the redirect
           try {
-            const urlObj = new URL(result.url);
-            const token = urlObj.searchParams.get('token');
-            if (token) {
-              await AsyncStorage.setItem('auth_token', token);
-              await refreshUser();
+            // The callback should have redirected, but if not, try fetching
+            // Actually, WebBrowser should have followed the redirect
+            // If we're here, it means the redirect didn't work
+            // Let's try to manually trigger the deep link by parsing the HTML response
+            const response = await fetch(result.url);
+            const html = await response.text();
+            
+            // Try to extract deep link from HTML
+            const deepLinkMatch = html.match(/honorableai:\/\/auth\/callback[^"']*/);
+            if (deepLinkMatch) {
+              const deepLinkUrl = deepLinkMatch[0];
+              await handleDeepLink(deepLinkUrl);
             } else {
-              // If no token in URL, the HTML redirect should have happened
-              // The deep link handler will catch it
-              throw new Error('Please wait for redirect to app...');
+              // Fallback: try to get token from URL if it was added as query param
+              const urlObj = new URL(result.url);
+              const token = urlObj.searchParams.get('token');
+              if (token) {
+                await AsyncStorage.setItem('auth_token', token);
+                await refreshUser();
+              } else {
+                throw new Error('Could not extract token from callback');
+              }
             }
-          } catch (urlError: any) {
-            console.error('Error parsing callback URL:', urlError);
+          } catch (fetchError: any) {
+            console.error('Error processing callback:', fetchError);
             throw new Error('Failed to complete Google login. Please try again.');
           }
         } else {
-          throw new Error('Unexpected callback URL');
+          throw new Error('Unexpected callback URL: ' + result.url);
         }
       } else if (result.type === 'cancel') {
         throw new Error('Google login cancelled');

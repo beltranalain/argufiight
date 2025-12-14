@@ -279,8 +279,29 @@ export default function AppNavigator() {
     );
   }
 
+  // Configure deep linking
+  const linking = {
+    prefixes: ['honorableai://'],
+    config: {
+      screens: {
+        MainTabs: {
+          screens: {
+            Home: '',
+            Debates: 'debates',
+            CreateDebate: 'create',
+            Leaderboard: 'leaderboard',
+            Profile: 'profile',
+          },
+        },
+        DebateDetail: 'debate/:id',
+        UserProfile: 'user/:username',
+        TournamentDetail: 'tournament/:id',
+      },
+    },
+  };
+
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       {isAuthenticated ? <MainStack /> : <AuthStack />}
     </NavigationContainer>
   );
