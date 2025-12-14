@@ -38,7 +38,8 @@ export default function AdminSettingsPage() {
   const [firebaseOAuthClientId, setFirebaseOAuthClientId] = useState('')
   const [firebaseOAuthClientSecret, setFirebaseOAuthClientSecret] = useState('')
   const [firebaseOAuthRefreshToken, setFirebaseOAuthRefreshToken] = useState('')
-  const [firebaseVapidKey, setFirebaseVapidKey] = useState('')
+  const [vapidPublicKey, setVapidPublicKey] = useState('')
+  const [vapidPrivateKey, setVapidPrivateKey] = useState('')
   const [googleClientId, setGoogleClientId] = useState('')
   const [googleClientSecret, setGoogleClientSecret] = useState('')
   const [tournamentsEnabled, setTournamentsEnabled] = useState(false)
@@ -114,7 +115,8 @@ export default function AdminSettingsPage() {
         setFirebaseOAuthClientId(data.FIREBASE_OAUTH_CLIENT_ID || '')
         setFirebaseOAuthClientSecret(data.FIREBASE_OAUTH_CLIENT_SECRET || '')
         setFirebaseOAuthRefreshToken(data.FIREBASE_OAUTH_REFRESH_TOKEN || '')
-        setFirebaseVapidKey(data.FIREBASE_VAPID_KEY || '')
+        setVapidPublicKey(data.VAPID_PUBLIC_KEY || '')
+        setVapidPrivateKey(data.VAPID_PRIVATE_KEY || '')
         setGoogleClientId(data.GOOGLE_CLIENT_ID || '')
         setGoogleClientSecret(data.GOOGLE_CLIENT_SECRET || '')
         setTournamentsEnabled(data.TOURNAMENTS_ENABLED === 'true')
@@ -161,7 +163,8 @@ export default function AdminSettingsPage() {
           FIREBASE_OAUTH_CLIENT_ID: firebaseOAuthClientId,
           FIREBASE_OAUTH_CLIENT_SECRET: firebaseOAuthClientSecret,
           FIREBASE_OAUTH_REFRESH_TOKEN: firebaseOAuthRefreshToken,
-          FIREBASE_VAPID_KEY: firebaseVapidKey,
+          VAPID_PUBLIC_KEY: vapidPublicKey,
+          VAPID_PRIVATE_KEY: vapidPrivateKey,
           GOOGLE_CLIENT_ID: googleClientId,
           GOOGLE_CLIENT_SECRET: googleClientSecret,
           TOURNAMENTS_ENABLED: tournamentsEnabled.toString(),
@@ -724,21 +727,20 @@ export default function AdminSettingsPage() {
         })
       } else {
         const errorMessage = data.message || data.error || 'Failed to send notification'
-        const isServiceAccountError = errorMessage.includes('Service Account not configured') || 
-                                     errorMessage.includes('OAuth2 not configured') ||
-                                     (data.errors && Array.isArray(data.errors) && data.errors.some((err: string) => err.includes('Service Account not configured')))
+        const isVAPIDError = errorMessage.includes('VAPID keys not configured') || 
+                             (data.errors && Array.isArray(data.errors) && data.errors.some((err: string) => err.includes('VAPID keys not configured')))
         
         setPushTestResult({
           success: false,
           error: errorMessage,
-          isServiceAccountError,
+          isServiceAccountError: isVAPIDError, // Reuse this field for VAPID error
         })
         
-        if (isServiceAccountError) {
+        if (isVAPIDError) {
           showToast({
             type: 'error',
-            title: 'Firebase Not Configured',
-            description: 'Please add your Firebase Service Account JSON in the settings above, then save and try again.',
+            title: 'VAPID Keys Not Configured',
+            description: 'Please add your VAPID keys in the settings above, then save and try again.',
           })
         } else {
           showToast({
@@ -1300,32 +1302,51 @@ export default function AdminSettingsPage() {
 
               <div className="mt-4">
                 <label className="block text-sm font-medium text-white mb-2">
-                  VAPID Key (Required for web push)
+                  VAPID Public Key (Required for web push)
                 </label>
                 <input
                   type="text"
-                  value={firebaseVapidKey}
-                  onChange={(e) => setFirebaseVapidKey(e.target.value)}
+                  value={vapidPublicKey}
+                  onChange={(e) => setVapidPublicKey(e.target.value)}
                   placeholder="BK..."
                   className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
                 />
                 <p className="text-xs text-text-secondary mt-1">
-                  Found in Firebase Console → Project Settings → Cloud Messaging → Web Push certificates
+                  Public key for Web Push API (safe to share)
+                </p>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-white mb-2">
+                  VAPID Private Key (Required for web push)
+                </label>
+                <input
+                  type="password"
+                  value={vapidPrivateKey}
+                  onChange={(e) => setVapidPrivateKey(e.target.value)}
+                  placeholder="Enter private key..."
+                  className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+                />
+                <p className="text-xs text-text-secondary mt-1">
+                  Private key for Web Push API (keep secret)
                 </p>
               </div>
 
               <div className="mt-4 p-3 bg-electric-blue/10 border border-electric-blue/30 rounded-lg">
                 <p className="text-sm text-electric-blue mb-2">
-                  <strong>Get your Firebase credentials:</strong>
+                  <strong>Generate VAPID Keys (No Firebase Required!):</strong>
                 </p>
                 <ol className="text-xs text-text-secondary space-y-1 list-decimal list-inside">
-                  <li>Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-electric-blue">Firebase Console</a></li>
-                  <li>Select your project → Gear icon → Project Settings</li>
-                  <li>Scroll to "Your apps" → Web app → Copy config values</li>
-                  <li>Go to <strong>Service Accounts</strong> tab → Click "Generate new private key" → Download JSON</li>
-                  <li>Go to Cloud Messaging tab → Generate VAPID key pair if needed → Copy public key</li>
-                  <li>Paste the entire Service Account JSON file content above</li>
+                  <li>Install web-push: <code className="bg-bg-secondary px-1 rounded">npm install -g web-push</code></li>
+                  <li>Run: <code className="bg-bg-secondary px-1 rounded">web-push generate-vapid-keys</code></li>
+                  <li>Copy the <strong>Public Key</strong> to the field above</li>
+                  <li>Copy the <strong>Private Key</strong> to the field above</li>
+                  <li>Click "Save Settings"</li>
+                  <li>See <a href="/VAPID_KEYS_SETUP_GUIDE.md" target="_blank" rel="noopener noreferrer" className="underline hover:text-electric-blue">VAPID Keys Setup Guide</a> for more details</li>
                 </ol>
+                <p className="text-xs text-yellow-400 mt-2">
+                  ⚠️ <strong>Note:</strong> This uses Web Push API directly - no Firebase service account needed!
+                </p>
               </div>
 
               {/* Test Push Notifications */}

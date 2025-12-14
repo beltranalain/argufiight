@@ -1,37 +1,33 @@
 import { NextResponse } from 'next/server'
-import { getFirebaseConfig } from '@/lib/firebase/config'
+import { prisma } from '@/lib/db/prisma'
 
-// GET /api/firebase/config - Get Firebase configuration for frontend
+// GET /api/firebase/config - Get VAPID public key for Web Push API
 export async function GET() {
   try {
-    const config = await getFirebaseConfig()
+    // Get VAPID public key from admin settings
+    const vapidPublicKeySetting = await prisma.adminSetting.findUnique({
+      where: { key: 'VAPID_PUBLIC_KEY' },
+    })
 
-    if (!config) {
+    const vapidPublicKey = vapidPublicKeySetting?.value || process.env.VAPID_PUBLIC_KEY
+
+    if (!vapidPublicKey) {
       return NextResponse.json(
-        { error: 'Firebase not configured' },
-        { status: 404 }
+        { 
+          error: 'VAPID keys not configured',
+          vapidKey: null,
+        },
+        { status: 200 } // Return 200 so frontend can check vapidKey
       )
     }
 
-    // Only return public config (no server keys)
-    // VAPID key is required for web push notifications
-    if (!config.vapidKey) {
-      console.warn('Firebase VAPID key is missing. Push notifications will not work.')
-    }
-
     return NextResponse.json({
-      apiKey: config.apiKey,
-      authDomain: config.authDomain,
-      projectId: config.projectId,
-      storageBucket: config.storageBucket,
-      messagingSenderId: config.messagingSenderId,
-      appId: config.appId,
-      vapidKey: config.vapidKey || null, // Return null if missing so frontend can detect it
+      vapidKey: vapidPublicKey, // Return VAPID public key for Web Push API
     })
   } catch (error) {
-    console.error('Failed to get Firebase config:', error)
+    console.error('Failed to get VAPID config:', error)
     return NextResponse.json(
-      { error: 'Failed to get Firebase config' },
+      { error: 'Failed to get VAPID config', vapidKey: null },
       { status: 500 }
     )
   }
