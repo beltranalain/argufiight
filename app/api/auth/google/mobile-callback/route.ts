@@ -171,12 +171,34 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      // Return token for mobile app via deep link redirect
-      // This allows the mobile app to receive the token via deep link
+      // Check if request wants JSON (mobile app) or HTML (browser redirect)
+      const acceptHeader = request.headers.get('accept') || ''
+      const wantsJson = acceptHeader.includes('application/json')
+      
+      // Return token for mobile app
+      // Option 1: Return JSON if Accept header includes application/json
+      if (wantsJson) {
+        return NextResponse.json({
+          success: true,
+          token: sessionJWT,
+          user: {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            avatar_url: user.avatarUrl,
+            bio: user.bio,
+            elo_rating: user.eloRating,
+            debates_won: user.debatesWon,
+            debates_lost: user.debatesLost,
+            debates_tied: user.debatesTied,
+            total_debates: user.totalDebates,
+          },
+        })
+      }
+      
+      // Option 2: Return HTML that redirects to deep link (for browser-based OAuth)
       const deepLinkUrl = `honorableai://auth/callback?token=${encodeURIComponent(sessionJWT)}&success=true&userId=${user.id}`
       
-      // Return HTML page that immediately redirects to deep link
-      // Use both window.location and a meta refresh for maximum compatibility
       return new NextResponse(
         `<!DOCTYPE html>
 <html>
@@ -206,23 +228,13 @@ export async function GET(request: NextRequest) {
     }
   </style>
   <script>
-    // Multiple redirect methods for maximum compatibility
-    (function() {
-      // Method 1: Direct redirect
-      window.location.href = '${deepLinkUrl}';
-      
-      // Method 2: Fallback after short delay
-      setTimeout(function() {
-        window.location.href = '${deepLinkUrl}';
-      }, 100);
-      
-      // Method 3: Show message if redirect fails
-      setTimeout(function() {
-        if (document.hasFocus()) {
-          document.querySelector('.container').innerHTML = '<h2>✅ Authentication Successful</h2><p>If you are not redirected, please close this window and return to the app.</p><p style="font-size: 12px; color: #666; margin-top: 20px;">The app should open automatically.</p>';
-        }
-      }, 2000);
-    })();
+    // Immediately redirect to deep link
+    window.location.href = '${deepLinkUrl}';
+    
+    // Fallback message
+    setTimeout(function() {
+      document.querySelector('.container').innerHTML = '<h2>✅ Authentication Successful</h2><p>If you are not redirected, please close this window and return to the app.</p>';
+    }, 1000);
   </script>
 </head>
 <body>

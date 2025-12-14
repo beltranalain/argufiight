@@ -132,33 +132,51 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // Deep link - parse it directly
           await handleDeepLink(result.url);
         } else if (result.url.includes('/api/auth/google/mobile-callback')) {
-          // Web callback URL - fetch the response to get token
-          // The callback returns HTML that redirects to deep link
-          // But if we're here, the redirect might not have been followed
-          // Try to fetch the callback and extract token from the redirect
+          // Web callback URL - fetch the JSON response
           try {
-            // The callback should have redirected, but if not, try fetching
-            // Actually, WebBrowser should have followed the redirect
-            // If we're here, it means the redirect didn't work
-            // Let's try to manually trigger the deep link by parsing the HTML response
-            const response = await fetch(result.url);
-            const html = await response.text();
+            const response = await fetch(result.url, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+              },
+            });
             
-            // Try to extract deep link from HTML
-            const deepLinkMatch = html.match(/honorableai:\/\/auth\/callback[^"']*/);
-            if (deepLinkMatch) {
-              const deepLinkUrl = deepLinkMatch[0];
-              await handleDeepLink(deepLinkUrl);
-            } else {
-              // Fallback: try to get token from URL if it was added as query param
-              const urlObj = new URL(result.url);
-              const token = urlObj.searchParams.get('token');
-              if (token) {
-                await AsyncStorage.setItem('auth_token', token);
-                await refreshUser();
+            const contentType = response.headers.get('content-type');
+            
+            if (contentType?.includes('application/json')) {
+              // JSON response - parse it directly
+              const data = await response.json();
+              if (data.success && data.token) {
+                await AsyncStorage.setItem('auth_token', data.token);
+                if (data.user) {
+                  setUser(data.user);
+                  await AsyncStorage.setItem('user', JSON.stringify(data.user));
+                } else {
+                  await refreshUser();
+                }
               } else {
-                throw new Error('Could not extract token from callback');
+                throw new Error(data.error || 'Failed to get token');
               }
+            } else if (contentType?.includes('text/html')) {
+              // HTML response - try to extract deep link or redirect
+              const html = await response.text();
+              const deepLinkMatch = html.match(/honorableai:\/\/auth\/callback[^"'\s]*/);
+              if (deepLinkMatch) {
+                const deepLinkUrl = deepLinkMatch[0];
+                await handleDeepLink(deepLinkUrl);
+              } else {
+                // Try to get token from URL query params
+                const urlObj = new URL(result.url);
+                const token = urlObj.searchParams.get('token');
+                if (token) {
+                  await AsyncStorage.setItem('auth_token', token);
+                  await refreshUser();
+                } else {
+                  throw new Error('Could not extract token from callback');
+                }
+              }
+            } else {
+              throw new Error('Unexpected response type');
             }
           } catch (fetchError: any) {
             console.error('Error processing callback:', fetchError);
