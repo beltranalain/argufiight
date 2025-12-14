@@ -833,6 +833,8 @@ export default function DebateDetailScreen() {
               )}
             </View>
           )}
+            </>
+          )}
         </View>
 
         {/* Round Info */}
