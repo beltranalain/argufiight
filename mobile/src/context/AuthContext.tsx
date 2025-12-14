@@ -56,6 +56,69 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const loginWithGoogle = async () => {
+    try {
+      // Get the base URL for OAuth
+      const baseUrl = api.defaults.baseURL?.replace('/api', '') || 'https://www.argufight.com';
+      
+      // Construct Google OAuth URL with mobile callback indicator
+      const authUrl = `${baseUrl}/api/auth/google?returnTo=${encodeURIComponent('mobile://auth/callback')}`;
+      const redirectUri = `${baseUrl}/api/auth/google/mobile-callback`;
+      
+      // Open browser for OAuth with mobile callback URL
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        redirectUri
+      );
+
+      if (result.type === 'success') {
+        // The mobile-callback endpoint returns JSON
+        // We need to fetch the callback URL to get the JSON response
+        try {
+          // Make a request to the callback URL to get the JSON response
+          const response = await fetch(result.url, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+            credentials: 'include', // Include cookies if any
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+          }
+          
+          const data = await response.json();
+          
+          if (data.success && data.user && data.token) {
+            setUser(data.user);
+            await AsyncStorage.setItem('user', JSON.stringify(data.user));
+            await AsyncStorage.setItem('auth_token', data.token);
+          } else {
+            throw new Error(data.error || 'Failed to get user data');
+          }
+        } catch (fetchError: any) {
+          console.error('Error fetching callback data:', fetchError);
+          // If the URL is the callback endpoint, try parsing it differently
+          if (result.url.includes('/api/auth/google/mobile-callback')) {
+            // The endpoint should return JSON, but if it redirects, we need to handle it
+            throw new Error(fetchError.message || 'Failed to complete Google login');
+          } else {
+            throw new Error('Unexpected callback URL');
+          }
+        }
+      } else if (result.type === 'cancel') {
+        throw new Error('Google login cancelled');
+      } else {
+        throw new Error('Google login failed');
+      }
+    } catch (error: any) {
+      console.error('Google login error:', error);
+      throw new Error(error.message || 'Google login failed');
+    }
+  };
+
   const signup = async (email: string, password: string, username: string) => {
     try {
       const data = await authAPI.signup({ email, password, username });
