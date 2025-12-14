@@ -1449,12 +1449,40 @@ export default function AdminSettingsPage() {
                         onClick={handleTestPushNotification}
                         isLoading={isTestingPush}
                       >
-                        Send FCM Test Notification
+                        Send Web Push Test Notification
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('/api/fcm/register', {
+                              method: 'DELETE',
+                              headers: { 'Content-Type': 'application/json' },
+                            })
+                            if (response.ok) {
+                              showToast({
+                                type: 'success',
+                                title: 'Old Tokens Cleared',
+                                description: 'Please refresh the page to register a new Web Push subscription.',
+                              })
+                              setTimeout(() => window.location.reload(), 2000)
+                            }
+                          } catch (error: any) {
+                            showToast({
+                              type: 'error',
+                              title: 'Failed to Clear Tokens',
+                              description: error.message,
+                            })
+                          }
+                        }}
+                      >
+                        Clear Old Tokens & Refresh
                       </Button>
                     </div>
                     <p className="text-xs text-text-secondary mt-2">
-                      <strong>Test Browser Notification:</strong> Tests if your browser can show notifications at all (bypasses FCM).<br/>
-                      <strong>Send FCM Test Notification:</strong> Sends a real push notification through Firebase (works even when tab is closed).
+                      <strong>Test Browser Notification:</strong> Tests if your browser can show notifications at all (bypasses Web Push).<br/>
+                      <strong>Send Web Push Test Notification:</strong> Sends a real push notification through Web Push API (works even when tab is closed).<br/>
+                      <strong>Clear Old Tokens & Refresh:</strong> Removes old FCM tokens and refreshes the page to register a new Web Push subscription.
                     </p>
 
                     {/* Test Result */}

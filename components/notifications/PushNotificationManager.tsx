@@ -42,6 +42,22 @@ export function PushNotificationManager() {
           return
         }
 
+        // Unregister old Firebase service worker if it exists
+        if ('serviceWorker' in navigator) {
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations()
+            for (const registration of registrations) {
+              // Unregister old Firebase service worker
+              if (registration.scope.includes('firebase-cloud-messaging-push-scope')) {
+                console.log('[Push Notifications] Unregistering old Firebase service worker...')
+                await registration.unregister()
+              }
+            }
+          } catch (error) {
+            console.warn('[Push Notifications] Error unregistering old service workers:', error)
+          }
+        }
+
         // Register service worker
         let serviceWorkerRegistration: ServiceWorkerRegistration | null = null
         if ('serviceWorker' in navigator) {
@@ -49,10 +65,13 @@ export function PushNotificationManager() {
             serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js', {
               scope: '/',
             })
-            console.log('[Push Notifications] Service worker registered')
+            console.log('[Push Notifications] Service worker registered:', serviceWorkerRegistration.scope)
             
             // Wait for service worker to be ready
             await serviceWorkerRegistration.update()
+            
+            // Wait a bit for service worker to activate
+            await new Promise(resolve => setTimeout(resolve, 500))
           } catch (error) {
             console.error('[Push Notifications] Service worker registration failed:', error)
             return
