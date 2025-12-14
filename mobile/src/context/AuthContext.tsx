@@ -9,6 +9,18 @@ import api from '../services/api';
 // Complete web browser authentication session
 WebBrowser.maybeCompleteAuthSession();
 
+// Use the deep link as the redirect URI for AuthSession
+const redirectUri = AuthSession.makeRedirectUri({
+  scheme: 'honorableai',
+  path: 'auth/callback',
+});
+
+// Use the deep link as the redirect URI for AuthSession
+const redirectUri = AuthSession.makeRedirectUri({
+  scheme: 'honorableai',
+  path: 'auth/callback',
+});
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -123,20 +135,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log('[Google Login] Auth URL:', authUrl);
       console.log('[Google Login] Redirect URI:', redirectUri);
       
-      // Use WebBrowser with the deep link as the redirect URI
-      // This tells WebBrowser to expect a deep link redirect
+      // Use WebBrowser - the second parameter tells it what URL to listen for
+      // When the callback redirects to this deep link, WebBrowser should capture it
       const deepLinkRedirect = 'honorableai://auth/callback';
       
-      // Open auth session - the second parameter is what we expect to receive back
+      console.log('[Google Login] Opening auth session, expecting:', deepLinkRedirect);
+      
+      // Open auth session - the second parameter is the redirect URI pattern to match
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        deepLinkRedirect  // This is what we expect to receive, not the web callback
+        deepLinkRedirect
       );
 
       console.log('[Google Login] OAuth result type:', result.type);
-      console.log('[Google Login] OAuth result URL:', result.url);
+      if (result.url) {
+        console.log('[Google Login] OAuth result URL:', result.url);
+      } else {
+        console.log('[Google Login] No URL in result');
+      }
 
-      if (result.type === 'success') {
+      if (result.type === 'success' && result.url) {
         const resultUrl = result.url;
         console.log('[Google Login] Result URL:', resultUrl);
         
