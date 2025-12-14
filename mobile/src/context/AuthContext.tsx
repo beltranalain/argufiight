@@ -25,32 +25,54 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Handle deep links for OAuth callback (defined outside useEffect so it can be used in loginWithGoogle)
+  const handleDeepLink = async (urlString: string) => {
+    try {
+      // Parse the deep link URL
+      // Format: honorableai://auth/callback?token=...&success=true&userId=...
+      if (urlString.startsWith('honorableai://auth/callback')) {
+        // Parse URL manually since URL constructor doesn't work with custom schemes
+        const urlParts = urlString.split('?');
+        if (urlParts.length > 1) {
+          const params = new URLSearchParams(urlParts[1]);
+          const token = params.get('token');
+          const success = params.get('success');
+          const userId = params.get('userId');
+          
+          if (success === 'true' && token) {
+            // Store token
+            await AsyncStorage.setItem('auth_token', token);
+            
+            // Fetch user data
+            try {
+              const userResponse = await api.get('/auth/me');
+              const userData = userResponse.data.user || userResponse.data;
+              setUser(userData);
+              await AsyncStorage.setItem('user', JSON.stringify(userData));
+            } catch (userError: any) {
+              console.error('Error fetching user data:', userError);
+              // Token is stored, user can refresh
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error('Error handling deep link:', error);
+    }
+  };
+
   useEffect(() => {
     loadUser();
     
-    // Handle deep links for OAuth callback
-    const handleDeepLink = (event: { url: string }) => {
-      const url = new URL(event.url);
-      if (url.protocol === 'honorableai:' && url.pathname === '//auth/callback') {
-        const token = url.searchParams.get('token');
-        const success = url.searchParams.get('success');
-        
-        if (success === 'true' && token) {
-          // Store token and refresh user
-          AsyncStorage.setItem('auth_token', token).then(() => {
-            refreshUser();
-          });
-        }
-      }
-    };
-    
     // Listen for deep links
-    const subscription = Linking.addEventListener('url', handleDeepLink);
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleDeepLink(event.url);
+    });
     
     // Check if app was opened via deep link
     Linking.getInitialURL().then((url) => {
       if (url) {
-        handleDeepLink({ url });
+        handleDeepLink(url);
       }
     });
     
@@ -103,35 +125,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       );
 
       if (result.type === 'success') {
-        // Parse the deep link URL to extract token
-        const url = new URL(result.url);
-        const token = url.searchParams.get('token');
-        const success = url.searchParams.get('success');
-        const userId = url.searchParams.get('userId');
-        
-        if (success === 'true' && token) {
-          // Store token
-          await AsyncStorage.setItem('auth_token', token);
+        // Check if the result URL is a deep link
+        if (result.url.startsWith('honorableai://')) {
+          // Deep link - parse it directly
+          await handleDeepLink(result.url);
+        } else if (result.url.includes('/api/auth/google/mobile-callback')) {
+          // Web callback - the HTML page should redirect to deep link
+          // WebBrowser should automatically follow the redirect
+          // If we get here, the redirect might not have happened yet
+          // Wait a bit and check if we get redirected
+          await new Promise(resolve => setTimeout(resolve, 500));
           
-          // Fetch user data using the token
-          if (userId) {
-            try {
-              const userResponse = await api.get(`/auth/me`);
-              const userData = userResponse.data.user || userResponse.data;
-              setUser(userData);
-              await AsyncStorage.setItem('user', JSON.stringify(userData));
-            } catch (userError: any) {
-              // If we can't get user data, try to use the token anyway
-              console.error('Error fetching user data:', userError);
-              // Token is stored, user can refresh
+          // Try to extract token from URL if it's in the query params
+          try {
+            const urlObj = new URL(result.url);
+            const token = urlObj.searchParams.get('token');
+            if (token) {
+              await AsyncStorage.setItem('auth_token', token);
+              await refreshUser();
+            } else {
+              // If no token in URL, the HTML redirect should have happened
+              // The deep link handler will catch it
+              throw new Error('Please wait for redirect to app...');
             }
-          } else {
-            // Refresh user data
-            await refreshUser();
+          } catch (urlError: any) {
+            console.error('Error parsing callback URL:', urlError);
+            throw new Error('Failed to complete Google login. Please try again.');
           }
         } else {
-          const error = url.searchParams.get('error');
-          throw new Error(error || 'Failed to complete Google login');
+          throw new Error('Unexpected callback URL');
         }
       } else if (result.type === 'cancel') {
         throw new Error('Google login cancelled');

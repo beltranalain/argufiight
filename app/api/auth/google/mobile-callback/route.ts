@@ -175,14 +175,15 @@ export async function GET(request: NextRequest) {
       // This allows the mobile app to receive the token via deep link
       const deepLinkUrl = `honorableai://auth/callback?token=${encodeURIComponent(sessionJWT)}&success=true&userId=${user.id}`
       
-      // Return HTML page that redirects to deep link (for WebBrowser.openAuthSessionAsync)
-      // The deep link will be handled by the mobile app
+      // Return HTML page that immediately redirects to deep link
+      // Use both window.location and a meta refresh for maximum compatibility
       return new NextResponse(
         `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="0;url=${deepLinkUrl}">
   <title>Redirecting...</title>
   <style>
     body {
@@ -205,13 +206,23 @@ export async function GET(request: NextRequest) {
     }
   </style>
   <script>
-    // Immediately try to redirect to deep link
-    window.location.href = '${deepLinkUrl}';
-    
-    // Fallback message
-    setTimeout(function() {
-      document.querySelector('.container').innerHTML = '<h2>✅ Authentication Successful</h2><p>You can close this window and return to the app.</p>';
-    }, 1000);
+    // Multiple redirect methods for maximum compatibility
+    (function() {
+      // Method 1: Direct redirect
+      window.location.href = '${deepLinkUrl}';
+      
+      // Method 2: Fallback after short delay
+      setTimeout(function() {
+        window.location.href = '${deepLinkUrl}';
+      }, 100);
+      
+      // Method 3: Show message if redirect fails
+      setTimeout(function() {
+        if (document.hasFocus()) {
+          document.querySelector('.container').innerHTML = '<h2>✅ Authentication Successful</h2><p>If you are not redirected, please close this window and return to the app.</p><p style="font-size: 12px; color: #666; margin-top: 20px;">The app should open automatically.</p>';
+        }
+      }, 2000);
+    })();
   </script>
 </head>
 <body>
