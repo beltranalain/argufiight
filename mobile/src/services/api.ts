@@ -102,6 +102,14 @@ export const authAPI = {
     // API returns { user: ... } or just the user object
     return response.data.user || response.data;
   },
+
+  getGoogleAuthUrl: async () => {
+    const response = await api.get('/auth/google');
+    // The API redirects, so we need to get the URL from the redirect
+    // For mobile, we'll construct it directly
+    const baseUrl = API_URL.replace('/api', '');
+    return `${baseUrl}/api/auth/google`;
+  },
 };
 
 export default api;

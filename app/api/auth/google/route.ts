@@ -33,16 +33,22 @@ export async function GET(request: NextRequest) {
   const returnTo = searchParams.get('returnTo') || '/'
   const userType = searchParams.get('userType') || 'user' // 'user', 'advertiser', or 'employee'
   const addAccount = searchParams.get('addAccount') === 'true'
+  const isMobile = returnTo.startsWith('mobile://')
+
+  // Use mobile callback if it's a mobile request
+  const finalRedirectUri = isMobile 
+    ? `${baseUrl}/api/auth/google/mobile-callback`
+    : redirectUri
 
   // Build Google OAuth URL
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: redirectUri,
+    redirect_uri: finalRedirectUri,
     response_type: 'code',
     scope: 'openid email profile',
     access_type: 'offline',
     prompt: 'consent',
-    state: JSON.stringify({ returnTo, userType, addAccount }), // Store return URL, user type, and addAccount flag for CSRF protection
+    state: JSON.stringify({ returnTo, userType, addAccount, isMobile }), // Store return URL, user type, addAccount flag, and mobile flag for CSRF protection
   })
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`

@@ -1,12 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
 import { authAPI, User } from '../services/api';
+import api from '../services/api';
+
+// Complete web browser authentication session
+WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   signup: (email: string, password: string, username: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -95,6 +101,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading,
         isAuthenticated: !!user,
         login,
+        loginWithGoogle,
         signup,
         logout,
         refreshUser,

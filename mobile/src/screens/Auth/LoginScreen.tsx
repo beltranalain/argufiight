@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -33,6 +34,17 @@ export default function LoginScreen() {
       Alert.alert('Login Failed', error.message || 'Invalid credentials');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setGoogleLoading(true);
+    try {
+      await loginWithGoogle();
+    } catch (error: any) {
+      Alert.alert('Google Login Failed', error.message || 'Failed to sign in with Google');
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -152,6 +164,35 @@ const styles = StyleSheet.create({
   },
   linkBold: {
     color: '#fff',
+    fontWeight: '600',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#333',
+  },
+  dividerText: {
+    color: '#888',
+    fontSize: 14,
+    marginHorizontal: 16,
+  },
+  googleButton: {
+    backgroundColor: '#4285F4',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  googleButtonText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
   },
 });
