@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/hooks/useAuth'
-import { getFirebaseConfig } from '@/lib/firebase/client'
 
 /**
- * Manages Firebase Cloud Messaging push notifications
- * Requests permission, gets token, and registers it with the server
+ * Manages Web Push API push notifications (VAPID)
+ * Requests permission, gets subscription, and registers it with the server
  */
 export function PushNotificationManager() {
   const { user } = useAuth()
@@ -15,8 +14,8 @@ export function PushNotificationManager() {
   const [permission, setPermission] = useState<NotificationPermission>('default')
 
   useEffect(() => {
-    // Check if browser supports notifications
-    if (typeof window !== 'undefined' && 'Notification' in window) {
+    // Check if browser supports notifications and service workers
+    if (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true)
       setPermission(Notification.permission)
     }
@@ -27,60 +26,33 @@ export function PushNotificationManager() {
       return
     }
 
-    // Initialize Firebase and register token
+    // Initialize Web Push API and register subscription
     const initializePushNotifications = async () => {
       try {
-        const config = await getFirebaseConfig()
-        if (!config) {
-          console.log('[Push Notifications] Firebase not configured')
+        // Get VAPID public key from server
+        const configResponse = await fetch('/api/firebase/config')
+        if (!configResponse.ok) {
+          console.log('[Push Notifications] Failed to get VAPID config')
           return
         }
 
+        const config = await configResponse.json()
         if (!config.vapidKey) {
-          console.error('[Push Notifications] VAPID key is missing. Please add it in Admin Settings → Firebase Push Notifications')
+          console.error('[Push Notifications] VAPID public key is missing. Please add it in Admin Settings → Push Notifications')
           return
         }
 
-        // Initialize Firebase
-        const { initializeApp, getApps } = await import('firebase/app')
-        const { getMessaging, getToken, onMessage } = await import('firebase/messaging')
-
-        let app
-        const apps = getApps()
-        if (apps.length === 0) {
-          app = initializeApp(config)
-        } else {
-          app = apps[0]
-        }
-
-        // Register service worker first
+        // Register service worker
         let serviceWorkerRegistration: ServiceWorkerRegistration | null = null
         if ('serviceWorker' in navigator) {
           try {
-            serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-              scope: '/firebase-cloud-messaging-push-scope',
+            serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js', {
+              scope: '/',
             })
             console.log('[Push Notifications] Service worker registered')
             
             // Wait for service worker to be ready
             await serviceWorkerRegistration.update()
-            
-            // Send Firebase config to service worker
-            if (serviceWorkerRegistration.active) {
-              serviceWorkerRegistration.active.postMessage({
-                type: 'FIREBASE_CONFIG',
-                config: config,
-              })
-            } else if (serviceWorkerRegistration.installing) {
-              serviceWorkerRegistration.installing.addEventListener('statechange', () => {
-                if (serviceWorkerRegistration?.installing?.state === 'activated' && serviceWorkerRegistration.active) {
-                  serviceWorkerRegistration.active.postMessage({
-                    type: 'FIREBASE_CONFIG',
-                    config: config,
-                  })
-                }
-              })
-            }
           } catch (error) {
             console.error('[Push Notifications] Service worker registration failed:', error)
             return
@@ -90,22 +62,25 @@ export function PushNotificationManager() {
           return
         }
 
-        const messaging = getMessaging(app)
+        // Get existing subscription or create new one
+        let subscription = await serviceWorkerRegistration.pushManager.getSubscription()
 
-        // Get FCM token - VAPID key is required
-        const token = await getToken(messaging, {
-          vapidKey: config.vapidKey,
-          serviceWorkerRegistration: serviceWorkerRegistration,
-        })
+        if (!subscription) {
+          // Create new subscription with VAPID public key
+          subscription = await serviceWorkerRegistration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(config.vapidKey),
+          })
+        }
 
-        if (token) {
-          // Register token with server
+        if (subscription) {
+          // Register subscription with server
           const device = navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'
           const response = await fetch('/api/fcm/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              token,
+              subscription: subscription.toJSON(),
               device,
               userAgent: navigator.userAgent,
             }),
@@ -113,53 +88,39 @@ export function PushNotificationManager() {
 
           if (response.ok) {
             setIsRegistered(true)
-            console.log('[Push Notifications] Token registered successfully')
+            console.log('[Push Notifications] Subscription registered successfully')
           } else {
-            console.error('[Push Notifications] Failed to register token')
+            console.error('[Push Notifications] Failed to register subscription')
           }
         }
-
-        // Handle foreground messages (when user is on the site)
-        onMessage(messaging, (payload) => {
-          console.log('[Push Notifications] Message received:', payload)
-          
-          // Show browser notification even when tab is in foreground
-          if (payload.notification && 'Notification' in window && Notification.permission === 'granted') {
-            const title = payload.notification.title || 'New Notification'
-            const options: NotificationOptions = {
-              body: payload.notification.body || '',
-              icon: payload.notification.icon || '/favicon.ico',
-              badge: '/favicon.ico',
-              data: payload.data || {},
-              tag: payload.data?.type || 'notification',
-            }
-            
-            // Show the notification
-            new Notification(title, options)
-          }
-        })
       } catch (error: any) {
         console.error('[Push Notifications] Initialization error:', error)
         
         // Provide helpful error messages
-        if (error.code === 'messaging/unsupported-browser') {
-          console.log('[Push Notifications] Browser does not support FCM')
-        } else if (error.code === 'messaging/token-subscribe-failed') {
-          console.error('[Push Notifications] Failed to subscribe to FCM. This usually means:')
-          console.error('1. VAPID key is missing or invalid - check Admin Settings → Firebase Push Notifications')
-          console.error('2. Cloud Messaging API is not enabled in Firebase Console')
-          console.error('3. Firebase project configuration is incorrect')
-        } else if (error.message?.includes('authentication credential')) {
-          console.error('[Push Notifications] Authentication error. Please check:')
-          console.error('1. VAPID key is correctly set in Admin Settings')
-          console.error('2. Cloud Messaging API is enabled in Firebase Console')
-          console.error('3. Firebase project ID matches in all settings')
+        if (error.name === 'NotAllowedError') {
+          console.error('[Push Notifications] Permission denied. User needs to grant notification permission.')
+        } else if (error.name === 'NotSupportedError') {
+          console.error('[Push Notifications] Browser does not support Web Push API')
+        } else if (error.message?.includes('VAPID')) {
+          console.error('[Push Notifications] VAPID key error. Please check Admin Settings → Push Notifications')
         }
       }
     }
 
     initializePushNotifications()
   }, [user, isSupported, permission])
+
+  // Helper function to convert VAPID key
+  function urlBase64ToUint8Array(base64String: string): Uint8Array {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+    const rawData = window.atob(base64)
+    const outputArray = new Uint8Array(rawData.length)
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i)
+    }
+    return outputArray
+  }
 
   // Request notification permission
   const requestPermission = async () => {
