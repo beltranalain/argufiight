@@ -128,34 +128,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (result.type === 'success') {
         console.log('OAuth result URL:', result.url);
         
-        // Check if the result URL is a deep link (shouldn't happen with mobile-callback, but handle it)
+        // The callback redirects to a deep link, so result.url should be the deep link
         if (result.url.startsWith('honorableai://')) {
           // Deep link - parse it directly
           await handleDeepLink(result.url);
         } else if (result.url.includes('/api/auth/google/mobile-callback')) {
-          // Mobile callback URL - fetch the JSON response
+          // If we somehow got the callback URL instead of the deep link,
+          // try to extract token from query params or fetch the redirect
           try {
-            const response = await fetch(result.url, {
-              method: 'GET',
-            });
+            // The callback should have redirected, but if not, try fetching
+            const response = await fetch(result.url, { redirect: 'follow' });
+            const finalUrl = response.url;
             
-            // Mobile callback always returns JSON
-            const data = await response.json();
-            
-            if (data.success && data.token) {
-              // Store token
-              await AsyncStorage.setItem('auth_token', data.token);
-              
-              // Store user data if provided
-              if (data.user) {
-                setUser(data.user);
-                await AsyncStorage.setItem('user', JSON.stringify(data.user));
-              } else {
-                // Fetch user data if not provided
-                await refreshUser();
-              }
+            if (finalUrl.startsWith('honorableai://')) {
+              await handleDeepLink(finalUrl);
             } else {
-              throw new Error(data.error || 'Failed to get token');
+              // Try to get token from URL query params as fallback
+              const urlObj = new URL(result.url);
+              const token = urlObj.searchParams.get('token');
+              if (token) {
+                await AsyncStorage.setItem('auth_token', token);
+                await refreshUser();
+              } else {
+                throw new Error('Could not extract token from callback');
+              }
             }
           } catch (fetchError: any) {
             console.error('Error processing callback:', fetchError);
