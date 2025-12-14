@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
-import { sendPushNotifications } from '@/lib/firebase/fcm-client'
+import { sendPushNotifications as sendVAPIDPushNotifications } from '@/lib/web-push/vapid-push'
 
 // POST /api/fcm/send - Send push notification to user(s)
 export async function POST(request: NextRequest) {
@@ -29,47 +29,75 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get FCM tokens for all users
+    // Get web push subscriptions for all users
     const tokens = await prisma.fCMToken.findMany({
       where: {
         userId: { in: userIds },
       },
       select: {
         token: true,
+        subscription: true,
       },
     })
 
     if (tokens.length === 0) {
       return NextResponse.json({
         success: false,
-        message: 'No FCM tokens found for these users',
+        message: 'No push notification subscriptions found for these users',
       })
     }
 
-    // Send push notifications
-    const result = await sendPushNotifications(
-      tokens.map((t) => t.token),
+    // Convert tokens to web push subscriptions
+    const subscriptions = tokens
+      .map((t) => {
+        // If subscription is stored, use it
+        if (t.subscription) {
+          try {
+            return JSON.parse(t.subscription)
+          } catch {
+            return null
+          }
+        }
+        // Otherwise, try to parse token as subscription
+        try {
+          return JSON.parse(t.token)
+        } catch {
+          return null
+        }
+      })
+      .filter((sub): sub is { endpoint: string; keys: { p256dh: string; auth: string } } => sub !== null)
+
+    if (subscriptions.length === 0) {
+      return NextResponse.json({
+        success: false,
+        message: 'No valid web push subscriptions found',
+      })
+    }
+
+    // Send push notifications using VAPID
+    const result = await sendVAPIDPushNotifications(
+      subscriptions,
       {
         title,
         body,
+        icon: '/favicon.ico',
         data: data || {},
       }
     )
 
-    // Check if the error is about missing service account
+    // Check if VAPID keys are not configured
     if (result.success === 0 && result.errors.length > 0) {
-      const hasServiceAccountError = result.errors.some(err => 
-        err.includes('Service Account not configured') || 
-        err.includes('OAuth2 not configured')
+      const hasVAPIDError = result.errors.some(err => 
+        err.includes('VAPID keys not configured')
       )
       
-      if (hasServiceAccountError) {
+      if (hasVAPIDError) {
         return NextResponse.json({
           success: false,
           sent: 0,
-          failed: tokens.length,
+          failed: subscriptions.length,
           errors: result.errors,
-          message: 'Firebase Service Account not configured. Please go to Admin Settings → Firebase Push Notifications and add your Service Account JSON.',
+          message: 'VAPID keys not configured. Please go to Admin Settings → Push Notifications and add your VAPID keys.',
         })
       }
     }

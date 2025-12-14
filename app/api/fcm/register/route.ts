@@ -14,27 +14,35 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { token, device, userAgent } = body
+    const { token, subscription, device, userAgent } = body
 
-    if (!token || typeof token !== 'string') {
+    // Accept either token (FCM) or subscription (Web Push)
+    if (!token && !subscription) {
       return NextResponse.json(
-        { error: 'FCM token is required' },
+        { error: 'Either token (FCM) or subscription (Web Push) is required' },
         { status: 400 }
       )
     }
 
+    // For Web Push subscriptions, use the endpoint as the unique token
+    // For FCM tokens, use the token itself
+    const uniqueToken = token || (subscription?.endpoint || JSON.stringify(subscription))
+
     // Upsert FCM token (update if exists, create if new)
     await prisma.fCMToken.upsert({
-      where: { token },
+      where: { token: uniqueToken },
       update: {
         userId,
+        token: uniqueToken,
+        subscription: subscription ? subscription : undefined,
         device: device || null,
         userAgent: userAgent || null,
         updatedAt: new Date(),
       },
       create: {
         userId,
-        token,
+        token: uniqueToken,
+        subscription: subscription ? subscription : undefined,
         device: device || null,
         userAgent: userAgent || null,
       },

@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '@/lib/db/prisma'
-import { sendPushNotifications } from '@/lib/firebase/fcm-client'
+import { sendPushNotifications as sendVAPIDPushNotifications } from '@/lib/web-push/vapid-push'
 import { isNotificationTypeEnabled } from './notification-preferences'
 
 /**
@@ -23,10 +23,10 @@ export async function sendYourTurnPushNotification(
       return
     }
 
-    // Get user's FCM tokens
+    // Get user's web push subscriptions
     const tokens = await prisma.fCMToken.findMany({
       where: { userId },
-      select: { token: true },
+      select: { token: true, subscription: true },
     })
 
     if (tokens.length === 0) {
@@ -34,9 +34,31 @@ export async function sendYourTurnPushNotification(
       return
     }
 
-    // Send push notification
-    await sendPushNotifications(
-      tokens.map((t) => t.token),
+    // Convert to web push subscriptions
+    const subscriptions = tokens
+      .map((t) => {
+        if (t.subscription) {
+          try {
+            return JSON.parse(t.subscription)
+          } catch {
+            return null
+          }
+        }
+        try {
+          return JSON.parse(t.token)
+        } catch {
+          return null
+        }
+      })
+      .filter((sub): sub is { endpoint: string; keys: { p256dh: string; auth: string } } => sub !== null)
+
+    if (subscriptions.length === 0) {
+      return
+    }
+
+    // Send push notification using VAPID
+    await sendVAPIDPushNotifications(
+      subscriptions,
       {
         title: "It's Your Turn!",
         body: `Your opponent submitted their argument in "${debateTopic}"`,
@@ -74,13 +96,35 @@ export async function sendPushNotificationForNotification(
       return
     }
 
-    // Get user's FCM tokens
+    // Get user's web push subscriptions
     const tokens = await prisma.fCMToken.findMany({
       where: { userId },
-      select: { token: true },
+      select: { token: true, subscription: true },
     })
 
     if (tokens.length === 0) {
+      return
+    }
+
+    // Convert to web push subscriptions
+    const subscriptions = tokens
+      .map((t) => {
+        if (t.subscription) {
+          try {
+            return JSON.parse(t.subscription)
+          } catch {
+            return null
+          }
+        }
+        try {
+          return JSON.parse(t.token)
+        } catch {
+          return null
+        }
+      })
+      .filter((sub): sub is { endpoint: string; keys: { p256dh: string; auth: string } } => sub !== null)
+
+    if (subscriptions.length === 0) {
       return
     }
 
@@ -92,9 +136,9 @@ export async function sendPushNotificationForNotification(
       url = '/debates'
     }
 
-    // Send push notification
-    await sendPushNotifications(
-      tokens.map((t) => t.token),
+    // Send push notification using VAPID
+    await sendVAPIDPushNotifications(
+      subscriptions,
       {
         title,
         body: message,
