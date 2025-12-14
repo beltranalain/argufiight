@@ -49,17 +49,6 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setGoogleLoading(true);
-    try {
-      await loginWithGoogle();
-    } catch (error: any) {
-      Alert.alert('Google Login Failed', error.message || 'Failed to sign in with Google');
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
