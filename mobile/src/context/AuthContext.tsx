@@ -8,15 +8,6 @@ import api from '../services/api';
 
 // Complete web browser authentication session
 WebBrowser.maybeCompleteAuthSession();
-
-// Use the deep link as the redirect URI for AuthSession
-const redirectUri = AuthSession.makeRedirectUri({
-  scheme: 'honorableai',
-  path: 'auth/callback',
-});
-
-// Use the deep link as the redirect URI for AuthSession
-const redirectUri = AuthSession.makeRedirectUri({
   scheme: 'honorableai',
   path: 'auth/callback',
 });
