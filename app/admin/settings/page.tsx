@@ -1573,8 +1573,6 @@ export default function AdminSettingsPage() {
                         </div>
                       </div>
                     )}
-                      </div>
-                    )}
 
                     {!hasFCMToken && notificationPermission === 'granted' && (
                       <div className="p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
