@@ -172,48 +172,37 @@ export async function GET(request: NextRequest) {
       })
 
       // This is the mobile-callback endpoint
-      // Redirect to deep link with token in URL
-      // Append token to the callback URL first (for fallback), then redirect to deep link
-      const deepLinkUrl = `honorableai://auth/callback?token=${encodeURIComponent(sessionJWT)}&success=true&userId=${user.id}`
+      // Instead of redirecting to deep link, append token to the callback URL itself
+      // This way WebBrowser.openAuthSessionAsync can capture it directly
+      const callbackUrl = new URL(request.url)
+      callbackUrl.searchParams.set('token', sessionJWT)
+      callbackUrl.searchParams.set('success', 'true')
+      callbackUrl.searchParams.set('userId', user.id)
       
-      // Return HTML with multiple redirect methods for maximum compatibility
+      // Return HTML that redirects to the callback URL with token (not deep link)
+      // WebBrowser will capture this URL and return it to the app
       return new NextResponse(
         `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="0;url=${deepLinkUrl}">
-  <title>Redirecting...</title>
+  <title>Authentication Successful</title>
   <script>
-    // Multiple redirect attempts for maximum compatibility
-    (function() {
-      try {
-        // Method 1: window.location.replace (doesn't add to history)
-        window.location.replace('${deepLinkUrl}');
-      } catch (e) {
-        try {
-          // Method 2: window.location.href
-          window.location.href = '${deepLinkUrl}';
-        } catch (e2) {
-          // Method 3: window.open as fallback
-          window.open('${deepLinkUrl}', '_self');
-        }
-      }
-    })();
+    // Close the browser window - WebBrowser should have captured the URL
+    window.close();
   </script>
 </head>
 <body>
   <p style="text-align: center; padding: 20px; font-family: sans-serif;">
-    Redirecting to app...
+    Authentication successful. You can close this window.
   </p>
 </body>
 </html>`,
         {
-          status: 302,
+          status: 200,
           headers: {
             'Content-Type': 'text/html',
-            'Location': deepLinkUrl,
           },
         }
       )

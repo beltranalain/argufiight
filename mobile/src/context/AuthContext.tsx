@@ -123,16 +123,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log('[Google Login] Auth URL:', authUrl);
       console.log('[Google Login] Redirect URI:', redirectUri);
       
-      // Use WebBrowser - the second parameter tells it what URL to listen for
-      // When the callback redirects to this deep link, WebBrowser should capture it
-      const deepLinkRedirect = 'honorableai://auth/callback';
+      // Use WebBrowser with the web callback URL as the redirect URI
+      // The callback will append the token to the URL, which WebBrowser can capture
+      console.log('[Google Login] Opening auth session, expecting callback URL with token');
       
-      console.log('[Google Login] Opening auth session, expecting:', deepLinkRedirect);
-      
-      // Open auth session - the second parameter is the redirect URI pattern to match
+      // Open auth session - use the web callback URL as the redirect URI
+      // WebBrowser will capture the callback URL when it's loaded
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        deepLinkRedirect
+        redirectUri  // Use the web callback URL, not the deep link
       );
 
       console.log('[Google Login] OAuth result type:', result.type);
@@ -146,64 +145,45 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const resultUrl = result.url;
         console.log('[Google Login] Result URL:', resultUrl);
         
-        // The callback redirects to a deep link, so result.url should be the deep link
-        if (resultUrl.startsWith('honorableai://')) {
-          console.log('[Google Login] Deep link detected, parsing...');
-          // Deep link - parse it directly
-          await handleDeepLink(resultUrl);
-        } else if (resultUrl.includes('/api/auth/google/mobile-callback')) {
-          console.log('[Google Login] Callback URL detected - fetching token...');
+        // The callback now appends token to the URL itself (not redirecting to deep link)
+        if (resultUrl.includes('/api/auth/google/mobile-callback')) {
+          console.log('[Google Login] Callback URL detected, extracting token...');
           
-          // The callback redirects to deep link, but WebBrowser didn't capture it
-          // Fetch the callback URL and extract the deep link from the redirect
+          // Extract token from URL query params
           try {
-            const response = await fetch(resultUrl, { 
-              method: 'GET',
-              redirect: 'manual', // Don't follow redirects automatically
-            });
+            const urlObj = new URL(resultUrl);
+            const token = urlObj.searchParams.get('token');
+            const success = urlObj.searchParams.get('success');
+            const userId = urlObj.searchParams.get('userId');
             
-            console.log('[Google Login] Fetch response status:', response.status);
-            
-            // Check Location header for redirect to deep link
-            const location = response.headers.get('Location');
-            if (location && location.startsWith('honorableai://')) {
-              console.log('[Google Login] Location header contains deep link:', location);
-              // Manually trigger the deep link
-              const canOpen = await Linking.canOpenURL(location);
-              if (canOpen) {
-                console.log('[Google Login] Opening deep link manually...');
-                await Linking.openURL(location);
-                // The deep link handler will process it
-                return;
-              } else {
-                throw new Error('Cannot open deep link');
+            if (token && success === 'true') {
+              console.log('[Google Login] Token found in callback URL');
+              // Store token
+              await AsyncStorage.setItem('auth_token', token);
+              
+              // Fetch user data
+              try {
+                const userResponse = await api.get('/auth/me');
+                const userData = userResponse.data.user || userResponse.data;
+                setUser(userData);
+                await AsyncStorage.setItem('user', JSON.stringify(userData));
+                console.log('[Google Login] User data fetched and stored');
+              } catch (userError: any) {
+                console.error('[Google Login] Error fetching user data:', userError);
+                // Token is stored, user can refresh
               }
+              return; // Success!
+            } else {
+              throw new Error('Token not found in callback URL');
             }
-            
-            // If 302/301 redirect, try to get Location header
-            if (response.status >= 300 && response.status < 400) {
-              const redirectUrl = response.headers.get('Location');
-              if (redirectUrl && redirectUrl.startsWith('honorableai://')) {
-                console.log('[Google Login] Redirect URL is deep link:', redirectUrl);
-                await Linking.openURL(redirectUrl);
-                return;
-              }
-            }
-            
-            // Try to parse HTML response for deep link
-            const html = await response.text();
-            const deepLinkMatch = html.match(/honorableai:\/\/auth\/callback[^"'\s<>]*/);
-            if (deepLinkMatch) {
-              console.log('[Google Login] Deep link found in HTML:', deepLinkMatch[0]);
-              await Linking.openURL(deepLinkMatch[0]);
-              return;
-            }
-            
-            throw new Error('Could not extract deep link from callback');
-          } catch (fetchError: any) {
-            console.error('[Google Login] Error processing callback:', fetchError);
-            throw new Error(`Failed to complete Google login: ${fetchError.message}`);
+          } catch (urlError: any) {
+            console.error('[Google Login] Error parsing callback URL:', urlError);
+            throw new Error(`Failed to extract token: ${urlError.message}`);
           }
+        } else if (resultUrl.startsWith('honorableai://')) {
+          // Fallback: if we somehow get a deep link, handle it
+          console.log('[Google Login] Deep link detected, parsing...');
+          await handleDeepLink(resultUrl);
         } else {
           console.error('[Google Login] Unexpected callback URL:', resultUrl);
           throw new Error('Unexpected callback URL: ' + resultUrl);
