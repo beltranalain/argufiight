@@ -1,10 +1,16 @@
 import type { Metadata } from 'next'
-import { notFound, redirect } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
 import { RelatedDebates } from '@/components/debate/RelatedDebates'
+
+// Helper function to check if a string is a UUID
+function isUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return uuidRegex.test(str)
+}
 
 export async function generateMetadata({
   params,
@@ -13,10 +19,12 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params
 
-  const debate = await prisma.debate.findUnique({
+  // Try to find by slug first, or by ID if it's a UUID
+  let debate = await prisma.debate.findUnique({
     where: { slug },
     select: {
       id: true,
+      slug: true,
       topic: true,
       description: true,
       category: true,
@@ -38,6 +46,35 @@ export async function generateMetadata({
     },
   })
 
+  // If not found by slug and it's a UUID, try finding by ID
+  if (!debate && isUUID(slug)) {
+    debate = await prisma.debate.findUnique({
+      where: { id: slug },
+      select: {
+        id: true,
+        slug: true,
+        topic: true,
+        description: true,
+        category: true,
+        challenger: {
+          select: {
+            username: true,
+            avatarUrl: true,
+          },
+        },
+        opponent: {
+          select: {
+            username: true,
+            avatarUrl: true,
+          },
+        },
+        status: true,
+        visibility: true,
+        createdAt: true,
+      },
+    })
+  }
+
   if (!debate || debate.visibility !== 'PUBLIC') {
     return {
       title: 'Debate Not Found',
@@ -47,6 +84,9 @@ export async function generateMetadata({
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
   const title = `${debate.topic} | Argufight Debate`
   const description = debate.description || `Watch ${debate.challenger.username} debate ${debate.opponent?.username || 'an opponent'} on ${debate.topic}`
+  
+  // Use slug URL if available, otherwise use ID
+  const debateUrl = debate.slug ? `${baseUrl}/debates/${debate.slug}` : `${baseUrl}/debates/${debate.id}`
 
   return {
     title,
@@ -55,7 +95,7 @@ export async function generateMetadata({
       title,
       description,
       type: 'article',
-      url: `${baseUrl}/debates/${slug}`,
+      url: debateUrl,
     },
     twitter: {
       card: 'summary_large_image',
@@ -63,7 +103,7 @@ export async function generateMetadata({
       description,
     },
     alternates: {
-      canonical: `${baseUrl}/debates/${slug}`,
+      canonical: debateUrl,
     },
   }
 }
@@ -75,7 +115,30 @@ export default async function PublicDebatePage({
 }) {
   const { slug } = await params
 
-  const debate = await prisma.debate.findUnique({
+  // Check if this is a UUID (old format) - if so, look up by ID and redirect to slug if available
+  if (isUUID(slug)) {
+    const debateCheck = await prisma.debate.findUnique({
+      where: { id: slug },
+      select: {
+        id: true,
+        slug: true,
+        visibility: true,
+      },
+    })
+
+    // If debate has a slug, redirect to slug-based URL (301 permanent redirect)
+    if (debateCheck?.slug) {
+      permanentRedirect(`/debates/${debateCheck.slug}`)
+    }
+
+    // If no slug but debate exists, continue with ID lookup (fallback)
+    if (!debateCheck || debateCheck.visibility !== 'PUBLIC') {
+      notFound()
+    }
+  }
+
+  // Try to find by slug first (primary method)
+  let debate = await prisma.debate.findUnique({
     where: { slug },
     select: {
       id: true,
@@ -145,6 +208,80 @@ export default async function PublicDebatePage({
       },
     },
   })
+
+  // If not found by slug and it's a UUID, try finding by ID (fallback for old URLs)
+  if (!debate && isUUID(slug)) {
+    debate = await prisma.debate.findUnique({
+      where: { id: slug },
+      select: {
+        id: true,
+        slug: true,
+        topic: true,
+        description: true,
+        category: true,
+        winnerId: true,
+        challengerId: true,
+        opponentId: true,
+        status: true,
+        visibility: true,
+        createdAt: true,
+        updatedAt: true,
+        challenger: {
+          select: {
+            id: true,
+            username: true,
+            avatarUrl: true,
+            eloRating: true,
+          },
+        },
+        opponent: {
+          select: {
+            id: true,
+            username: true,
+            avatarUrl: true,
+            eloRating: true,
+          },
+        },
+        statements: {
+          select: {
+            id: true,
+            round: true,
+            content: true,
+            author: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+              },
+            },
+          },
+          orderBy: {
+            round: 'asc',
+          },
+        },
+        verdicts: {
+          select: {
+            id: true,
+            winnerId: true,
+            reasoning: true,
+            challengerScore: true,
+            opponentScore: true,
+            judge: {
+              select: {
+                id: true,
+                name: true,
+                emoji: true,
+                personality: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+      },
+    })
+  }
 
   if (!debate) {
     notFound()
