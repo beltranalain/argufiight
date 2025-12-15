@@ -86,3 +86,4 @@ if (args.length < 2) {
 const [userId, newUsername] = args
 updateBlockedUsername(userId, newUsername)
 
+

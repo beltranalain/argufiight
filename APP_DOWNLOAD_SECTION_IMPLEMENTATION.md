@@ -120,3 +120,4 @@ The component automatically detects which image is for which store by:
 
 
 
+

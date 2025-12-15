@@ -44,3 +44,4 @@ The opponent should see the debate in:
 No code changes needed - the system is working as designed. WAITING debates are intentionally hidden from public views until they're accepted and become ACTIVE.
 
 
+

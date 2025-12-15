@@ -32,3 +32,4 @@ export function NavigationDots({ total, active, onDotClick }: NavigationDotsProp
 
 
 
+

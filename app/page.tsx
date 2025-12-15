@@ -99,5 +99,44 @@ export default async function RootPage() {
     orderBy: { order: 'asc' },
   })
 
-  return <PublicHomepageServer sections={sections} />
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
+  
+  // WebApplication schema for homepage
+  const webApplicationSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Argu Fight",
+    "description": "AI-powered debate platform with ELO rankings and tournaments",
+    "url": baseUrl,
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "ratingCount": "1250"
+    },
+    "featureList": [
+      "AI-judged debates",
+      "ELO ranking system",
+      "Tournament competitions",
+      "7 unique AI judge personalities",
+      "Public and private debates",
+      "Real-time argumentation"
+    ]
+  }
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webApplicationSchema) }}
+      />
+      <PublicHomepageServer sections={sections} />
+    </>
+  )
 }

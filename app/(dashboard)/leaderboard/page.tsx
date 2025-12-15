@@ -55,6 +55,53 @@ export default function LeaderboardPage() {
     }
   }, [activeTab])
 
+  // Add ItemList schema markup for SEO
+  useEffect(() => {
+    const currentLeaderboard = activeTab === 'elo' ? eloLeaderboard : tournamentLeaderboard
+    if (currentLeaderboard.length === 0) return
+
+    const itemListSchema = {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "name": activeTab === 'elo' ? "Argu Fight Top Debaters - ELO Rankings" : "Argu Fight Tournament Leaderboard",
+      "description": activeTab === 'elo' 
+        ? "Top debaters ranked by ELO rating on Argu Fight"
+        : "Top debaters ranked by tournament performance on Argu Fight",
+      "itemListElement": currentLeaderboard.slice(0, 50).map((entry, index) => ({
+        "@type": "ListItem",
+        "position": entry.rank,
+        "item": {
+          "@type": "Person",
+          "name": entry.username,
+          "url": `https://www.argufight.com/${entry.username}`,
+          "description": activeTab === 'elo'
+            ? `ELO: ${(entry as ELOLeaderboardEntry).eloRating}, Record: ${(entry as ELOLeaderboardEntry).debatesWon}W-${(entry as ELOLeaderboardEntry).debatesLost}L-${(entry as ELOLeaderboardEntry).debatesTied || 0}T`
+            : `Tournament Score: ${Number((entry as TournamentLeaderboardEntry).tournamentScore).toFixed(2)}, Championships: ${(entry as TournamentLeaderboardEntry).tournamentsWon}`
+        }
+      }))
+    }
+
+    // Remove existing schema if any
+    const existingScript = document.getElementById('leaderboard-schema')
+    if (existingScript) {
+      existingScript.remove()
+    }
+
+    // Add new schema
+    const script = document.createElement('script')
+    script.id = 'leaderboard-schema'
+    script.type = 'application/ld+json'
+    script.textContent = JSON.stringify(itemListSchema)
+    document.head.appendChild(script)
+
+    return () => {
+      const scriptToRemove = document.getElementById('leaderboard-schema')
+      if (scriptToRemove) {
+        scriptToRemove.remove()
+      }
+    }
+  }, [activeTab, eloLeaderboard, tournamentLeaderboard])
+
   const fetchELOLeaderboard = async () => {
     try {
       setIsLoading(true)
