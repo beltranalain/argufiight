@@ -62,32 +62,20 @@ export default function NotFound() {
 
         <div className="pt-4">
           <p className="text-text-secondary mb-4">Or search for debates:</p>
-          <div className="flex gap-2 max-w-md mx-auto">
+          <form action="/debates" method="GET" className="flex gap-2 max-w-md mx-auto">
             <input
               type="search"
+              name="search"
               placeholder="Search debates..."
               className="flex-1 px-4 py-2 bg-bg-tertiary border border-bg-secondary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const query = (e.target as HTMLInputElement).value
-                  if (query.trim()) {
-                    window.location.href = `/debates?search=${encodeURIComponent(query.trim())}`
-                  }
-                }
-              }}
             />
             <button
-              onClick={() => {
-                const input = document.querySelector('input[type="search"]') as HTMLInputElement
-                if (input?.value.trim()) {
-                  window.location.href = `/debates?search=${encodeURIComponent(input.value.trim())}`
-                }
-              }}
+              type="submit"
               className="px-6 py-2 bg-electric-blue text-black font-semibold rounded-lg hover:bg-electric-blue/90 transition-colors"
             >
               Search
             </button>
-          </div>
+          </form>
         </div>
 
         <div className="pt-4">
