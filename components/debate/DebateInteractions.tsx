@@ -324,7 +324,7 @@ export function DebateInteractions({ debateId }: DebateInteractionsProps) {
           <div className="flex items-center gap-2 ml-2">
             <button
               onClick={async () => {
-                const shareUrl = `${window.location.origin}/debate/${debateId}`
+                const shareUrl = `${window.location.origin}/debates/${debateId}`
                 const text = encodeURIComponent(`Check out this debate on Argu Fight!`)
                 window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(shareUrl)}`, '_blank', 'width=550,height=420')
                 await fetch(`/api/debates/${debateId}/share`, {
@@ -342,7 +342,7 @@ export function DebateInteractions({ debateId }: DebateInteractionsProps) {
             </button>
             <button
               onClick={async () => {
-                const shareUrl = `${window.location.origin}/debate/${debateId}`
+                const shareUrl = `${window.location.origin}/debates/${debateId}`
                 window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank', 'width=550,height=420')
                 await fetch(`/api/debates/${debateId}/share`, {
                   method: 'POST',
@@ -359,7 +359,7 @@ export function DebateInteractions({ debateId }: DebateInteractionsProps) {
             </button>
             <button
               onClick={async () => {
-                const shareUrl = `${window.location.origin}/debate/${debateId}`
+                const shareUrl = `${window.location.origin}/debates/${debateId}`
                 const title = encodeURIComponent(document.title || 'Debate on Argu Fight')
                 window.open(`https://reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${title}`, '_blank', 'width=550,height=420')
                 await fetch(`/api/debates/${debateId}/share`, {

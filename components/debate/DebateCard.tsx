@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 interface DebateCardProps {
   debate: {
     id: string
+    slug?: string | null
     topic: string
     category: string
     challengeType?: string
@@ -89,7 +90,7 @@ export function DebateCard({ debate }: DebateCardProps) {
       whileTap={cardTap}
     >
       <Link
-        href={`/debate/${debate.id}`}
+        href={debate.slug ? `/debates/${debate.slug}` : `/debate/${debate.id}`}
         className="block bg-bg-secondary border border-bg-tertiary rounded-2xl p-6 hover:border-electric-blue hover:shadow-[0_8px_32px_rgba(0,217,255,0.15)] transition-all"
       >
       {/* Category and Tournament Badges */}
