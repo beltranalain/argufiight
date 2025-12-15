@@ -1,16 +1,10 @@
-import Link from 'next/link'
-import type { Metadata } from 'next'
+'use client'
 
-export const metadata: Metadata = {
-  title: 'Page Not Found - Argu Fight',
-  description: 'The page you are looking for could not be found. Browse debates, join tournaments, or return to the homepage.',
-  robots: {
-    index: false,
-    follow: true,
-  },
-}
+import Link from 'next/link'
+import { useState } from 'react'
 
 export default function NotFound() {
+  const [searchQuery, setSearchQuery] = useState('')
   return (
     <div className="min-h-screen bg-bg-primary flex items-center justify-center px-4">
       <div className="max-w-2xl w-full text-center space-y-8">
@@ -66,21 +60,19 @@ export default function NotFound() {
             <input
               type="search"
               placeholder="Search debates..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="flex-1 px-4 py-2 bg-bg-tertiary border border-bg-secondary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue"
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const query = (e.target as HTMLInputElement).value
-                  if (query.trim()) {
-                    window.location.href = `/debates?search=${encodeURIComponent(query.trim())}`
-                  }
+                if (e.key === 'Enter' && searchQuery.trim()) {
+                  window.location.href = `/debates?search=${encodeURIComponent(searchQuery.trim())}`
                 }
               }}
             />
             <button
               onClick={() => {
-                const input = document.querySelector('input[type="search"]') as HTMLInputElement
-                if (input?.value.trim()) {
-                  window.location.href = `/debates?search=${encodeURIComponent(input.value.trim())}`
+                if (searchQuery.trim()) {
+                  window.location.href = `/debates?search=${encodeURIComponent(searchQuery.trim())}`
                 }
               }}
               className="px-6 py-2 bg-electric-blue text-black font-semibold rounded-lg hover:bg-electric-blue/90 transition-colors"

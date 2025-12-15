@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { notFound, redirect } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -76,7 +76,7 @@ export default async function PublicDebatePage({
   const { id } = await params
 
   // Check if this is a UUID (old format) and redirect to slug if available
-  const debate = await prisma.debate.findUnique({
+  const debateCheck = await prisma.debate.findUnique({
     where: { id },
     select: {
       id: true,
@@ -86,14 +86,26 @@ export default async function PublicDebatePage({
   })
 
   // If debate has a slug, redirect to slug-based URL (301 permanent redirect)
-  if (debate?.slug) {
-    redirect(`/debates/${debate.slug}`, 301)
+  if (debateCheck?.slug) {
+    permanentRedirect(`/debates/${debateCheck.slug}`)
   }
 
   // If no slug but debate exists, fetch full data (fallback for debates without slugs yet)
-  const fullDebate = await prisma.debate.findUnique({
+  const debate = await prisma.debate.findUnique({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      slug: true,
+      topic: true,
+      description: true,
+      category: true,
+      winnerId: true,
+      challengerId: true,
+      opponentId: true,
+      status: true,
+      visibility: true,
+      createdAt: true,
+      updatedAt: true,
       challenger: {
         select: {
           id: true,
@@ -111,7 +123,10 @@ export default async function PublicDebatePage({
         },
       },
       statements: {
-        include: {
+        select: {
+          id: true,
+          round: true,
+          content: true,
           author: {
             select: {
               id: true,
@@ -125,11 +140,16 @@ export default async function PublicDebatePage({
         },
       },
       verdicts: {
-        include: {
+        select: {
+          id: true,
+          winnerId: true,
+          reasoning: true,
           judge: {
             select: {
+              id: true,
               name: true,
               emoji: true,
+              personality: true,
             },
           },
         },
@@ -137,29 +157,22 @@ export default async function PublicDebatePage({
           createdAt: 'asc',
         },
       },
-      tags: {
-        include: {
-          tag: true,
-        },
-      },
     },
   })
 
-  if (!fullDebate) {
+  if (!debate) {
     notFound()
   }
 
   // Only show public debates
-  if (fullDebate.visibility !== 'PUBLIC') {
+  if (debate.visibility !== 'PUBLIC') {
     notFound()
   }
 
-  // If debate has a slug but we're on the ID route, redirect
-  if (fullDebate.slug) {
-    redirect(`/debates/${fullDebate.slug}`, 301)
+  // If debate has a slug but we're on the ID route, redirect (double-check)
+  if (debate.slug) {
+    permanentRedirect(`/debates/${debate.slug}`)
   }
-
-  const debate = fullDebate
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
 
@@ -333,10 +346,7 @@ export default async function PublicDebatePage({
                         <p className="text-text-secondary text-xs">Round {statement.round}</p>
                       </div>
                     </div>
-                    <div
-                      className="prose prose-invert prose-sm max-w-none prose-p:text-text-primary/90"
-                      dangerouslySetInnerHTML={{ __html: statement.content }}
-                    />
+                    <p className="text-text-primary whitespace-pre-wrap">{statement.content}</p>
                   </div>
                 ))}
               </div>
@@ -357,6 +367,7 @@ export default async function PublicDebatePage({
                       <span className="text-2xl">{verdict.judge.emoji}</span>
                       <h3 className="text-lg font-semibold text-white">{verdict.judge.name}</h3>
                     </div>
+                    <p className="text-text-primary/80 text-sm mb-2">{verdict.judge.personality}</p>
                     {verdict.winnerId && (
                       <p className="text-text-secondary text-sm mb-2">
                         Winner: {verdict.winnerId === debate.challengerId ? debate.challenger.username : debate.opponent?.username}

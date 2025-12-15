@@ -87,6 +87,7 @@ export default async function DebatesArchivePage({
         description: true,
         category: true,
         winnerId: true,
+        createdAt: true,
         updatedAt: true,
         challenger: {
           select: {

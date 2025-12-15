@@ -77,7 +77,19 @@ export default async function PublicDebatePage({
 
   const debate = await prisma.debate.findUnique({
     where: { slug },
-    include: {
+    select: {
+      id: true,
+      slug: true,
+      topic: true,
+      description: true,
+      category: true,
+      winnerId: true,
+      challengerId: true,
+      opponentId: true,
+      status: true,
+      visibility: true,
+      createdAt: true,
+      updatedAt: true,
       challenger: {
         select: {
           id: true,
@@ -95,7 +107,10 @@ export default async function PublicDebatePage({
         },
       },
       statements: {
-        include: {
+        select: {
+          id: true,
+          round: true,
+          content: true,
           author: {
             select: {
               id: true,
@@ -109,7 +124,12 @@ export default async function PublicDebatePage({
         },
       },
       verdicts: {
-        include: {
+        select: {
+          id: true,
+          winnerId: true,
+          reasoning: true,
+          challengerScore: true,
+          opponentScore: true,
           judge: {
             select: {
               id: true,
@@ -121,12 +141,6 @@ export default async function PublicDebatePage({
         },
         orderBy: {
           createdAt: 'asc',
-        },
-      },
-      winner: {
-        select: {
-          id: true,
-          username: true,
         },
       },
     },
@@ -321,12 +335,14 @@ export default async function PublicDebatePage({
           )}
 
           {/* Winner */}
-          {debate.winner && (
+          {debate.winnerId && (
             <section className="mb-12">
               <div className="bg-gradient-to-r from-cyber-green/20 to-electric-blue/20 border border-cyber-green/50 rounded-xl p-8 text-center">
                 <h2 className="text-3xl font-bold text-white mb-2">Winner</h2>
                 <p className="text-2xl text-cyber-green font-semibold">
-                  {debate.winner.username}
+                  {debate.winnerId === debate.challengerId 
+                    ? debate.challenger.username 
+                    : debate.opponent?.username || 'Unknown'}
                 </p>
               </div>
             </section>
