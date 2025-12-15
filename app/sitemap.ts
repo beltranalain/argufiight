@@ -105,7 +105,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ]
 
-  // Get public debates
+  // Get public debates (use slug if available, fallback to id)
   let publicDebates: MetadataRoute.Sitemap = []
   try {
     publicDebates = await prisma.debate.findMany({
@@ -115,6 +115,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
       select: {
         id: true,
+        slug: true,
         updatedAt: true,
       },
       take: 1000,
@@ -122,7 +123,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         updatedAt: 'desc',
       },
     }).then(debates => debates.map(debate => ({
-      url: `${baseUrl}/debates/${debate.id}`,
+      url: `${baseUrl}/debates/${debate.slug || debate.id}`,
       lastModified: debate.updatedAt,
       changeFrequency: 'weekly' as const,
       priority: 0.7,

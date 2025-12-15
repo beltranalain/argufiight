@@ -80,7 +80,14 @@ export default async function DebatesArchivePage({
   const [debates, total] = await Promise.all([
     prisma.debate.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        slug: true,
+        topic: true,
+        description: true,
+        category: true,
+        winnerId: true,
+        updatedAt: true,
         challenger: {
           select: {
             id: true,
@@ -156,7 +163,7 @@ export default async function DebatesArchivePage({
         "item": {
           "@type": "Article",
           "headline": debate.topic,
-          "url": `${baseUrl}/debates/${debate.id}`,
+          "url": `${baseUrl}/debates/${debate.slug || debate.id}`,
           "datePublished": debate.createdAt.toISOString(),
           "dateModified": debate.updatedAt.toISOString(),
         }
@@ -267,7 +274,7 @@ export default async function DebatesArchivePage({
                 {debates.map((debate) => (
                   <Link
                     key={debate.id}
-                    href={`/debates/${debate.id}`}
+                    href={`/debates/${debate.slug || debate.id}`}
                     className="block"
                   >
                     <Card className="hover:border-electric-blue transition-colors">

@@ -172,7 +172,8 @@ export function DebateInteractions({ debateId }: DebateInteractionsProps) {
 
   const handleShare = async () => {
     try {
-      const shareUrl = `${window.location.origin}/debate/${debateId}`
+      // Try to get slug from debate data if available
+      const shareUrl = `${window.location.origin}/debates/${debateId}`
       
       // Try Web Share API first (mobile)
       if (navigator.share) {

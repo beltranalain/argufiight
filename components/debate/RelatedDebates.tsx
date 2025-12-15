@@ -27,7 +27,11 @@ export async function RelatedDebates({
         visibility: 'PUBLIC',
         status: { in: ['COMPLETED', 'VERDICT_READY'] },
       },
-      include: {
+      select: {
+        id: true,
+        slug: true,
+        topic: true,
+        category: true,
         challenger: {
           select: {
             id: true,
@@ -60,7 +64,11 @@ export async function RelatedDebates({
           ...(opponentId ? [{ challengerId: opponentId }, { opponentId: challengerId }] : []),
         ],
       },
-      include: {
+      select: {
+        id: true,
+        slug: true,
+        topic: true,
+        category: true,
         challenger: {
           select: {
             id: true,
@@ -88,7 +96,11 @@ export async function RelatedDebates({
         visibility: 'PUBLIC',
         status: { in: ['COMPLETED', 'VERDICT_READY'] },
       },
-      include: {
+      select: {
+        id: true,
+        slug: true,
+        topic: true,
+        category: true,
         challenger: {
           select: {
             id: true,
@@ -130,7 +142,7 @@ export async function RelatedDebates({
       <h2 className="text-2xl font-bold text-text-primary mb-6">Related Debates</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {allDebates.map((debate) => (
-          <Link key={debate.id} href={`/debates/${debate.id}`}>
+          <Link key={debate.id} href={`/debates/${debate.slug || debate.id}`}>
             <Card className="h-full hover:border-electric-blue transition-colors">
               <CardBody>
                 <h3 className="text-lg font-semibold text-text-primary mb-2 line-clamp-2">

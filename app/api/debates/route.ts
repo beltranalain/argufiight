@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { generateUniqueSlug } from '@/lib/utils/slug'
 import crypto from 'crypto'
 
 // GET /api/debates - List debates
@@ -366,12 +367,29 @@ export async function POST(request: NextRequest) {
       shareToken = crypto.randomBytes(24).toString('base64url')
     }
 
+    // Generate SEO-friendly slug
+    let slug = generateUniqueSlug(topic)
+    // Ensure slug is unique
+    let slugExists = await prisma.debate.findUnique({ where: { slug } })
+    let counter = 1
+    while (slugExists) {
+      slug = generateUniqueSlug(topic, Math.random().toString(36).substring(2, 8))
+      slugExists = await prisma.debate.findUnique({ where: { slug } })
+      counter++
+      if (counter > 100) {
+        // Fallback to UUID-based slug if too many collisions
+        slug = generateUniqueSlug(topic, crypto.randomBytes(4).toString('hex'))
+        break
+      }
+    }
+
     // Try to create debate with Prisma first
     let debate
     try {
       debate = await prisma.debate.create({
         data: {
           topic,
+          slug,
           description: description || null,
           category: category as any, // Cast to enum type
           challengerId: userId,
