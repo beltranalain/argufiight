@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import Image from 'next/image'
 import Link from 'next/link'
+import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
+import { RelatedDebates } from '@/components/debate/RelatedDebates'
 
 export async function generateMetadata({
   params,
@@ -180,18 +182,14 @@ export default async function PublicDebatePage({
 
       <div className="min-h-screen bg-gradient-to-b from-purple-950 via-purple-900 to-indigo-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          {/* Breadcrumb */}
-          <nav className="mb-8 text-sm text-text-secondary">
-            <Link href="/" className="hover:text-white transition-colors">
-              Home
-            </Link>
-            <span className="mx-2">/</span>
-            <Link href="/leaderboard" className="hover:text-white transition-colors">
-              Debates
-            </Link>
-            <span className="mx-2">/</span>
-            <span className="text-white">{debate.topic}</span>
-          </nav>
+          {/* Breadcrumb with Schema */}
+          <Breadcrumbs
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Debates', href: '/debates' },
+              { label: debate.topic, href: `/debates/${id}` },
+            ]}
+          />
 
           {/* Header */}
           <header className="mb-8">
@@ -350,8 +348,16 @@ export default async function PublicDebatePage({
             </section>
           )}
 
+          {/* Related Debates */}
+          <RelatedDebates
+            currentDebateId={id}
+            category={debate.category}
+            challengerId={debate.challengerId}
+            opponentId={debate.opponentId}
+          />
+
           {/* CTA */}
-          <div className="bg-bg-secondary border border-electric-blue/50 rounded-xl p-8 text-center">
+          <div className="bg-bg-secondary border border-electric-blue/50 rounded-xl p-8 text-center mt-12">
             <h3 className="text-2xl font-bold text-white mb-4">Want to Join the Debate?</h3>
             <p className="text-text-secondary mb-6">
               Sign up to create your own debates and challenge others

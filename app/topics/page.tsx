@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { prisma } from '@/lib/db/prisma'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
+import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
 
 export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
@@ -99,6 +100,13 @@ export default async function TopicsPage() {
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
+          />
+
+          <Breadcrumbs
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Topics', href: '/topics' },
+            ]}
           />
 
           <div className="mb-8">

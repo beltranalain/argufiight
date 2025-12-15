@@ -83,6 +83,15 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Font optimization - ensure fonts display immediately */
+@font-face {
+  font-family: system;
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: local('.SFNSText-Light'), local('.HelveticaNeueDeskInterface-Light'), local('.LucidaGrandeUI'), local('Segoe UI Light'), local('Ubuntu Light'), local('Roboto-Light'), local('DroidSans'), local('Tahoma');
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

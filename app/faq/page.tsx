@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 export default function FAQPage() {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
 
+  // Generate FAQPage schema
   const faqs = [
     {
       category: 'Getting Started',
