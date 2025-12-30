@@ -19,28 +19,37 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = email.toLowerCase().trim()
     console.log(`[LOGIN] Attempting login for: ${normalizedEmail}`)
     
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        passwordHash: true,
-        googleAuthEnabled: true,
-        isAdmin: true,
-        isBanned: true,
-        bannedUntil: true,
-        avatarUrl: true,
-        bio: true,
-        eloRating: true,
-        debatesWon: true,
-        debatesLost: true,
-        debatesTied: true,
-        totalDebates: true,
-        totpEnabled: true,
-      },
-    })
+    // Find user with error handling (database might be unavailable)
+    let user = null
+    try {
+      user = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          passwordHash: true,
+          googleAuthEnabled: true,
+          isAdmin: true,
+          isBanned: true,
+          bannedUntil: true,
+          avatarUrl: true,
+          bio: true,
+          eloRating: true,
+          debatesWon: true,
+          debatesLost: true,
+          debatesTied: true,
+          totalDebates: true,
+          totpEnabled: true,
+        },
+      })
+    } catch (error: any) {
+      console.error('[LOGIN] Database error:', error.message)
+      return NextResponse.json(
+        { error: 'Database temporarily unavailable. Please try again in a few moments.' },
+        { status: 503 }
+      )
+    }
 
     if (!user) {
       console.log(`[LOGIN] User not found for email: ${normalizedEmail}`)
@@ -102,15 +111,22 @@ export async function POST(request: NextRequest) {
     if (isEmployee) {
       requires2FA = true
     } else {
-      const advertiser = await prisma.advertiser.findUnique({
-        where: { contactEmail: user.email },
-        select: { status: true },
-      })
-      isAdvertiser = advertiser?.status === 'APPROVED'
-      if (isAdvertiser) {
-        // For approved advertisers, only require 2FA if it's already enabled
-        // This allows testing without 2FA setup
-        requires2FA = user.totpEnabled // Only require if already set up
+      // Check advertiser status with error handling
+      try {
+        const advertiser = await prisma.advertiser.findUnique({
+          where: { contactEmail: user.email },
+          select: { status: true },
+        })
+        isAdvertiser = advertiser?.status === 'APPROVED'
+        if (isAdvertiser) {
+          // For approved advertisers, only require 2FA if it's already enabled
+          // This allows testing without 2FA setup
+          requires2FA = user.totpEnabled // Only require if already set up
+        }
+      } catch (error: any) {
+        console.error('[LOGIN] Failed to check advertiser status:', error.message)
+        // Continue without advertiser check - user can still log in
+        isAdvertiser = false
       }
     }
 
@@ -211,11 +227,18 @@ export async function POST(request: NextRequest) {
     // Check if user is an approved advertiser (for redirect logic)
     let isApprovedAdvertiser = false
     if (!isEmployee) {
-      const advertiserCheck = await prisma.advertiser.findUnique({
-        where: { contactEmail: user.email },
-        select: { status: true },
-      })
-      isApprovedAdvertiser = advertiserCheck?.status === 'APPROVED'
+      // Check advertiser status with error handling
+      try {
+        const advertiserCheck = await prisma.advertiser.findUnique({
+          where: { contactEmail: user.email },
+          select: { status: true },
+        })
+        isApprovedAdvertiser = advertiserCheck?.status === 'APPROVED'
+      } catch (error: any) {
+        console.error('[LOGIN] Failed to check advertiser status for session:', error.message)
+        // Continue without advertiser check
+        isApprovedAdvertiser = false
+      }
     }
 
     // Return user (without password) with token for mobile apps
