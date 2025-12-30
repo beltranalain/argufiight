@@ -60,8 +60,9 @@ export async function GET(request: NextRequest) {
         if (overrideSession && overrideSession.expiresAt > new Date()) {
           return NextResponse.json({ user: overrideSession.user })
         }
-      } catch (error) {
-        // Invalid override, fall through to normal session check
+      } catch (error: any) {
+        // Invalid override or database unavailable, fall through to normal session check
+        console.error('[AuthMe] Failed to fetch override session:', error.message)
       }
     }
 
@@ -77,28 +78,40 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        avatarUrl: true,
-        bio: true,
-        eloRating: true,
-        debatesWon: true,
-        debatesLost: true,
-        debatesTied: true,
-        totalDebates: true,
-        totalScore: true,
-        totalMaxScore: true,
-        isAdmin: true,
-        isBanned: true,
-        isCreator: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    })
+    // Fetch user with error handling (database might be unavailable)
+    let user = null
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          avatarUrl: true,
+          bio: true,
+          eloRating: true,
+          debatesWon: true,
+          debatesLost: true,
+          debatesTied: true,
+          totalDebates: true,
+          totalScore: true,
+          totalMaxScore: true,
+          isAdmin: true,
+          isBanned: true,
+          isCreator: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })
+    } catch (error: any) {
+      console.error('[AuthMe] Failed to fetch user:', error.message)
+      // If database is unavailable, return 401 (user not authenticated)
+      // This is better than returning 500, as the client can handle 401 gracefully
+      return NextResponse.json(
+        { user: null },
+        { status: 401 }
+      )
+    }
 
     if (!user) {
       return NextResponse.json(

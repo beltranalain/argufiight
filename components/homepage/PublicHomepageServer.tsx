@@ -68,6 +68,9 @@ export async function PublicHomepageServer({ sections }: PublicHomepageServerPro
   // Sort sections by order
   const sortedSections = [...sections].sort((a, b) => a.order - b.order)
 
+  // If no sections (database unavailable), show default fallback content
+  const hasContent = sortedSections.length > 0
+
   // Get base URL for structured data
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
 
@@ -159,21 +162,51 @@ export async function PublicHomepageServer({ sections }: PublicHomepageServerPro
         </nav>
 
         {/* Hero Section */}
-        {sortedSections.find(s => s.key === 'hero' && s.isVisible) && (
+        {hasContent && sortedSections.find(s => s.key === 'hero' && s.isVisible) && (
           <HeroSection section={sortedSections.find(s => s.key === 'hero' && s.isVisible)!} />
         )}
 
+        {/* Fallback Hero if no content from database */}
+        {!hasContent && (
+          <div className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-purple-950 via-purple-900 to-indigo-950">
+            <div className="max-w-4xl mx-auto text-center">
+              <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+                Welcome to <span className="text-blue-400">Argufight</span>
+              </h1>
+              <p className="text-xl md:text-2xl text-gray-300 mb-8">
+                AI-Judged Debate Platform - Win Debates with 7 AI Judges
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <a
+                  href="/login"
+                  className="px-8 py-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Sign In
+                </a>
+                <a
+                  href="/signup"
+                  className="px-8 py-4 bg-white text-purple-900 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                >
+                  Sign Up
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Other Sections */}
-        <div className="pt-20 pb-32">
-          {sortedSections
-            .filter(s => s.key !== 'hero' && s.key !== 'footer' && s.key !== 'app-download' && s.isVisible)
-            .map((section, index) => (
-              <HomepageSectionComponent key={section.id} section={section} index={index} />
-            ))}
-        </div>
+        {hasContent && (
+          <div className="pt-20 pb-32">
+            {sortedSections
+              .filter(s => s.key !== 'hero' && s.key !== 'footer' && s.key !== 'app-download' && s.isVisible)
+              .map((section, index) => (
+                <HomepageSectionComponent key={section.id} section={section} index={index} />
+              ))}
+          </div>
+        )}
 
         {/* App Download Section */}
-        {sortedSections.find(s => s.key === 'app-download' && s.isVisible) && (
+        {hasContent && sortedSections.find(s => s.key === 'app-download' && s.isVisible) && (
           <AppDownloadSection section={sortedSections.find(s => s.key === 'app-download' && s.isVisible)!} />
         )}
 
