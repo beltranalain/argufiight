@@ -1,9 +1,17 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { cache } from '@/lib/utils/cache'
 
 // GET /api/homepage/content - Get public homepage content
 export async function GET() {
   try {
+    // Check cache first to reduce database queries
+    const cacheKey = 'homepage:sections'
+    const cached = cache.get<any[]>(cacheKey)
+    if (cached) {
+      return NextResponse.json({ sections: cached })
+    }
+
     const sections = await prisma.homepageSection.findMany({
       where: {
         isVisible: true,
