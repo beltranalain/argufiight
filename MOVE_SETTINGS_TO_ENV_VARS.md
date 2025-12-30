@@ -93,16 +93,38 @@ You need to set these in **Vercel Dashboard** → **Settings** → **Environment
 - Check your existing admin settings in the database
 - Or check your Google Cloud Console
 
+### ⚠️ Common Error: "Invalid Origin: URIs must not contain a path"
+
+**Problem:** You're seeing this error in "Authorized JavaScript origins"
+
+**Solution:**
+- **Authorized JavaScript origins** = Domain only: `https://www.argufight.com`
+- **Authorized redirect URIs** = Full paths: `https://www.argufight.com/api/auth/google/callback`
+
+**Correct Setup:**
+```
+Authorized JavaScript origins:
+  ✅ https://www.argufight.com
+
+Authorized redirect URIs:
+  ✅ https://www.argufight.com/api/auth/google/callback
+  ✅ https://www.argufight.com/api/auth/google/mobile-callback
+```
+
 ### If You Need to Create Them:
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Select your project (or create one)
 3. Navigate to **APIs & Services** → **Credentials**
 4. Click **Create Credentials** → **OAuth client ID**
 5. Choose **Web application**
-6. Add authorized redirect URIs:
+6. **Authorized JavaScript origins** (domain only, NO paths):
+   - `https://www.argufight.com`
+   - ⚠️ **DO NOT** include paths like `/api/auth/google/callback` here
+   - ⚠️ **DO NOT** end with a slash `/`
+7. **Authorized redirect URIs** (full paths with endpoints):
    - `https://www.argufight.com/api/auth/google/callback`
    - `https://www.argufight.com/api/auth/google/mobile-callback`
-7. Copy the **Client ID** and **Client Secret**
+8. Copy the **Client ID** and **Client Secret**
 
 ---
 

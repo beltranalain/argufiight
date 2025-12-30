@@ -48,11 +48,17 @@ interface PublicHomepageServerProps {
 }
 
 export async function PublicHomepageServer({ sections }: PublicHomepageServerProps) {
-  // Fetch social media links server-side
-  const socialMediaSettings = await prisma.socialMediaLink.findMany({
-    where: { isActive: true },
-    orderBy: { order: 'asc' },
-  })
+  // Fetch social media links server-side (with error handling)
+  let socialMediaSettings: any[] = []
+  try {
+    socialMediaSettings = await prisma.socialMediaLink.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+    })
+  } catch (error: any) {
+    console.error('[PublicHomepageServer] Failed to fetch social media links:', error.message)
+    // Continue with empty array - footer will render without social links
+  }
 
   const socialLinks: SocialMediaLink[] = socialMediaSettings.map(setting => ({
     platform: setting.platform,

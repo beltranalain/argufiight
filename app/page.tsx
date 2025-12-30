@@ -58,7 +58,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootPage() {
   // Use verifySessionWithDb to get full session with userId
-  const session = await verifySessionWithDb()
+  // This already has error handling and returns null on failure
+  let session = null
+  try {
+    session = await verifySessionWithDb()
+  } catch (error: any) {
+    console.error('[RootPage] Failed to verify session:', error.message)
+    // Continue without session - will show public homepage
+  }
 
   // Debug logging (remove in production if needed)
   if (process.env.NODE_ENV === 'development') {
@@ -70,24 +77,38 @@ export default async function RootPage() {
 
   // If logged in, check if user is advertiser and redirect accordingly
   if (session?.userId) {
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { email: true },
-    })
-
-    if (user) {
-      const advertiser = await prisma.advertiser.findUnique({
-        where: { contactEmail: user.email },
-        select: { status: true },
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { email: true },
       })
 
-      // If user is an approved advertiser, redirect to advertiser dashboard
-      if (advertiser && advertiser.status === 'APPROVED') {
-        redirect('/advertiser/dashboard')
+      if (user) {
+        try {
+          const advertiser = await prisma.advertiser.findUnique({
+            where: { contactEmail: user.email },
+            select: { status: true },
+          })
+
+          // If user is an approved advertiser, redirect to advertiser dashboard
+          if (advertiser && advertiser.status === 'APPROVED') {
+            redirect('/advertiser/dashboard')
+          }
+        } catch (error: any) {
+          console.error('[RootPage] Failed to check advertiser status:', error.message)
+          // Continue to dashboard if advertiser check fails
+        }
       }
+    } catch (error: any) {
+      console.error('[RootPage] Failed to fetch user:', error.message)
+      // If user lookup fails, show public homepage instead of dashboard
+      session = null
     }
 
-    return <DashboardHomePage />
+    // Only return dashboard if we successfully verified everything
+    if (session?.userId) {
+      return <DashboardHomePage />
+    }
   }
 
   // If not logged in, fetch homepage content SERVER-SIDE and show public homepage
