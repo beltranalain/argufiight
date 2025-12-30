@@ -58,27 +58,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Check admin settings first, then environment variables
-    let clientId = process.env.GOOGLE_CLIENT_ID
-    let clientSecret = process.env.GOOGLE_CLIENT_SECRET
-    
-    if (!clientId || !clientSecret) {
-      try {
-        const [clientIdSetting, clientSecretSetting] = await Promise.all([
-          prisma.adminSetting.findUnique({ where: { key: 'GOOGLE_CLIENT_ID' } }),
-          prisma.adminSetting.findUnique({ where: { key: 'GOOGLE_CLIENT_SECRET' } }),
-        ])
-        
-        if (clientIdSetting?.value) {
-          clientId = clientIdSetting.value
-        }
-        if (clientSecretSetting?.value) {
-          clientSecret = clientSecretSetting.value
-        }
-      } catch (error) {
-        console.error('[Google OAuth Callback] Failed to fetch Google OAuth credentials from admin settings:', error)
-      }
-    }
+    // Use environment variables only (no database query to reduce compute time)
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
     
     const redirectUri = `${baseUrl}/api/auth/google/callback`
     
