@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { cache } from '@/lib/utils/cache'
 
 interface TickerUpdate {
   id: string
@@ -13,6 +14,16 @@ interface TickerUpdate {
 
 export async function GET(request: NextRequest) {
   try {
+    // Cache ticker updates for 5 minutes to reduce database load
+    const cacheKey = 'ticker:updates'
+    const cached = cache.get<TickerUpdate[]>(cacheKey)
+    if (cached) {
+      return NextResponse.json({
+        updates: cached.slice(0, 20),
+        total: cached.length,
+      })
+    }
+
     const updates: TickerUpdate[] = []
     const now = new Date()
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
@@ -412,6 +423,9 @@ export async function GET(request: NextRequest) {
       
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     })
+
+    // Cache for 5 minutes
+    cache.set(cacheKey, updates, 300)
 
     // Return top 20 updates
     return NextResponse.json({

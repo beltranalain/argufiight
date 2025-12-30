@@ -28,6 +28,9 @@ export async function GET() {
       },
     })
 
+    // Cache for 10 minutes (homepage content rarely changes)
+    cache.set(cacheKey, sections, 600)
+
     return NextResponse.json({ sections })
   } catch (error) {
     console.error('Failed to fetch homepage content:', error)

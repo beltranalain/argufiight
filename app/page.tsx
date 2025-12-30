@@ -91,21 +91,32 @@ export default async function RootPage() {
   }
 
   // If not logged in, fetch homepage content SERVER-SIDE and show public homepage
+  // Use cached API endpoint to reduce database queries
   let sections: any[] = []
   try {
-    sections = await prisma.homepageSection.findMany({
-      where: { isVisible: true },
-      include: {
-        images: {
-          orderBy: { order: 'asc' },
-        },
-        buttons: {
-          where: { isVisible: true },
-          orderBy: { order: 'asc' },
-        },
-      },
-      orderBy: { order: 'asc' },
+    // Try to fetch from API endpoint which has caching
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/homepage/content`, {
+      next: { revalidate: 300 } // Cache for 5 minutes
     })
+    if (response.ok) {
+      const data = await response.json()
+      sections = data.sections || []
+    } else {
+      // Fallback to direct query if API fails
+      sections = await prisma.homepageSection.findMany({
+        where: { isVisible: true },
+        include: {
+          images: {
+            orderBy: { order: 'asc' },
+          },
+          buttons: {
+            where: { isVisible: true },
+            orderBy: { order: 'asc' },
+          },
+        },
+        orderBy: { order: 'asc' },
+      })
+    }
   } catch (error: any) {
     console.error('[RootPage] Failed to fetch homepage sections:', error.message)
     // Use empty array - PublicHomepageServer will show default content
