@@ -94,15 +94,10 @@ export default async function RootPage() {
   // Use cached API endpoint to reduce database queries
   let sections: any[] = []
   try {
-    // Try to fetch from API endpoint which has caching
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/homepage/content`, {
-      next: { revalidate: 300 } // Cache for 5 minutes
-    })
-    if (response.ok) {
-      const data = await response.json()
-      sections = data.sections || []
-    } else {
-      // Fallback to direct query if API fails
+    // During build, we can't use fetch to our own API, so use direct query
+    // In production runtime, the API endpoint will be used
+    if (process.env.NODE_ENV === 'production' && typeof window === 'undefined') {
+      // During build, use direct query with error handling
       sections = await prisma.homepageSection.findMany({
         where: { isVisible: true },
         include: {
@@ -116,6 +111,48 @@ export default async function RootPage() {
         },
         orderBy: { order: 'asc' },
       })
+    } else {
+      // Try to fetch from API endpoint which has caching (runtime only)
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/homepage/content`, {
+          next: { revalidate: 300 } // Cache for 5 minutes
+        })
+        if (response.ok) {
+          const data = await response.json()
+          sections = data.sections || []
+        } else {
+          // Fallback to direct query if API fails
+          sections = await prisma.homepageSection.findMany({
+            where: { isVisible: true },
+            include: {
+              images: {
+                orderBy: { order: 'asc' },
+              },
+              buttons: {
+                where: { isVisible: true },
+                orderBy: { order: 'asc' },
+              },
+            },
+            orderBy: { order: 'asc' },
+          })
+        }
+      } catch (fetchError: any) {
+        console.error('[RootPage] API fetch failed, trying direct query:', fetchError.message)
+        // Fallback to direct query if fetch fails
+        sections = await prisma.homepageSection.findMany({
+          where: { isVisible: true },
+          include: {
+            images: {
+              orderBy: { order: 'asc' },
+            },
+            buttons: {
+              where: { isVisible: true },
+              orderBy: { order: 'asc' },
+            },
+          },
+          orderBy: { order: 'asc' },
+        })
+      }
     }
   } catch (error: any) {
     console.error('[RootPage] Failed to fetch homepage sections:', error.message)

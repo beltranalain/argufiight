@@ -28,51 +28,72 @@ export default async function TopicsPage() {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
   
   // Get all active categories with debate counts
-  const categories = await prisma.category.findMany({
-    where: {
-      isActive: true,
-    },
-    orderBy: {
-      sortOrder: 'asc',
-    },
-    // Note: Category model doesn't have direct relation to Debate
-    // We'll calculate counts separately
-  })
-
-  // Get category stats (total debates per category)
-  const categoryStats = await Promise.all(
-    categories.map(async (category) => {
-      const [total, active, completed] = await Promise.all([
-        prisma.debate.count({
-          where: {
-            category: category.name as any,
-            visibility: 'PUBLIC',
-          },
-        }),
-        prisma.debate.count({
-          where: {
-            category: category.name as any,
-            visibility: 'PUBLIC',
-            status: 'ACTIVE',
-          },
-        }),
-        prisma.debate.count({
-          where: {
-            category: category.name as any,
-            visibility: 'PUBLIC',
-            status: { in: ['COMPLETED', 'VERDICT_READY'] },
-          },
-        }),
-      ])
-
-      return {
-        ...category,
-        totalDebates: total,
-        activeDebates: active,
-        completedDebates: completed,
-      }
+  let categories: any[] = []
+  let categoryStats: any[] = []
+  
+  try {
+    categories = await prisma.category.findMany({
+      where: {
+        isActive: true,
+      },
+      orderBy: {
+        sortOrder: 'asc',
+      },
+      // Note: Category model doesn't have direct relation to Debate
+      // We'll calculate counts separately
     })
-  )
+
+    // Get category stats (total debates per category)
+    categoryStats = await Promise.all(
+      categories.map(async (category) => {
+        try {
+          const [total, active, completed] = await Promise.all([
+            prisma.debate.count({
+              where: {
+                category: category.name as any,
+                visibility: 'PUBLIC',
+              },
+            }),
+            prisma.debate.count({
+              where: {
+                category: category.name as any,
+                visibility: 'PUBLIC',
+                status: 'ACTIVE',
+              },
+            }),
+            prisma.debate.count({
+              where: {
+                category: category.name as any,
+                visibility: 'PUBLIC',
+                status: { in: ['COMPLETED', 'VERDICT_READY'] },
+              },
+            }),
+          ])
+
+          return {
+            ...category,
+            totalDebates: total,
+            activeDebates: active,
+            completedDebates: completed,
+          }
+        } catch (error: any) {
+          console.error(`[TopicsPage] Failed to fetch stats for category ${category.name}:`, error.message)
+          // Return category with zero counts if query fails
+          return {
+            ...category,
+            totalDebates: 0,
+            activeDebates: 0,
+            completedDebates: 0,
+          }
+        }
+      })
+    )
+  } catch (error: any) {
+    console.error('[TopicsPage] Failed to fetch categories:', error.message)
+    // Use empty array - page will show "No categories available" message
+    categories = []
+    categoryStats = []
+  }
 
   // ItemList schema for SEO
   const itemListSchema = {
