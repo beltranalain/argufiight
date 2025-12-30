@@ -243,7 +243,7 @@ export default async function BlogPage({
                   <div className="p-6 bg-transparent">
                     {post.categories.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-3">
-                        {post.categories.map((c) => (
+                        {post.categories.map((c: any) => (
                           <span
                             key={c.category.id}
                             className="px-2 py-1 text-xs bg-electric-blue/20 text-electric-blue rounded"
