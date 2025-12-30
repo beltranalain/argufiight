@@ -40,25 +40,48 @@ if (databaseUrl) {
 
 // Create Prisma Client with connection retry logic
 const createPrismaClient = () => {
+  // Use DIRECT_URL for serverless if available, otherwise use DATABASE_URL
+  // DIRECT_URL is better for serverless functions as it doesn't use connection pooling
+  const connectionUrl = process.env.DIRECT_URL || process.env.DATABASE_URL
+
   const client = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     datasources: {
       db: {
-        url: process.env.DATABASE_URL,
+        url: connectionUrl,
       },
     },
   })
 
-  // Add connection retry logic
-  client.$connect().catch((error) => {
-    console.error('❌ Failed to connect to database:', error.message)
-    console.error('   DATABASE_URL exists:', !!process.env.DATABASE_URL)
-    console.error('   DIRECT_URL exists:', !!process.env.DIRECT_URL)
-    if (process.env.DATABASE_URL) {
-      const url = new URL(process.env.DATABASE_URL)
-      console.error('   Host:', url.hostname)
-      console.error('   Port:', url.port)
+  // Add connection retry logic with exponential backoff
+  const connectWithRetry = async (retries = 3, delay = 1000) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        await client.$connect()
+        return
+      } catch (error: any) {
+        if (i === retries - 1) {
+          console.error('❌ Failed to connect to database after retries:', error.message)
+          console.error('   DATABASE_URL exists:', !!process.env.DATABASE_URL)
+          console.error('   DIRECT_URL exists:', !!process.env.DIRECT_URL)
+          if (process.env.DATABASE_URL) {
+            const url = new URL(process.env.DATABASE_URL)
+            console.error('   Host:', url.hostname)
+            console.error('   Port:', url.port)
+          }
+          // Don't throw - let individual queries handle the error
+        } else {
+          console.warn(`⚠️  Database connection attempt ${i + 1} failed, retrying in ${delay}ms...`)
+          await new Promise(resolve => setTimeout(resolve, delay))
+          delay *= 2 // Exponential backoff
+        }
+      }
     }
+  }
+
+  // Try to connect (non-blocking)
+  connectWithRetry().catch(() => {
+    // Connection will be retried on first query
   })
 
   return client

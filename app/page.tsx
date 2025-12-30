@@ -10,10 +10,16 @@ export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
   
   // Get hero section for default metadata
-  const heroSection = await prisma.homepageSection.findUnique({
-    where: { key: 'hero' },
-    select: { metaTitle: true, metaDescription: true },
-  })
+  let heroSection = null
+  try {
+    heroSection = await prisma.homepageSection.findUnique({
+      where: { key: 'hero' },
+      select: { metaTitle: true, metaDescription: true },
+    })
+  } catch (error: any) {
+    console.error('[generateMetadata] Failed to fetch hero section:', error.message)
+    // Use defaults if database is unavailable
+  }
 
   const title = heroSection?.metaTitle || 'Argufight | AI-Judged Debate Platform - Win Debates with 7 AI Judges'
   const description = heroSection?.metaDescription || 'Join Argufight, the premier AI-judged debate platform. Debate any topic with 7 unique AI judges, climb the ELO leaderboard, and compete in tournaments. Free to start!'
@@ -85,19 +91,26 @@ export default async function RootPage() {
   }
 
   // If not logged in, fetch homepage content SERVER-SIDE and show public homepage
-  const sections = await prisma.homepageSection.findMany({
-    where: { isVisible: true },
-    include: {
-      images: {
-        orderBy: { order: 'asc' },
+  let sections = []
+  try {
+    sections = await prisma.homepageSection.findMany({
+      where: { isVisible: true },
+      include: {
+        images: {
+          orderBy: { order: 'asc' },
+        },
+        buttons: {
+          where: { isVisible: true },
+          orderBy: { order: 'asc' },
+        },
       },
-      buttons: {
-        where: { isVisible: true },
-        orderBy: { order: 'asc' },
-      },
-    },
-    orderBy: { order: 'asc' },
-  })
+      orderBy: { order: 'asc' },
+    })
+  } catch (error: any) {
+    console.error('[RootPage] Failed to fetch homepage sections:', error.message)
+    // Use empty array - PublicHomepageServer will show default content
+    sections = []
+  }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
   
