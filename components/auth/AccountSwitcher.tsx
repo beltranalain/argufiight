@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { Avatar } from '@/components/ui/Avatar'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Modal } from '@/components/ui/Modal'
+import { Button } from '@/components/ui/Button'
 
 interface Session {
   id: string
@@ -131,7 +132,7 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
     }
   }
 
-  const removeAccount = async (userId: string) => {
+  const removeAccount = async (userId: string, username: string) => {
     // Don't allow removing the current account
     if (userId === user?.id) {
       alert('Cannot remove the currently active account. Please switch to another account first.')
@@ -139,14 +140,15 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
     }
 
     try {
-      // Remove from localStorage
-      removeLinkedAccount(userId)
+      console.log('[AccountSwitcher] Removing account:', { userId, username })
       
-      // Also delete the session from database to fully remove the account
       // Find the session for this user
       const sessionToRemove = sessions.find(s => s.user.id === userId)
+      
+      // Delete session from database if it exists
       if (sessionToRemove && sessionToRemove.token && !sessionToRemove.id.startsWith('temp-')) {
         try {
+          console.log('[AccountSwitcher] Deleting session from database:', sessionToRemove.token.substring(0, 20) + '...')
           const response = await fetch('/api/auth/sessions', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
@@ -155,21 +157,26 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
           
           if (!response.ok) {
             const data = await response.json()
-            console.error('Failed to delete session from database:', data.error)
+            console.error('[AccountSwitcher] Failed to delete session:', data.error)
             // Continue anyway - at least remove from localStorage
           } else {
-            console.log('Session deleted from database for user:', userId)
+            console.log('[AccountSwitcher] Session deleted from database successfully')
           }
         } catch (error) {
-          console.error('Failed to delete session from database:', error)
+          console.error('[AccountSwitcher] Error deleting session:', error)
           // Continue anyway - at least remove from localStorage
         }
       }
       
+      // Remove from localStorage
+      removeLinkedAccount(userId)
+      console.log('[AccountSwitcher] Removed from localStorage')
+      
       // Refresh the sessions list
-      fetchSessions()
+      await fetchSessions()
+      console.log('[AccountSwitcher] Account removed successfully')
     } catch (error) {
-      console.error('Failed to remove account:', error)
+      console.error('[AccountSwitcher] Failed to remove account:', error)
       alert('Failed to remove account. Please try again.')
     }
   }
@@ -179,42 +186,27 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
   }
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/50"
-        onClick={onClose}
-      />
+    <Modal isOpen={true} onClose={onClose} title="Switch Account">
+      <div className="space-y-4">
+        <p className="text-sm text-text-secondary">
+          {sessions.length} active session{sessions.length !== 1 ? 's' : ''}
+        </p>
 
-      {/* Dropdown */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: -10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: -10 }}
-        transition={{ duration: 0.15 }}
-        className="fixed right-4 top-20 mt-2 w-80 bg-bg-secondary border border-bg-tertiary rounded-lg shadow-xl z-50"
-      >
-        <div className="p-4 border-b border-bg-tertiary">
-          <p className="text-sm font-semibold text-text-primary">Switch Account</p>
-          <p className="text-xs text-text-secondary mt-1">
-            {sessions.length} active session{sessions.length !== 1 ? 's' : ''}
-          </p>
-        </div>
-
-        <div className="max-h-96 overflow-y-auto">
+        <div className="max-h-96 overflow-y-auto space-y-2">
           {sessions.length === 0 ? (
             <div className="p-4 text-center">
               <p className="text-text-secondary text-sm mb-3">
                 No linked accounts. Add an existing account to switch between them.
               </p>
-              <button
+              <Button
                 onClick={() => {
                   window.location.href = '/login?addAccount=true'
                 }}
-                className="px-4 py-2 bg-electric-blue text-black font-semibold rounded-lg hover:bg-[#00B8E6] transition-colors text-sm"
+                variant="primary"
+                className="w-full"
               >
                 Add an existing account
-              </button>
+              </Button>
             </div>
           ) : (
             <>
@@ -224,8 +216,10 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
               return (
                 <div
                   key={session.id}
-                  className={`w-full p-3 flex items-center gap-3 hover:bg-bg-tertiary transition-colors ${
-                    isCurrent ? 'bg-electric-blue/10' : ''
+                  className={`w-full p-3 flex items-center gap-3 rounded-lg border transition-colors ${
+                    isCurrent 
+                      ? 'bg-electric-blue/10 border-electric-blue/30' 
+                      : 'border-bg-tertiary hover:bg-bg-tertiary'
                   }`}
                 >
                   <button
@@ -236,7 +230,7 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
                     }}
                     disabled={isCurrent || isLoading}
                     className={`flex-1 flex items-center gap-3 ${
-                      isLoading ? 'opacity-50 cursor-not-allowed' : ''
+                      isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
                     }`}
                   >
                     <Avatar
@@ -258,7 +252,9 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
                       )}
                     </div>
                     {isCurrent && (
-                      <span className="text-xs text-electric-blue font-medium">Current</span>
+                      <span className="text-xs text-electric-blue font-medium px-2 py-1 bg-electric-blue/20 rounded">
+                        Current
+                      </span>
                     )}
                   </button>
                   {!isCurrent && (
@@ -266,10 +262,10 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
                       onClick={(e) => {
                         e.stopPropagation()
                         if (confirm(`Remove ${session.user.username} from linked accounts?`)) {
-                          removeAccount(session.user.id)
+                          removeAccount(session.user.id, session.user.username)
                         }
                       }}
-                      className="text-text-secondary hover:text-neon-orange p-1 text-lg"
+                      className="text-text-secondary hover:text-neon-orange p-1 text-lg font-bold transition-colors"
                       title="Remove account"
                     >
                       ×
@@ -279,20 +275,21 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
               )
             })}
             <div className="p-3 border-t border-bg-tertiary">
-              <button
+              <Button
                 onClick={() => {
                   window.location.href = '/login?addAccount=true'
                 }}
-                className="w-full text-sm text-electric-blue hover:text-neon-orange text-center py-2 font-medium"
+                variant="secondary"
+                className="w-full"
               >
                 + Add an existing account
-              </button>
+              </Button>
             </div>
             </>
           )}
         </div>
-      </motion.div>
-    </>
+      </div>
+    </Modal>
   )
 }
 

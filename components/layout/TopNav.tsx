@@ -91,10 +91,20 @@ export function TopNav({ currentPanel }: TopNavProps) {
       const response = await fetch('/api/notifications?unreadOnly=true')
       if (response.ok) {
         const notifications = await response.json()
-        setUnreadCount(notifications.length)
+        // Ensure notifications is an array and filter out any that are marked as read
+        const unreadNotifications = Array.isArray(notifications) 
+          ? notifications.filter((n: any) => !n.read)
+          : []
+        const count = unreadNotifications.length
+        console.log('[TopNav] Unread notification count:', count, 'from', notifications.length, 'total')
+        setUnreadCount(count)
+      } else {
+        // If API fails, set count to 0
+        setUnreadCount(0)
       }
     } catch (error) {
-      console.error('Failed to fetch unread count:', error)
+      console.error('[TopNav] Failed to fetch unread count:', error)
+      setUnreadCount(0)
     }
   }
 

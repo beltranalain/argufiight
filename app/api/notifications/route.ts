@@ -101,6 +101,10 @@ export async function GET(request: NextRequest) {
         createdAt: n.created_at,
       }))
 
+      // DEBUG: Log notification counts
+      const unreadCount = notifications.filter(n => !n.read).length
+      console.log(`[API /notifications] Returning ${notifications.length} notifications, ${unreadCount} unread`)
+
       return NextResponse.json(notifications)
     } catch (error: any) {
       // Fallback to Prisma if raw SQL fails
