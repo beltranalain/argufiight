@@ -4,29 +4,37 @@ import { prisma } from '@/lib/db/prisma'
 // GET /api/homepage/content - Get public homepage content
 export async function GET() {
   try {
-    const sections = await prisma.homepageSection.findMany({
-      where: {
-        isVisible: true,
-      },
-      include: {
-        images: {
-          orderBy: {
-            order: 'asc',
+    // Cache homepage sections for 10 minutes to reduce database queries
+    const { cache } = await import('@/lib/utils/cache')
+    const cacheKey = 'homepage:sections'
+    let sections = cache.get(cacheKey)
+    
+    if (!sections) {
+      sections = await prisma.homepageSection.findMany({
+        where: {
+          isVisible: true,
+        },
+        include: {
+          images: {
+            orderBy: {
+              order: 'asc',
+            },
+          },
+          buttons: {
+            where: {
+              isVisible: true,
+            },
+            orderBy: {
+              order: 'asc',
+            },
           },
         },
-        buttons: {
-          where: {
-            isVisible: true,
-          },
-          orderBy: {
-            order: 'asc',
-          },
+        orderBy: {
+          order: 'asc',
         },
-      },
-      orderBy: {
-        order: 'asc',
-      },
-    })
+      })
+      cache.set(cacheKey, sections, 600) // Cache for 10 minutes
+    }
 
     return NextResponse.json({ sections })
   } catch (error) {

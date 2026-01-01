@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { cache } from '@/lib/utils/cache'
 
 // GET /api/leaderboard - Get ELO leaderboard
 export async function GET(request: NextRequest) {
@@ -17,6 +18,16 @@ export async function GET(request: NextRequest) {
       totalDebates: {
         gte: 1, // At least 1 completed debate
       },
+    }
+
+    // Cache leaderboard for 10 minutes (only for first page, no userId filter)
+    const cacheKey = page === 1 && !userId && !category 
+      ? `leaderboard:elo:page1` 
+      : null
+    let cachedData = cacheKey ? cache.get(cacheKey) : null
+
+    if (cachedData) {
+      return NextResponse.json(cachedData)
     }
 
     // Get total count for pagination
@@ -121,7 +132,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const response = {
       leaderboard: leaderboardWithRank,
       pagination: {
         page,
@@ -130,7 +141,14 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit),
       },
       userRank, // Include user's rank if userId was provided
-    })
+    }
+
+    // Cache first page results for 10 minutes
+    if (cacheKey) {
+      cache.set(cacheKey, response, 600)
+    }
+
+    return NextResponse.json(response)
   } catch (error) {
     console.error('Failed to fetch leaderboard:', error)
     return NextResponse.json(

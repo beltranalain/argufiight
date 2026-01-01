@@ -85,27 +85,20 @@ export default async function RootPage() {
   }
 
   // If not logged in, fetch homepage content SERVER-SIDE and show public homepage
-  // Cache homepage sections for 10 minutes to reduce database queries
-  const cache = (await import('@/lib/utils/cache')).cache
-  const cacheKey = 'homepage:sections'
-  let sections = cache.get(cacheKey)
-  
-  if (!sections) {
-    sections = await prisma.homepageSection.findMany({
-      where: { isVisible: true },
-      include: {
-        images: {
-          orderBy: { order: 'asc' },
-        },
-        buttons: {
-          where: { isVisible: true },
-          orderBy: { order: 'asc' },
-        },
+  // Note: Caching removed from server component - use React cache() or implement at API level
+  const sections = await prisma.homepageSection.findMany({
+    where: { isVisible: true },
+    include: {
+      images: {
+        orderBy: { order: 'asc' },
       },
-      orderBy: { order: 'asc' },
-    })
-    cache.set(cacheKey, sections, 600) // Cache for 10 minutes
-  }
+      buttons: {
+        where: { isVisible: true },
+        orderBy: { order: 'asc' },
+      },
+    },
+    orderBy: { order: 'asc' },
+  })
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
   
