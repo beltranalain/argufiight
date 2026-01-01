@@ -115,6 +115,20 @@ function LoginForm() {
         throw new Error('Login failed: No user data received')
       }
 
+      // DEBUG: Log what user we received from login
+      console.log('[Login] Login successful, received user:', {
+        id: data.user?.id,
+        email: data.user?.email,
+        username: data.user?.username,
+        isAdmin: data.user?.isAdmin,
+      })
+      
+      // Trigger event to refresh auth state across all tabs
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('user-logged-in'))
+        localStorage.setItem('auth-refresh', Date.now().toString())
+      }
+
       // If adding account, add to localStorage and go back to dashboard
       // Otherwise, redirect normally
       setTimeout(() => {

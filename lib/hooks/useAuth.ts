@@ -26,13 +26,49 @@ export function useAuth() {
 
   useEffect(() => {
     fetchUser()
+    
+    // Listen for login events to refetch user
+    const handleLogin = () => {
+      console.log('[useAuth] Login event detected, refetching user...')
+      fetchUser()
+    }
+    
+    // Listen for storage events (cross-tab communication)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'auth-refresh') {
+        console.log('[useAuth] Storage change detected, refetching user...')
+        fetchUser()
+      }
+    }
+    
+    window.addEventListener('user-logged-in', handleLogin)
+    window.addEventListener('storage', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('user-logged-in', handleLogin)
+      window.removeEventListener('storage', handleStorageChange)
+    }
   }, [])
 
   const fetchUser = async () => {
     try {
-      const response = await fetch('/api/auth/me')
+      // Add cache-busting timestamp to prevent stale responses
+      const response = await fetch(`/api/auth/me?t=${Date.now()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      })
+      
       if (response.ok) {
         const data = await response.json()
+        
+        // DEBUG: Log what we received
+        console.log('[useAuth] Received user data:', {
+          id: data.user?.id,
+          email: data.user?.email,
+          username: data.user?.username,
+          isAdmin: data.user?.isAdmin,
+        })
+        
         // Normalize user data - handle both camelCase and snake_case
         if (data.user) {
           const normalizedUser = {
@@ -47,17 +83,30 @@ export function useAuth() {
             totalMaxScore: data.user.totalMaxScore || data.user.total_max_score || 0,
             isCreator: data.user.isCreator || data.user.is_creator || false,
           }
+          
+          // DEBUG: Log what we're setting
+          console.log('[useAuth] Setting user state:', {
+            id: normalizedUser.id,
+            email: normalizedUser.email,
+            username: normalizedUser.username,
+            isAdmin: normalizedUser.isAdmin,
+          })
+          
           setUser(normalizedUser)
         } else {
+          console.log('[useAuth] No user in response, setting user to null')
           setUser(null)
         }
       } else if (response.status === 401) {
         // 401 is expected when user is not logged in - not an error
+        console.log('[useAuth] 401 response, user not logged in')
         setUser(null)
       } else {
+        console.error('[useAuth] Error response:', response.status, response.statusText)
         setUser(null)
       }
     } catch (error) {
+      console.error('[useAuth] Fetch error:', error)
       // Silently handle errors - 401 is expected for logged-out users
       setUser(null)
     } finally {

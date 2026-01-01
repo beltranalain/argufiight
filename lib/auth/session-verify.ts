@@ -42,6 +42,7 @@ export async function verifySessionWithDb() {
   const sessionJWT = cookieStore.get('session')?.value
 
   if (!sessionJWT) {
+    console.log('[verifySessionWithDb] No session JWT cookie found')
     return null
   }
 
@@ -50,10 +51,12 @@ export async function verifySessionWithDb() {
     const { payload } = await jwtVerify(sessionJWT, encodedKey)
     const { sessionToken } = payload as { sessionToken: string }
 
+    console.log('[verifySessionWithDb] Decoded sessionToken:', sessionToken.substring(0, 20) + '...')
+
     // Dynamic import Prisma to avoid Edge runtime issues
     const { prisma } = await import('@/lib/db/prisma')
 
-    // Look up session in database
+    // Look up session in database - MUST use findUnique to ensure we get the exact session
     const session = await prisma.session.findUnique({
       where: { token: sessionToken },
       include: {
@@ -68,14 +71,25 @@ export async function verifySessionWithDb() {
       },
     })
 
-    if (!session || session.expiresAt < new Date()) {
-      // Session expired or not found
-      if (session) {
-        // Clean up expired session
-        await prisma.session.delete({ where: { id: session.id } })
-      }
+    if (!session) {
+      console.log('[verifySessionWithDb] Session not found in database for token:', sessionToken.substring(0, 20) + '...')
       return null
     }
+
+    if (session.expiresAt < new Date()) {
+      console.log('[verifySessionWithDb] Session expired, deleting:', session.id)
+      // Clean up expired session
+      await prisma.session.delete({ where: { id: session.id } })
+      return null
+    }
+
+    console.log('[verifySessionWithDb] Session found:', {
+      sessionId: session.id,
+      userId: session.userId,
+      userEmail: session.user.email,
+      username: session.user.username,
+      isAdmin: session.user.isAdmin,
+    })
 
     return {
       userId: session.userId,
@@ -83,6 +97,7 @@ export async function verifySessionWithDb() {
       user: session.user,
     }
   } catch (error) {
+    console.error('[verifySessionWithDb] Error:', error)
     return null
   }
 }
@@ -168,4 +183,3 @@ export async function getSession(token: string) {
     return null
   }
 }
-

@@ -20,11 +20,25 @@ export async function GET(request: NextRequest) {
     let session = await verifySession()
     let userId: string | null = null
     
+    // DEBUG: Log session info
+    if (session) {
+      console.log('[API /auth/me] Session found:', {
+        hasUserId: !!session.userId,
+        userId: session.userId,
+        hasUser: !!session.user,
+        userEmail: session.user?.email,
+        username: session.user?.username,
+      })
+    } else {
+      console.log('[API /auth/me] No session found')
+    }
+    
     // If no cookie session but we have a Bearer token, verify it
     if (!session && bearerToken) {
       const tokenSession = await getSession(bearerToken)
       if (tokenSession) {
         userId = tokenSession.userId
+        console.log('[API /auth/me] Using Bearer token, userId:', userId)
       }
     }
 
@@ -58,24 +72,30 @@ export async function GET(request: NextRequest) {
         })
 
         if (overrideSession && overrideSession.expiresAt > new Date()) {
+          console.log('[API /auth/me] Using session override, userId:', overrideSession.userId)
           return NextResponse.json({ user: overrideSession.user })
         }
       } catch (error) {
         // Invalid override, fall through to normal session check
+        console.log('[API /auth/me] Session override failed:', error)
       }
     }
 
     // Get userId from session if we don't have it from Bearer token
     if (!userId && session) {
       userId = getUserIdFromSession(session)
+      console.log('[API /auth/me] Extracted userId from session:', userId)
     }
     
     if (!userId) {
+      console.log('[API /auth/me] No userId found, returning 401')
       return NextResponse.json(
         { user: null },
         { status: 401 }
       )
     }
+
+    console.log('[API /auth/me] Fetching user from database, userId:', userId)
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -101,11 +121,19 @@ export async function GET(request: NextRequest) {
     })
 
     if (!user) {
+      console.log('[API /auth/me] User not found in database, userId:', userId)
       return NextResponse.json(
         { user: null },
         { status: 401 }
       )
     }
+
+    console.log('[API /auth/me] Returning user:', {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      isAdmin: user.isAdmin,
+    })
 
     // Return user with both camelCase and snake_case for compatibility
     return NextResponse.json({ 
@@ -141,7 +169,7 @@ export async function GET(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Get user error:', error)
+    console.error('[API /auth/me] Get user error:', error)
     return NextResponse.json(
       { user: null },
       { status: 500 }
