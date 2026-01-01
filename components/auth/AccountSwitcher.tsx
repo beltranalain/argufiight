@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { Avatar } from '@/components/ui/Avatar'
-import { Modal } from '@/components/ui/Modal'
-import { Button } from '@/components/ui/Button'
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface Session {
   id: string
@@ -132,6 +131,9 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
     }
   }
 
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null)
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState<string | null>(null)
+
   const removeAccount = async (userId: string, username: string) => {
     // Don't allow removing the current account
     if (userId === user?.id) {
@@ -139,6 +141,8 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
       return
     }
 
+    setRemovingUserId(userId)
+    
     try {
       console.log('[AccountSwitcher] Removing account:', { userId, username })
       
@@ -158,13 +162,13 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
           if (!response.ok) {
             const data = await response.json()
             console.error('[AccountSwitcher] Failed to delete session:', data.error)
-            // Continue anyway - at least remove from localStorage
+            throw new Error(data.error || 'Failed to delete session')
           } else {
             console.log('[AccountSwitcher] Session deleted from database successfully')
           }
         } catch (error) {
           console.error('[AccountSwitcher] Error deleting session:', error)
-          // Continue anyway - at least remove from localStorage
+          throw error
         }
       }
       
@@ -175,9 +179,14 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
       // Refresh the sessions list
       await fetchSessions()
       console.log('[AccountSwitcher] Account removed successfully')
+      
+      // Close confirmation dialog
+      setShowRemoveConfirm(null)
     } catch (error) {
       console.error('[AccountSwitcher] Failed to remove account:', error)
       alert('Failed to remove account. Please try again.')
+    } finally {
+      setRemovingUserId(null)
     }
   }
 
@@ -186,110 +195,148 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose || (() => {})} title="Switch Account">
-      <div className="space-y-4">
-        <p className="text-sm text-text-secondary">
-          {sessions.length} active session{sessions.length !== 1 ? 's' : ''}
-        </p>
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/50"
+        onClick={onClose}
+      />
 
-        <div className="max-h-96 overflow-y-auto space-y-2">
+      {/* Dropdown */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+        transition={{ duration: 0.15 }}
+        className="fixed right-4 top-20 mt-2 w-80 bg-bg-secondary border border-bg-tertiary rounded-lg shadow-xl z-50"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-4 border-b border-bg-tertiary">
+          <p className="text-sm font-semibold text-text-primary">Switch Account</p>
+          <p className="text-xs text-text-secondary mt-1">
+            {sessions.length} active session{sessions.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+
+        <div className="max-h-96 overflow-y-auto">
           {sessions.length === 0 ? (
             <div className="p-4 text-center">
               <p className="text-text-secondary text-sm mb-3">
                 No linked accounts. Add an existing account to switch between them.
               </p>
-              <Button
+              <button
                 onClick={() => {
                   window.location.href = '/login?addAccount=true'
                 }}
-                variant="primary"
-                className="w-full"
+                className="px-4 py-2 bg-electric-blue text-black font-semibold rounded-lg hover:bg-[#00B8E6] transition-colors text-sm"
               >
                 Add an existing account
-              </Button>
+              </button>
             </div>
           ) : (
             <>
               {sessions.map((session) => {
               const isCurrent = session.user.id === user.id
               const needsLogin = !session.token || session.id.startsWith('temp-')
+              const isRemoving = removingUserId === session.user.id
+              const showConfirm = showRemoveConfirm === session.user.id
+              
               return (
-                <div
-                  key={session.id}
-                  className={`w-full p-3 flex items-center gap-3 rounded-lg border transition-colors ${
-                    isCurrent 
-                      ? 'bg-electric-blue/10 border-electric-blue/30' 
-                      : 'border-bg-tertiary hover:bg-bg-tertiary'
-                  }`}
-                >
-                  <button
-                    onClick={() => {
-                      if (!isCurrent) {
-                        switchAccount(session)
-                      }
-                    }}
-                    disabled={isCurrent || isLoading}
-                    className={`flex-1 flex items-center gap-3 ${
-                      isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                    }`}
+                <div key={session.id}>
+                  <div
+                    className={`w-full p-3 flex items-center gap-3 hover:bg-bg-tertiary transition-colors ${
+                      isCurrent ? 'bg-electric-blue/10' : ''
+                    } ${isRemoving ? 'opacity-50' : ''}`}
                   >
-                    <Avatar
-                      src={session.user.avatarUrl}
-                      alt={session.user.username}
-                      size="sm"
-                    />
-                    <div className="flex-1 text-left min-w-0">
-                      <p className="text-sm font-medium text-text-primary truncate">
-                        {session.user.username}
-                      </p>
-                      <p className="text-xs text-text-secondary truncate">
-                        {session.user.email}
-                      </p>
-                      {needsLogin && (
-                        <p className="text-xs text-neon-orange mt-1">
-                          Re-login required
-                        </p>
-                      )}
-                    </div>
-                    {isCurrent && (
-                      <span className="text-xs text-electric-blue font-medium px-2 py-1 bg-electric-blue/20 rounded">
-                        Current
-                      </span>
-                    )}
-                  </button>
-                  {!isCurrent && (
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (confirm(`Remove ${session.user.username} from linked accounts?`)) {
-                          removeAccount(session.user.id, session.user.username)
+                      onClick={() => {
+                        if (!isCurrent && !isRemoving) {
+                          switchAccount(session)
                         }
                       }}
-                      className="text-text-secondary hover:text-neon-orange p-1 text-lg font-bold transition-colors"
-                      title="Remove account"
+                      disabled={isCurrent || isLoading || isRemoving}
+                      className={`flex-1 flex items-center gap-3 ${
+                        isLoading || isRemoving ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     >
-                      ×
+                      <Avatar
+                        src={session.user.avatarUrl}
+                        alt={session.user.username}
+                        size="sm"
+                      />
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="text-sm font-medium text-text-primary truncate">
+                          {session.user.username}
+                        </p>
+                        <p className="text-xs text-text-secondary truncate">
+                          {session.user.email}
+                        </p>
+                        {needsLogin && (
+                          <p className="text-xs text-neon-orange mt-1">
+                            Re-login required
+                          </p>
+                        )}
+                      </div>
+                      {isCurrent && (
+                        <span className="text-xs text-electric-blue font-medium">Current</span>
+                      )}
                     </button>
-                  )}
+                    {!isCurrent && !showConfirm && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowRemoveConfirm(session.user.id)
+                        }}
+                        disabled={isRemoving}
+                        className="text-text-secondary hover:text-neon-orange p-1 text-lg transition-colors"
+                        title="Remove account"
+                      >
+                        ×
+                      </button>
+                    )}
+                    {showConfirm && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeAccount(session.user.id, session.user.username)
+                          }}
+                          disabled={isRemoving}
+                          className="px-2 py-1 text-xs bg-neon-orange text-black rounded hover:bg-[#FF6B35] transition-colors"
+                        >
+                          {isRemoving ? 'Removing...' : 'Confirm'}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setShowRemoveConfirm(null)
+                          }}
+                          disabled={isRemoving}
+                          className="px-2 py-1 text-xs bg-bg-tertiary text-text-secondary rounded hover:bg-bg-primary transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )
             })}
             <div className="p-3 border-t border-bg-tertiary">
-              <Button
+              <button
                 onClick={() => {
                   window.location.href = '/login?addAccount=true'
                 }}
-                variant="secondary"
-                className="w-full"
+                className="w-full text-sm text-electric-blue hover:text-neon-orange text-center py-2 font-medium"
               >
                 + Add an existing account
-              </Button>
+              </button>
             </div>
             </>
           )}
         </div>
-      </div>
-    </Modal>
+      </motion.div>
+    </>
   )
 }
 

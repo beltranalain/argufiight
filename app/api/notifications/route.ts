@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     try {
       console.log('Fetching notifications for user:', userId, 'unreadOnly:', unreadOnly)
       // Build query with PostgreSQL syntax ($1, $2 placeholders)
+      // PostgreSQL stores boolean as true/false, but we need to handle both boolean and integer (0/1) formats
       const query = unreadOnly
         ? `
         SELECT 
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
           n.read_at,
           n.created_at
         FROM notifications n
-        WHERE n.user_id = $1 AND n.read = false
+        WHERE n.user_id = $1 AND (n.read = false OR n.read = 0)
         ORDER BY n.created_at DESC
         LIMIT $2
       `
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
         title: string
         message: string
         debate_id: string | null
-        read: number
+        read: boolean | number  // Can be boolean or 0/1
         read_at: string | null
         created_at: Date
       }>>(query, userId, limit)
@@ -88,22 +89,34 @@ export async function GET(request: NextRequest) {
       console.log('Rematch notifications:', notificationsRaw.filter(n => n.type.includes('REMATCH')).length)
       
       // Map to expected format
-      const notifications = notificationsRaw.map(n => ({
-        id: n.id,
-        userId: n.user_id,
-        type: n.type,
-        title: n.title,
-        message: n.message,
-        debateId: n.debate_id,
-        debate: n.debate_id ? debateMap.get(n.debate_id) || null : null,
-        read: n.read === 1,
-        readAt: n.read_at,
-        createdAt: n.created_at,
-      }))
+      // Handle both boolean and integer (0/1) formats for read field
+      const notifications = notificationsRaw.map(n => {
+        // Convert read to boolean - handle both boolean and 0/1 integer
+        const isRead = typeof n.read === 'boolean' ? n.read : n.read === 1 || n.read === true
+        
+        return {
+          id: n.id,
+          userId: n.user_id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          debateId: n.debate_id,
+          debate: n.debate_id ? debateMap.get(n.debate_id) || null : null,
+          read: isRead,
+          readAt: n.read_at,
+          createdAt: n.created_at,
+        }
+      })
 
       // DEBUG: Log notification counts
       const unreadCount = notifications.filter(n => !n.read).length
       console.log(`[API /notifications] Returning ${notifications.length} notifications, ${unreadCount} unread`)
+      console.log(`[API /notifications] Read status breakdown:`, {
+        total: notifications.length,
+        read: notifications.filter(n => n.read).length,
+        unread: unreadCount,
+        sampleReadValues: notificationsRaw.slice(0, 3).map(n => ({ id: n.id, read: n.read, readType: typeof n.read })),
+      })
 
       return NextResponse.json(notifications)
     } catch (error: any) {
