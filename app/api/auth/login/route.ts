@@ -175,38 +175,27 @@ export async function POST(request: NextRequest) {
     }
     
     // No 2FA required, create full session
-    const sessionJWT = await createSession(user.id)
-    console.log(`Login successful for user: ${user.email}${addAccount ? ' (adding account)' : ''}`)
-    
-    // If adding account and we have an original session, restore it
-    if (addAccount && originalSession) {
-      try {
-        const { cookies } = await import('next/headers')
-        const { SignJWT } = await import('jose')
-        const cookieStore = await cookies()
-        const secretKey = process.env.AUTH_SECRET || 'your-secret-key-change-in-production'
-        const encodedKey = new TextEncoder().encode(secretKey)
-        
-        // Restore original session
-        const originalSessionJWT = await new SignJWT({ sessionToken: originalSession.token })
-          .setProtectedHeader({ alg: 'HS256' })
-          .setIssuedAt()
-          .setExpirationTime(originalSession.expiresAt)
-          .sign(encodedKey)
-        
-        cookieStore.set('session', originalSessionJWT, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          expires: originalSession.expiresAt,
-          path: '/',
-        })
-        
-        console.log(`Restored original session for user: ${originalSession.userId}`)
-      } catch (error) {
-        console.error('Failed to restore original session:', error)
-      }
+    // CRITICAL: If adding account, don't replace the current session - just create a new one
+    // The account switcher will handle switching between sessions
+    if (addAccount) {
+      // When adding account, create session but don't set it as active cookie
+      // The user will switch to it via account switcher
+      const { createSessionWithoutCookie } = await import('@/lib/auth/session')
+      const { sessionJWT: newSessionJWT } = await createSessionWithoutCookie(user.id)
+      console.log(`[LOGIN] Account added (not switched): ${user.email} (${user.id})`)
+      
+      // Return the session token so frontend can add it to account switcher
+      // Don't include the full user object in mobileUser format - just return what's needed
+      return NextResponse.json({
+        accountAdded: true,
+        token: newSessionJWT,
+        user: mobileUser,
+      })
     }
+    
+    // Normal login - create and set session cookie
+    const sessionJWT = await createSession(user.id)
+    console.log(`[LOGIN] Login successful for user: ${user.email} (${user.id})`)
 
     // Check if user is an approved advertiser (for redirect logic)
     let isApprovedAdvertiser = false

@@ -131,8 +131,18 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
     }
   }
 
-  const removeAccount = (userId: string) => {
+  const removeAccount = async (userId: string) => {
+    // Don't allow removing the current account
+    if (userId === user?.id) {
+      alert('Cannot remove the currently active account. Please switch to another account first.')
+      return
+    }
+
+    // Remove from localStorage
     removeLinkedAccount(userId)
+    
+    // Optionally: Delete the session from database (optional - user might want to keep it)
+    // For now, just remove from linked accounts list
     fetchSessions()
   }
 

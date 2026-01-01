@@ -128,13 +128,24 @@ export async function POST(request: NextRequest) {
       .sign(secret)
 
     // Set the new session cookie
+    // CRITICAL: Use secure cookies in production, and ensure proper expiration
     const cookieStore = await cookies()
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1'
+    
     cookieStore.set('session', sessionJWT, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
+      expires: targetSession.expiresAt,
       path: '/',
+      // Don't set domain - let browser use current domain
+    })
+
+    console.log('[switch-account] Session switched successfully:', {
+      fromUserId: getUserIdFromSession(session),
+      toUserId: targetUser.id,
+      toUsername: targetUser.username,
+      toEmail: targetUser.email,
     })
 
     return NextResponse.json({

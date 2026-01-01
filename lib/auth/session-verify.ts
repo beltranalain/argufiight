@@ -57,6 +57,7 @@ export async function verifySessionWithDb() {
     const { prisma } = await import('@/lib/db/prisma')
 
     // Look up session in database - MUST use findUnique to ensure we get the exact session
+    // CRITICAL: Use findUnique with token to get EXACT session, not findFirst
     const session = await prisma.session.findUnique({
       where: { token: sessionToken },
       include: {
@@ -83,12 +84,27 @@ export async function verifySessionWithDb() {
       return null
     }
 
-    console.log('[verifySessionWithDb] Session found:', {
+    // CRITICAL VALIDATION: Ensure session.userId matches session.user.id
+    // This prevents returning wrong user if there's a data corruption issue
+    if (session.userId !== session.user.id) {
+      console.error('[verifySessionWithDb] CRITICAL: Session userId mismatch!', {
+        sessionId: session.id,
+        sessionUserId: session.userId,
+        userObjectId: session.user.id,
+        sessionToken: sessionToken.substring(0, 20) + '...',
+      })
+      // Delete corrupted session
+      await prisma.session.delete({ where: { id: session.id } })
+      return null
+    }
+
+    console.log('[verifySessionWithDb] Session verified:', {
       sessionId: session.id,
       userId: session.userId,
       userEmail: session.user.email,
       username: session.user.username,
       isAdmin: session.user.isAdmin,
+      tokenMatch: session.token === sessionToken,
     })
 
     return {
