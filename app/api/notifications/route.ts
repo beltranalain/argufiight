@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
           n.read_at,
           n.created_at
         FROM notifications n
-        WHERE n.user_id = $1 AND (n.read = false OR n.read = 0)
+        WHERE n.user_id = $1 AND (n.read = false OR n.read = 'false' OR n.read = 0)
         ORDER BY n.created_at DESC
         LIMIT $2
       `

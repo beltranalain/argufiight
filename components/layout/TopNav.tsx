@@ -88,18 +88,32 @@ export function TopNav({ currentPanel }: TopNavProps) {
 
   const fetchUnreadCount = async () => {
     try {
-      const response = await fetch('/api/notifications?unreadOnly=true')
+      // Use cache-busting to prevent stale data
+      const response = await fetch(`/api/notifications?unreadOnly=true&t=${Date.now()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      })
+      
       if (response.ok) {
         const notifications = await response.json()
         // Ensure notifications is an array and filter out any that are marked as read
         const unreadNotifications = Array.isArray(notifications) 
-          ? notifications.filter((n: any) => !n.read)
+          ? notifications.filter((n: any) => {
+              // Handle both boolean and string 'false' values
+              const isRead = n.read === true || n.read === 'true' || n.read === 1 || n.read === '1'
+              return !isRead
+            })
           : []
         const count = unreadNotifications.length
-        console.log('[TopNav] Unread notification count:', count, 'from', notifications.length, 'total')
-        setUnreadCount(count)
+        console.log('[TopNav] Unread notification count:', count, 'from', notifications.length, 'total notifications')
+        
+        // Only update if count changed to prevent unnecessary re-renders
+        if (count !== unreadCount) {
+          setUnreadCount(count)
+        }
       } else {
         // If API fails, set count to 0
+        console.log('[TopNav] Failed to fetch notifications, setting count to 0')
         setUnreadCount(0)
       }
     } catch (error) {
