@@ -53,6 +53,7 @@ export default async function RootLayout({
     }
   } catch (error) {
     // Fallback to env variable if database query fails
+    // This is expected if database is not available - don't crash the app
     console.log('[Layout] Could not fetch GSC verification from database, using env variable')
   }
 
