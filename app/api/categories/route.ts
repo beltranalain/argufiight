@@ -4,23 +4,31 @@ import { prisma } from '@/lib/db/prisma'
 // GET /api/categories - Get all active categories (public endpoint)
 export async function GET(request: NextRequest) {
   try {
-    const categories = await prisma.category.findMany({
-      where: {
-        isActive: true,
-      },
-      orderBy: {
-        sortOrder: 'asc',
-      },
-      select: {
-        id: true,
-        name: true,
-        label: true,
-        description: true,
-        color: true,
-        icon: true,
-        sortOrder: true,
-      },
-    })
+    // Cache categories for 30 minutes (they don't change often)
+    const { cache } = await import('@/lib/utils/cache')
+    const cacheKey = 'categories:all'
+    let categories = cache.get(cacheKey)
+    
+    if (!categories) {
+      categories = await prisma.category.findMany({
+        where: {
+          isActive: true,
+        },
+        orderBy: {
+          sortOrder: 'asc',
+        },
+        select: {
+          id: true,
+          name: true,
+          label: true,
+          description: true,
+          color: true,
+          icon: true,
+          sortOrder: true,
+        },
+      })
+      cache.set(cacheKey, categories, 1800) // Cache for 30 minutes
+    }
 
     return NextResponse.json({ categories })
   } catch (error) {
