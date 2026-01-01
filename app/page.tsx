@@ -101,7 +101,7 @@ export default async function RootPage() {
 
     // If not logged in, fetch homepage content SERVER-SIDE and show public homepage
     // Note: Caching removed from server component - use React cache() or implement at API level
-    let sections = []
+    let sections: any[] = []
     try {
       sections = await prisma.homepageSection.findMany({
         where: { isVisible: true },

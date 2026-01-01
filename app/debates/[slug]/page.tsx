@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { notFound, redirect } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -13,30 +13,78 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params
 
-  const debate = await prisma.debate.findUnique({
-    where: { slug },
-    select: {
-      id: true,
-      topic: true,
-      description: true,
-      category: true,
-      challenger: {
-        select: {
-          username: true,
-          avatarUrl: true,
+  // Check if this is a UUID (old format) - UUIDs are 36 characters with dashes
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
+  
+  let debate = null
+  if (isUUID) {
+    // Try to find by ID first (old UUID format)
+    debate = await prisma.debate.findUnique({
+      where: { id: slug },
+      select: {
+        id: true,
+        slug: true,
+        topic: true,
+        description: true,
+        category: true,
+        challenger: {
+          select: {
+            username: true,
+            avatarUrl: true,
+          },
         },
-      },
-      opponent: {
-        select: {
-          username: true,
-          avatarUrl: true,
+        opponent: {
+          select: {
+            username: true,
+            avatarUrl: true,
+          },
         },
+        status: true,
+        visibility: true,
+        createdAt: true,
       },
-      status: true,
-      visibility: true,
-      createdAt: true,
-    },
-  })
+    })
+    
+    // If debate has a slug, redirect to slug URL for metadata
+    if (debate?.slug) {
+      // Return metadata for slug URL (will redirect in component)
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
+      return {
+        title: `${debate.topic} | Argufight Debate`,
+        description: debate.description || `Watch ${debate.challenger.username} debate ${debate.opponent?.username || 'an opponent'} on ${debate.topic}`,
+        alternates: {
+          canonical: `${baseUrl}/debates/${debate.slug}`,
+        },
+      }
+    }
+  } else {
+    // Try to find by slug (new format)
+    debate = await prisma.debate.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        slug: true,
+        topic: true,
+        description: true,
+        category: true,
+        challenger: {
+          select: {
+            username: true,
+            avatarUrl: true,
+          },
+        },
+        opponent: {
+          select: {
+            username: true,
+            avatarUrl: true,
+          },
+        },
+        status: true,
+        visibility: true,
+        createdAt: true,
+      },
+    })
+  }
 
   if (!debate || debate.visibility !== 'PUBLIC') {
     return {
@@ -55,7 +103,7 @@ export async function generateMetadata({
       title,
       description,
       type: 'article',
-      url: `${baseUrl}/debates/${slug}`,
+      url: `${baseUrl}/debates/${debate.slug || debate.id}`,
     },
     twitter: {
       card: 'summary_large_image',
@@ -63,7 +111,7 @@ export async function generateMetadata({
       description,
     },
     alternates: {
-      canonical: `${baseUrl}/debates/${slug}`,
+      canonical: `${baseUrl}/debates/${debate.slug || debate.id}`,
     },
   }
 }
@@ -75,9 +123,32 @@ export default async function PublicDebatePage({
 }) {
   const { slug } = await params
 
-  const debate = await prisma.debate.findUnique({
-    where: { slug },
-    include: {
+  // Check if this is a UUID (old format) - UUIDs are 36 characters with dashes
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
+  
+  let debate = null
+
+  if (isUUID) {
+    // This is an old UUID URL - find by ID and redirect to slug if available
+    const debateCheck = await prisma.debate.findUnique({
+      where: { id: slug },
+      select: {
+        id: true,
+        slug: true,
+        visibility: true,
+      },
+    })
+
+    // If debate has a slug, redirect to slug-based URL (301 permanent redirect)
+    if (debateCheck?.slug) {
+      permanentRedirect(`/debates/${debateCheck.slug}`)
+    }
+
+    // If no slug but debate exists, fetch full data (fallback for debates without slugs yet)
+    if (debateCheck) {
+      debate = await prisma.debate.findUnique({
+        where: { id: slug },
+        include: {
       challenger: {
         select: {
           id: true,
@@ -123,8 +194,62 @@ export default async function PublicDebatePage({
           createdAt: 'asc',
         },
       },
-    },
-  })
+      },
+    })
+    }
+  } else {
+    // This is a slug URL - find by slug
+    debate = await prisma.debate.findUnique({
+      where: { slug },
+      include: {
+        challenger: {
+          select: {
+            id: true,
+            username: true,
+            avatarUrl: true,
+            eloRating: true,
+          },
+        },
+        opponent: {
+          select: {
+            id: true,
+            username: true,
+            avatarUrl: true,
+            eloRating: true,
+          },
+        },
+        statements: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+              },
+            },
+          },
+          orderBy: {
+            round: 'asc',
+          },
+        },
+        verdicts: {
+          include: {
+            judge: {
+              select: {
+                id: true,
+                name: true,
+                emoji: true,
+                personality: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+      },
+    })
+  }
 
   if (!debate) {
     notFound()
@@ -165,7 +290,7 @@ export default async function PublicDebatePage({
     },
     "mainEntityOfPage": {
       "@type": "WebPage",
-      "@id": `${baseUrl}/debates/${slug}`,
+      "@id": `${baseUrl}/debates/${debate.slug || debate.id}`,
     },
   }
 
@@ -184,7 +309,7 @@ export default async function PublicDebatePage({
             items={[
               { label: 'Home', href: '/' },
               { label: 'Debates', href: '/debates' },
-              { label: debate.topic, href: `/debates/${slug}` },
+              { label: debate.topic, href: `/debates/${debate.slug || debate.id}` },
             ]}
           />
 
