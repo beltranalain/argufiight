@@ -10,8 +10,11 @@ export async function GET() {
     const userId = getUserIdFromSession(session)
 
     if (!userId) {
+      console.log('[API /profile] No userId found, returning 401')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    console.log('[API /profile] Fetching profile for userId:', userId)
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -37,8 +40,15 @@ export async function GET() {
     })
 
     if (!user) {
+      console.log('[API /profile] User not found for userId:', userId)
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
+
+    console.log('[API /profile] Returning profile:', {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+    })
 
     return NextResponse.json({ user })
   } catch (error) {

@@ -138,12 +138,40 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
       return
     }
 
-    // Remove from localStorage
-    removeLinkedAccount(userId)
-    
-    // Optionally: Delete the session from database (optional - user might want to keep it)
-    // For now, just remove from linked accounts list
-    fetchSessions()
+    try {
+      // Remove from localStorage
+      removeLinkedAccount(userId)
+      
+      // Also delete the session from database to fully remove the account
+      // Find the session for this user
+      const sessionToRemove = sessions.find(s => s.user.id === userId)
+      if (sessionToRemove && sessionToRemove.token && !sessionToRemove.id.startsWith('temp-')) {
+        try {
+          const response = await fetch('/api/auth/sessions', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionToken: sessionToRemove.token }),
+          })
+          
+          if (!response.ok) {
+            const data = await response.json()
+            console.error('Failed to delete session from database:', data.error)
+            // Continue anyway - at least remove from localStorage
+          } else {
+            console.log('Session deleted from database for user:', userId)
+          }
+        } catch (error) {
+          console.error('Failed to delete session from database:', error)
+          // Continue anyway - at least remove from localStorage
+        }
+      }
+      
+      // Refresh the sessions list
+      fetchSessions()
+    } catch (error) {
+      console.error('Failed to remove account:', error)
+      alert('Failed to remove account. Please try again.')
+    }
   }
 
   if (!user) {

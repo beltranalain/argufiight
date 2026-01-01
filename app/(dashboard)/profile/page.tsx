@@ -66,29 +66,73 @@ export default function ProfilePage() {
   // Fetch profile data when component mounts or user changes
   useEffect(() => {
     if (!authLoading && user) {
+      console.log('[ProfilePage] User changed, fetching profile:', {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+      })
+      // Clear old profile data first to prevent showing wrong user
+      setProfile(null)
       fetchProfile()
       fetchTournamentStats()
     } else if (!authLoading && !user) {
       // Not logged in, redirect to home
       router.replace('/')
     }
-  }, [user, authLoading, router])
+  }, [user?.id, authLoading, router]) // Use user?.id to trigger on user change
 
   const fetchProfile = async () => {
+    if (!user) {
+      console.log('[ProfilePage] No user, skipping profile fetch')
+      return
+    }
+
     try {
       setIsLoading(true)
-      const response = await fetch('/api/profile')
+      // Add cache-busting to prevent stale data
+      const response = await fetch(`/api/profile?t=${Date.now()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      })
+      
       if (response.ok) {
         const data = await response.json()
+        
+        // DEBUG: Log what we received
+        console.log('[ProfilePage] Received profile data:', {
+          id: data.user?.id,
+          email: data.user?.email,
+          username: data.user?.username,
+          matchesCurrentUser: data.user?.id === user.id,
+        })
+        
+        // CRITICAL: Validate that the profile matches the current user
+        if (data.user && data.user.id !== user.id) {
+          console.error('[ProfilePage] PROFILE MISMATCH! Redirecting...', {
+            profileUserId: data.user.id,
+            profileEmail: data.user.email,
+            profileUsername: data.user.username,
+            currentUserId: user.id,
+            currentUserEmail: user.email,
+            currentUsername: user.username,
+          })
+          // Clear profile and redirect to home - profile doesn't match session
+          setProfile(null)
+          router.push('/')
+          return
+        }
+        
         setProfile(data.user)
         setFormData({
           username: data.user.username || '',
           bio: data.user.bio || '',
         })
         setAvatarPreview(data.user.avatarUrl)
+      } else {
+        console.error('[ProfilePage] Failed to fetch profile:', response.status, response.statusText)
       }
     } catch (error) {
-      console.error('Failed to fetch profile:', error)
+      console.error('[ProfilePage] Failed to fetch profile:', error)
     } finally {
       setIsLoading(false)
     }
@@ -209,6 +253,19 @@ export default function ProfilePage() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  // CRITICAL: If profile exists but doesn't match current user, clear it and redirect
+  if (profile && user && profile.id !== user.id) {
+    console.error('[ProfilePage] Profile user mismatch detected, clearing and redirecting', {
+      profileId: profile.id,
+      profileEmail: profile.email,
+      currentUserId: user.id,
+      currentUserEmail: user.email,
+    })
+    setProfile(null)
+    router.push('/')
+    return null
   }
 
   // Show loading while fetching data

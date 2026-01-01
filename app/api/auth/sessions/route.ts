@@ -122,3 +122,77 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// DELETE /api/auth/sessions - Delete a specific session (remove account from switcher)
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await verifySession()
+    const userId = getUserIdFromSession(session)
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
+    const { sessionToken } = body
+
+    if (!sessionToken) {
+      return NextResponse.json(
+        { error: 'Session token is required' },
+        { status: 400 }
+      )
+    }
+
+    // Verify the session exists and belongs to a linked account (not current account)
+    const targetSession = await prisma.session.findUnique({
+      where: { token: sessionToken },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+          },
+        },
+      },
+    })
+
+    if (!targetSession) {
+      return NextResponse.json(
+        { error: 'Session not found' },
+        { status: 404 }
+      )
+    }
+
+    // Don't allow deleting the current active session
+    if (targetSession.userId === userId) {
+      return NextResponse.json(
+        { error: 'Cannot delete the currently active session. Please switch to another account first.' },
+        { status: 400 }
+      )
+    }
+
+    // Delete the session from database
+    await prisma.session.delete({
+      where: { token: sessionToken },
+    })
+
+    console.log('[DELETE /api/auth/sessions] Session deleted:', {
+      sessionId: targetSession.id,
+      userId: targetSession.userId,
+      username: targetSession.user.username,
+      deletedBy: userId,
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Failed to delete session:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete session' },
+      { status: 500 }
+    )
+  }
+}
+
