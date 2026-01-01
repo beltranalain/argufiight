@@ -92,7 +92,15 @@ export async function GET(request: NextRequest) {
       // Handle both boolean and integer (0/1) formats for read field
       const notifications = notificationsRaw.map(n => {
         // Convert read to boolean - handle both boolean and 0/1 integer
-        const isRead = typeof n.read === 'boolean' ? n.read : n.read === 1 || n.read === true
+        let isRead: boolean
+        if (typeof n.read === 'boolean') {
+          isRead = n.read
+        } else if (typeof n.read === 'number') {
+          isRead = n.read === 1
+        } else {
+          // Fallback for any other type (string, etc.)
+          isRead = n.read === 1 || n.read === '1' || n.read === true || n.read === 'true'
+        }
         
         return {
           id: n.id,
