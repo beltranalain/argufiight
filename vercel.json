@@ -10,11 +10,11 @@
     },
     {
       "path": "/api/debates/process-expired",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/ai-auto-accept",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }

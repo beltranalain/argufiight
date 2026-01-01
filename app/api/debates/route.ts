@@ -8,8 +8,24 @@ import crypto from 'crypto'
 // GET /api/debates - List debates
 export async function GET(request: NextRequest) {
   try {
-    // Note: Background jobs moved to Vercel Cron to reduce database usage
-    // These will run on a schedule instead of on every request
+    // Process expired rounds in the background (non-blocking)
+    // Note: Also runs daily via Vercel Cron, but this ensures immediate processing
+    // Vercel Hobby plan limits cron to once per day, so we keep this for real-time processing
+    fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/debates/process-expired`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    }).catch(() => {
+      // Silently fail - this is a background task
+    })
+
+    // Also trigger AI auto-accept in the background (non-blocking)
+    // Note: Also runs daily via Vercel Cron, but this ensures immediate processing
+    fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/cron/ai-auto-accept`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    }).catch(() => {
+      // Silently fail - this is a background task
+    })
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
