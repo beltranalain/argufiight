@@ -115,6 +115,29 @@ function LoginForm() {
         throw new Error('Login failed: No user data received')
       }
 
+      // Handle account addition (different from normal login)
+      if (data.accountAdded && data.user?.id) {
+        // Add new account to localStorage
+        try {
+          const linkedAccountsKey = 'argufight_linked_accounts'
+          const stored = localStorage.getItem(linkedAccountsKey)
+          const accounts = stored ? JSON.parse(stored) : []
+          if (!accounts.includes(data.user.id)) {
+            accounts.push(data.user.id)
+            localStorage.setItem(linkedAccountsKey, JSON.stringify(accounts))
+          }
+        } catch (e) {
+          console.error('Failed to add account to localStorage:', e)
+        }
+        // Account added, go back to dashboard (don't switch to it)
+        window.location.href = '/?accountAdded=true'
+        return
+      }
+
+      if (!data.user) {
+        throw new Error('Login failed: No user data received')
+      }
+
       // DEBUG: Log what user we received from login
       console.log('[Login] Login successful, received user:', {
         id: data.user?.id,
@@ -129,25 +152,9 @@ function LoginForm() {
         localStorage.setItem('auth-refresh', Date.now().toString())
       }
 
-      // If adding account, add to localStorage and go back to dashboard
-      // Otherwise, redirect normally
+      // Normal login - redirect based on user type
       setTimeout(() => {
-        if (isAddingAccount && data.user?.id) {
-          // Add new account to localStorage
-          try {
-            const linkedAccountsKey = 'argufight_linked_accounts'
-            const stored = localStorage.getItem(linkedAccountsKey)
-            const accounts = stored ? JSON.parse(stored) : []
-            if (!accounts.includes(data.user.id)) {
-              accounts.push(data.user.id)
-              localStorage.setItem(linkedAccountsKey, JSON.stringify(accounts))
-            }
-          } catch (e) {
-            console.error('Failed to add account to localStorage:', e)
-          }
-          // Account added, go back to dashboard
-          window.location.href = '/?accountAdded=true'
-        } else if (data.user?.isAdmin) {
+        if (data.user?.isAdmin) {
           window.location.href = '/admin'
         } else if (data.user?.isAdvertiser) {
           window.location.href = '/advertiser/dashboard'
