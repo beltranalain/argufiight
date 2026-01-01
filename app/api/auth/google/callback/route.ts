@@ -257,13 +257,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user wants to add account (not replace current session)
-    // This is detected by checking if there's already a session cookie OR if addAccount is in state
+    // Only restore session if addAccount is explicitly true in state
+    // Don't auto-restore just because a session exists (that causes login bugs)
     let existingSession = null
-    let isAddingAccount = addAccount
+    let isAddingAccount = addAccount // Only true if explicitly set in state
     try {
       const cookieStore = await cookies()
       existingSession = cookieStore.get('session')
-      isAddingAccount = !!existingSession || addAccount
+      // Only treat as "adding account" if explicitly requested, not just because session exists
+      // This prevents the bug where all logins restore the same old session
       console.log('[Google OAuth Callback] Account addition check:', { 
         hasExistingSession: !!existingSession, 
         addAccountFromState: addAccount, 
