@@ -7,14 +7,6 @@
     {
       "path": "/api/cron/ai-tasks",
       "schedule": "0 4 * * *"
-    },
-    {
-      "path": "/api/debates/process-expired",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/ai-auto-accept",
-      "schedule": "0 8 * * *"
     }
   ]
 }

@@ -7,7 +7,7 @@
 
 ## ✅ Fixed Cron Jobs
 
-Updated `vercel.json` to use daily schedules only:
+Updated `vercel.json` to use only 2 cron jobs (Hobby plan limit):
 
 ```json
 {
@@ -19,18 +19,15 @@ Updated `vercel.json` to use daily schedules only:
     {
       "path": "/api/cron/ai-tasks",
       "schedule": "0 4 * * *"  // Daily at 4 AM
-    },
-    {
-      "path": "/api/debates/process-expired",
-      "schedule": "0 6 * * *"  // Daily at 6 AM
-    },
-    {
-      "path": "/api/cron/ai-auto-accept",
-      "schedule": "0 8 * * *"  // Daily at 8 AM
     }
   ]
 }
 ```
+
+**Note:** Removed `process-expired` and `ai-auto-accept` from cron since they:
+- Are already processed on-demand when debates are fetched
+- Would exceed the 2 cron job limit on Hobby plan
+- Work fine with just background processing
 
 ---
 
@@ -56,11 +53,13 @@ Since Vercel Hobby limits cron to once per day, we use a **hybrid approach**:
 
 ## 📊 Current Setup
 
-### Cron Jobs (Daily):
+### Cron Jobs (Daily - 2 max on Hobby plan):
 1. **Process Ad Tasks** - 2 AM daily
 2. **AI Tasks** - 4 AM daily
-3. **Process Expired Debates** - 6 AM daily
-4. **AI Auto-Accept** - 8 AM daily
+
+### Removed from Cron (Processed On-Demand):
+- **Process Expired Debates** - Runs when `/api/debates` is accessed
+- **AI Auto-Accept** - Runs when `/api/debates` is accessed
 
 ### Background Processing (On-Demand):
 - Called when `/api/debates` is accessed
