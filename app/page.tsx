@@ -10,16 +10,10 @@ export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
   
   // Get hero section for default metadata
-  let heroSection = null
-  try {
-    heroSection = await prisma.homepageSection.findUnique({
-      where: { key: 'hero' },
-      select: { metaTitle: true, metaDescription: true },
-    })
-  } catch (error: any) {
-    console.error('[generateMetadata] Failed to fetch hero section:', error.message)
-    // Use defaults if database is unavailable
-  }
+  const heroSection = await prisma.homepageSection.findUnique({
+    where: { key: 'hero' },
+    select: { metaTitle: true, metaDescription: true },
+  })
 
   const title = heroSection?.metaTitle || 'Argufight | AI-Judged Debate Platform - Win Debates with 7 AI Judges'
   const description = heroSection?.metaDescription || 'Join Argufight, the premier AI-judged debate platform. Debate any topic with 7 unique AI judges, climb the ELO leaderboard, and compete in tournaments. Free to start!'
@@ -58,14 +52,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootPage() {
   // Use verifySessionWithDb to get full session with userId
-  // This already has error handling and returns null on failure
-  let session = null
-  try {
-    session = await verifySessionWithDb()
-  } catch (error: any) {
-    console.error('[RootPage] Failed to verify session:', error.message)
-    // Continue without session - will show public homepage
-  }
+  const session = await verifySessionWithDb()
 
   // Debug logging (remove in production if needed)
   if (process.env.NODE_ENV === 'development') {
@@ -77,109 +64,40 @@ export default async function RootPage() {
 
   // If logged in, check if user is advertiser and redirect accordingly
   if (session?.userId) {
-    try {
-      const user = await prisma.user.findUnique({
-        where: { id: session.userId },
-        select: { email: true },
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { email: true },
+    })
+
+    if (user) {
+      const advertiser = await prisma.advertiser.findUnique({
+        where: { contactEmail: user.email },
+        select: { status: true },
       })
 
-      if (user) {
-        try {
-          const advertiser = await prisma.advertiser.findUnique({
-            where: { contactEmail: user.email },
-            select: { status: true },
-          })
-
-          // If user is an approved advertiser, redirect to advertiser dashboard
-          if (advertiser && advertiser.status === 'APPROVED') {
-            redirect('/advertiser/dashboard')
-          }
-        } catch (error: any) {
-          console.error('[RootPage] Failed to check advertiser status:', error.message)
-          // Continue to dashboard if advertiser check fails
-        }
+      // If user is an approved advertiser, redirect to advertiser dashboard
+      if (advertiser && advertiser.status === 'APPROVED') {
+        redirect('/advertiser/dashboard')
       }
-    } catch (error: any) {
-      console.error('[RootPage] Failed to fetch user:', error.message)
-      // If user lookup fails, show public homepage instead of dashboard
-      session = null
     }
 
-    // Only return dashboard if we successfully verified everything
-    if (session?.userId) {
-      return <DashboardHomePage />
-    }
+    return <DashboardHomePage />
   }
 
   // If not logged in, fetch homepage content SERVER-SIDE and show public homepage
-  // Use cached API endpoint to reduce database queries
-  let sections: any[] = []
-  try {
-    // During build, we can't use fetch to our own API, so use direct query
-    // In production runtime, the API endpoint will be used
-    if (process.env.NODE_ENV === 'production' && typeof window === 'undefined') {
-      // During build, use direct query with error handling
-      sections = await prisma.homepageSection.findMany({
-        where: { isVisible: true },
-        include: {
-          images: {
-            orderBy: { order: 'asc' },
-          },
-          buttons: {
-            where: { isVisible: true },
-            orderBy: { order: 'asc' },
-          },
-        },
+  const sections = await prisma.homepageSection.findMany({
+    where: { isVisible: true },
+    include: {
+      images: {
         orderBy: { order: 'asc' },
-      })
-    } else {
-      // Try to fetch from API endpoint which has caching (runtime only)
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/homepage/content`, {
-          next: { revalidate: 300 } // Cache for 5 minutes
-        })
-        if (response.ok) {
-          const data = await response.json()
-          sections = data.sections || []
-        } else {
-          // Fallback to direct query if API fails
-          sections = await prisma.homepageSection.findMany({
-            where: { isVisible: true },
-            include: {
-              images: {
-                orderBy: { order: 'asc' },
-              },
-              buttons: {
-                where: { isVisible: true },
-                orderBy: { order: 'asc' },
-              },
-            },
-            orderBy: { order: 'asc' },
-          })
-        }
-      } catch (fetchError: any) {
-        console.error('[RootPage] API fetch failed, trying direct query:', fetchError.message)
-        // Fallback to direct query if fetch fails
-        sections = await prisma.homepageSection.findMany({
-          where: { isVisible: true },
-          include: {
-            images: {
-              orderBy: { order: 'asc' },
-            },
-            buttons: {
-              where: { isVisible: true },
-              orderBy: { order: 'asc' },
-            },
-          },
-          orderBy: { order: 'asc' },
-        })
-      }
-    }
-  } catch (error: any) {
-    console.error('[RootPage] Failed to fetch homepage sections:', error.message)
-    // Use empty array - PublicHomepageServer will show default content
-    sections = []
-  }
+      },
+      buttons: {
+        where: { isVisible: true },
+        orderBy: { order: 'asc' },
+      },
+    },
+    orderBy: { order: 'asc' },
+  })
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
   

@@ -58,9 +58,27 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Use environment variables only (no database query to reduce compute time)
-    const clientId = process.env.GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    // Check admin settings first, then environment variables
+    let clientId = process.env.GOOGLE_CLIENT_ID
+    let clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    
+    if (!clientId || !clientSecret) {
+      try {
+        const [clientIdSetting, clientSecretSetting] = await Promise.all([
+          prisma.adminSetting.findUnique({ where: { key: 'GOOGLE_CLIENT_ID' } }),
+          prisma.adminSetting.findUnique({ where: { key: 'GOOGLE_CLIENT_SECRET' } }),
+        ])
+        
+        if (clientIdSetting?.value) {
+          clientId = clientIdSetting.value
+        }
+        if (clientSecretSetting?.value) {
+          clientSecret = clientSecretSetting.value
+        }
+      } catch (error) {
+        console.error('[Google OAuth Callback] Failed to fetch Google OAuth credentials from admin settings:', error)
+      }
+    }
     
     const redirectUri = `${baseUrl}/api/auth/google/callback`
     
@@ -257,15 +275,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user wants to add account (not replace current session)
-    // Only restore session if addAccount is explicitly true in state
-    // Don't auto-restore just because a session exists (that causes login bugs)
+    // This is detected by checking if there's already a session cookie OR if addAccount is in state
     let existingSession = null
-    let isAddingAccount = addAccount // Only true if explicitly set in state
+    let isAddingAccount = addAccount
     try {
       const cookieStore = await cookies()
       existingSession = cookieStore.get('session')
-      // Only treat as "adding account" if explicitly requested, not just because session exists
-      // This prevents the bug where all logins restore the same old session
+      isAddingAccount = !!existingSession || addAccount
       console.log('[Google OAuth Callback] Account addition check:', { 
         hasExistingSession: !!existingSession, 
         addAccountFromState: addAccount, 

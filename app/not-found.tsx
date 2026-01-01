@@ -62,12 +62,12 @@ export default function NotFound() {
               placeholder="Search debates..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 px-4 py-2 bg-bg-tertiary border border-bg-secondary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && searchQuery.trim()) {
                   window.location.href = `/debates?search=${encodeURIComponent(searchQuery.trim())}`
                 }
               }}
+              className="flex-1 px-4 py-2 bg-bg-tertiary border border-bg-secondary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue"
             />
             <button
               onClick={() => {

@@ -42,9 +42,19 @@ export default async function RootLayout({
   // Google Analytics Tracking ID (from environment variable or use default)
   const gaTrackingId = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || 'G-41YDQDD6J3'
   
-  // Get Google Search Console verification from environment variable only
-  // This avoids a database query on every page load, reducing compute time
-  const gscVerification = process.env.GOOGLE_SEARCH_CONSOLE_VERIFICATION || ''
+  // Get Google Search Console verification from database
+  let gscVerification = process.env.GOOGLE_SEARCH_CONSOLE_VERIFICATION || ''
+  try {
+    const gscSetting = await prisma.adminSetting.findUnique({
+      where: { key: 'seo_googleSearchConsoleVerification' },
+    })
+    if (gscSetting?.value) {
+      gscVerification = gscSetting.value
+    }
+  } catch (error) {
+    // Fallback to env variable if database query fails
+    console.log('[Layout] Could not fetch GSC verification from database, using env variable')
+  }
 
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { notFound, redirect } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -9,12 +9,12 @@ import { RelatedDebates } from '@/components/debate/RelatedDebates'
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>
+  params: Promise<{ id: string }>
 }): Promise<Metadata> {
-  const { slug } = await params
+  const { id } = await params
 
   const debate = await prisma.debate.findUnique({
-    where: { slug },
+    where: { id },
     select: {
       id: true,
       topic: true,
@@ -55,7 +55,7 @@ export async function generateMetadata({
       title,
       description,
       type: 'article',
-      url: `${baseUrl}/debates/${slug}`,
+      url: `${baseUrl}/debates/${id}`,
     },
     twitter: {
       card: 'summary_large_image',
@@ -63,7 +63,7 @@ export async function generateMetadata({
       description,
     },
     alternates: {
-      canonical: `${baseUrl}/debates/${slug}`,
+      canonical: `${baseUrl}/debates/${id}`,
     },
   }
 }
@@ -71,12 +71,28 @@ export async function generateMetadata({
 export default async function PublicDebatePage({
   params,
 }: {
-  params: Promise<{ slug: string }>
+  params: Promise<{ id: string }>
 }) {
-  const { slug } = await params
+  const { id } = await params
 
+  // Check if this is a UUID (old format) and redirect to slug if available
+  const debateCheck = await prisma.debate.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      slug: true,
+      visibility: true,
+    },
+  })
+
+  // If debate has a slug, redirect to slug-based URL (301 permanent redirect)
+  if (debateCheck?.slug) {
+    permanentRedirect(`/debates/${debateCheck.slug}`)
+  }
+
+  // If no slug but debate exists, fetch full data (fallback for debates without slugs yet)
   const debate = await prisma.debate.findUnique({
-    where: { slug },
+    where: { id },
     include: {
       challenger: {
         select: {
@@ -112,15 +128,18 @@ export default async function PublicDebatePage({
         include: {
           judge: {
             select: {
-              id: true,
               name: true,
               emoji: true,
-              personality: true,
             },
           },
         },
         orderBy: {
           createdAt: 'asc',
+        },
+      },
+      tags: {
+        include: {
+          tag: true,
         },
       },
     },
@@ -133,6 +152,11 @@ export default async function PublicDebatePage({
   // Only show public debates
   if (debate.visibility !== 'PUBLIC') {
     notFound()
+  }
+
+  // If debate has a slug but we're on the ID route, redirect
+  if (debate.slug) {
+    permanentRedirect(`/debates/${debate.slug}`)
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
@@ -165,7 +189,7 @@ export default async function PublicDebatePage({
     },
     "mainEntityOfPage": {
       "@type": "WebPage",
-      "@id": `${baseUrl}/debates/${slug}`,
+      "@id": debate.slug ? `${baseUrl}/debates/${debate.slug}` : `${baseUrl}/debates/${id}`,
     },
   }
 
@@ -184,7 +208,7 @@ export default async function PublicDebatePage({
             items={[
               { label: 'Home', href: '/' },
               { label: 'Debates', href: '/debates' },
-              { label: debate.topic, href: `/debates/${slug}` },
+              { label: debate.topic, href: debate.slug ? `/debates/${debate.slug}` : `/debates/${id}` },
             ]}
           />
 
@@ -215,38 +239,64 @@ export default async function PublicDebatePage({
             )}
 
             {/* Participants */}
-            <div className="flex items-center gap-4 mb-6">
+            <div className="flex items-center gap-6 mb-6">
               <div className="flex items-center gap-3">
-                <Image
-                  src={debate.challenger.avatarUrl || '/default-avatar.png'}
-                  alt={debate.challenger.username}
-                  width={48}
-                  height={48}
-                  className="rounded-full"
-                />
-                <div>
-                  <p className="text-white font-semibold">{debate.challenger.username}</p>
-                  <p className="text-text-secondary text-sm">ELO: {debate.challenger.eloRating}</p>
-                </div>
-              </div>
-              <span className="text-text-secondary">vs</span>
-              {debate.opponent ? (
-                <div className="flex items-center gap-3">
+                {debate.challenger.avatarUrl ? (
                   <Image
-                    src={debate.opponent.avatarUrl || '/default-avatar.png'}
-                    alt={debate.opponent.username}
+                    src={debate.challenger.avatarUrl}
+                    alt={debate.challenger.username}
                     width={48}
                     height={48}
                     className="rounded-full"
                   />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-electric-blue/20 flex items-center justify-center">
+                    <span className="text-electric-blue font-semibold">
+                      {debate.challenger.username[0].toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <div>
+                  <p className="text-white font-medium">{debate.challenger.username}</p>
+                  <p className="text-text-secondary text-sm">ELO: {debate.challenger.eloRating}</p>
+                </div>
+              </div>
+
+              <span className="text-text-secondary">vs</span>
+
+              {debate.opponent ? (
+                <div className="flex items-center gap-3">
+                  {debate.opponent.avatarUrl ? (
+                    <Image
+                      src={debate.opponent.avatarUrl}
+                      alt={debate.opponent.username}
+                      width={48}
+                      height={48}
+                      className="rounded-full"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-electric-blue/20 flex items-center justify-center">
+                      <span className="text-electric-blue font-semibold">
+                        {debate.opponent.username[0].toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                   <div>
-                    <p className="text-white font-semibold">{debate.opponent.username}</p>
+                    <p className="text-white font-medium">{debate.opponent.username}</p>
                     <p className="text-text-secondary text-sm">ELO: {debate.opponent.eloRating}</p>
                   </div>
                 </div>
               ) : (
-                <p className="text-text-secondary">Waiting for opponent...</p>
+                <div className="text-text-secondary">Waiting for opponent...</div>
               )}
+            </div>
+
+            <div className="text-text-secondary text-sm">
+              Created {new Date(debate.createdAt).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
             </div>
           </header>
 
@@ -260,20 +310,31 @@ export default async function PublicDebatePage({
                     key={statement.id}
                     className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6"
                   >
-                    <div className="flex items-center gap-3 mb-3">
-                      <Image
-                        src={statement.author.avatarUrl || '/default-avatar.png'}
-                        alt={statement.author.username}
-                        width={32}
-                        height={32}
-                        className="rounded-full"
-                      />
+                    <div className="flex items-center gap-3 mb-4">
+                      {statement.author.avatarUrl ? (
+                        <Image
+                          src={statement.author.avatarUrl}
+                          alt={statement.author.username}
+                          width={32}
+                          height={32}
+                          className="rounded-full"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-electric-blue/20 flex items-center justify-center">
+                          <span className="text-electric-blue text-xs font-semibold">
+                            {statement.author.username[0].toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                       <div>
-                        <p className="text-white font-semibold">{statement.author.username}</p>
-                        <p className="text-text-secondary text-sm">Round {statement.round}</p>
+                        <p className="text-white font-medium text-sm">{statement.author.username}</p>
+                        <p className="text-text-secondary text-xs">Round {statement.round}</p>
                       </div>
                     </div>
-                    <p className="text-text-primary whitespace-pre-wrap">{statement.content}</p>
+                    <div
+                      className="prose prose-invert prose-sm max-w-none prose-p:text-text-primary/90"
+                      dangerouslySetInnerHTML={{ __html: statement.content }}
+                    />
                   </div>
                 ))}
               </div>
@@ -292,21 +353,15 @@ export default async function PublicDebatePage({
                   >
                     <div className="flex items-center gap-3 mb-3">
                       <span className="text-2xl">{verdict.judge.emoji}</span>
-                      <div>
-                        <p className="text-white font-semibold">{verdict.judge.name}</p>
-                        <p className="text-text-secondary text-sm">{verdict.judge.personality}</p>
-                      </div>
+                      <h3 className="text-lg font-semibold text-white">{verdict.judge.name}</h3>
                     </div>
-                    <p className="text-text-primary mb-2">{verdict.reasoning}</p>
-                    {verdict.challengerScore !== null && verdict.opponentScore !== null && (
-                      <div className="flex gap-4 mt-4 text-sm">
-                        <span className="text-electric-blue">
-                          Challenger: {verdict.challengerScore}/100
-                        </span>
-                        <span className="text-neon-orange">
-                          Opponent: {verdict.opponentScore}/100
-                        </span>
-                      </div>
+                    {verdict.winnerId && (
+                      <p className="text-text-secondary text-sm mb-2">
+                        Winner: {verdict.winnerId === debate.challengerId ? debate.challenger.username : debate.opponent?.username}
+                      </p>
+                    )}
+                    {verdict.reasoning && (
+                      <p className="text-text-primary/80 text-sm">{verdict.reasoning}</p>
                     )}
                   </div>
                 ))}
@@ -314,23 +369,9 @@ export default async function PublicDebatePage({
             </section>
           )}
 
-          {/* Winner */}
-          {debate.winnerId && (
-            <section className="mb-12">
-              <div className="bg-gradient-to-r from-cyber-green/20 to-electric-blue/20 border border-cyber-green/50 rounded-xl p-8 text-center">
-                <h2 className="text-3xl font-bold text-white mb-2">Winner</h2>
-                <p className="text-2xl text-cyber-green font-semibold">
-                  {debate.winnerId === debate.challengerId 
-                    ? debate.challenger.username 
-                    : debate.opponent?.username || 'Unknown'}
-                </p>
-              </div>
-            </section>
-          )}
-
           {/* Related Debates */}
           <RelatedDebates
-            currentDebateId={debate.id}
+            currentDebateId={id}
             category={debate.category}
             challengerId={debate.challengerId}
             opponentId={debate.opponentId}
@@ -354,3 +395,4 @@ export default async function PublicDebatePage({
     </>
   )
 }
+

@@ -34,9 +34,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get Google OAuth credentials from environment variables only (no database query)
-    const clientId = process.env.GOOGLE_CLIENT_ID
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    // Get Google OAuth credentials
+    let clientId = process.env.GOOGLE_CLIENT_ID
+    let clientSecret = process.env.GOOGLE_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+      try {
+        const [idSetting, secretSetting] = await Promise.all([
+          prisma.adminSetting.findUnique({ where: { key: 'GOOGLE_CLIENT_ID' } }),
+          prisma.adminSetting.findUnique({ where: { key: 'GOOGLE_CLIENT_SECRET' } }),
+        ])
+        if (idSetting?.value) clientId = idSetting.value
+        if (secretSetting?.value) clientSecret = secretSetting.value
+      } catch (error) {
+        console.error('[Mobile Google OAuth Callback] Failed to fetch credentials:', error)
+      }
+    }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
     const redirectUri = `${baseUrl}/api/auth/google/mobile-callback`

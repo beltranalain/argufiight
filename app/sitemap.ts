@@ -128,10 +128,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'weekly' as const,
       priority: 0.7,
     })))
-  } catch (error: any) {
-    console.log('[Sitemap] Error fetching public debates:', error.message)
-    // Continue with empty array - sitemap will still work without debates
-    publicDebates = []
+  } catch (error) {
+    console.log('[Sitemap] Error fetching public debates:', error)
   }
 
   // Get published blog posts (all of them, no limit)
@@ -183,11 +181,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: i === 0 ? 0.9 : 0.7,
       }))
     }
-  } catch (error: any) {
-    console.log('[Sitemap] Error fetching blog posts:', error.message)
-    // Continue with empty arrays - sitemap will still work without blog posts
-    blogPosts = []
-    blogPaginationPages = []
+  } catch (error) {
+    console.log('[Sitemap] Error fetching blog posts:', error)
   }
 
   return [...staticPages, ...publicDebates, ...blogPosts, ...blogPaginationPages]

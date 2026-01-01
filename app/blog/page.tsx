@@ -81,74 +81,56 @@ export default async function BlogPage({
     delete where.status
   }
 
-  let posts: any[] = []
-  let total = 0
-  
-  try {
-    [posts, total] = await Promise.all([
-      prisma.blogPost.findMany({
-        where,
-        include: {
-          author: {
-            select: {
-              id: true,
-              username: true,
-              avatarUrl: true,
-            },
-          },
-          featuredImage: {
-            select: {
-              id: true,
-              url: true,
-              alt: true,
-            },
-          },
-          categories: {
-            include: {
-              category: true,
-            },
-          },
-          tags: {
-            include: {
-              tag: true,
-            },
+  const [posts, total] = await Promise.all([
+    prisma.blogPost.findMany({
+      where,
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            avatarUrl: true,
           },
         },
-        orderBy: {
-          createdAt: 'desc',
+        featuredImage: {
+          select: {
+            id: true,
+            url: true,
+            alt: true,
+          },
         },
-        skip,
-        take: limit,
-      }),
-      prisma.blogPost.count({ where }),
-    ])
-  } catch (error: any) {
-    console.error('[BlogPage] Failed to fetch blog posts:', error.message)
-    // Use empty arrays - page will show "No posts found" message
-    posts = []
-    total = 0
-  }
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip,
+      take: limit,
+    }),
+    prisma.blogPost.count({ where }),
+  ])
 
   const totalPages = Math.ceil(total / limit)
 
   // Fetch social media links and footer content
-  let socialLinks: any[] = []
-  let footerSection = null
-  
-  try {
-    [socialLinks, footerSection] = await Promise.all([
-      prisma.socialMediaLink.findMany({
-        where: { isActive: true },
-        orderBy: { order: 'asc' },
-      }),
-      prisma.homepageSection.findFirst({
-        where: { key: 'footer', isVisible: true },
-      }),
-    ])
-  } catch (error: any) {
-    console.error('[BlogPage] Failed to fetch social links/footer:', error.message)
-    // Use empty arrays - page will still render
-  }
+  const [socialLinks, footerSection] = await Promise.all([
+    prisma.socialMediaLink.findMany({
+      where: { isActive: true },
+      orderBy: { order: 'asc' },
+    }),
+    prisma.homepageSection.findFirst({
+      where: { key: 'footer', isVisible: true },
+    }),
+  ])
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-950 via-purple-900 to-indigo-950 relative overflow-hidden">
@@ -243,7 +225,7 @@ export default async function BlogPage({
                   <div className="p-6 bg-transparent">
                     {post.categories.length > 0 && (
                       <div className="flex flex-wrap gap-2 mb-3">
-                        {post.categories.map((c: any) => (
+                        {post.categories.map((c) => (
                           <span
                             key={c.category.id}
                             className="px-2 py-1 text-xs bg-electric-blue/20 text-electric-blue rounded"

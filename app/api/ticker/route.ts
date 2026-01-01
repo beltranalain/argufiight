@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { cache } from '@/lib/utils/cache'
 
 interface TickerUpdate {
   id: string
@@ -14,25 +13,13 @@ interface TickerUpdate {
 
 export async function GET(request: NextRequest) {
   try {
-    // Cache ticker updates for 5 minutes to reduce database load
-    const cacheKey = 'ticker:updates'
-    const cached = cache.get<TickerUpdate[]>(cacheKey)
-    if (cached) {
-      return NextResponse.json({
-        updates: cached.slice(0, 20),
-        total: cached.length,
-      })
-    }
-
     const updates: TickerUpdate[] = []
     const now = new Date()
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
 
     // 1. BIG BATTLES - High ELO matchups (both players ELO > 1500 or combined > 3000)
-    let bigBattles: any[] = []
-    try {
-      bigBattles = await prisma.debate.findMany({
+    const bigBattles = await prisma.debate.findMany({
       where: {
         status: 'ACTIVE',
         createdAt: {
@@ -67,10 +54,6 @@ export async function GET(request: NextRequest) {
       },
       take: 5,
     })
-    } catch (error: any) {
-      console.error('[Ticker] Failed to fetch big battles:', error.message)
-      // Continue with empty array
-    }
 
     for (const debate of bigBattles) {
       if (!debate.challenger || !debate.opponent) continue
@@ -87,9 +70,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. HIGH VIEWS - Debates with high view counts (viewCount > 50)
-    let highViewDebates: any[] = []
-    try {
-      highViewDebates = await prisma.debate.findMany({
+    const highViewDebates = await prisma.debate.findMany({
       where: {
         viewCount: { gte: 50 },
         createdAt: {
@@ -117,10 +98,6 @@ export async function GET(request: NextRequest) {
       },
       take: 5,
     })
-    } catch (error: any) {
-      console.error('[Ticker] Failed to fetch high view debates:', error.message)
-      // Continue with empty array
-    }
 
     for (const debate of highViewDebates) {
       if (!debate.challenger || !debate.opponent) continue
@@ -136,9 +113,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. MAJOR UPSETS - Low ELO beating high ELO (difference > 200 points)
-    let recentCompleted: any[] = []
-    try {
-      recentCompleted = await prisma.debate.findMany({
+    const recentCompleted = await prisma.debate.findMany({
       where: {
         status: 'COMPLETED',
         endedAt: {
@@ -175,10 +150,6 @@ export async function GET(request: NextRequest) {
       },
       take: 10,
     })
-    } catch (error: any) {
-      console.error('[Ticker] Failed to fetch recent completed:', error.message)
-      // Continue with empty array
-    }
 
     for (const debate of recentCompleted) {
       if (!debate.challenger || !debate.opponent) continue
@@ -211,9 +182,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 4. NEW VERDICTS - Recently completed debates with verdicts
-    let newVerdicts: any[] = []
-    try {
-      newVerdicts = await prisma.debate.findMany({
+    const newVerdicts = await prisma.debate.findMany({
       where: {
         status: 'COMPLETED',
         endedAt: {
@@ -245,10 +214,6 @@ export async function GET(request: NextRequest) {
       },
       take: 5,
     })
-    } catch (error: any) {
-      console.error('[Ticker] Failed to fetch new verdicts:', error.message)
-      // Continue with empty array
-    }
 
     for (const debate of newVerdicts) {
       if (!debate.challenger || !debate.opponent) continue
@@ -270,33 +235,29 @@ export async function GET(request: NextRequest) {
 
     // 5. STREAKS - Users on winning streaks (3+ wins in a row)
     // First, get top users who might be on streaks
-    let potentialStreakUsers: any[] = []
-    let allRecentDebates: any[] = []
-    let userIds: string[] = []
-    try {
-      potentialStreakUsers = await prisma.user.findMany({
-        where: {
-          isAdmin: false,
-          isBanned: false,
-          debatesWon: { gte: 3 },
-          totalDebates: { gte: 3 },
-        },
-        select: {
-          id: true,
-          username: true,
-          debatesWon: true,
-          totalDebates: true,
-          eloRating: true,
-        },
-        orderBy: {
-          eloRating: 'desc',
-        },
-        take: 20,
-      })
+    const potentialStreakUsers = await prisma.user.findMany({
+      where: {
+        isAdmin: false,
+        isBanned: false,
+        debatesWon: { gte: 3 },
+        totalDebates: { gte: 3 },
+      },
+      select: {
+        id: true,
+        username: true,
+        debatesWon: true,
+        totalDebates: true,
+        eloRating: true,
+      },
+      orderBy: {
+        eloRating: 'desc',
+      },
+      take: 20,
+    })
 
-      // Get all recent completed debates for these users in one query
-      userIds = potentialStreakUsers.map(u => u.id)
-      allRecentDebates = await prisma.debate.findMany({
+    // Get all recent completed debates for these users in one query
+    const userIds = potentialStreakUsers.map(u => u.id)
+    const allRecentDebates = await prisma.debate.findMany({
       where: {
         status: 'COMPLETED',
         OR: [
@@ -318,10 +279,6 @@ export async function GET(request: NextRequest) {
         endedAt: 'desc',
       },
     })
-    } catch (error: any) {
-      console.error('[Ticker] Failed to fetch streaks:', error.message)
-      // Continue with empty arrays
-    }
 
     // Group debates by user and calculate streaks
     const userDebates = new Map<string, typeof allRecentDebates>()
@@ -370,9 +327,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 6. MILESTONES - Users reaching ELO milestones (1500, 1600, 1700, etc.)
-    let milestoneUsers: any[] = []
-    try {
-      milestoneUsers = await prisma.user.findMany({
+    const milestoneUsers = await prisma.user.findMany({
       where: {
         isAdmin: false,
         isBanned: false,
@@ -394,10 +349,6 @@ export async function GET(request: NextRequest) {
       },
       take: 5,
     })
-    } catch (error: any) {
-      console.error('[Ticker] Failed to fetch milestones:', error.message)
-      // Continue with empty array
-    }
 
     for (const user of milestoneUsers) {
       const elo = Math.floor(user.eloRating)
@@ -423,9 +374,6 @@ export async function GET(request: NextRequest) {
       
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     })
-
-    // Cache for 5 minutes
-    cache.set(cacheKey, updates, 300)
 
     // Return top 20 updates
     return NextResponse.json({

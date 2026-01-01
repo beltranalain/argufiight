@@ -4,13 +4,7 @@ import { getStaticPage } from '@/lib/content/static-pages'
 
 export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
-  let page = null
-  try {
-    page = await getStaticPage('how-it-works')
-  } catch (error: any) {
-    console.error('[HowItWorksPage] Failed to fetch static page:', error.message)
-    // Use defaults if database query fails
-  }
+  const page = await getStaticPage('how-it-works')
   
   const title = page?.metaTitle || 'How It Works - Argufight | AI-Judged Debate Platform'
   const description = page?.metaDescription || 'Learn how Argufight works. Create debates, make arguments over 5 rounds, get judged by 7 unique AI personalities, and climb the ELO leaderboard. Start debating today!'
@@ -34,13 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function HowItWorksPage() {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
-  let page = null
-  try {
-    page = await getStaticPage('how-it-works')
-  } catch (error: any) {
-    console.error('[HowItWorksPage] Failed to fetch static page:', error.message)
-    // Use fallback content if database query fails
-  }
+  const page = await getStaticPage('how-it-works')
 
   const structuredData = {
     "@context": "https://schema.org",
