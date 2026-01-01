@@ -186,7 +186,7 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="Switch Account">
+    <Modal isOpen={true} onClose={onClose || (() => {})} title="Switch Account">
       <div className="space-y-4">
         <p className="text-sm text-text-secondary">
           {sessions.length} active session{sessions.length !== 1 ? 's' : ''}
