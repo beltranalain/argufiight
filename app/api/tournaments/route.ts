@@ -13,8 +13,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if tournaments feature is enabled (from environment variable, no database query)
-    const tournamentsEnabled = process.env.TOURNAMENTS_ENABLED === 'true' || process.env.TOURNAMENTS_ENABLED === '1'
+    // Check if tournaments feature is enabled (from database setting, with env var fallback)
+    // Admin dashboard can toggle this, so check database first
+    let tournamentsEnabled = false
+    try {
+      const setting = await prisma.adminSetting.findUnique({
+        where: { key: 'TOURNAMENTS_ENABLED' },
+      })
+      tournamentsEnabled = setting?.value === 'true' || setting?.value === '1'
+    } catch (error: any) {
+      console.error('[Tournaments API] Failed to fetch setting from database:', error.message)
+      // Fallback to environment variable if database query fails
+      tournamentsEnabled = process.env.TOURNAMENTS_ENABLED === 'true' || process.env.TOURNAMENTS_ENABLED === '1'
+    }
 
     if (!tournamentsEnabled) {
       return NextResponse.json({ error: 'Tournaments feature is disabled' }, { status: 403 })
@@ -310,8 +321,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if tournaments feature is enabled (from environment variable, no database query)
-    const tournamentsEnabled = process.env.TOURNAMENTS_ENABLED === 'true' || process.env.TOURNAMENTS_ENABLED === '1'
+    // Check if tournaments feature is enabled (from database setting, with env var fallback)
+    // Admin dashboard can toggle this, so check database first
+    let tournamentsEnabled = false
+    try {
+      const setting = await prisma.adminSetting.findUnique({
+        where: { key: 'TOURNAMENTS_ENABLED' },
+      })
+      tournamentsEnabled = setting?.value === 'true' || setting?.value === '1'
+    } catch (error: any) {
+      console.error('[Tournaments API] Failed to fetch setting from database:', error.message)
+      // Fallback to environment variable if database query fails
+      tournamentsEnabled = process.env.TOURNAMENTS_ENABLED === 'true' || process.env.TOURNAMENTS_ENABLED === '1'
+    }
 
     if (!tournamentsEnabled) {
       return NextResponse.json({ error: 'Tournaments feature is disabled' }, { status: 403 })
