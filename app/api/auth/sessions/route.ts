@@ -74,13 +74,24 @@ export async function GET(request: NextRequest) {
     })
 
     // Group sessions by user and get the most recent session for each user
+    // IMPORTANT: Only include sessions for users that are in the linked accounts list
     const userSessions = new Map<string, typeof sessions[0]>()
+    const accountIdsSet = new Set(accountIds)
+    
     for (const session of sessions) {
+      // Only process sessions for users in the linked accounts
+      if (!accountIdsSet.has(session.userId)) {
+        console.log(`[GET /api/auth/sessions] Skipping session for user ${session.userId} - not in linked accounts`)
+        continue
+      }
+      
       if (!userSessions.has(session.userId) || 
           session.createdAt > userSessions.get(session.userId)!.createdAt) {
         userSessions.set(session.userId, session)
       }
     }
+    
+    console.log(`[GET /api/auth/sessions] Found ${userSessions.size} unique users with sessions (from ${sessions.length} total sessions)`)
 
     // Build response with one entry per user (their most recent active session)
     const accounts = Array.from(userSessions.values()).map((s) => ({
