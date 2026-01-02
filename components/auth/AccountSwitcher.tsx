@@ -59,8 +59,11 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
 
   useEffect(() => {
     if (user) {
-      // Add current user to linked accounts
-      addLinkedAccount(user.id)
+      // Add current user to linked accounts (only if not already there)
+      const linked = getLinkedAccounts()
+      if (!linked.includes(user.id)) {
+        addLinkedAccount(user.id)
+      }
       fetchSessions()
     }
   }, [user])
@@ -202,15 +205,27 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
       })
       
       // Small delay to ensure localStorage is written
-      await new Promise(resolve => setTimeout(resolve, 50))
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      // Double-check localStorage was updated
+      const verifyLinked = getLinkedAccounts()
+      if (verifyLinked.includes(userId)) {
+        console.error('[AccountSwitcher] ERROR: userId still in linked accounts after removal!')
+        // Force remove again
+        removeLinkedAccount(userId)
+        const verifyLinked2 = getLinkedAccounts()
+        console.log('[AccountSwitcher] Force removed again. Now in linked?', verifyLinked2.includes(userId))
+      }
       
       // Refresh the sessions list to sync with server
       await fetchSessions()
       
-      // Verify the account is actually gone
+      // Verify the account is actually gone from the sessions list
       const finalLinked = getLinkedAccounts()
+      const finalSessions = sessions.filter(s => s.user.id !== userId)
       console.log('[AccountSwitcher] Final verification - linked accounts:', finalLinked)
       console.log('[AccountSwitcher] Final verification - userId in linked?', finalLinked.includes(userId))
+      console.log('[AccountSwitcher] Final verification - sessions count:', finalSessions.length, 'should be', sessions.length - 1)
       console.log('[AccountSwitcher] Account removed successfully')
       
       // Close confirmation dialog
