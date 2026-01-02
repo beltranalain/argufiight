@@ -186,14 +186,31 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
       }
       
       // ALWAYS remove from localStorage - this is the key to preventing it from showing up again
+      const linkedBeforeRemoval = getLinkedAccounts()
+      console.log('[AccountSwitcher] Linked accounts BEFORE removal:', linkedBeforeRemoval)
+      
       removeLinkedAccount(userId)
-      console.log('[AccountSwitcher] Removed from localStorage')
+      const linkedAfterRemoval = getLinkedAccounts()
+      console.log('[AccountSwitcher] Removed from localStorage. Linked accounts AFTER removal:', linkedAfterRemoval)
+      console.log('[AccountSwitcher] Verifying userId is NOT in linked accounts:', !linkedAfterRemoval.includes(userId))
       
       // Immediately remove from local state to update UI
-      setSessions(prev => prev.filter(s => s.user.id !== userId))
+      setSessions(prev => {
+        const filtered = prev.filter(s => s.user.id !== userId)
+        console.log('[AccountSwitcher] Local state updated. Sessions before:', prev.length, 'after:', filtered.length)
+        return filtered
+      })
+      
+      // Small delay to ensure localStorage is written
+      await new Promise(resolve => setTimeout(resolve, 50))
       
       // Refresh the sessions list to sync with server
       await fetchSessions()
+      
+      // Verify the account is actually gone
+      const finalLinked = getLinkedAccounts()
+      console.log('[AccountSwitcher] Final verification - linked accounts:', finalLinked)
+      console.log('[AccountSwitcher] Final verification - userId in linked?', finalLinked.includes(userId))
       console.log('[AccountSwitcher] Account removed successfully')
       
       // Close confirmation dialog
