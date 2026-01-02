@@ -93,8 +93,12 @@ export async function GET(request: NextRequest) {
     }))
 
     // If a user doesn't have an active session, still include them if they're in the linked accounts
+    // BUT only if they're explicitly in the linkedAccountIds (not just because they're in the database)
+    const linkedIdsSet = new Set(accountIds)
     for (const user of users) {
-      if (!userSessions.has(user.id)) {
+      // Only create temp entry if user is in linked accounts AND doesn't have an active session
+      // This prevents deleted accounts from reappearing
+      if (!userSessions.has(user.id) && linkedIdsSet.has(user.id)) {
         // Create a temporary entry (user will need to log in again)
         accounts.push({
           id: `temp-${user.id}`,

@@ -149,8 +149,8 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
       // Find the session for this user
       const sessionToRemove = sessions.find(s => s.user.id === userId)
       
-      // Delete session from database if it exists
-      if (sessionToRemove && sessionToRemove.token && !sessionToRemove.id.startsWith('temp-')) {
+      // Delete session from database if it exists and has a token
+      if (sessionToRemove && sessionToRemove.token && sessionToRemove.token.length > 0 && !sessionToRemove.id.startsWith('temp-')) {
         try {
           console.log('[AccountSwitcher] Deleting session from database:', sessionToRemove.token.substring(0, 20) + '...')
           const response = await fetch('/api/auth/sessions', {
@@ -161,22 +161,31 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
           
           if (!response.ok) {
             const data = await response.json()
-            console.error('[AccountSwitcher] Failed to delete session:', data.error)
-            throw new Error(data.error || 'Failed to delete session')
+            console.error('[AccountSwitcher] Failed to delete session from database:', data.error)
+            // Don't throw - continue to remove from localStorage anyway
           } else {
             console.log('[AccountSwitcher] Session deleted from database successfully')
           }
         } catch (error) {
-          console.error('[AccountSwitcher] Error deleting session:', error)
-          throw error
+          console.error('[AccountSwitcher] Error deleting session from database:', error)
+          // Don't throw - continue to remove from localStorage anyway
         }
+      } else {
+        console.log('[AccountSwitcher] Session is temp or has no token, skipping database deletion:', {
+          hasSession: !!sessionToRemove,
+          hasToken: !!(sessionToRemove?.token),
+          isTemp: sessionToRemove?.id.startsWith('temp-'),
+        })
       }
       
-      // Remove from localStorage
+      // ALWAYS remove from localStorage - this is the key to preventing it from showing up again
       removeLinkedAccount(userId)
       console.log('[AccountSwitcher] Removed from localStorage')
       
-      // Refresh the sessions list
+      // Immediately remove from local state to update UI
+      setSessions(prev => prev.filter(s => s.user.id !== userId))
+      
+      // Refresh the sessions list to sync with server
       await fetchSessions()
       console.log('[AccountSwitcher] Account removed successfully')
       
