@@ -27,9 +27,14 @@ export async function GET(request: NextRequest) {
       try {
         const parsed = JSON.parse(linkedAccountIds) as string[]
         accountIds = [...new Set([userId, ...parsed])] // Remove duplicates, ensure current user is included
+        console.log('[GET /api/auth/sessions] Linked accounts from header:', parsed)
+        console.log('[GET /api/auth/sessions] Final accountIds (including current user):', accountIds)
       } catch (e) {
+        console.error('[GET /api/auth/sessions] Failed to parse linked accounts:', e)
         // Invalid JSON, just use current user
       }
+    } else {
+      console.log('[GET /api/auth/sessions] No linked accounts header, using only current user:', userId)
     }
 
     // Get user info for all linked accounts
@@ -95,11 +100,19 @@ export async function GET(request: NextRequest) {
     // If a user doesn't have an active session, still include them if they're in the linked accounts
     // BUT only if they're explicitly in the linkedAccountIds (not just because they're in the database)
     const linkedIdsSet = new Set(accountIds)
+    console.log('[GET /api/auth/sessions] Creating temp entries. linkedIdsSet:', Array.from(linkedIdsSet))
+    
     for (const user of users) {
       // Only create temp entry if user is in linked accounts AND doesn't have an active session
       // This prevents deleted accounts from reappearing
-      if (!userSessions.has(user.id) && linkedIdsSet.has(user.id)) {
+      const isInLinked = linkedIdsSet.has(user.id)
+      const hasSession = userSessions.has(user.id)
+      
+      console.log(`[GET /api/auth/sessions] User ${user.username} (${user.id}): isInLinked=${isInLinked}, hasSession=${hasSession}`)
+      
+      if (!hasSession && isInLinked) {
         // Create a temporary entry (user will need to log in again)
+        console.log(`[GET /api/auth/sessions] Creating temp entry for ${user.username}`)
         accounts.push({
           id: `temp-${user.id}`,
           token: '',
@@ -116,6 +129,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    console.log(`[GET /api/auth/sessions] Returning ${accounts.length} total sessions`)
     return NextResponse.json({ sessions: accounts })
   } catch (error: any) {
     console.error('Failed to get sessions:', error)

@@ -81,17 +81,24 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
   const fetchSessions = async () => {
     try {
       const linkedAccountIds = getLinkedAccounts()
+      console.log('[AccountSwitcher] fetchSessions - linkedAccountIds from localStorage:', linkedAccountIds)
+      
       const response = await fetch('/api/auth/sessions', {
         headers: {
           'x-linked-accounts': JSON.stringify(linkedAccountIds),
         },
       })
+      
       if (response.ok) {
         const data = await response.json()
+        console.log('[AccountSwitcher] fetchSessions - received sessions:', data.sessions?.length || 0, 'sessions')
+        console.log('[AccountSwitcher] fetchSessions - session user IDs:', data.sessions?.map((s: Session) => s.user.id) || [])
         setSessions(data.sessions || [])
+      } else {
+        console.error('[AccountSwitcher] fetchSessions - failed with status:', response.status)
       }
     } catch (error) {
-      console.error('Failed to fetch sessions:', error)
+      console.error('[AccountSwitcher] Failed to fetch sessions:', error)
     }
   }
 
