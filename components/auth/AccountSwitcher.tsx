@@ -318,6 +318,8 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
+                          e.preventDefault()
+                          console.log('[AccountSwitcher] Remove button clicked for:', session.user.username, session.user.id)
                           setShowRemoveConfirm(session.user.id)
                         }}
                         disabled={isRemoving}
@@ -330,22 +332,26 @@ export function AccountSwitcher({ onClose }: AccountSwitcherProps) {
                     {showConfirm && (
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation()
-                            removeAccount(session.user.id, session.user.username)
+                            e.preventDefault()
+                            console.log('[AccountSwitcher] Confirm button clicked for:', session.user.username, session.user.id)
+                            await removeAccount(session.user.id, session.user.username)
                           }}
                           disabled={isRemoving}
-                          className="px-2 py-1 text-xs bg-neon-orange text-black rounded hover:bg-[#FF6B35] transition-colors"
+                          className="px-2 py-1 text-xs bg-neon-orange text-black rounded hover:bg-[#FF6B35] transition-colors disabled:opacity-50"
                         >
                           {isRemoving ? 'Removing...' : 'Confirm'}
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
+                            e.preventDefault()
+                            console.log('[AccountSwitcher] Cancel button clicked')
                             setShowRemoveConfirm(null)
                           }}
                           disabled={isRemoving}
-                          className="px-2 py-1 text-xs bg-bg-tertiary text-text-secondary rounded hover:bg-bg-primary transition-colors"
+                          className="px-2 py-1 text-xs bg-bg-tertiary text-text-secondary rounded hover:bg-bg-primary transition-colors disabled:opacity-50"
                         >
                           Cancel
                         </button>

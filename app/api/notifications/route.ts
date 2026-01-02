@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     try {
       console.log('Fetching notifications for user:', userId, 'unreadOnly:', unreadOnly)
       // Build query with PostgreSQL syntax ($1, $2 placeholders)
-      // PostgreSQL stores boolean as true/false, but we need to handle both boolean and integer (0/1) formats
+      // PostgreSQL stores read as boolean, so we only check for false (not integer 0)
       const query = unreadOnly
         ? `
         SELECT 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
           n.read_at,
           n.created_at
         FROM notifications n
-        WHERE n.user_id = $1 AND (n.read = false OR n.read = 'false' OR n.read = 0)
+        WHERE n.user_id = $1 AND n.read = false
         ORDER BY n.created_at DESC
         LIMIT $2
       `
