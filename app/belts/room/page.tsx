@@ -553,45 +553,78 @@ export default function BeltRoomPage() {
       </div>
 
       {/* Challenge Modal - Always render if state is set to avoid conditional rendering issues */}
-      {challengeModalOpen && selectedBeltForChallenge && selectedBeltForChallenge.currentHolder && (
-        <>
-          {console.log('[BeltRoomPage] Rendering CreateDebateModal with:', {
+      {challengeModalOpen && selectedBeltForChallenge && selectedBeltForChallenge.currentHolder ? (
+        (() => {
+          console.log('[BeltRoomPage] ✅ Rendering CreateDebateModal with:', {
             isOpen: challengeModalOpen,
             beltId: selectedBeltForChallenge.id,
             opponentId: selectedBeltForChallenge.currentHolder.id,
             opponentUsername: selectedBeltForChallenge.currentHolder.username,
             beltName: selectedBeltForChallenge.name,
-          })}
-          <CreateDebateModal
-            isOpen={challengeModalOpen}
-            onClose={() => {
-              console.log('[BeltRoomPage] Closing challenge modal')
-              setIsCreatingChallenge(null)
-              setChallengeModalOpen(false)
-              setSelectedBeltForChallenge(null)
-            }}
-            onSuccess={() => {
-              console.log('[BeltRoomPage] Challenge modal success callback')
-              handleChallengeModalSuccess()
-            }}
-            beltChallengeMode={true}
-            beltId={selectedBeltForChallenge.id}
-            opponentId={selectedBeltForChallenge.currentHolder.id}
-            opponentUsername={selectedBeltForChallenge.currentHolder.username}
-            beltName={selectedBeltForChallenge.name}
-          />
-        </>
-      )}
-      
-      {/* Always render modal component to test if it's a rendering issue */}
-      {challengeModalOpen && !selectedBeltForChallenge && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
-            <p>DEBUG: Modal should be open but selectedBeltForChallenge is null</p>
-            <button onClick={() => setChallengeModalOpen(false)}>Close</button>
+          })
+          return (
+            <CreateDebateModal
+              isOpen={challengeModalOpen}
+              onClose={() => {
+                console.log('[BeltRoomPage] Closing challenge modal')
+                setIsCreatingChallenge(null)
+                setChallengeModalOpen(false)
+                setSelectedBeltForChallenge(null)
+              }}
+              onSuccess={() => {
+                console.log('[BeltRoomPage] Challenge modal success callback')
+                handleChallengeModalSuccess()
+              }}
+              beltChallengeMode={true}
+              beltId={selectedBeltForChallenge.id}
+              opponentId={selectedBeltForChallenge.currentHolder.id}
+              opponentUsername={selectedBeltForChallenge.currentHolder.username}
+              beltName={selectedBeltForChallenge.name}
+            />
+          )
+        })()
+      ) : challengeModalOpen ? (
+        <div 
+          style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            background: 'rgba(0,0,0,0.9)', 
+            zIndex: 99999, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            color: 'white',
+            fontSize: '18px'
+          }}
+        >
+          <div style={{ background: '#1a1a1a', padding: '30px', borderRadius: '12px', border: '2px solid #3b82f6', maxWidth: '500px' }}>
+            <h2 style={{ color: '#3b82f6', marginBottom: '20px' }}>⚠️ Debug: Modal State Issue</h2>
+            <p style={{ marginBottom: '10px' }}>challengeModalOpen: {challengeModalOpen ? 'true' : 'false'}</p>
+            <p style={{ marginBottom: '10px' }}>selectedBeltForChallenge: {selectedBeltForChallenge ? selectedBeltForChallenge.id : 'null'}</p>
+            <p style={{ marginBottom: '20px' }}>hasHolder: {selectedBeltForChallenge?.currentHolder ? 'yes' : 'no'}</p>
+            <button 
+              onClick={() => {
+                setChallengeModalOpen(false)
+                setSelectedBeltForChallenge(null)
+                setIsCreatingChallenge(null)
+              }}
+              style={{ 
+                background: '#3b82f6', 
+                color: 'white', 
+                padding: '10px 20px', 
+                borderRadius: '6px', 
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              Close Debug Modal
+            </button>
           </div>
         </div>
-      )}
+      ) : null}
       
       {/* Debug info - remove in production */}
       {process.env.NODE_ENV === 'development' && (
