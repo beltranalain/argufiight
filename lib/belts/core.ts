@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '@/lib/db/prisma'
-import type { BeltType, BeltStatus, ChallengeStatus, BeltTransferReason } from '@prisma/client'
+import type { BeltType, BeltStatus, ChallengeStatus, BeltTransferReason, DebateCategory } from '@prisma/client'
 import { deductCoins } from './coin-economics'
 import { generateUniqueSlug } from '@/lib/utils/slug'
 import crypto from 'crypto'
