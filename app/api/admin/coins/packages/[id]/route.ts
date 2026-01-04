@@ -8,9 +8,10 @@ import { prisma } from '@/lib/db/prisma'
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await verifySessionWithDb()
     if (!session?.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -25,7 +26,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const packageId = params.id
+    const packageId = id
     const body = await request.json()
     const { priceUSD, baseCoins, bonusCoins } = body
 
