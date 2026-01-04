@@ -96,3 +96,109 @@ export async function PUT(
     )
   }
 }
+
+// DELETE /api/admin/belts/[id] - Delete a belt (admin only)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await verifySessionWithDb()
+    if (!session || !session.userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Check if user is admin
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { isAdmin: true },
+    })
+
+    if (!user || !user.isAdmin) {
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
+      )
+    }
+
+    const { id } = await params
+
+    // Check if belt exists
+    const belt = await prisma.belt.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        currentHolderId: true,
+        status: true,
+        isStaked: true,
+      },
+    })
+
+    if (!belt) {
+      return NextResponse.json({ error: 'Belt not found' }, { status: 404 })
+    }
+
+    // Check if belt can be deleted (must be vacant and not staked)
+    if (belt.currentHolderId) {
+      return NextResponse.json(
+        { error: 'Cannot delete belt with an active holder. Transfer the belt first.' },
+        { status: 400 }
+      )
+    }
+
+    if (belt.isStaked) {
+      return NextResponse.json(
+        { error: 'Cannot delete belt that is currently staked in a debate or tournament.' },
+        { status: 400 }
+      )
+    }
+
+    // Check for pending challenges
+    const pendingChallenges = await prisma.beltChallenge.count({
+      where: {
+        beltId: id,
+        status: 'PENDING',
+      },
+    })
+
+    if (pendingChallenges > 0) {
+      return NextResponse.json(
+        { error: `Cannot delete belt with ${pendingChallenges} pending challenge(s). Cancel or resolve challenges first.` },
+        { status: 400 }
+      )
+    }
+
+    // Delete belt history first (cascade should handle this, but being explicit)
+    await prisma.beltHistory.deleteMany({
+      where: { beltId: id },
+    })
+
+    // Delete belt challenges
+    await prisma.beltChallenge.deleteMany({
+      where: { beltId: id },
+    })
+
+    // Delete the belt
+    await prisma.belt.delete({
+      where: { id },
+    })
+
+    console.log(`[API /admin/belts/[id]] Belt deleted: ${belt.name} (${id})`)
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Belt "${belt.name}" deleted successfully` 
+    })
+  } catch (error: any) {
+    console.error('[API /admin/belts/[id]] Error deleting belt:', error)
+    console.error('[API /admin/belts/[id]] Error stack:', error?.stack)
+    return NextResponse.json(
+      { error: error.message || 'Failed to delete belt' },
+      { status: 500 }
+    )
+  }
+}

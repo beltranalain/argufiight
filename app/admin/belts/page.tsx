@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
 import { CreateBeltModal } from '@/components/admin/CreateBeltModal'
+import { Modal } from '@/components/ui/Modal'
 import Link from 'next/link'
 
 interface Belt {
@@ -41,6 +42,9 @@ export default function BeltsAdminPage() {
   const [belts, setBelts] = useState<Belt[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [beltToDelete, setBeltToDelete] = useState<Belt | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [filters, setFilters] = useState({
     status: '',
     type: '',
@@ -109,6 +113,51 @@ export default function BeltsAdminPage() {
 
   const formatBeltStatus = (status: string) => {
     return status.replace(/_/g, ' ')
+  }
+
+  const handleDeleteBelt = (belt: Belt) => {
+    setBeltToDelete(belt)
+    setIsDeleteModalOpen(true)
+  }
+
+  const confirmDeleteBelt = async () => {
+    if (!beltToDelete) return
+
+    setIsDeleting(true)
+    try {
+      const response = await fetch(`/api/admin/belts/${beltToDelete.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: `Belt "${beltToDelete.name}" deleted successfully`,
+        })
+        setIsDeleteModalOpen(false)
+        setBeltToDelete(null)
+        fetchBelts()
+      } else {
+        const error = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }))
+        console.error('[Admin Belts] Failed to delete belt:', response.status, error)
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: error.error || `Failed to delete belt (${response.status})`,
+        })
+      }
+    } catch (error: any) {
+      console.error('[Admin Belts] Error deleting belt:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to delete belt',
+      })
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const getTypeBadgeColor = (type: string) => {
@@ -337,12 +386,27 @@ export default function BeltsAdminPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex-shrink-0 ml-4">
+                    <div className="flex-shrink-0 ml-4 flex gap-2">
                       <a href={`/admin/belts/${belt.id}`}>
                         <Button variant="secondary" size="sm">
                           View Details
                         </Button>
                       </a>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleDeleteBelt(belt)}
+                        disabled={belt.currentHolder !== null || belt.isStaked}
+                        title={
+                          belt.currentHolder
+                            ? 'Cannot delete belt with active holder'
+                            : belt.isStaked
+                            ? 'Cannot delete staked belt'
+                            : 'Delete belt'
+                        }
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -360,6 +424,57 @@ export default function BeltsAdminPage() {
           fetchBelts()
         }}
       />
+
+      {/* Delete Belt Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          if (!isDeleting) {
+            setIsDeleteModalOpen(false)
+            setBeltToDelete(null)
+          }
+        }}
+        title="Delete Belt"
+      >
+        <div className="space-y-4">
+          <p className="text-text-secondary">
+            Are you sure you want to permanently delete the belt <strong className="text-white">"{beltToDelete?.name}"</strong>?
+          </p>
+          <p className="text-text-secondary text-sm">
+            This action cannot be undone. All belt history, challenges, and related data will be permanently removed.
+          </p>
+          {beltToDelete?.currentHolder && (
+            <p className="text-neon-orange text-sm font-medium">
+              ⚠️ Warning: This belt has an active holder. Transfer the belt first before deleting.
+            </p>
+          )}
+          {beltToDelete?.isStaked && (
+            <p className="text-neon-orange text-sm font-medium">
+              ⚠️ Warning: This belt is currently staked. Unstake the belt first before deleting.
+            </p>
+          )}
+          <div className="flex justify-end gap-3 pt-4 border-t border-bg-tertiary">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setIsDeleteModalOpen(false)
+                setBeltToDelete(null)
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={confirmDeleteBelt}
+              isLoading={isDeleting}
+              disabled={beltToDelete?.currentHolder !== null || beltToDelete?.isStaked}
+            >
+              Delete Belt
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
