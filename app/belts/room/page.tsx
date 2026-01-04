@@ -30,7 +30,7 @@ interface Belt {
     id: string
     username: string
     avatarUrl: string | null
-    eloRating?: number
+    eloRating: number
   } | null
   tournament: {
     id: string
