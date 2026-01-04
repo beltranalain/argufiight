@@ -14,10 +14,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check feature flag
-    if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
-      return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
-    }
+    // Allow users to view their own challenges regardless of feature flag
+    // The flag should only control creating new challenges, not viewing existing ones
 
     // Get challenges where user is the challenger
     const challengesMade = await prisma.beltChallenge.findMany({

@@ -26,10 +26,8 @@ export async function GET(
 
     console.log('[API /belts/[id]] User check:', { userId: session.userId, isAdmin: user?.isAdmin, beltSystemEnabled: process.env.ENABLE_BELT_SYSTEM })
 
-    if (process.env.ENABLE_BELT_SYSTEM !== 'true' && !user?.isAdmin) {
-      console.error('[API /belts/[id]] Belt system not enabled and user is not admin')
-      return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
-    }
+    // Allow all authenticated users to view belt details
+    // The flag should only control creating new belts/challenges, not viewing existing ones
 
     const { id } = await params
     console.log('=== GET /api/belts/[id] ===')
