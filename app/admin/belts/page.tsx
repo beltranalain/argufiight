@@ -338,19 +338,30 @@ export default function BeltsAdminPage() {
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
-                          <p className="text-text-secondary">Current Holder</p>
-                          <p className="text-white font-medium">
-                            {belt.currentHolder ? (
+                          <p className="text-text-secondary mb-2">Current Holder</p>
+                          {belt.currentHolder ? (
+                            <div className="flex items-center gap-2">
+                              {belt.currentHolder.avatarUrl ? (
+                                <img
+                                  src={belt.currentHolder.avatarUrl}
+                                  alt={belt.currentHolder.username}
+                                  className="w-8 h-8 rounded-full border border-primary object-cover flex-shrink-0"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full border border-primary bg-bg-secondary flex items-center justify-center text-sm font-bold text-primary flex-shrink-0">
+                                  {belt.currentHolder.username.charAt(0).toUpperCase()}
+                                </div>
+                              )}
                               <a
                                 href={`/admin/users?userId=${belt.currentHolder.id}`}
-                                className="text-primary hover:underline"
+                                className="text-primary hover:underline font-medium"
                               >
                                 {belt.currentHolder.username}
                               </a>
-                            ) : (
-                              'Vacant'
-                            )}
-                          </p>
+                            </div>
+                          ) : (
+                            <p className="text-white font-medium">Vacant</p>
+                          )}
                         </div>
                         <div>
                           <p className="text-text-secondary">Defenses</p>
