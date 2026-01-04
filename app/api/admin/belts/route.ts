@@ -65,18 +65,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create belt
-    const belt = await createBelt({
-      name,
-      type: type as any,
-      category: category || undefined,
-      creationCost: coinValue || 0,
-      designImageUrl: designImageUrl || undefined,
-      designColors: designColors || undefined,
-      sponsorName: sponsorName || undefined,
-      sponsorLogoUrl: sponsorLogoUrl || undefined,
-      createdBy: session.userId,
-    })
+    // Create belt - temporarily enable belt system for admin operations
+    const originalFlag = process.env.ENABLE_BELT_SYSTEM
+    if (originalFlag !== 'true') {
+      process.env.ENABLE_BELT_SYSTEM = 'true'
+    }
+    
+    let belt
+    try {
+      belt = await createBelt({
+        name,
+        type: type as any,
+        category: category || undefined,
+        creationCost: coinValue || 0,
+        designImageUrl: designImageUrl || undefined,
+        designColors: designColors || undefined,
+        sponsorName: sponsorName || undefined,
+        sponsorLogoUrl: sponsorLogoUrl || undefined,
+        createdBy: session.userId,
+      })
+    } finally {
+      // Restore original flag value
+      if (originalFlag !== 'true') {
+        process.env.ENABLE_BELT_SYSTEM = originalFlag || ''
+      }
+    }
 
     // If initialHolderId is provided, transfer belt to that user
     if (initialHolderId) {
