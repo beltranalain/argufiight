@@ -395,7 +395,6 @@ export function CreateDebateModal({
             title: 'Challenge Failed',
             description: errorMessage + (errorDetails ? `\n${errorDetails}` : ''),
             type: 'error',
-            duration: 8000, // Show longer for errors
           })
           
           throw new Error(errorMessage)
