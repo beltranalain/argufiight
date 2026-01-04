@@ -552,28 +552,7 @@ export default function BeltRoomPage() {
                                 </div>
       </div>
 
-      {/* Challenge Modal - Always render, control with isOpen prop */}
-      {selectedBeltForChallenge && selectedBeltForChallenge.currentHolder && (
-        <CreateDebateModal
-          key={`challenge-modal-${selectedBeltForChallenge.id}`}
-          isOpen={!!challengeModalOpen}
-          onClose={() => {
-            console.log('[BeltRoomPage] Closing challenge modal')
-            setIsCreatingChallenge(null)
-            setChallengeModalOpen(false)
-            setSelectedBeltForChallenge(null)
-          }}
-          onSuccess={() => {
-            console.log('[BeltRoomPage] Challenge modal success callback')
-            handleChallengeModalSuccess()
-          }}
-          beltChallengeMode={true}
-          beltId={selectedBeltForChallenge.id}
-          opponentId={selectedBeltForChallenge.currentHolder.id}
-          opponentUsername={selectedBeltForChallenge.currentHolder.username}
-          beltName={selectedBeltForChallenge.name}
-        />
-      )}
+      {/* MODAL BYPASSED - Using direct API call instead */}
       
       {/* Debug info - remove in production */}
       {process.env.NODE_ENV === 'development' && (
