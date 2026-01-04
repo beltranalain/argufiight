@@ -35,6 +35,7 @@ interface Belt {
   timesDefended: number
   successfulDefenses: number
   createdAt: string
+  isStaked: boolean
 }
 
 export default function BeltsAdminPage() {
