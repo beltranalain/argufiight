@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '@/lib/db/prisma'
-import type { BeltType, BeltStatus, ChallengeStatus, BeltTransferReason, DebateCategory } from '@prisma/client'
+import type { BeltType, BeltStatus, ChallengeStatus, BeltTransferReason, DebateCategory, DebatePosition } from '@prisma/client'
 import { deductCoins } from './coin-economics'
 import { generateUniqueSlug } from '@/lib/utils/slug'
 import crypto from 'crypto'
@@ -612,10 +612,10 @@ export async function acceptBeltChallenge(challengeId: string) {
       topic,
       slug,
       description,
-      category,
+      category: category as DebateCategory,
       challengerId: challenge.challengerId,
-      challengerPosition,
-      opponentPosition,
+      challengerPosition: challengerPosition as DebatePosition,
+      opponentPosition: opponentPosition as DebatePosition,
       opponentId: challenge.beltHolderId,
       totalRounds,
       roundDuration,
