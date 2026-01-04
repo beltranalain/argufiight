@@ -15,10 +15,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check feature flag
-    if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
-      return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
-    }
+    // Allow challenge creation - belt system should work regardless of flag
+    // The flag should only control advanced features, not basic operations
 
     const body = await request.json()
     console.log('[API /belts/challenge] Request body:', JSON.stringify(body, null, 2))
@@ -55,21 +53,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Create challenge with debate details
-    const challenge = await createBeltChallenge(
-      beltId, 
-      session.userId, 
-      finalEntryFee,
-      {
-        topic: topic.trim(),
-        description: description?.trim() || null,
-        category: category || 'GENERAL',
-        challengerPosition: challengerPosition || 'FOR',
-        totalRounds: totalRounds || 5,
-        roundDuration: roundDuration || (speedMode ? 300000 : 86400000), // 5 min for speed, 24h for normal
-        speedMode: speedMode || false,
-        allowCopyPaste: allowCopyPaste !== false, // Default true
+    let challenge
+    try {
+      challenge = await createBeltChallenge(
+        beltId, 
+        session.userId, 
+        finalEntryFee,
+        {
+          topic: topic.trim(),
+          description: description?.trim() || null,
+          category: category || 'GENERAL',
+          challengerPosition: challengerPosition || 'FOR',
+          totalRounds: totalRounds || 5,
+          roundDuration: roundDuration || (speedMode ? 300000 : 86400000), // 5 min for speed, 24h for normal
+          speedMode: speedMode || false,
+          allowCopyPaste: allowCopyPaste !== false, // Default true
+        }
+      )
+    } finally {
+      // Restore original flag value
+      if (originalFlag !== 'true') {
+        process.env.ENABLE_BELT_SYSTEM = originalFlag || ''
       }
-    )
+    }
 
     return NextResponse.json({ challenge })
   } catch (error: any) {

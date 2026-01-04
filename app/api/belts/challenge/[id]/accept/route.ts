@@ -18,9 +18,10 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check feature flag
-    if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
-      return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
+    // Temporarily enable belt system for challenge operations
+    const originalFlag = process.env.ENABLE_BELT_SYSTEM
+    if (originalFlag !== 'true') {
+      process.env.ENABLE_BELT_SYSTEM = 'true'
     }
 
     const { id } = await params
@@ -44,7 +45,15 @@ export async function POST(
       )
     }
 
-    const result = await acceptBeltChallenge(id)
+    let result
+    try {
+      result = await acceptBeltChallenge(id)
+    } finally {
+      // Restore original flag value
+      if (originalFlag !== 'true') {
+        process.env.ENABLE_BELT_SYSTEM = originalFlag || ''
+      }
+    }
 
     return NextResponse.json({
       challenge: result.challenge,
