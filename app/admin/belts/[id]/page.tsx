@@ -138,7 +138,7 @@ export default function BeltDetailsPage() {
   }
 
   const handleTransfer = async () => {
-      if (!transferUserId.trim()) {
+    if (!transferUserId.trim()) {
       showToast({
         type: 'error',
         title: 'Error',
