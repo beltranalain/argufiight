@@ -14,8 +14,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check feature flag
-    if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
+    // Check feature flag - but allow admin access even if flag is not set
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { isAdmin: true },
+    })
+
+    if (process.env.ENABLE_BELT_SYSTEM !== 'true' && !user?.isAdmin) {
       return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
     }
 

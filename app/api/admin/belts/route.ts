@@ -96,9 +96,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ belt }, { status: 201 })
   } catch (error: any) {
-    console.error('Failed to create belt:', error)
+    console.error('[API /admin/belts] Failed to create belt:', error)
+    console.error('[API /admin/belts] Error stack:', error?.stack)
+    console.error('[API /admin/belts] Error details:', JSON.stringify(error, null, 2))
+    const errorMessage = error?.message || error?.toString() || 'Failed to create belt'
     return NextResponse.json(
-      { error: error.message || 'Failed to create belt' },
+      { error: errorMessage },
       { status: 500 }
     )
   }
