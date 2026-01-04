@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { createBeltChallenge } from '@/lib/belts/core'
 import { calculateChallengeEntryFee } from '@/lib/belts/coin-economics'
+import { prisma } from '@/lib/db/prisma'
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,9 +45,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Belt ID is required' }, { status: 400 })
     }
 
-    if (!topic || typeof topic !== 'string' || !topic.trim().length) {
-      console.error('[API /belts/challenge] Topic validation failed:', { topic, type: typeof topic, length: topic?.length })
-      return NextResponse.json({ error: 'Debate topic is required' }, { status: 400 })
+    // Generate default topic if not provided (for simple challenge creation)
+    let finalTopic = topic
+    if (!finalTopic || typeof finalTopic !== 'string' || !finalTopic.trim().length) {
+      // Get belt details for default topic
+      const belt = await prisma.belt.findUnique({
+        where: { id: beltId },
+        select: { name: true, currentHolder: { select: { username: true } } },
+      })
+      if (belt) {
+        finalTopic = `Challenge for ${belt.name}${belt.currentHolder ? ` held by ${belt.currentHolder.username}` : ''}`
+        console.log('[API /belts/challenge] Generated default topic:', finalTopic)
+      } else {
+        finalTopic = `Belt Challenge for ${beltId}`
+      }
     }
 
     // Calculate entry fee if not provided
@@ -63,7 +75,7 @@ export async function POST(request: NextRequest) {
         session.userId, 
         finalEntryFee,
         {
-          topic: topic.trim(),
+          topic: finalTopic.trim(),
           description: description?.trim() || null,
           category: category || 'GENERAL',
           challengerPosition: challengerPosition || 'FOR',
