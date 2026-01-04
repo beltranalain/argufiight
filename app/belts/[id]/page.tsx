@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
 import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
+import { Modal } from '@/components/ui/Modal'
 import Link from 'next/link'
 import { useAuth } from '@/lib/hooks/useAuth'
 
@@ -213,13 +214,17 @@ export default function BeltDetailsPage() {
     }
   }
 
-  const handleDeclineChallenge = async (challengeId: string) => {
-    if (!confirm('Are you sure you want to decline this challenge?')) {
-      return
-    }
+  const handleDeclineChallenge = (challengeId: string) => {
+    setChallengeToDecline(challengeId)
+    setDeclineModalOpen(true)
+  }
 
+  const confirmDeclineChallenge = async () => {
+    if (!challengeToDecline) return
+
+    setIsDeclining(true)
     try {
-      const response = await fetch(`/api/belts/challenge/${challengeId}/decline`, {
+      const response = await fetch(`/api/belts/challenge/${challengeToDecline}/decline`, {
         method: 'POST',
       })
 
@@ -230,6 +235,8 @@ export default function BeltDetailsPage() {
           title: 'Challenge Declined',
           description: data.message || 'The challenge has been declined',
         })
+        setDeclineModalOpen(false)
+        setChallengeToDecline(null)
         fetchBeltDetails()
       } else {
         let errorMessage = 'Failed to decline challenge'
@@ -253,6 +260,8 @@ export default function BeltDetailsPage() {
         title: 'Error',
         description: error?.message || 'Failed to decline challenge',
       })
+    } finally {
+      setIsDeclining(false)
     }
   }
 
