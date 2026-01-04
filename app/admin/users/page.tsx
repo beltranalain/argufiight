@@ -83,21 +83,31 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/admin/users')
+      const response = await fetch(`/api/admin/users?t=${Date.now()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+      })
       if (response.ok) {
         const data = await response.json()
         const users = data.users || []
+        console.log('[AdminUsersPage] Fetched users:', users.length)
+        console.log('[AdminUsersPage] Employees filter check:', users.filter((u: any) => u.isAdmin || u.employeeRole).map((u: any) => ({ username: u.username, isAdmin: u.isAdmin, employeeRole: u.employeeRole })))
         setUserData(users)
         // Separate users into categories
         const ai = users.filter((u: any) => u.isAI)
         const emp = users.filter((u: any) => u.isAdmin || u.employeeRole)
         const regular = users.filter((u: any) => !u.isAI && !u.isAdmin && !u.employeeRole)
+        console.log('[AdminUsersPage] Separated:', { ai: ai.length, employees: emp.length, regular: regular.length })
         setAiUsers(ai)
         setEmployees(emp)
         setRegularUsers(regular)
+      } else {
+        console.error('[AdminUsersPage] Failed to fetch users, status:', response.status)
+        const error = await response.json().catch(() => ({}))
+        console.error('[AdminUsersPage] Error:', error)
       }
     } catch (error) {
-      console.error('Failed to fetch users:', error)
+      console.error('[AdminUsersPage] Failed to fetch users:', error)
     } finally {
       setIsLoading(false)
     }
