@@ -247,9 +247,10 @@ export async function createBeltChallenge(
     roundDuration?: number
     speedMode?: boolean
     allowCopyPaste?: boolean
-  }
+  },
+  skipBeltSystemCheck: boolean = false // Allow bypassing the check when called from API routes
 ) {
-  if (!isBeltSystemEnabled()) {
+  if (!skipBeltSystemCheck && !isBeltSystemEnabled()) {
     throw new Error('Belt system is not enabled')
   }
 

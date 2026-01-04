@@ -13,12 +13,10 @@ function isBeltSystemEnabled(): boolean {
 
 /**
  * Calculate entry fee for a belt challenge
+ * NOTE: This function does NOT check ENABLE_BELT_SYSTEM flag.
+ * The caller (API route) is responsible for ensuring the belt system is enabled.
  */
 export async function calculateChallengeEntryFee(beltId: string): Promise<number> {
-  if (!isBeltSystemEnabled()) {
-    return 0
-  }
-
   const belt = await prisma.belt.findUnique({
     where: { id: beltId },
   })

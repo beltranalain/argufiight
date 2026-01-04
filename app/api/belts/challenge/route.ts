@@ -83,7 +83,8 @@ export async function POST(request: NextRequest) {
           roundDuration: roundDuration || (speedMode ? 300000 : 86400000), // 5 min for speed, 24h for normal
           speedMode: speedMode || false,
           allowCopyPaste: allowCopyPaste !== false, // Default true
-        }
+        },
+        true // Skip belt system check since we already enabled it in this route
       )
     } finally {
       // Restore original flag value
