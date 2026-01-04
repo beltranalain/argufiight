@@ -59,16 +59,20 @@ export default function BeltsAdminPage() {
       if (filters.type) params.append('type', filters.type)
       if (filters.category) params.append('category', filters.category)
 
-      const response = await fetch(`/api/belts?${params.toString()}`)
+      const response = await fetch(`/api/belts?${params.toString()}`, {
+        credentials: 'include',
+        cache: 'no-store',
+      })
       if (response.ok) {
         const data = await response.json()
         setBelts(data.belts || [])
       } else {
-        const error = await response.json()
+        const error = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }))
+        console.error('[Admin Belts] Failed to fetch belts:', response.status, error)
         showToast({
           type: 'error',
           title: 'Error',
-          description: error.error || 'Failed to load belts',
+          description: error.error || `Failed to load belts (${response.status})`,
         })
       }
     } catch (error) {

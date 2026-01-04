@@ -10,7 +10,8 @@ import { verifySessionWithDb } from '@/lib/auth/session-verify'
 export async function GET(request: NextRequest) {
   try {
     const session = await verifySessionWithDb()
-    if (!session) {
+    if (!session || !session.userId) {
+      console.error('[API /belts] No session or userId')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -20,7 +21,10 @@ export async function GET(request: NextRequest) {
       select: { isAdmin: true },
     })
 
+    console.log('[API /belts] User check:', { userId: session.userId, isAdmin: user?.isAdmin, beltSystemEnabled: process.env.ENABLE_BELT_SYSTEM })
+
     if (process.env.ENABLE_BELT_SYSTEM !== 'true' && !user?.isAdmin) {
+      console.error('[API /belts] Belt system not enabled and user is not admin')
       return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
     }
 
