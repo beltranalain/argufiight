@@ -48,7 +48,14 @@ echo "sk-2b74f7dbee0e429f87a56f167de005c1" | vercel env add DEEPSEEK_API_KEY pro
 Write-Host "NEXT_PUBLIC_APP_URL: https://argufight.com" -ForegroundColor Cyan
 echo "https://argufight.com" | vercel env add NEXT_PUBLIC_APP_URL production
 
+# Add ENABLE_BELT_SYSTEM
+Write-Host "ENABLE_BELT_SYSTEM: true" -ForegroundColor Cyan
+echo "true" | vercel env add ENABLE_BELT_SYSTEM production
+echo "true" | vercel env add ENABLE_BELT_SYSTEM preview
+echo "true" | vercel env add ENABLE_BELT_SYSTEM development
+
 Write-Host ""
 Write-Host "✅ All environment variables updated!" -ForegroundColor Green
 Write-Host "Note: You may also want to add DIRECT_URL (same as DATABASE_URL)" -ForegroundColor Yellow
+Write-Host "Note: ENABLE_BELT_SYSTEM has been added for Production, Preview, and Development" -ForegroundColor Green
 
