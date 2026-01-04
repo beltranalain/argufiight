@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { TopNav } from '@/components/layout/TopNav'
 import { Avatar } from '@/components/ui/Avatar'
-import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
+import { useChallenge } from '@/lib/contexts/ChallengeContext'
 
 interface Belt {
   id: string
@@ -26,12 +26,6 @@ interface Belt {
   lastDefendedAt: string | null
   timesDefended: number
   successfulDefenses: number
-  currentHolder: {
-    id: string
-    username: string
-    avatarUrl: string | null
-    eloRating: number
-  } | null
   tournament: {
     id: string
     name: string
@@ -91,9 +85,8 @@ export default function BeltRoomPage() {
   const [isLoadingAllBelts, setIsLoadingAllBelts] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
   const [activeTab, setActiveTab] = useState('room')
-  const [challengeModalOpen, setChallengeModalOpen] = useState(false)
-  const [selectedBeltForChallenge, setSelectedBeltForChallenge] = useState<BeltWithHolder | null>(null)
-  const [isCreatingChallenge, setIsCreatingChallenge] = useState<string | null>(null)
+  // NUCLEAR: Use context instead of local state
+  const { openChallenge } = useChallenge()
 
   useEffect(() => {
     setIsMounted(true)
@@ -107,6 +100,15 @@ export default function BeltRoomPage() {
       }
     }
   }, [user, isMounted, activeTab])
+
+
+
+  // Ensure allBelts is loaded when switching to holders tab
+  useEffect(() => {
+    if (activeTab === 'holders' && user && isMounted && allBelts.length === 0) {
+      fetchAllBelts()
+    }
+  }, [activeTab, user, isMounted])
 
   const fetchBeltRoom = async () => {
     try {
@@ -164,39 +166,18 @@ export default function BeltRoomPage() {
     }
   }
 
-  const handleCreateChallenge = (belt: Belt | BeltWithHolder) => {
-    console.log('[BeltRoomPage] 🔵 BUTTON CLICKED - handleCreateChallenge called')
-    console.log('[BeltRoomPage] Belt:', belt.id, belt.name)
-    console.log('[BeltRoomPage] User:', user?.id, user?.username)
-    console.log('[BeltRoomPage] Belt currentHolder:', belt.currentHolder?.id, belt.currentHolder?.username)
-    
-    if (!user || !belt.currentHolder) {
-      console.log('[BeltRoomPage] ❌ Validation failed - user or holder missing')
-      showToast({
-        type: 'error',
-        title: 'Cannot Challenge',
-        description: belt.currentHolder ? 'You must be logged in to challenge a belt' : 'This belt has no current holder',
+  // NUCLEAR: Simple handler using context
+  const handleCreateChallenge = (beltId: string) => {
+    const belt = allBelts.find(b => b.id === beltId)
+    if (belt && belt.currentHolder) {
+      openChallenge({
+        beltId: belt.id,
+        beltName: belt.name,
+        beltCategory: belt.category,
+        opponentId: belt.currentHolder.id,
+        opponentUsername: belt.currentHolder.username,
       })
-      return
     }
-    
-    console.log('[BeltRoomPage] ✅ Validation passed - setting state')
-    console.log('[BeltRoomPage] Setting selectedBeltForChallenge to:', belt.id)
-    console.log('[BeltRoomPage] Setting challengeModalOpen to: true')
-    
-    // Set state to open modal (ORIGINAL FLOW)
-    setSelectedBeltForChallenge(belt as BeltWithHolder)
-    setChallengeModalOpen(true)
-    
-    console.log('[BeltRoomPage] ✅ State set - modal should open now')
-  }
-
-  const handleChallengeModalSuccess = () => {
-    // Refresh data after successful challenge creation
-    fetchBeltRoom()
-    fetchAllBelts()
-    setChallengeModalOpen(false)
-    setSelectedBeltForChallenge(null)
   }
 
   const getStatusBadgeColor = (status: string) => {
@@ -236,10 +217,6 @@ export default function BeltRoomPage() {
 
   const formatBeltStatus = (status: string) => {
     return status.replace(/_/g, ' ')
-  }
-
-  const formatBeltReason = (reason: string) => {
-    return reason.replace(/_/g, ' ')
   }
 
   return (
@@ -296,7 +273,7 @@ export default function BeltRoomPage() {
                                     src={belt.designImageUrl}
                                     alt={belt.name}
                                     className="w-[140%] h-[140%] object-contain"
-                                    style={{ imageRendering: 'auto' }}
+                                    style={{ imageRendering: 'high-quality' }}
                                     loading="lazy"
                                     onError={(e) => {
                                       e.currentTarget.style.display = 'none'
@@ -425,7 +402,7 @@ export default function BeltRoomPage() {
                                       src={entry.belt.designImageUrl}
                                       alt={entry.belt.name}
                                       className="w-[140%] h-[140%] object-contain"
-                                      style={{ imageRendering: 'auto' }}
+                                      style={{ imageRendering: 'high-quality' }}
                                       loading="lazy"
                                       onError={(e) => {
                                         e.currentTarget.style.display = 'none'
@@ -453,7 +430,7 @@ export default function BeltRoomPage() {
                                     <Badge className={getTypeBadgeColor(entry.belt.type)}>
                                       {entry.belt.type}
                                     </Badge>
-                                    <Badge className="bg-gray-600">{formatBeltReason(entry.reason)}</Badge>
+                                    <Badge className="bg-gray-600">{entry.reason}</Badge>
                                     {isGain && (
                                       <Badge className="bg-green-500">Gained</Badge>
                                     )}
@@ -532,48 +509,7 @@ export default function BeltRoomPage() {
                                 </div>
       </div>
 
-      {/* Challenge Modal - ORIGINAL FLOW */}
-      {(() => {
-        const shouldRender = selectedBeltForChallenge && selectedBeltForChallenge.currentHolder
-        console.log('[BeltRoomPage] 🔍 Modal render check:', {
-          shouldRender,
-          hasSelectedBelt: !!selectedBeltForChallenge,
-          hasHolder: !!selectedBeltForChallenge?.currentHolder,
-          challengeModalOpen,
-          selectedBeltId: selectedBeltForChallenge?.id,
-        })
-        
-        if (!shouldRender) {
-          return null
-        }
-        
-        console.log('[BeltRoomPage] ✅ RENDERING CreateDebateModal')
-        return (
-          <CreateDebateModal
-            isOpen={challengeModalOpen}
-            onClose={() => {
-              console.log('[BeltRoomPage] Modal onClose called')
-              setChallengeModalOpen(false)
-              setSelectedBeltForChallenge(null)
-            }}
-            onSuccess={handleChallengeModalSuccess}
-            beltChallengeMode={true}
-            beltId={selectedBeltForChallenge.id}
-            opponentId={selectedBeltForChallenge.currentHolder.id}
-            opponentUsername={selectedBeltForChallenge.currentHolder.username}
-            beltName={selectedBeltForChallenge.name}
-          />
-        )
-      })()}
-      
-      {/* Debug info - remove in production */}
-      {process.env.NODE_ENV === 'development' && (
-        <div style={{ display: 'none' }}>
-          <p>Modal Open: {challengeModalOpen ? 'true' : 'false'}</p>
-          <p>Selected Belt: {selectedBeltForChallenge?.id || 'none'}</p>
-          <p>Has Holder: {selectedBeltForChallenge?.currentHolder ? 'yes' : 'no'}</p>
-        </div>
-      )}
+      {/* NUCLEAR: Modal handled by global ChallengeModal component */}
     </div>
   )
 })}
@@ -626,7 +562,7 @@ export default function BeltRoomPage() {
                                     src={belt.designImageUrl}
                                     alt={belt.name}
                                     className="w-[140%] h-[140%] object-contain"
-                                    style={{ imageRendering: 'auto' }}
+                                    style={{ imageRendering: 'high-quality' }}
                                     loading="lazy"
                                     onError={(e) => {
                                       e.currentTarget.style.display = 'none'
@@ -723,17 +659,9 @@ export default function BeltRoomPage() {
                                 <Button
                                   variant="primary"
                                   className="flex-1"
-                                  onClick={(e) => {
-                                    console.log('[BeltRoomPage] 🖱️ BUTTON CLICK EVENT FIRED')
-                                    console.log('[BeltRoomPage] Event:', e)
-                                    console.log('[BeltRoomPage] Belt from button:', belt.id, belt.name)
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    handleCreateChallenge(belt)
-                                  }}
-                                  disabled={isCreatingChallenge === belt.id}
+                                  onClick={() => handleCreateChallenge(belt.id)}
                                 >
-                                  {isCreatingChallenge === belt.id ? 'Challenging...' : 'Challenge'}
+                                  Challenge
                                 </Button>
                               )}
                             </div>
