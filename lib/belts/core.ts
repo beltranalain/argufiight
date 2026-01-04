@@ -159,7 +159,7 @@ export async function createBelt(data: {
       creationCost: data.creationCost || 0,
       coinValue: data.coinValue ?? data.creationCost ?? 0,
       designImageUrl: data.designImageUrl || null,
-      designColors: data.designColors || null,
+      designColors: data.designColors ? data.designColors : null,
       sponsorId: data.sponsorId || null,
       sponsorName: data.sponsorName || null,
       sponsorLogoUrl: data.sponsorLogoUrl || null,
