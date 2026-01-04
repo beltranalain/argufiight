@@ -617,9 +617,7 @@ export async function acceptBeltChallenge(challengeId: string) {
  * Decline a belt challenge
  */
 export async function declineBeltChallenge(challengeId: string) {
-  if (!isBeltSystemEnabled()) {
-    throw new Error('Belt system is not enabled')
-  }
+  // Allow challenge decline - belt system should work regardless of flag
 
   const challenge = await prisma.beltChallenge.findUnique({
     where: { id: challengeId },
@@ -831,9 +829,8 @@ export async function checkInactiveBelts() {
  * Get user's belt room (all belts they've held)
  */
 export async function getUserBeltRoom(userId: string) {
-  if (!isBeltSystemEnabled()) {
-    return { currentBelts: [], history: [] }
-  }
+  // Allow users to view their belts regardless of feature flag
+  // The flag should only control new operations, not viewing existing data
 
   // First, let's check the raw database values for debugging
   const rawCheck = await prisma.$queryRaw<Array<{ id: string; name: string; category: string | null; design_image_url: string | null }>>`
