@@ -164,13 +164,8 @@ export default function BeltRoomPage() {
     }
   }
 
-  const handleCreateChallenge = (belt: Belt | BeltWithHolder) => {
-    console.log('[BeltRoomPage] handleCreateChallenge called with belt:', belt)
-    console.log('[BeltRoomPage] User:', user)
-    console.log('[BeltRoomPage] Belt currentHolder:', belt.currentHolder)
-    
+  const handleCreateChallenge = async (belt: Belt | BeltWithHolder) => {
     if (!user) {
-      console.log('[BeltRoomPage] Cannot challenge - no user')
       showToast({
         type: 'error',
         title: 'Cannot Challenge',
@@ -180,7 +175,6 @@ export default function BeltRoomPage() {
     }
     
     if (!belt.currentHolder) {
-      console.log('[BeltRoomPage] Cannot challenge - no current holder')
       showToast({
         type: 'error',
         title: 'Cannot Challenge',
@@ -188,26 +182,66 @@ export default function BeltRoomPage() {
       })
       return
     }
-    
-    // Ensure we have a BeltWithHolder
-    const beltWithHolder: BeltWithHolder = 'currentHolder' in belt && belt.currentHolder 
-      ? (belt as BeltWithHolder)
-      : {
-          ...belt,
-          currentHolder: belt.currentHolder,
-        } as BeltWithHolder
-    
-    console.log('[BeltRoomPage] Opening challenge modal for belt:', beltWithHolder.id, beltWithHolder.name)
-    console.log('[BeltRoomPage] Opponent:', beltWithHolder.currentHolder?.username)
-    console.log('[BeltRoomPage] BeltWithHolder type check:', beltWithHolder.currentHolder ? 'has holder' : 'no holder')
-    
-    // Set state to open modal
+
+    if (belt.currentHolder.id === user.id) {
+      showToast({
+        type: 'error',
+        title: 'Cannot Challenge',
+        description: 'You cannot challenge your own belt',
+      })
+      return
+    }
+
+    // BYPASS MODAL - Direct API call with prompt
+    const topic = prompt(`Enter debate topic for challenging ${belt.currentHolder.username} for ${belt.name}:`)
+    if (!topic || !topic.trim()) {
+      return
+    }
+
     setIsCreatingChallenge(belt.id)
-    setSelectedBeltForChallenge(beltWithHolder)
-    setChallengeModalOpen(true)
     
-    console.log('[BeltRoomPage] Modal state set - challengeModalOpen:', true, 'selectedBeltForChallenge:', beltWithHolder.id)
-    console.log('[BeltRoomPage] Will modal render?', beltWithHolder.currentHolder ? 'YES' : 'NO')
+    try {
+      const response = await fetch('/api/belts/challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          beltId: belt.id,
+          topic: topic.trim(),
+          description: `Challenge for ${belt.name}`,
+          category: 'GENERAL',
+          challengerPosition: 'FOR',
+          totalRounds: 5,
+          roundDuration: 86400000,
+          speedMode: false,
+          allowCopyPaste: true,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create challenge')
+      }
+
+      const { challenge } = await response.json()
+      
+      showToast({
+        type: 'success',
+        title: 'Challenge Created',
+        description: `Your challenge has been sent to ${belt.currentHolder.username}!`,
+      })
+
+      fetchBeltRoom()
+      fetchAllBelts()
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Challenge Failed',
+        description: error.message || 'Failed to create challenge',
+      })
+    } finally {
+      setIsCreatingChallenge(null)
+    }
   }
 
   const handleChallengeModalSuccess = () => {
