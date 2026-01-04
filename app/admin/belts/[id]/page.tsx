@@ -99,6 +99,10 @@ export default function BeltDetailsPage() {
     return status.replace(/_/g, ' ')
   }
 
+  const formatBeltReason = (reason: string) => {
+    return reason.replace(/_/g, ' ')
+  }
+
   useEffect(() => {
     if (params.id) {
       fetchBeltDetails()
@@ -574,7 +578,7 @@ export default function BeltDetailsPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <Badge className="bg-gray-600 !text-white">{entry.reason}</Badge>
+                        <Badge className="bg-gray-600 !text-white">{formatBeltReason(entry.reason)}</Badge>
                         <span className="text-white text-sm">
                           {new Date(entry.transferredAt).toLocaleString()}
                         </span>
