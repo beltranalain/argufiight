@@ -165,35 +165,16 @@ export default function BeltRoomPage() {
   }
 
   const handleCreateChallenge = (belt: Belt | BeltWithHolder) => {
-    if (!user) {
+    if (!user || !belt.currentHolder) {
       showToast({
         type: 'error',
         title: 'Cannot Challenge',
-        description: 'You must be logged in to challenge a belt',
+        description: belt.currentHolder ? 'You must be logged in to challenge a belt' : 'This belt has no current holder',
       })
       return
     }
     
-    if (!belt.currentHolder) {
-      showToast({
-        type: 'error',
-        title: 'Cannot Challenge',
-        description: 'This belt has no current holder',
-      })
-      return
-    }
-
-    if (belt.currentHolder.id === user.id) {
-      showToast({
-        type: 'error',
-        title: 'Cannot Challenge',
-        description: 'You cannot challenge your own belt',
-      })
-      return
-    }
-
-    // Open the challenge modal (same as belt detail page)
-    setIsCreatingChallenge(belt.id)
+    // Set state to open modal (ORIGINAL FLOW)
     setSelectedBeltForChallenge(belt as BeltWithHolder)
     setChallengeModalOpen(true)
   }
@@ -202,7 +183,6 @@ export default function BeltRoomPage() {
     // Refresh data after successful challenge creation
     fetchBeltRoom()
     fetchAllBelts()
-    setIsCreatingChallenge(null)
     setChallengeModalOpen(false)
     setSelectedBeltForChallenge(null)
   }
