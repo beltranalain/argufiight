@@ -10,8 +10,9 @@ import { transferBelt } from '@/lib/belts/core'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const session = await verifySession()
     if (!session?.userId) {
@@ -42,7 +43,7 @@ export async function POST(
 
     // Get current belt holder
     const belt = await prisma.belt.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { currentHolderId: true },
     })
 
@@ -52,7 +53,7 @@ export async function POST(
 
     // Transfer belt
     const result = await transferBelt(
-      params.id,
+      id,
       belt.currentHolderId,
       toUserId,
       reason || 'ADMIN_TRANSFER',
