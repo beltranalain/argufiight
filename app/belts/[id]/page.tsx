@@ -65,6 +65,10 @@ export default function BeltDetailsPage() {
   const [belt, setBelt] = useState<BeltDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false)
+  const [challengeModalOpen, setChallengeModalOpen] = useState(false)
+  const [declineModalOpen, setDeclineModalOpen] = useState(false)
+  const [challengeToDecline, setChallengeToDecline] = useState<string | null>(null)
+  const [isDeclining, setIsDeclining] = useState(false)
   const [tournaments, setTournaments] = useState<Array<{ id: string; name: string; status: string }>>([])
   const [isLoadingTournaments, setIsLoadingTournaments] = useState(false)
   const [isStaking, setIsStaking] = useState<string | null>(null)
@@ -574,6 +578,43 @@ export default function BeltDetailsPage() {
           beltName={belt.name}
         />
       )}
+
+      {/* Decline Challenge Confirmation Modal */}
+      <Modal
+        isOpen={declineModalOpen}
+        onClose={() => {
+          if (!isDeclining) {
+            setDeclineModalOpen(false)
+            setChallengeToDecline(null)
+          }
+        }}
+        title="Decline Challenge"
+      >
+        <div className="space-y-4">
+          <p className="text-text-secondary">
+            Are you sure you want to decline this challenge? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3 pt-4 border-t border-bg-tertiary">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setDeclineModalOpen(false)
+                setChallengeToDecline(null)
+              }}
+              disabled={isDeclining}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={confirmDeclineChallenge}
+              isLoading={isDeclining}
+            >
+              Decline Challenge
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Tournament Staking (for belt holder) */}
       {canStake && (
