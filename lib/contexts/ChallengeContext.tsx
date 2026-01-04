@@ -1,0 +1,47 @@
+'use client'
+
+import { createContext, useContext, useState, ReactNode } from 'react'
+
+interface BeltChallenge {
+  beltId: string
+  beltName: string
+  beltCategory: string | null
+  opponentId: string
+  opponentUsername: string
+}
+
+interface ChallengeContextType {
+  challenge: BeltChallenge | null
+  openChallenge: (challenge: BeltChallenge) => void
+  closeChallenge: () => void
+}
+
+const ChallengeContext = createContext<ChallengeContextType | undefined>(undefined)
+
+export function ChallengeProvider({ children }: { children: ReactNode }) {
+  const [challenge, setChallenge] = useState<BeltChallenge | null>(null)
+
+  const openChallenge = (challenge: BeltChallenge) => {
+    console.log('🚀 [ChallengeContext] Opening challenge:', challenge)
+    setChallenge(challenge)
+  }
+
+  const closeChallenge = () => {
+    console.log('🚀 [ChallengeContext] Closing challenge')
+    setChallenge(null)
+  }
+
+  return (
+    <ChallengeContext.Provider value={{ challenge, openChallenge, closeChallenge }}>
+      {children}
+    </ChallengeContext.Provider>
+  )
+}
+
+export function useChallenge() {
+  const context = useContext(ChallengeContext)
+  if (!context) {
+    throw new Error('useChallenge must be used within ChallengeProvider')
+  }
+  return context
+}
