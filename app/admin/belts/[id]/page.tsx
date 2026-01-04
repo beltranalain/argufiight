@@ -373,6 +373,7 @@ export default function BeltDetailsPage() {
                     </span>
                   </p>
                 )}
+                </div>
               </div>
             ) : (
               <p className="text-white">No current holder (Vacant)</p>
