@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { generateAIResponse } from '@/lib/ai/ai-user-responses'
 import { calculateWordCount, updateUserAnalyticsOnStatement } from '@/lib/utils/analytics'
+import { checkInactiveBelts } from '@/lib/belts/core'
 
 // Combined AI tasks endpoint - handles both auto-accept and response generation
 // This can be called more frequently via external cron services
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
     const results = {
       autoAccept: { accepted: 0, errors: [] as string[] },
       responses: { generated: 0, errors: [] as string[] },
+      beltTasks: { inactiveBeltsChecked: 0, expiredChallengesCleaned: 0, errors: [] as string[] },
     }
 
     // ===== AUTO-ACCEPT CHALLENGES =====
@@ -245,6 +247,31 @@ export async function GET(request: NextRequest) {
       }
     } catch (error: any) {
       results.responses.errors.push(`Response generation error: ${error.message}`)
+    }
+
+    // ===== BELT SYSTEM TASKS =====
+    try {
+      // Check for inactive belts
+      const inactiveResult = await checkInactiveBelts()
+      results.beltTasks.inactiveBeltsChecked = inactiveResult.beltsMarkedInactive || 0
+
+      // Clean up expired challenges
+      const now = new Date()
+      const expiredChallenges = await prisma.beltChallenge.updateMany({
+        where: {
+          status: 'PENDING',
+          expiresAt: {
+            lt: now,
+          },
+        },
+        data: {
+          status: 'EXPIRED',
+        },
+      })
+      results.beltTasks.expiredChallengesCleaned = expiredChallenges.count
+    } catch (error: any) {
+      results.beltTasks.errors.push(`Belt tasks error: ${error.message}`)
+      console.error('Belt tasks error:', error)
     }
 
     return NextResponse.json({
