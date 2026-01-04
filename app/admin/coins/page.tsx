@@ -290,7 +290,7 @@ export default function CoinsAdminPage() {
                             Save
                           </Button>
                           <Button
-                            variant="outline"
+                            variant="secondary"
                             onClick={() => {
                               setEditingPackage(null)
                               setPackageEditData({})

@@ -206,7 +206,7 @@ export default function UserCoinDetailsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <Button variant="outline" onClick={() => router.back()}>
+          <Button variant="secondary" onClick={() => router.back()}>
             Back
           </Button>
           <h1 className="text-4xl font-bold text-white mt-4 mb-2">
