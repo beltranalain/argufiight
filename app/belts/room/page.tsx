@@ -165,7 +165,13 @@ export default function BeltRoomPage() {
   }
 
   const handleCreateChallenge = (belt: Belt | BeltWithHolder) => {
+    console.log('[BeltRoomPage] 🔵 BUTTON CLICKED - handleCreateChallenge called')
+    console.log('[BeltRoomPage] Belt:', belt.id, belt.name)
+    console.log('[BeltRoomPage] User:', user?.id, user?.username)
+    console.log('[BeltRoomPage] Belt currentHolder:', belt.currentHolder?.id, belt.currentHolder?.username)
+    
     if (!user || !belt.currentHolder) {
+      console.log('[BeltRoomPage] ❌ Validation failed - user or holder missing')
       showToast({
         type: 'error',
         title: 'Cannot Challenge',
@@ -174,9 +180,15 @@ export default function BeltRoomPage() {
       return
     }
     
+    console.log('[BeltRoomPage] ✅ Validation passed - setting state')
+    console.log('[BeltRoomPage] Setting selectedBeltForChallenge to:', belt.id)
+    console.log('[BeltRoomPage] Setting challengeModalOpen to: true')
+    
     // Set state to open modal (ORIGINAL FLOW)
     setSelectedBeltForChallenge(belt as BeltWithHolder)
     setChallengeModalOpen(true)
+    
+    console.log('[BeltRoomPage] ✅ State set - modal should open now')
   }
 
   const handleChallengeModalSuccess = () => {
@@ -695,7 +707,14 @@ export default function BeltRoomPage() {
                                 <Button
                                   variant="primary"
                                   className="flex-1"
-                                  onClick={() => handleCreateChallenge(belt)}
+                                  onClick={(e) => {
+                                    console.log('[BeltRoomPage] 🖱️ BUTTON CLICK EVENT FIRED')
+                                    console.log('[BeltRoomPage] Event:', e)
+                                    console.log('[BeltRoomPage] Belt from button:', belt.id, belt.name)
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    handleCreateChallenge(belt)
+                                  }}
                                   disabled={isCreatingChallenge === belt.id}
                                 >
                                   {isCreatingChallenge === belt.id ? 'Challenging...' : 'Challenge'}
