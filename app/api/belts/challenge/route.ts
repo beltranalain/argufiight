@@ -97,9 +97,23 @@ export async function POST(request: NextRequest) {
     console.error('[API /belts/challenge] Error creating challenge:', error)
     console.error('[API /belts/challenge] Error stack:', error.stack)
     const errorMessage = error?.message || error?.toString() || 'Failed to create challenge'
+    
+    // Determine status code based on error type
+    let statusCode = 500
+    if (errorMessage.includes('Insufficient coins') || errorMessage.includes('no free challenge')) {
+      statusCode = 400 // Bad request - user doesn't meet requirements
+    } else if (errorMessage.includes('Unauthorized') || errorMessage.includes('Forbidden')) {
+      statusCode = 403
+    } else if (errorMessage.includes('not found') || errorMessage.includes('does not exist')) {
+      statusCode = 404
+    }
+    
     return NextResponse.json(
-      { error: errorMessage },
-      { status: error?.statusCode || 500 }
+      { 
+        error: errorMessage,
+        details: error?.details || null,
+      },
+      { status: statusCode }
     )
   }
 }

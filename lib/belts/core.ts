@@ -294,8 +294,8 @@ export async function createBeltChallenge(
     throw new Error('You already have a pending challenge for this belt')
   }
 
-  // Get belt settings
-  const settings = await getBeltSettings(belt.type)
+  // Get belt settings (will be used later for coin checks)
+  const beltSettings = await getBeltSettings(belt.type)
 
   // Get challenger and holder ELO
   const challenger = await prisma.user.findUnique({
@@ -324,36 +324,59 @@ export async function createBeltChallenge(
 
   // Calculate coin reward
   const coinReward = Math.floor(
-    entryFee * (settings.winnerRewardPercent / 100)
+    entryFee * (beltSettings.winnerRewardPercent / 100)
   )
 
   // Calculate expiration date
   const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + settings.challengeExpiryDays)
+  expiresAt.setDate(expiresAt.getDate() + beltSettings.challengeExpiryDays)
 
-  // TESTING MODE: Skip coin restrictions in development or if SKIP_BELT_COIN_CHECKS is enabled
-  const skipCoinChecks = process.env.NODE_ENV === 'development' || process.env.SKIP_BELT_COIN_CHECKS === 'true'
+  // Get belt settings to check requirements (already have it above)
+  const settings = beltSettings
   
-  // Check if user has a free challenge available
-  const freeChallengeCheck = await checkAndResetFreeChallenges(challengerId)
-  const hasFreeChallenge = freeChallengeCheck.hasFreeChallenge
+  // Check coin/free challenge requirements based on admin settings
+  let hasFreeChallenge = false
+  let requiresCoins = settings.requireCoins ?? false
+  let requiresFreeChallenge = settings.requireFreeChallenge ?? false
+  let allowsFreeChallenges = settings.allowFreeChallenges ?? true
+  
+  // Check if user has a free challenge available (if allowed)
+  if (allowsFreeChallenges) {
+    const freeChallengeCheck = await checkAndResetFreeChallenges(challengerId)
+    hasFreeChallenge = freeChallengeCheck.hasFreeChallenge
+  }
 
-  // Check if user has enough coins (if not using free challenge)
-  // Note: We check coins here but don't deduct until challenge is accepted
-  // This ensures they have coins available, but they're only charged when stakes are up
-  if (!skipCoinChecks && !hasFreeChallenge) {
+  // Check coin requirements only if admin has enabled it
+  if (requiresCoins) {
     const challengerWithCoins = await prisma.user.findUnique({
       where: { id: challengerId },
       select: { coins: true },
     })
 
-    if (!challengerWithCoins || challengerWithCoins.coins < entryFee) {
-      throw new Error(`Insufficient coins. Entry fee is ${entryFee} coins. You have 1 free challenge per week that is only used when your challenge is accepted.`)
+    const hasEnoughCoins = challengerWithCoins && challengerWithCoins.coins >= entryFee
+
+    // If coins required but user doesn't have enough
+    if (!hasEnoughCoins) {
+      // Check if free challenge is allowed and available
+      if (allowsFreeChallenges && hasFreeChallenge) {
+        // User can use free challenge, continue
+        console.log(`[createBeltChallenge] User has free challenge available, allowing challenge creation`)
+      } else if (requiresFreeChallenge && !hasFreeChallenge) {
+        // Admin requires free challenge but user doesn't have one
+        throw new Error(`Insufficient coins (need ${entryFee} coins) and no free challenge available. You get ${settings.freeChallengesPerWeek || 1} free challenge(s) per week.`)
+      } else if (!allowsFreeChallenges) {
+        // Free challenges disabled, must have coins
+        throw new Error(`Insufficient coins. Entry fee is ${entryFee} coins. Free challenges are disabled for this belt type.`)
+      } else {
+        // Coins required, no free challenge available
+        throw new Error(`Insufficient coins. Entry fee is ${entryFee} coins. You have ${settings.freeChallengesPerWeek || 1} free challenge(s) per week that can be used when your challenge is accepted.`)
+      }
     }
   }
   
-  if (skipCoinChecks) {
-    console.log(`[createBeltChallenge] TESTING MODE: Skipping coin checks`)
+  // If admin doesn't require coins, allow challenge creation regardless
+  if (!requiresCoins) {
+    console.log(`[createBeltChallenge] Coin requirements disabled by admin, allowing challenge creation`)
   }
 
   // Don't deduct coins upfront - only charge when challenge is accepted

@@ -376,17 +376,28 @@ export function CreateDebateModal({
 
         if (!response.ok) {
           let errorMessage = 'Failed to create belt challenge'
+          let errorDetails = ''
           try {
             const error = await response.json()
             console.error('[CreateDebateModal] API error response:', JSON.stringify(error, null, 2))
             console.error('[CreateDebateModal] Error object keys:', Object.keys(error))
             errorMessage = error.error || error.message || `Server error: ${response.status} ${response.statusText}`
+            errorDetails = error.details || error.reason || ''
           } catch (parseError) {
             // If response is not JSON, get text
             const text = await response.text()
             console.error('[CreateDebateModal] API error (non-JSON):', text)
             errorMessage = text || `Server error: ${response.status} ${response.statusText}`
           }
+          
+          // Show detailed error notification
+          showToast({
+            title: 'Challenge Failed',
+            description: errorMessage + (errorDetails ? `\n${errorDetails}` : ''),
+            type: 'error',
+            duration: 8000, // Show longer for errors
+          })
+          
           throw new Error(errorMessage)
         }
 

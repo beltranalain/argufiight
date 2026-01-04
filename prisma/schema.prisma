@@ -38,9 +38,9 @@ model User {
 
   // Coin System
   coins Int @default(0) // User's coin balance
-  
+
   // Free Belt Challenges (weekly reset)
-  freeBeltChallengesAvailable Int      @default(1) @map("free_belt_challenges_available") // Number of free challenges available
+  freeBeltChallengesAvailable Int       @default(1) @map("free_belt_challenges_available") // Number of free challenges available
   lastFreeChallengeReset      DateTime? @map("last_free_challenge_reset") // When free challenge was last reset
 
   // Score System
@@ -2624,8 +2624,8 @@ model Belt {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  history    BeltHistory[]
-  challenges BeltChallenge[]
+  history          BeltHistory[]
+  challenges       BeltChallenge[]
   coinTransactions CoinTransaction[] @relation("CoinTransactionBelt")
 
   @@index([currentHolderId])
@@ -2688,20 +2688,20 @@ model BeltChallenge {
   beltHolder   User   @relation("BeltHolderChallenge", fields: [beltHolderId], references: [id])
 
   // Challenge details
-  status     ChallengeStatus @default(PENDING)
-  entryFee   Int             @default(0) @map("entry_fee") // Coins challenger pays
-  coinReward Int             @default(0) @map("coin_reward") // Coins winner gets
-  usesFreeChallenge Boolean  @default(false) @map("uses_free_challenge") // True if this challenge uses a free weekly challenge
+  status            ChallengeStatus @default(PENDING)
+  entryFee          Int             @default(0) @map("entry_fee") // Coins challenger pays
+  coinReward        Int             @default(0) @map("coin_reward") // Coins winner gets
+  usesFreeChallenge Boolean         @default(false) @map("uses_free_challenge") // True if this challenge uses a free weekly challenge
 
   // Debate configuration (set by challenger)
-  debateTopic          String?  @map("debate_topic") // Topic challenger wants to debate
-  debateDescription    String?  @map("debate_description") // Optional description
-  debateCategory       String?  @map("debate_category") // Category selected
-  debateTotalRounds    Int?     @map("debate_total_rounds") // Number of rounds
-  debateRoundDuration  Int?     @map("debate_round_duration") // Duration per round (milliseconds)
-  debateSpeedMode      Boolean? @map("debate_speed_mode") // Speed mode enabled
-  debateAllowCopyPaste Boolean? @map("debate_allow_copy_paste") // Allow copy/paste
-  debateChallengerPosition String? @map("debate_challenger_position") // 'FOR' or 'AGAINST'
+  debateTopic              String?  @map("debate_topic") // Topic challenger wants to debate
+  debateDescription        String?  @map("debate_description") // Optional description
+  debateCategory           String?  @map("debate_category") // Category selected
+  debateTotalRounds        Int?     @map("debate_total_rounds") // Number of rounds
+  debateRoundDuration      Int?     @map("debate_round_duration") // Duration per round (milliseconds)
+  debateSpeedMode          Boolean? @map("debate_speed_mode") // Speed mode enabled
+  debateAllowCopyPaste     Boolean? @map("debate_allow_copy_paste") // Allow copy/paste
+  debateChallengerPosition String?  @map("debate_challenger_position") // 'FOR' or 'AGAINST'
 
   // Response tracking
   response     ChallengeStatus? // ACCEPTED, DECLINED
@@ -2771,6 +2771,12 @@ model BeltSettings {
   inactiveCompetitorCount Int @default(2) @map("inactive_competitor_count") // Top N can compete
   inactiveAcceptDays      Int @default(7) @map("inactive_accept_days") // Days to accept challenge
 
+  // Challenge requirements (admin controlled)
+  requireCoins          Boolean @default(false) @map("require_coins") // Require coins to challenge
+  requireFreeChallenge  Boolean @default(false) @map("require_free_challenge") // Require free challenge if no coins
+  allowFreeChallenges   Boolean @default(true) @map("allow_free_challenges") // Allow free weekly challenges
+  freeChallengesPerWeek Int     @default(1) @map("free_challenges_per_week") // Number of free challenges per week
+
   // Timestamps
   updatedAt DateTime @updatedAt @map("updated_at")
   updatedBy String?  @map("updated_by") // Admin user ID
@@ -2783,48 +2789,48 @@ model BeltSettings {
 // ============================================
 
 enum CoinTransactionType {
-  BELT_CHALLENGE_ENTRY    // Entry fee for belt challenge
-  BELT_CHALLENGE_REWARD    // Reward for winning belt challenge
+  BELT_CHALLENGE_ENTRY // Entry fee for belt challenge
+  BELT_CHALLENGE_REWARD // Reward for winning belt challenge
   BELT_CHALLENGE_CONSOLATION // Consolation for losing belt challenge
   BELT_TOURNAMENT_CREATION // Cost to create tournament belt
-  BELT_TOURNAMENT_REWARD   // Reward for winning tournament
-  ADMIN_GRANT             // Admin grants coins
-  ADMIN_DEDUCT            // Admin deducts coins
-  REFUND                  // Refund for cancelled challenge
-  PLATFORM_FEE            // Platform fee (goes to platform account)
-  COIN_PURCHASE           // User purchased coins with real money
-  COIN_PURCHASE_REFUND    // Refund for coin purchase
+  BELT_TOURNAMENT_REWARD // Reward for winning tournament
+  ADMIN_GRANT // Admin grants coins
+  ADMIN_DEDUCT // Admin deducts coins
+  REFUND // Refund for cancelled challenge
+  PLATFORM_FEE // Platform fee (goes to platform account)
+  COIN_PURCHASE // User purchased coins with real money
+  COIN_PURCHASE_REFUND // Refund for coin purchase
 }
 
 enum CoinTransactionStatus {
-  PENDING   // Transaction pending
+  PENDING // Transaction pending
   COMPLETED // Transaction completed
-  FAILED    // Transaction failed
-  REFUNDED  // Transaction refunded
+  FAILED // Transaction failed
+  REFUNDED // Transaction refunded
 }
 
 model CoinTransaction {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  user      User     @relation("CoinTransactionUser", fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation("CoinTransactionUser", fields: [userId], references: [id], onDelete: Cascade)
 
   // Transaction details
-  type      CoinTransactionType @map("type")
-  status    CoinTransactionStatus @default(COMPLETED) @map("status")
-  amount    Int      // Positive for credits, negative for debits
-  balanceAfter Int   @map("balance_after") // User's balance after this transaction
+  type         CoinTransactionType   @map("type")
+  status       CoinTransactionStatus @default(COMPLETED) @map("status")
+  amount       Int // Positive for credits, negative for debits
+  balanceAfter Int                   @map("balance_after") // User's balance after this transaction
 
   // Related entities (optional)
-  beltChallengeId String? @map("belt_challenge_id")
+  beltChallengeId String?        @map("belt_challenge_id")
   beltChallenge   BeltChallenge? @relation("CoinTransactionChallenge", fields: [beltChallengeId], references: [id])
-  beltId          String? @map("belt_id")
-  belt            Belt?   @relation("CoinTransactionBelt", fields: [beltId], references: [id])
-  tournamentId    String? @map("tournament_id")
-  debateId        String? @map("debate_id")
+  beltId          String?        @map("belt_id")
+  belt            Belt?          @relation("CoinTransactionBelt", fields: [beltId], references: [id])
+  tournamentId    String?        @map("tournament_id")
+  debateId        String?        @map("debate_id")
 
   // Metadata
   description String? // Human-readable description
-  metadata    Json?   // Additional data (e.g., platform fee breakdown)
+  metadata    Json? // Additional data (e.g., platform fee breakdown)
 
   // Timestamps
   createdAt DateTime @default(now()) @map("created_at")

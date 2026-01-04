@@ -30,6 +30,10 @@ interface BeltSettings {
   tournamentBeltCostLarge: number
   inactiveCompetitorCount: number
   inactiveAcceptDays: number
+  requireCoins?: boolean
+  requireFreeChallenge?: boolean
+  allowFreeChallenges?: boolean
+  freeChallengesPerWeek?: number
 }
 
 const BELT_TYPE_LABELS: Record<string, string> = {
@@ -297,6 +301,73 @@ export default function BeltSettingsPage() {
                         min="1"
                       />
                     </div>
+                  </div>
+                </div>
+
+                {/* Challenge Requirements */}
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-4">Challenge Requirements</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id={`requireCoins-${setting.beltType}`}
+                        checked={editedSettings.requireCoins ?? setting.requireCoins ?? false}
+                        onChange={(e) => setEditedSettings({ ...editedSettings, requireCoins: e.target.checked })}
+                        className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-neon-blue focus:ring-2 focus:ring-neon-blue"
+                      />
+                      <label htmlFor={`requireCoins-${setting.beltType}`} className="text-sm font-medium text-text-primary cursor-pointer">
+                        Require Coins to Challenge
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id={`requireFreeChallenge-${setting.beltType}`}
+                        checked={editedSettings.requireFreeChallenge ?? setting.requireFreeChallenge ?? false}
+                        onChange={(e) => setEditedSettings({ ...editedSettings, requireFreeChallenge: e.target.checked })}
+                        className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-neon-blue focus:ring-2 focus:ring-neon-blue"
+                      />
+                      <label htmlFor={`requireFreeChallenge-${setting.beltType}`} className="text-sm font-medium text-text-primary cursor-pointer">
+                        Require Free Challenge if No Coins
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id={`allowFreeChallenges-${setting.beltType}`}
+                        checked={editedSettings.allowFreeChallenges ?? setting.allowFreeChallenges ?? true}
+                        onChange={(e) => setEditedSettings({ ...editedSettings, allowFreeChallenges: e.target.checked })}
+                        className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-neon-blue focus:ring-2 focus:ring-neon-blue"
+                      />
+                      <label htmlFor={`allowFreeChallenges-${setting.beltType}`} className="text-sm font-medium text-text-primary cursor-pointer">
+                        Allow Free Weekly Challenges
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-text-secondary mb-2">
+                        Free Challenges Per Week
+                      </label>
+                      <Input
+                        type="number"
+                        value={editedSettings.freeChallengesPerWeek ?? setting.freeChallengesPerWeek ?? 1}
+                        onChange={(e) => setEditedSettings({ ...editedSettings, freeChallengesPerWeek: parseInt(e.target.value) })}
+                        min="0"
+                        max="10"
+                      />
+                    </div>
+                  </div>
+                  <div className="bg-bg-tertiary/50 border border-bg-tertiary rounded-lg p-4 text-sm text-text-secondary">
+                    <p className="font-medium text-text-primary mb-2">💡 How it works:</p>
+                    <ul className="list-disc list-inside space-y-1 ml-2">
+                      <li><strong>Require Coins:</strong> Users must have enough coins OR a free challenge to create a challenge</li>
+                      <li><strong>Require Free Challenge:</strong> If user has no coins, they must have a free challenge available</li>
+                      <li><strong>Allow Free Challenges:</strong> Enable/disable the free weekly challenge system</li>
+                      <li><strong>Free Challenges Per Week:</strong> Number of free challenges users get each week</li>
+                    </ul>
+                    <p className="mt-3 text-neon-orange">
+                      <strong>Note:</strong> If all options are disabled, challenges can be created without any restrictions.
+                    </p>
                   </div>
                 </div>
 
