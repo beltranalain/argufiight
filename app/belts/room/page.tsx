@@ -175,6 +175,7 @@ export default function BeltRoomPage() {
     }
     
     // Set state to open modal
+    setIsCreatingChallenge(belt.id)
     setSelectedBeltForChallenge(belt)
     setChallengeModalOpen(true)
   }
@@ -183,6 +184,7 @@ export default function BeltRoomPage() {
     // Refresh data after successful challenge creation
     fetchBeltRoom()
     fetchAllBelts()
+    setIsCreatingChallenge(null)
     setChallengeModalOpen(false)
     setSelectedBeltForChallenge(null)
   }
@@ -525,6 +527,7 @@ export default function BeltRoomPage() {
         <CreateDebateModal
           isOpen={challengeModalOpen}
           onClose={() => {
+            setIsCreatingChallenge(null)
             setChallengeModalOpen(false)
             setSelectedBeltForChallenge(null)
           }}
@@ -685,7 +688,7 @@ export default function BeltRoomPage() {
                                 <Button
                                   variant="primary"
                                   className="flex-1"
-                                  onClick={() => handleCreateChallenge(belt.id)}
+                                  onClick={() => handleCreateChallenge(belt)}
                                   disabled={isCreatingChallenge === belt.id}
                                 >
                                   {isCreatingChallenge === belt.id ? 'Challenging...' : 'Challenge'}
