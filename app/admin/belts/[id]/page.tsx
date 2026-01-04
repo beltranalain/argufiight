@@ -165,7 +165,12 @@ export default function BeltDetailsPage() {
           description: 'Belt transferred successfully',
         })
         setTransferUserId('')
-        fetchBeltDetails()
+        // Refresh belt details
+        await fetchBeltDetails()
+        // Trigger a custom event to notify the list page to refresh
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('beltUpdated'))
+        }
       } else {
         const error = await response.json()
         showToast({

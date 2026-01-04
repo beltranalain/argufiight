@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -39,6 +40,7 @@ interface Belt {
 }
 
 export default function BeltsAdminPage() {
+  const router = useRouter()
   const { showToast } = useToast()
   const [belts, setBelts] = useState<Belt[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -56,6 +58,34 @@ export default function BeltsAdminPage() {
     fetchBelts()
   }, [filters])
 
+  // Refresh when page becomes visible or when belt is updated
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchBelts()
+      }
+    }
+
+    const handleFocus = () => {
+      fetchBelts()
+    }
+
+    // Listen for belt update events from detail page
+    const handleBeltUpdate = () => {
+      fetchBelts()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('beltUpdated', handleBeltUpdate)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('beltUpdated', handleBeltUpdate)
+    }
+  }, [])
+
   const fetchBelts = async () => {
     try {
       setIsLoading(true)
@@ -63,10 +93,16 @@ export default function BeltsAdminPage() {
       if (filters.status) params.append('status', filters.status)
       if (filters.type) params.append('type', filters.type)
       if (filters.category) params.append('category', filters.category)
+      // Add cache busting timestamp to ensure fresh data
+      params.append('t', Date.now().toString())
 
       const response = await fetch(`/api/belts?${params.toString()}`, {
         credentials: 'include',
         cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
       })
       if (response.ok) {
         const data = await response.json()
