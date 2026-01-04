@@ -29,11 +29,6 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    // Check feature flag
-    if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
-      return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
-    }
-
     const body = await request.json()
     const { toUserId, reason, adminNotes } = body
 
@@ -51,17 +46,30 @@ export async function POST(
       return NextResponse.json({ error: 'Belt not found' }, { status: 404 })
     }
 
-    // Transfer belt
-    const result = await transferBelt(
-      id,
-      belt.currentHolderId,
-      toUserId,
-      reason || 'ADMIN_TRANSFER',
-      {
-        adminNotes: adminNotes || 'Admin transfer',
-        transferredBy: session.userId,
+    // Transfer belt - temporarily enable belt system for admin operations
+    const originalFlag = process.env.ENABLE_BELT_SYSTEM
+    if (originalFlag !== 'true') {
+      process.env.ENABLE_BELT_SYSTEM = 'true'
+    }
+    
+    let result
+    try {
+      result = await transferBelt(
+        id,
+        belt.currentHolderId,
+        toUserId,
+        reason || 'ADMIN_TRANSFER',
+        {
+          adminNotes: adminNotes || 'Admin transfer',
+          transferredBy: session.userId,
+        }
+      )
+    } finally {
+      // Restore original flag value
+      if (originalFlag !== 'true') {
+        process.env.ENABLE_BELT_SYSTEM = originalFlag || ''
       }
-    )
+    }
 
     return NextResponse.json({ success: true, belt: result.belt, history: result.history })
   } catch (error: any) {
