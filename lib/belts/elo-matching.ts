@@ -120,8 +120,8 @@ export async function getTopEligibleChallengers(
         gte: holderElo - settings.eloRange,
         lte: holderElo + settings.eloRange,
       },
-      // Active in last X days (has debates)
-      debatesAsChallenger: {
+      // Active in last X days (has debates as challenger)
+      challengerDebates: {
         some: {
           createdAt: { gte: activeDate },
         },
