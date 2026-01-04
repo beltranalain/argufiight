@@ -532,23 +532,39 @@ export default function BeltRoomPage() {
                                 </div>
       </div>
 
-      {/* Challenge Modal - Same as belt detail page */}
-      {challengeModalOpen && selectedBeltForChallenge && selectedBeltForChallenge.currentHolder && (
-        <CreateDebateModal
-          isOpen={challengeModalOpen}
-          onClose={() => {
-            setIsCreatingChallenge(null)
-            setChallengeModalOpen(false)
-            setSelectedBeltForChallenge(null)
-          }}
-          onSuccess={handleChallengeModalSuccess}
-          beltChallengeMode={true}
-          beltId={selectedBeltForChallenge.id}
-          opponentId={selectedBeltForChallenge.currentHolder.id}
-          opponentUsername={selectedBeltForChallenge.currentHolder.username}
-          beltName={selectedBeltForChallenge.name}
-        />
-      )}
+      {/* Challenge Modal - ORIGINAL FLOW */}
+      {(() => {
+        const shouldRender = selectedBeltForChallenge && selectedBeltForChallenge.currentHolder
+        console.log('[BeltRoomPage] 🔍 Modal render check:', {
+          shouldRender,
+          hasSelectedBelt: !!selectedBeltForChallenge,
+          hasHolder: !!selectedBeltForChallenge?.currentHolder,
+          challengeModalOpen,
+          selectedBeltId: selectedBeltForChallenge?.id,
+        })
+        
+        if (!shouldRender) {
+          return null
+        }
+        
+        console.log('[BeltRoomPage] ✅ RENDERING CreateDebateModal')
+        return (
+          <CreateDebateModal
+            isOpen={challengeModalOpen}
+            onClose={() => {
+              console.log('[BeltRoomPage] Modal onClose called')
+              setChallengeModalOpen(false)
+              setSelectedBeltForChallenge(null)
+            }}
+            onSuccess={handleChallengeModalSuccess}
+            beltChallengeMode={true}
+            beltId={selectedBeltForChallenge.id}
+            opponentId={selectedBeltForChallenge.currentHolder.id}
+            opponentUsername={selectedBeltForChallenge.currentHolder.username}
+            beltName={selectedBeltForChallenge.name}
+          />
+        )
+      })()}
       
       {/* Debug info - remove in production */}
       {process.env.NODE_ENV === 'development' && (
