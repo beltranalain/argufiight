@@ -164,29 +164,42 @@ export default function BeltRoomPage() {
     }
   }
 
-  const handleCreateChallenge = (belt: Belt) => {
+  const handleCreateChallenge = (belt: Belt | BeltWithHolder) => {
     console.log('[BeltRoomPage] handleCreateChallenge called with belt:', belt)
     console.log('[BeltRoomPage] User:', user)
     console.log('[BeltRoomPage] Belt currentHolder:', belt.currentHolder)
     
-    if (!user || !belt.currentHolder) {
-      console.log('[BeltRoomPage] Cannot challenge - missing user or holder')
+    if (!user) {
+      console.log('[BeltRoomPage] Cannot challenge - no user')
       showToast({
         type: 'error',
         title: 'Cannot Challenge',
-        description: belt.currentHolder ? 'You must be logged in to challenge a belt' : 'This belt has no current holder',
+        description: 'You must be logged in to challenge a belt',
       })
       return
     }
     
-    // Convert Belt to BeltWithHolder for the modal
-    const beltWithHolder: BeltWithHolder = {
-      ...belt,
-      currentHolder: belt.currentHolder,
+    if (!belt.currentHolder) {
+      console.log('[BeltRoomPage] Cannot challenge - no current holder')
+      showToast({
+        type: 'error',
+        title: 'Cannot Challenge',
+        description: 'This belt has no current holder',
+      })
+      return
     }
+    
+    // Ensure we have a BeltWithHolder
+    const beltWithHolder: BeltWithHolder = 'currentHolder' in belt && belt.currentHolder 
+      ? (belt as BeltWithHolder)
+      : {
+          ...belt,
+          currentHolder: belt.currentHolder,
+        } as BeltWithHolder
     
     console.log('[BeltRoomPage] Opening challenge modal for belt:', beltWithHolder.id, beltWithHolder.name)
     console.log('[BeltRoomPage] Opponent:', beltWithHolder.currentHolder?.username)
+    console.log('[BeltRoomPage] BeltWithHolder type check:', beltWithHolder.currentHolder ? 'has holder' : 'no holder')
     
     // Set state to open modal
     setIsCreatingChallenge(belt.id)
@@ -194,6 +207,7 @@ export default function BeltRoomPage() {
     setChallengeModalOpen(true)
     
     console.log('[BeltRoomPage] Modal state set - challengeModalOpen:', true, 'selectedBeltForChallenge:', beltWithHolder.id)
+    console.log('[BeltRoomPage] Will modal render?', beltWithHolder.currentHolder ? 'YES' : 'NO')
   }
 
   const handleChallengeModalSuccess = () => {
