@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
@@ -15,6 +16,7 @@ interface TopNavProps {
 }
 
 export function TopNav({ currentPanel }: TopNavProps) {
+  const router = useRouter()
   const { user, logout } = useAuth()
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [isAccountSwitcherOpen, setIsAccountSwitcherOpen] = useState(false)
@@ -22,18 +24,27 @@ export function TopNav({ currentPanel }: TopNavProps) {
   const [userTier, setUserTier] = useState<'FREE' | 'PRO' | null>(null)
   const [isAdvertiser, setIsAdvertiser] = useState(false)
   const [accountCount, setAccountCount] = useState(0)
+  const [beltCount, setBeltCount] = useState(0)
+  const [coinBalance, setCoinBalance] = useState<number | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    if (user) {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (user && isMounted) {
       fetchUnreadCount()
       fetchUserTier()
       checkIfAdvertiser()
       fetchAccountCount()
+      fetchBeltCount()
+      fetchCoinBalance()
       // Poll for new notifications every 30 seconds
       const interval = setInterval(fetchUnreadCount, 30000)
       return () => clearInterval(interval)
     }
-  }, [user])
+  }, [user, isMounted])
 
   const fetchAccountCount = async () => {
     try {
@@ -83,6 +94,53 @@ export function TopNav({ currentPanel }: TopNavProps) {
     } catch (error) {
       console.error('Failed to fetch user tier:', error)
       setUserTier('FREE') // Default to FREE
+    }
+  }
+
+  const fetchBeltCount = async () => {
+    try {
+      const response = await fetch('/api/belts/room', {
+        credentials: 'include',
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const count = data.currentBelts?.length || 0
+        setBeltCount(count)
+        console.log('[TopNav] Belt count fetched:', count)
+      } else if (response.status === 403) {
+        // Belt system not enabled
+        setBeltCount(0)
+      } else if (response.status === 401) {
+        // Not logged in
+        setBeltCount(0)
+      } else {
+        setBeltCount(0)
+      }
+    } catch (error) {
+      // Silently fail - belt system might not be enabled
+      console.error('[TopNav] Failed to fetch belt count:', error)
+      setBeltCount(0)
+    }
+  }
+
+  const fetchCoinBalance = async () => {
+    try {
+      const response = await fetch('/api/profile', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const coins = data.coins || 0
+        setCoinBalance(coins)
+      } else {
+        setCoinBalance(0)
+      }
+    } catch (error) {
+      console.error('[TopNav] Failed to fetch coin balance:', error)
+      setCoinBalance(0)
     }
   }
 
@@ -146,6 +204,14 @@ export function TopNav({ currentPanel }: TopNavProps) {
       onClick: () => window.location.href = '/debates/saved',
     },
     {
+      label: 'Trending Topics',
+      onClick: () => window.location.href = '/trending',
+    },
+    {
+      label: 'Belts',
+      onClick: () => window.location.href = '/belts/room',
+    },
+    {
       label: 'Direct Messages',
       onClick: () => window.location.href = '/messages',
     },
@@ -157,6 +223,25 @@ export function TopNav({ currentPanel }: TopNavProps) {
       label: 'Creator Dashboard',
       onClick: () => window.location.href = '/creator/dashboard',
       variant: 'default' as const,
+    },
+    {
+      label: 'My Coins',
+      onClick: () => router.push('/coins'),
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Buy Coins',
+      onClick: () => router.push('/coins/purchase'),
+      variant: 'default' as const,
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+      ),
     },
     ...(userTier === 'FREE' ? [{
       label: 'Upgrade to Pro',
@@ -174,15 +259,30 @@ export function TopNav({ currentPanel }: TopNavProps) {
     },
   ]
 
+  // Coin balance header for dropdown
+  const coinHeader = coinBalance !== null ? (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <svg className="w-5 h-5 text-electric-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span className="text-sm font-semibold text-text-primary">Coins</span>
+      </div>
+      <span className="text-lg font-bold text-electric-blue">{coinBalance.toLocaleString()}</span>
+    </div>
+  ) : null
+
   return (
     <nav className="fixed top-0 left-0 right-0 h-16 md:h-20 bg-bg-primary/80 backdrop-blur-sm border-b border-bg-tertiary z-50">
       <div className="h-full px-4 md:px-8 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center">
-          <span className="text-lg md:text-xl font-bold text-electric-blue">
-            ARGU FIGHT
-          </span>
-        </Link>
+        <div className="flex items-center">
+          <Link href="/" className="flex items-center">
+            <span className="text-lg md:text-xl font-bold text-electric-blue">
+              ARGU FIGHT
+            </span>
+          </Link>
+        </div>
 
         {/* Panel Title */}
         <h2 className="absolute left-1/2 -translate-x-1/2 text-lg md:text-2xl font-bold text-text-primary hidden md:block">
@@ -255,6 +355,7 @@ export function TopNav({ currentPanel }: TopNavProps) {
                 </div>
               }
               items={menuItems}
+              header={coinHeader}
             />
           ) : (
             <Link href="/login">

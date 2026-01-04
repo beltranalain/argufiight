@@ -117,7 +117,7 @@ function SuccessPageContent() {
                 Go to Belt Room
               </Button>
               <Button
-                variant="outline"
+                variant="secondary"
                 onClick={() => router.push('/coins/purchase')}
                 className="flex-1"
               >

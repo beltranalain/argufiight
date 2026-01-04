@@ -36,6 +36,13 @@ model User {
   longestBeltHeld   Int @default(0) @map("longest_belt_held") // Days
   currentBeltsCount Int @default(0) @map("current_belts_count") // Cached count
 
+  // Coin System
+  coins Int @default(0) // User's coin balance
+  
+  // Free Belt Challenges (weekly reset)
+  freeBeltChallengesAvailable Int      @default(1) @map("free_belt_challenges_available") // Number of free challenges available
+  lastFreeChallengeReset      DateTime? @map("last_free_challenge_reset") // When free challenge was last reset
+
   // Score System
   totalScore    Int @default(0) @map("total_score") // Sum of all scores from all debates
   totalMaxScore Int @default(0) @map("total_max_score") // Max possible (judges × 100 × debates)
@@ -134,6 +141,9 @@ model User {
   beltChallengesReceived BeltChallenge[] @relation("BeltHolderChallenge")
   beltHistoryFrom        BeltHistory[]   @relation("BeltHistoryFrom")
   beltHistoryTo          BeltHistory[]   @relation("BeltHistoryTo")
+
+  // Coin transactions
+  coinTransactions CoinTransaction[] @relation("CoinTransactionUser")
 
   // Appeal limits
   appealLimit         AppealLimit?
@@ -1230,6 +1240,11 @@ enum NotificationType {
   REMATCH_ACCEPTED // Rematch was accepted
   REMATCH_DECLINED // Rematch was declined
   NEW_MESSAGE // New direct message received
+  BELT_CHALLENGE // Belt challenge received
+  BELT_CHALLENGE_ACCEPTED // Belt challenge accepted
+  BELT_MANDATORY_DEFENSE // Belt requires mandatory defense
+  BELT_INACTIVE // Belt became inactive
+  BELT_TRANSFER // Belt transferred (won/lost)
 }
 
 // ============================================
@@ -2611,6 +2626,7 @@ model Belt {
   // Relations
   history    BeltHistory[]
   challenges BeltChallenge[]
+  coinTransactions CoinTransaction[] @relation("CoinTransactionBelt")
 
   @@index([currentHolderId])
   @@index([type])
@@ -2675,6 +2691,17 @@ model BeltChallenge {
   status     ChallengeStatus @default(PENDING)
   entryFee   Int             @default(0) @map("entry_fee") // Coins challenger pays
   coinReward Int             @default(0) @map("coin_reward") // Coins winner gets
+  usesFreeChallenge Boolean  @default(false) @map("uses_free_challenge") // True if this challenge uses a free weekly challenge
+
+  // Debate configuration (set by challenger)
+  debateTopic          String?  @map("debate_topic") // Topic challenger wants to debate
+  debateDescription    String?  @map("debate_description") // Optional description
+  debateCategory       String?  @map("debate_category") // Category selected
+  debateTotalRounds    Int?     @map("debate_total_rounds") // Number of rounds
+  debateRoundDuration  Int?     @map("debate_round_duration") // Duration per round (milliseconds)
+  debateSpeedMode      Boolean? @map("debate_speed_mode") // Speed mode enabled
+  debateAllowCopyPaste Boolean? @map("debate_allow_copy_paste") // Allow copy/paste
+  debateChallengerPosition String? @map("debate_challenger_position") // 'FOR' or 'AGAINST'
 
   // Response tracking
   response     ChallengeStatus? // ACCEPTED, DECLINED
@@ -2694,6 +2721,9 @@ model BeltChallenge {
   expiresAt DateTime @map("expires_at") // Challenge expires if not responded
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Coin transactions
+  coinTransactions CoinTransaction[] @relation("CoinTransactionChallenge")
 
   @@index([beltId])
   @@index([challengerId])
@@ -2746,4 +2776,64 @@ model BeltSettings {
   updatedBy String?  @map("updated_by") // Admin user ID
 
   @@map("belt_settings")
+}
+
+// ============================================
+// COIN SYSTEM
+// ============================================
+
+enum CoinTransactionType {
+  BELT_CHALLENGE_ENTRY    // Entry fee for belt challenge
+  BELT_CHALLENGE_REWARD    // Reward for winning belt challenge
+  BELT_CHALLENGE_CONSOLATION // Consolation for losing belt challenge
+  BELT_TOURNAMENT_CREATION // Cost to create tournament belt
+  BELT_TOURNAMENT_REWARD   // Reward for winning tournament
+  ADMIN_GRANT             // Admin grants coins
+  ADMIN_DEDUCT            // Admin deducts coins
+  REFUND                  // Refund for cancelled challenge
+  PLATFORM_FEE            // Platform fee (goes to platform account)
+  COIN_PURCHASE           // User purchased coins with real money
+  COIN_PURCHASE_REFUND    // Refund for coin purchase
+}
+
+enum CoinTransactionStatus {
+  PENDING   // Transaction pending
+  COMPLETED // Transaction completed
+  FAILED    // Transaction failed
+  REFUNDED  // Transaction refunded
+}
+
+model CoinTransaction {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation("CoinTransactionUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Transaction details
+  type      CoinTransactionType @map("type")
+  status    CoinTransactionStatus @default(COMPLETED) @map("status")
+  amount    Int      // Positive for credits, negative for debits
+  balanceAfter Int   @map("balance_after") // User's balance after this transaction
+
+  // Related entities (optional)
+  beltChallengeId String? @map("belt_challenge_id")
+  beltChallenge   BeltChallenge? @relation("CoinTransactionChallenge", fields: [beltChallengeId], references: [id])
+  beltId          String? @map("belt_id")
+  belt            Belt?   @relation("CoinTransactionBelt", fields: [beltId], references: [id])
+  tournamentId    String? @map("tournament_id")
+  debateId        String? @map("debate_id")
+
+  // Metadata
+  description String? // Human-readable description
+  metadata    Json?   // Additional data (e.g., platform fee breakdown)
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@index([beltChallengeId])
+  @@map("coin_transactions")
 }

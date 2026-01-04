@@ -211,6 +211,25 @@ export async function completeTournament(tournamentId: string): Promise<void> {
 
     console.log(`[Tournament Completion] Tournament ${tournamentId} completed. Champion: ${champion.user.username}`)
 
+    // Process belt transfers if belt system is enabled
+    // This is non-blocking - we don't want belt transfers to break tournament completion
+    if (process.env.ENABLE_BELT_SYSTEM === 'true') {
+      import('@/lib/belts/tournament')
+        .then(async (module) => {
+          try {
+            await module.processTournamentBeltTransfer(tournamentId, champion.userId)
+            console.log(`[Tournament Completion] Belt transfers processed for tournament ${tournamentId}`)
+          } catch (error: any) {
+            console.error(`[Tournament Completion] Error processing belt transfers:`, error)
+            // Don't throw - belt transfers shouldn't break tournament completion
+          }
+        })
+        .catch((importError: any) => {
+          // If import fails, belt system might not be available - that's fine
+          console.log(`[Tournament Completion] Belt system not available:`, importError.message)
+        })
+    }
+
     // Create notifications for all participants
     await createTournamentCompletionNotifications(tournamentId, champion.userId)
   } catch (error: any) {

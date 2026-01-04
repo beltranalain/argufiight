@@ -354,7 +354,7 @@ export function BeltsPanel() {
                           src={belt.designImageUrl}
                           alt={belt.name}
                           className="w-[140%] h-[140%] object-contain"
-                          style={{ imageRendering: 'high-quality' }}
+                          style={{ imageRendering: 'auto' }}
                           loading="lazy"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none'
@@ -450,7 +450,7 @@ export function BeltsPanel() {
                           src={belt.designImageUrl}
                           alt={belt.name}
                           className="w-[140%] h-[140%] object-contain"
-                          style={{ imageRendering: 'high-quality' }}
+                          style={{ imageRendering: 'auto' }}
                           loading="lazy"
                           onError={(e) => {
                             console.error('Image failed to load:', belt.designImageUrl)
@@ -522,7 +522,7 @@ export function BeltsPanel() {
                         src={challenge.belt.designImageUrl}
                         alt={challenge.belt.name}
                         className="w-[140%] h-[140%] object-contain"
-                        style={{ imageRendering: 'high-quality' }}
+                        style={{ imageRendering: 'auto' }}
                         loading="lazy"
                         onError={(e) => {
                           console.error('Challenge belt image failed to load:', challenge.belt.designImageUrl)

@@ -231,7 +231,7 @@ export default function CoinPurchasePage() {
             <CardBody>
               <p className="text-text-secondary mb-4">No coin packages available at this time.</p>
               <Link href="/belts/room">
-                <Button variant="outline">Return to Belts</Button>
+                <Button variant="secondary">Return to Belts</Button>
               </Link>
             </CardBody>
           </Card>

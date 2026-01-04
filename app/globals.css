@@ -169,6 +169,21 @@ body {
   box-shadow: 0 0 20px rgba(0, 255, 148, 0.3);
 }
 
+/* Force white text on category badges - override any text-text-secondary */
+.bg-gray-600.text-text-secondary,
+span.bg-gray-600,
+.bg-gray-600[style*="color"],
+span.inline-flex.bg-gray-600,
+span.inline-flex.items-center.bg-gray-600 {
+  color: #ffffff !important;
+}
+
+/* Additional override for belt room category badges */
+.bg-bg-tertiary span.bg-gray-600,
+.bg-bg-tertiary .bg-gray-600 {
+  color: #ffffff !important;
+}
+
 @keyframes gradient-rotate {
   0% {
     background-position: 0% 50%;
@@ -180,79 +195,3 @@ body {
     background-position: 0% 50%;
   }
 }
-
-.animated-gradient {
-  background: linear-gradient(
-    135deg,
-    var(--color-electric-blue),
-    var(--color-neon-orange),
-    var(--color-hot-pink),
-    var(--color-cyber-green)
-  );
-  background-size: 300% 300%;
-  animation: gradient-rotate 8s ease infinite;
-}
-
-@keyframes pulse-glow {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.pulse {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
-
-@keyframes slow-blink-orange {
-  0%, 100% {
-    background-color: var(--color-bg-primary);
-  }
-  50% {
-    background-color: rgba(255, 140, 0, 0.15);
-  }
-}
-
-.slow-blink-orange {
-  animation: slow-blink-orange 2s ease-in-out infinite;
-}
-
-@keyframes winner-pulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(0, 255, 148, 0.4);
-  }
-  50% {
-    transform: scale(1.02);
-    box-shadow: 0 0 20px 5px rgba(0, 255, 148, 0.6);
-  }
-}
-
-@keyframes winner-glow {
-  0%, 100% {
-    border-color: rgba(0, 255, 148, 0.5);
-    background-color: rgba(0, 255, 148, 0.1);
-  }
-  50% {
-    border-color: rgba(0, 255, 148, 1);
-    background-color: rgba(0, 255, 148, 0.2);
-  }
-}
-
-.winner-animation {
-  animation: winner-pulse 2s ease-in-out infinite, winner-glow 2s ease-in-out infinite;
-}
-
-/* Hide scrollbar */
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-

@@ -46,6 +46,13 @@ interface BeltDetails {
     coinReward: number
     expiresAt: string
     createdAt: string
+    debateTopic: string | null
+    debateDescription: string | null
+    debateCategory: string | null
+    debateChallengerPosition: string | null
+    debateTotalRounds: number | null
+    debateSpeedMode: boolean | null
+    debateAllowCopyPaste: boolean | null
   }>
 }
 

@@ -121,7 +121,7 @@ export async function getTopEligibleChallengers(
         lte: holderElo + settings.eloRange,
       },
       // Active in last X days (has debates)
-      debatesAsChallenger: {
+      challengerDebates: {
         some: {
           createdAt: { gte: activeDate },
         },

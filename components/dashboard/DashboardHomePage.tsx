@@ -1,13 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { TopNav } from '@/components/layout/TopNav'
 import { ArenaPanel } from '@/components/panels/ArenaPanel'
-import { LiveBattlePanel } from '@/components/panels/LiveBattlePanel'
 import { ChallengesPanel } from '@/components/panels/ChallengesPanel'
 import { ProfilePanel } from '@/components/panels/ProfilePanel'
 import { TournamentsPanel } from '@/components/panels/TournamentsPanel'
+import { BeltsPanel } from '@/components/panels/BeltsPanel'
+import { LeaderboardPanel } from '@/components/panels/LeaderboardPanel'
 import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
+import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/lib/hooks/useAuth'
 
 export function DashboardHomePage() {
@@ -134,39 +137,45 @@ export function DashboardHomePage() {
       
       <div className="pt-16 md:pt-20 px-4 md:px-8 pb-8">
         <div className="max-w-[1600px] mx-auto">
-          {/* Main Grid Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Main Grid Layout - 3 Columns */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
-            {/* Left Column - Arena (8 columns) */}
-            <div className="lg:col-span-8 space-y-6">
+            {/* Column 1 - Left */}
+            <div className="space-y-6">
               <ArenaPanel />
-              
-              {/* Tournaments - Moved under ELO Leaderboard */}
-              <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary mb-20">
-                <TournamentsPanel />
+            </div>
+
+            {/* Column 2 - Middle */}
+            <div className="space-y-6">
+              {/* Your Profile */}
+              <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary mt-8">
+                <h2 className="text-2xl font-bold text-text-primary mb-2">Your Profile</h2>
+                <ProfilePanel />
+              </div>
+
+              {/* ELO Leaderboard */}
+              <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
+                <LeaderboardPanel />
               </div>
             </div>
 
-            {/* Right Column - Sidebar (4 columns) */}
-            <div className="lg:col-span-4 space-y-6">
-              {/* Live Battle */}
+            {/* Column 3 - Right */}
+            <div className="space-y-6">
+              {/* Belts */}
               <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary mt-8">
-                <h2 className="text-2xl font-bold text-text-primary mb-2">Live Battle</h2>
-                <p className="text-text-secondary text-sm mb-6">Your active debate will appear here</p>
-                <LiveBattlePanel />
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-2xl font-bold text-text-primary">Belts</h2>
+                  <Link href="/belts/room">
+                    <Button variant="secondary" size="sm">View All</Button>
+                  </Link>
+                </div>
+                <p className="text-text-secondary text-sm mb-4">Your championship belts and challenges</p>
+                <BeltsPanel />
               </div>
 
-              {/* Open Challenges */}
+              {/* Tournaments */}
               <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
-                <h2 className="text-2xl font-bold text-text-primary mb-2">Open Challenges</h2>
-                <p className="text-text-secondary text-sm mb-4">Debates waiting for opponents</p>
-                <ChallengesPanel />
-              </div>
-
-              {/* Your Profile */}
-              <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
-                <h2 className="text-2xl font-bold text-text-primary mb-2">Your Profile</h2>
-                <ProfilePanel />
+                <TournamentsPanel />
               </div>
             </div>
           </div>

@@ -240,6 +240,7 @@ export async function POST(request: NextRequest) {
       isPrivate = false,
       challengeType = 'OPEN',
       invitedUserIds = null,
+      beltId = null,
     } = body
 
     // Validate required fields
@@ -368,6 +369,52 @@ export async function POST(request: NextRequest) {
       shareToken = crypto.randomBytes(24).toString('base64url')
     }
 
+    // Validate and check belt if provided
+    let belt = null
+    if (beltId) {
+      // Check if belt system is enabled
+      if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
+        return NextResponse.json(
+          { error: 'Belt system is not enabled' },
+          { status: 403 }
+        )
+      }
+
+      belt = await prisma.belt.findUnique({
+        where: { id: beltId },
+      })
+
+      if (!belt) {
+        return NextResponse.json(
+          { error: 'Belt not found' },
+          { status: 404 }
+        )
+      }
+
+      // Validate belt ownership
+      if (belt.currentHolderId !== userId) {
+        return NextResponse.json(
+          { error: 'You do not own this belt' },
+          { status: 403 }
+        )
+      }
+
+      // Validate belt can be staked
+      if (belt.isStaked) {
+        return NextResponse.json(
+          { error: 'Belt is already staked' },
+          { status: 400 }
+        )
+      }
+
+      if (belt.status !== 'ACTIVE' && belt.status !== 'MANDATORY') {
+        return NextResponse.json(
+          { error: `Cannot stake belt with status: ${belt.status}` },
+          { status: 400 }
+        )
+      }
+    }
+
     // Generate SEO-friendly slug
     let slug = generateUniqueSlug(topic)
     // Ensure slug is unique
@@ -407,6 +454,8 @@ export async function POST(request: NextRequest) {
           invitedUserIds: invitedUserIds ? JSON.stringify(invitedUserIds) : null,
           invitedBy: challengeType !== 'OPEN' ? userId : null,
           status: challengeType === 'DIRECT' ? 'WAITING' : 'WAITING',
+          hasBeltAtStake: beltId !== null,
+          beltStakeType: beltId ? 'MANUAL' : null,
         },
         include: {
           challenger: {
@@ -444,6 +493,14 @@ export async function POST(request: NextRequest) {
           'challenge_type', 'invited_user_ids', 'invited_by', 'status', 'created_at', 'updated_at'
         ].filter(col => columnNames.includes(col))
         
+        // Add belt fields if they exist
+        if (columnNames.includes('has_belt_at_stake')) {
+          insertColumns.push('has_belt_at_stake')
+        }
+        if (columnNames.includes('belt_stake_type')) {
+          insertColumns.push('belt_stake_type')
+        }
+        
         // Add view_count if it exists
         if (columnNames.includes('view_count')) {
           insertColumns.push('view_count')
@@ -469,6 +526,14 @@ export async function POST(request: NextRequest) {
           now,
           now,
         ]
+        
+        // Add belt values if columns exist
+        if (columnNames.includes('has_belt_at_stake')) {
+          values.push(beltId ? 1 : 0)
+        }
+        if (columnNames.includes('belt_stake_type')) {
+          values.push(beltId ? 'MANUAL' : null)
+        }
         
         // Add view_count default if column exists
         if (columnNames.includes('view_count')) {
@@ -571,6 +636,24 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create debate' },
         { status: 500 }
       )
+    }
+
+    // Update belt if staked
+    if (beltId && belt && debate) {
+      try {
+        await prisma.belt.update({
+          where: { id: beltId },
+          data: {
+            isStaked: true,
+            status: 'STAKED',
+            stakedInDebateId: debate.id,
+          },
+        })
+      } catch (error: any) {
+        console.error('Failed to stake belt:', error)
+        // Don't fail the debate creation if belt staking fails
+        // The belt will remain unstaked but the debate will be created
+      }
     }
 
     return NextResponse.json(debate, { status: 201 })

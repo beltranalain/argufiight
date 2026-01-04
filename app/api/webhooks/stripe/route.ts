@@ -65,6 +65,18 @@ export async function POST(request: NextRequest) {
         break
       }
 
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session
+        await handleCheckoutSessionCompleted(session)
+        break
+      }
+
+      case 'charge.refunded': {
+        const charge = event.data.object as Stripe.Charge
+        await handleChargeRefunded(charge)
+        break
+      }
+
       default:
         console.log(`Unhandled event type: ${event.type}`)
     }
@@ -203,3 +215,149 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   }
 }
 
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+  try {
+    // Check if this is a coin purchase
+    if (session.metadata?.type !== 'coin_purchase') {
+      return // Not a coin purchase, skip
+    }
+
+    const userId = session.metadata.userId
+    const packageId = session.metadata.packageId
+    const packageName = session.metadata.packageName
+    const baseCoins = parseInt(session.metadata.baseCoins || '0')
+    const bonusCoins = parseInt(session.metadata.bonusCoins || '0')
+    const totalCoins = parseInt(session.metadata.totalCoins || '0')
+    const paymentIntentId = session.payment_intent as string
+
+    if (!userId || !totalCoins) {
+      console.error('[Webhook] Missing required metadata for coin purchase:', session.metadata)
+      return
+    }
+
+    // Check if this payment was already processed (idempotency)
+    const existingTransaction = await prisma.coinTransaction.findFirst({
+      where: {
+        userId,
+        metadata: {
+          path: ['stripePaymentIntentId'],
+          equals: paymentIntentId,
+        },
+      },
+    })
+
+    if (existingTransaction) {
+      console.log('[Webhook] Coin purchase already processed:', paymentIntentId)
+      return
+    }
+
+    // Import addCoins function
+    const { addCoins } = await import('@/lib/belts/coin-economics')
+
+    // Add coins to user account
+    // Use COIN_PURCHASE type (requires database migration to add to enum)
+    try {
+      await addCoins(userId, totalCoins, {
+        type: 'COIN_PURCHASE',
+        description: `Purchased ${packageName} package - ${totalCoins.toLocaleString()} coins`,
+        metadata: {
+          stripePaymentIntentId: paymentIntentId,
+          stripeSessionId: session.id,
+          packageId,
+          packageName,
+          baseCoins,
+          bonusCoins,
+          totalCoins,
+          purchaseType: 'coin_purchase',
+        },
+      })
+    } catch (error: any) {
+      // Fallback to ADMIN_GRANT if COIN_PURCHASE not in enum yet
+      if (error.message?.includes('COIN_PURCHASE') || error.message?.includes('Invalid enum')) {
+        console.warn('[Webhook] COIN_PURCHASE not in enum, using ADMIN_GRANT as fallback')
+        await addCoins(userId, totalCoins, {
+          type: 'ADMIN_GRANT',
+          description: `Purchased ${packageName} package - ${totalCoins.toLocaleString()} coins`,
+          metadata: {
+            stripePaymentIntentId: paymentIntentId,
+            stripeSessionId: session.id,
+            packageId,
+            packageName,
+            baseCoins,
+            bonusCoins,
+            totalCoins,
+            purchaseType: 'coin_purchase',
+          },
+        })
+      } else {
+        throw error
+      }
+    }
+    console.log(`[Webhook] Added ${totalCoins} coins to user ${userId} from package ${packageName}`)
+  } catch (error: any) {
+    console.error('[Webhook] Error processing coin purchase:', error)
+    // Don't throw - we'll retry via webhook retry mechanism
+  }
+}
+
+async function handleChargeRefunded(charge: Stripe.Charge) {
+  try {
+    // Get payment intent to find the session
+    const stripe = await createStripeClient()
+    const paymentIntent = await stripe.paymentIntents.retrieve(charge.payment_intent as string)
+    
+    // Check if this was a coin purchase
+    const sessionId = (paymentIntent as any).metadata?.sessionId
+    if (!sessionId) return
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId)
+    if (session.metadata?.type !== 'coin_purchase') {
+      return // Not a coin purchase refund
+    }
+
+    const userId = session.metadata.userId
+    const totalCoins = parseInt(session.metadata.totalCoins || '0')
+
+    if (!userId || !totalCoins) {
+      console.error('[Webhook] Missing required metadata for coin refund:', session.metadata)
+      return
+    }
+
+    // Check if refund was already processed
+    const existingRefund = await prisma.coinTransaction.findFirst({
+      where: {
+        userId,
+        type: 'REFUND',
+        metadata: {
+          path: ['stripeChargeId'],
+          equals: charge.id,
+        },
+      },
+    })
+
+    if (existingRefund) {
+      console.log('[Webhook] Coin refund already processed:', charge.id)
+      return
+    }
+
+    // Import deductCoins function
+    const { deductCoins } = await import('@/lib/belts/coin-economics')
+
+    // Deduct coins (refund)
+    await deductCoins(userId, totalCoins, {
+      type: 'REFUND',
+      description: `Refund for ${session.metadata.packageName} package purchase`,
+      metadata: {
+        stripeChargeId: charge.id,
+        stripePaymentIntentId: paymentIntent.id,
+        stripeSessionId: sessionId,
+        refundType: 'coin_purchase_refund',
+        originalPackage: session.metadata.packageName,
+      },
+    })
+
+    console.log(`[Webhook] Refunded ${totalCoins} coins from user ${userId}`)
+  } catch (error: any) {
+    console.error('[Webhook] Error processing coin refund:', error)
+  }
+}

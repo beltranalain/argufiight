@@ -159,7 +159,7 @@ export default function MyCoinsPage() {
               <div className="text-center py-12">
                 <div className="text-text-secondary mb-4">No transactions yet</div>
                 <Link href="/coins/purchase">
-                  <Button variant="outline">Buy Your First Coins</Button>
+                  <Button variant="secondary">Buy Your First Coins</Button>
                 </Link>
               </div>
             ) : (

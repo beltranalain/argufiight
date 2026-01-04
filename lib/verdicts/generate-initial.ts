@@ -522,6 +522,25 @@ export async function generateInitialVerdicts(debateId: string) {
         console.log(`[Generate Verdicts] Not a tournament debate or import failed:`, importError.message)
       })
 
+    // Process belt transfer if belt is at stake
+    // This is non-blocking - we don't want belt transfers to break verdict generation
+    if (finalWinnerId && debate.hasBeltAtStake) {
+      import('@/lib/belts/core')
+        .then(async (module) => {
+          try {
+            await module.processBeltTransferAfterDebate(debateId, finalWinnerId)
+            console.log(`[Generate Verdicts] Belt transfer processed for debate ${debateId}`)
+          } catch (error: any) {
+            console.error(`[Generate Verdicts] Error processing belt transfer:`, error)
+            // Don't throw - belt transfers shouldn't break verdict generation
+          }
+        })
+        .catch((importError: any) => {
+          // If import fails, belt system might not be enabled - that's fine
+          console.log(`[Generate Verdicts] Belt system not available or import failed:`, importError.message)
+        })
+    }
+
     return {
       success: true,
       debate: updatedDebate,

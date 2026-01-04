@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session-verify'
+import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
 import { transferBelt } from '@/lib/belts/core'
 
@@ -14,7 +14,7 @@ export async function POST(
 ) {
   const { id } = await params
   try {
-    const session = await verifySession()
+    const session = await verifySessionWithDb()
     if (!session?.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

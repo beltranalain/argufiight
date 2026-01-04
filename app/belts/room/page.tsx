@@ -87,6 +87,7 @@ export default function BeltRoomPage() {
   const [activeTab, setActiveTab] = useState('room')
   const [challengeModalOpen, setChallengeModalOpen] = useState(false)
   const [selectedBeltForChallenge, setSelectedBeltForChallenge] = useState<BeltWithHolder | null>(null)
+  const [isCreatingChallenge, setIsCreatingChallenge] = useState<string | null>(null)
 
   useEffect(() => {
     setIsMounted(true)
@@ -197,6 +198,13 @@ export default function BeltRoomPage() {
     } finally {
       setIsCreatingChallenge(null)
     }
+  }
+
+  const handleChallengeModalSuccess = () => {
+    setChallengeModalOpen(false)
+    setSelectedBeltForChallenge(null)
+    fetchBeltRoom()
+    fetchAllBelts()
   }
 
   const getStatusBadgeColor = (status: string) => {
