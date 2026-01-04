@@ -148,6 +148,8 @@ export function NotificationsModal({ isOpen, onClose }: NotificationsModalProps)
         return 'text-cyber-green'
       case 'DEBATE_LOST':
         return 'text-neon-orange'
+      case 'BELT_CHALLENGE':
+        return 'text-neon-orange'
       case 'VERDICT_READY':
       case 'REMATCH_REQUESTED':
       case 'REMATCH_ACCEPTED':

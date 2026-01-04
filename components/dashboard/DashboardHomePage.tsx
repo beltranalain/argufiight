@@ -17,17 +17,65 @@ export function DashboardHomePage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isMyTurn, setIsMyTurn] = useState(false)
   const [showBlink, setShowBlink] = useState(false)
+  const [hasBeltChallenge, setHasBeltChallenge] = useState(false)
   const { user } = useAuth()
 
-  // Check if it's user's turn in an active debate
+  // Check for belt challenges and your turn
   useEffect(() => {
     if (!user) {
       setIsMyTurn(false)
       setShowBlink(false)
+      setHasBeltChallenge(false)
       return
     }
 
     let blinkTimeout: NodeJS.Timeout | null = null
+
+    const checkBeltChallenges = async () => {
+      try {
+        const response = await fetch(`/api/belts/challenges?t=${Date.now()}`, {
+          cache: 'no-store',
+        })
+        if (response.ok) {
+          const data = await response.json()
+          const challengesToMyBelts = data.challengesToMyBelts || []
+          // Only count PENDING challenges (exclude DECLINED, COMPLETED, ACCEPTED)
+          const pendingChallenges = challengesToMyBelts.filter(
+            (challenge: any) => challenge.status === 'PENDING'
+          )
+          if (pendingChallenges.length > 0) {
+            setHasBeltChallenge(true)
+            setShowBlink(true)
+            // Stop blinking after 10 seconds for belt challenges
+            if (blinkTimeout) {
+              clearTimeout(blinkTimeout)
+            }
+            blinkTimeout = setTimeout(() => {
+              setShowBlink(false)
+            }, 10000)
+          } else {
+            setHasBeltChallenge(false)
+            setShowBlink(false)
+            if (blinkTimeout) {
+              clearTimeout(blinkTimeout)
+            }
+          }
+        } else {
+          setHasBeltChallenge(false)
+          setShowBlink(false)
+          if (blinkTimeout) {
+            clearTimeout(blinkTimeout)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check belt challenges:', error)
+        setHasBeltChallenge(false)
+        setShowBlink(false)
+        if (blinkTimeout) {
+          clearTimeout(blinkTimeout)
+        }
+      }
+    }
 
     const checkMyTurn = async () => {
       try {
@@ -109,6 +157,7 @@ export function DashboardHomePage() {
     }
 
     checkMyTurn()
+    checkBeltChallenges()
     
     // Listen for debate updates (e.g., when user submits)
     const handleDebateUpdate = () => {
@@ -119,7 +168,10 @@ export function DashboardHomePage() {
     window.addEventListener('statement-submitted', handleDebateUpdate)
     
     // Check every 30 seconds
-    const interval = setInterval(checkMyTurn, 30000)
+    const interval = setInterval(() => {
+      checkMyTurn()
+      checkBeltChallenges()
+    }, 30000)
     
     return () => {
       clearInterval(interval)

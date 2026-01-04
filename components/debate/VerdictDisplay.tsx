@@ -35,6 +35,10 @@ interface VerdictDisplayProps {
   appealStatus?: string | null
   originalWinnerId?: string | null
   appealRejectionReason?: string | null
+  beltWon?: {
+    name: string
+    imageUrl?: string | null
+  } | null
 }
 
 export function VerdictDisplay({ 
@@ -49,7 +53,8 @@ export function VerdictDisplay({
   currentUserId,
   appealStatus,
   originalWinnerId,
-  appealRejectionReason
+  appealRejectionReason,
+  beltWon
 }: VerdictDisplayProps) {
   const [showAnimations, setShowAnimations] = useState(false)
 
@@ -83,6 +88,8 @@ export function VerdictDisplay({
   const isChallengerWinner = finalWinnerId === challengerId
   const isOpponentWinner = finalWinnerId === opponentId
   const isTie = !finalWinnerId
+
+  // Removed debug logging for production
   
   // Determine if current user is winner or loser
   const isCurrentUserWinner = currentUserId && finalWinnerId === currentUserId
@@ -244,6 +251,33 @@ export function VerdictDisplay({
                       You Win!
                     </h3>
                   </motion.div>
+                  {/* Show belt if won */}
+                  {beltWon && (
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
+                      className="mt-4 flex flex-col items-center gap-2 relative z-10"
+                    >
+                      <div className="text-sm text-text-secondary">You Won:</div>
+                      <div className="flex items-center gap-3 p-3 bg-bg-primary/50 rounded-lg border border-cyber-green/30">
+                        {beltWon.imageUrl ? (
+                          <img
+                            src={beltWon.imageUrl}
+                            alt={beltWon.name}
+                            className="w-16 h-16 object-contain"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-neon-orange to-electric-blue flex items-center justify-center text-2xl">
+                            🏆
+                          </div>
+                        )}
+                        <span className="text-lg font-bold text-cyber-green">
+                          {beltWon.name}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
                 </motion.div>
               )}
               
@@ -276,6 +310,33 @@ export function VerdictDisplay({
                       You Win!
                     </h3>
                   </motion.div>
+                  {/* Show belt if won */}
+                  {beltWon && (
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
+                      className="mt-4 flex flex-col items-center gap-2 relative z-10"
+                    >
+                      <div className="text-sm text-text-secondary">You Won:</div>
+                      <div className="flex items-center gap-3 p-3 bg-bg-primary/50 rounded-lg border border-neon-orange/30">
+                        {beltWon.imageUrl ? (
+                          <img
+                            src={beltWon.imageUrl}
+                            alt={beltWon.name}
+                            className="w-16 h-16 object-contain"
+                          />
+                        ) : (
+                          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-neon-orange to-electric-blue flex items-center justify-center text-2xl">
+                            🏆
+                          </div>
+                        )}
+                        <span className="text-lg font-bold text-neon-orange">
+                          {beltWon.name}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
                 </motion.div>
               )}
               
@@ -325,10 +386,11 @@ export function VerdictDisplay({
           )}
         </AnimatePresence>
 
-        {/* Overall Winner Display - Show profile picture of final winner */}
+        {/* Overall Winner Display - Show profile picture of final winner with belt */}
         {finalWinnerId && !isTie && (
           <div className="mb-6 p-4 bg-bg-tertiary rounded-lg border border-bg-tertiary">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4">
+              {/* Winner Info */}
               <div className="flex items-center gap-3">
                 <span className="text-sm text-text-secondary">Final Winner:</span>
                 {isChallengerWinner ? (
@@ -350,6 +412,57 @@ export function VerdictDisplay({
                   {isChallengerWinner ? challengerName : isOpponentWinner ? opponentName : ''} Wins!
                 </span>
               </div>
+              
+              {/* Belt Display - Integrated into Final Winner section */}
+              {beltWon && (
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="flex items-center gap-4 p-4 bg-gradient-to-r from-neon-orange/20 to-neon-orange/10 rounded-lg border-2 border-neon-orange/50 shadow-lg"
+                >
+                  <div className="flex-shrink-0">
+                    {beltWon.imageUrl ? (
+                      <motion.img
+                        src={beltWon.imageUrl}
+                        alt={beltWon.name}
+                        className="w-20 h-20 object-contain"
+                        animate={{ 
+                          scale: [1, 1.1, 1],
+                          rotate: [0, 5, -5, 0]
+                        }}
+                        transition={{ 
+                          duration: 2,
+                          repeat: Infinity,
+                          repeatDelay: 1
+                        }}
+                      />
+                    ) : (
+                      <motion.div
+                        className="w-20 h-20 rounded-full bg-gradient-to-br from-neon-orange to-electric-blue flex items-center justify-center text-4xl shadow-lg"
+                        animate={{ 
+                          scale: [1, 1.1, 1],
+                          rotate: [0, 360]
+                        }}
+                        transition={{ 
+                          scale: { duration: 2, repeat: Infinity, repeatDelay: 1 },
+                          rotate: { duration: 3, repeat: Infinity, ease: "linear" }
+                        }}
+                      >
+                        🏆
+                      </motion.div>
+                    )}
+                  </div>
+                  <div className="flex flex-col flex-1">
+                    <span className="text-xs text-text-secondary uppercase tracking-wide font-semibold mb-1">
+                      Championship Belt Won
+                    </span>
+                    <span className="text-xl font-bold text-neon-orange">
+                      {beltWon.name}
+                    </span>
+                  </div>
+                </motion.div>
+              )}
             </div>
           </div>
         )}

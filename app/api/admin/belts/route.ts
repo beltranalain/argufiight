@@ -65,31 +65,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create belt - temporarily enable belt system for admin operations
-    const originalFlag = process.env.ENABLE_BELT_SYSTEM
-    if (originalFlag !== 'true') {
-      process.env.ENABLE_BELT_SYSTEM = 'true'
-    }
-    
-    let belt
-    try {
-      belt = await createBelt({
-        name,
-        type: type as any,
-        category: category || undefined,
-        creationCost: coinValue || 0,
-        designImageUrl: designImageUrl || undefined,
-        designColors: designColors || undefined,
-        sponsorName: sponsorName || undefined,
-        sponsorLogoUrl: sponsorLogoUrl || undefined,
-        createdBy: session.userId,
-      })
-    } finally {
-      // Restore original flag value
-      if (originalFlag !== 'true') {
-        process.env.ENABLE_BELT_SYSTEM = originalFlag || ''
-      }
-    }
+    // Create belt
+    const belt = await createBelt({
+      name,
+      type: type as any,
+      category: category || undefined,
+      coinValue,
+      designImageUrl: designImageUrl || undefined,
+      designColors: designColors || undefined,
+      sponsorName: sponsorName || undefined,
+      sponsorLogoUrl: sponsorLogoUrl || undefined,
+      createdBy: session.userId,
+    })
 
     // If initialHolderId is provided, transfer belt to that user
     if (initialHolderId) {
@@ -109,12 +96,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ belt }, { status: 201 })
   } catch (error: any) {
-    console.error('[API /admin/belts] Failed to create belt:', error)
-    console.error('[API /admin/belts] Error stack:', error?.stack)
-    console.error('[API /admin/belts] Error details:', JSON.stringify(error, null, 2))
-    const errorMessage = error?.message || error?.toString() || 'Failed to create belt'
+    console.error('Failed to create belt:', error)
     return NextResponse.json(
-      { error: errorMessage },
+      { error: error.message || 'Failed to create belt' },
       { status: 500 }
     )
   }

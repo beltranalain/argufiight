@@ -12,7 +12,6 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
   try {
     const session = await verifySessionWithDb()
     if (!session?.userId) {
@@ -29,12 +28,43 @@ export async function POST(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    const body = await request.json()
-    const { toUserId, toUsername, reason, adminNotes } = body
-
-    if (!toUserId && !toUsername) {
-      return NextResponse.json({ error: 'toUserId or toUsername is required' }, { status: 400 })
+    // Check feature flag
+    if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
+      return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
     }
+
+    const { id } = await params
+    const body = await request.json()
+    const { toUserId, reason, adminNotes } = body
+
+    if (!toUserId) {
+      return NextResponse.json({ error: 'toUserId is required' }, { status: 400 })
+    }
+
+    // Check if toUserId is a UUID (user ID) or username
+    // UUID format: 8-4-4-4-12 hex characters
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toUserId.trim())
+    
+    // Find user by ID or username
+    const targetUser = isUUID
+      ? await prisma.user.findUnique({
+          where: { id: toUserId.trim() },
+          select: { id: true, username: true },
+        })
+      : await prisma.user.findUnique({
+          where: { username: toUserId.trim() },
+          select: { id: true, username: true },
+        })
+
+    if (!targetUser) {
+      return NextResponse.json(
+        { error: `User "${toUserId}" not found. Please check the user ID or username and try again.` },
+        { status: 404 }
+      )
+    }
+
+    // Use the actual user ID for the transfer
+    const actualUserId = targetUser.id
 
     // Get current belt holder
     const belt = await prisma.belt.findUnique({
@@ -46,72 +76,17 @@ export async function POST(
       return NextResponse.json({ error: 'Belt not found' }, { status: 404 })
     }
 
-    // Resolve user ID - accept either userId or username (case-insensitive)
-    let finalToUserId: string | null = null
-    const searchTerm = (toUserId || toUsername || '').trim()
-    
-    if (!searchTerm) {
-      return NextResponse.json({ error: 'toUserId or toUsername is required' }, { status: 400 })
-    }
-
-    // Check if it's a valid UUID (user ID)
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(searchTerm)
-    if (isUUID) {
-      finalToUserId = searchTerm
-    } else {
-      // It's a username, look it up case-insensitively
-      const user = await prisma.user.findFirst({
-        where: {
-          username: {
-            equals: searchTerm,
-            mode: 'insensitive',
-          },
-        },
-        select: { id: true, username: true },
-      })
-      if (!user) {
-        console.error('[API /admin/belts/[id]/transfer] User not found:', searchTerm)
-        return NextResponse.json({ error: `User not found: ${searchTerm}` }, { status: 404 })
+    // Transfer belt (use the actual user ID)
+    const result = await transferBelt(
+      id,
+      belt.currentHolderId,
+      actualUserId,
+      reason || 'ADMIN_TRANSFER',
+      {
+        adminNotes: adminNotes || `Admin transfer to ${targetUser.username}`,
+        transferredBy: session.userId,
       }
-      console.log('[API /admin/belts/[id]/transfer] Found user:', user.username, 'ID:', user.id)
-      finalToUserId = user.id
-    }
-
-    // Validate the target user exists
-    if (finalToUserId) {
-      const targetUser = await prisma.user.findUnique({
-        where: { id: finalToUserId },
-        select: { id: true, username: true },
-      })
-      if (!targetUser) {
-        return NextResponse.json({ error: 'Target user not found' }, { status: 404 })
-      }
-    }
-
-    // Transfer belt - temporarily enable belt system for admin operations
-    const originalFlag = process.env.ENABLE_BELT_SYSTEM
-    if (originalFlag !== 'true') {
-      process.env.ENABLE_BELT_SYSTEM = 'true'
-    }
-    
-    let result
-    try {
-      result = await transferBelt(
-        id,
-        belt.currentHolderId,
-        finalToUserId,
-        reason || 'ADMIN_TRANSFER',
-        {
-          adminNotes: adminNotes || 'Admin transfer',
-          transferredBy: session.userId,
-        }
-      )
-    } finally {
-      // Restore original flag value
-      if (originalFlag !== 'true') {
-        process.env.ENABLE_BELT_SYSTEM = originalFlag || ''
-      }
-    }
+    )
 
     return NextResponse.json({ success: true, belt: result.belt, history: result.history })
   } catch (error: any) {

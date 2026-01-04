@@ -69,20 +69,35 @@ export function BeltsPanel() {
       fetchBeltsData(true)
       // Refresh every 60 seconds (reduced from 30 to minimize reloads)
       const interval = setInterval(() => fetchBeltsData(false), 60000)
-      
-      // Listen for belt challenge acceptance events
-      const handleChallengeAccepted = () => {
-        fetchBeltsData(false)
-      }
-      window.addEventListener('belt-challenge-accepted', handleChallengeAccepted)
-      
-      return () => {
-        clearInterval(interval)
-        window.removeEventListener('belt-challenge-accepted', handleChallengeAccepted)
-      }
+      return () => clearInterval(interval)
     } else {
       setIsLoading(false)
       setIsInitialLoad(false)
+    }
+  }, [user])
+
+  // Listen for belt challenge events
+  useEffect(() => {
+    if (!user) return
+    
+    let isMounted = true
+    
+    const handleRefresh = () => {
+      if (isMounted && document.visibilityState === 'visible') {
+        fetchBeltsData(false)
+      }
+    }
+    
+    const timeoutId = setTimeout(() => {
+      window.addEventListener('belt-challenge-accepted', handleRefresh)
+      window.addEventListener('belt-challenge-declined', handleRefresh)
+    }, 100)
+    
+    return () => {
+      isMounted = false
+      clearTimeout(timeoutId)
+      window.removeEventListener('belt-challenge-accepted', handleRefresh)
+      window.removeEventListener('belt-challenge-declined', handleRefresh)
     }
   }, [user])
 
@@ -171,8 +186,11 @@ export function BeltsPanel() {
             })
           }
         }
-        const newChallengesToMyBelts = challengesData.challengesToMyBelts || []
-        const newChallengesMade = challengesData.challengesMade || []
+        // Filter out COMPLETED challenges
+        const newChallengesToMyBelts = (challengesData.challengesToMyBelts || [])
+          .filter((challenge: any) => challenge.status !== 'COMPLETED' && challenge.status !== 'DECLINED')
+        const newChallengesMade = (challengesData.challengesMade || [])
+          .filter((challenge: any) => challenge.status !== 'COMPLETED' && challenge.status !== 'DECLINED')
         hasChallenges = newChallengesToMyBelts.length > 0 || newChallengesMade.length > 0
         
         // Only update state if data actually changed to prevent unnecessary re-renders
@@ -354,7 +372,7 @@ export function BeltsPanel() {
                           src={belt.designImageUrl}
                           alt={belt.name}
                           className="w-[140%] h-[140%] object-contain"
-                          style={{ imageRendering: 'auto' }}
+                          style={{ imageRendering: 'high-quality' }}
                           loading="lazy"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none'
@@ -450,7 +468,7 @@ export function BeltsPanel() {
                           src={belt.designImageUrl}
                           alt={belt.name}
                           className="w-[140%] h-[140%] object-contain"
-                          style={{ imageRendering: 'auto' }}
+                          style={{ imageRendering: 'high-quality' }}
                           loading="lazy"
                           onError={(e) => {
                             console.error('Image failed to load:', belt.designImageUrl)
@@ -522,7 +540,7 @@ export function BeltsPanel() {
                         src={challenge.belt.designImageUrl}
                         alt={challenge.belt.name}
                         className="w-[140%] h-[140%] object-contain"
-                        style={{ imageRendering: 'auto' }}
+                        style={{ imageRendering: 'high-quality' }}
                         loading="lazy"
                         onError={(e) => {
                           console.error('Challenge belt image failed to load:', challenge.belt.designImageUrl)

@@ -18,10 +18,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Temporarily enable belt system for challenge operations
-    const originalFlag = process.env.ENABLE_BELT_SYSTEM
-    if (originalFlag !== 'true') {
-      process.env.ENABLE_BELT_SYSTEM = 'true'
+    // Check feature flag
+    if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
+      return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
     }
 
     const { id } = await params
@@ -45,27 +44,20 @@ export async function POST(
       )
     }
 
-    let declinedChallenge
-    try {
-      declinedChallenge = await declineBeltChallenge(id)
-    } finally {
-      // Restore original flag value
-      if (originalFlag !== 'true') {
-        process.env.ENABLE_BELT_SYSTEM = originalFlag || ''
-      }
-    }
+    const declinedChallenge = await declineBeltChallenge(id)
+
+    // TODO: Refund coins to challenger (if challenge was declined before debate)
+    // await addCoins(challenge.challengerId, challenge.entryFee)
 
     return NextResponse.json({
       challenge: declinedChallenge,
       message: 'Challenge declined',
     })
   } catch (error: any) {
-    console.error('[API /belts/challenge/[id]/decline] Error declining challenge:', error)
-    console.error('[API /belts/challenge/[id]/decline] Error stack:', error.stack)
-    const errorMessage = error?.message || error?.toString() || 'Failed to decline challenge'
+    console.error('[API] Error declining challenge:', error)
     return NextResponse.json(
-      { error: errorMessage },
-      { status: error?.statusCode || 500 }
+      { error: error.message || 'Failed to decline challenge' },
+      { status: 500 }
     )
   }
 }

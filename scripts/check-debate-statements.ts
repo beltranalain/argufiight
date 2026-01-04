@@ -1,97 +1,66 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/db/prisma'
 
 async function checkDebateStatements() {
-  try {
-    // Find the active debate with AI user
-    const debate = await prisma.debate.findFirst({
-      where: {
-        status: 'ACTIVE',
-        opponent: {
-          isAI: true,
+  const debateId = 'd31d6dd2-cb12-43f2-9136-a78686ccdfb5'
+  
+  const debate = await prisma.debate.findUnique({
+    where: { id: debateId },
+    include: {
+      challenger: { select: { username: true, isAI: true } },
+      opponent: { select: { username: true, isAI: true } },
+      statements: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          author: { select: { username: true, isAI: true } },
         },
       },
-      include: {
-        challenger: {
-          select: {
-            username: true,
-          },
-        },
-        opponent: {
-          select: {
-            username: true,
-            isAI: true,
-          },
-        },
-        statements: {
-          include: {
-            author: {
-              select: {
-                id: true,
-                username: true,
-                isAI: true,
-              },
-            },
-          },
-          orderBy: [
-            { round: 'asc' },
-            { createdAt: 'asc' },
-          ],
-        },
-      },
-    })
+    },
+  })
 
-    if (!debate) {
-      console.log('No active debate found with AI user.')
-      return
-    }
-
-    console.log(`\n=== Debate: "${debate.topic}" ===`)
-    console.log(`Status: ${debate.status}`)
-    console.log(`Current Round: ${debate.currentRound} of ${debate.totalRounds}`)
-    console.log(`Challenger: ${debate.challenger.username}`)
-    console.log(`Opponent: ${debate.opponent?.username}${debate.opponent?.isAI ? ' (AI)' : ''}`)
-    console.log(`\nStatements (${debate.statements.length}):`)
-    
-    if (debate.statements.length === 0) {
-      console.log('  No statements yet.')
-    } else {
-      debate.statements.forEach((stmt, idx) => {
-        console.log(`\n  ${idx + 1}. Round ${stmt.round} - ${stmt.author.username}${stmt.author.isAI ? ' (AI)' : ''}`)
-        console.log(`     Created: ${new Date(stmt.createdAt).toLocaleString()}`)
-        console.log(`     Content: ${stmt.content.substring(0, 100)}...`)
-      })
-    }
-
-    // Check whose turn it is
-    const challengerStmt = debate.statements.find(s => 
-      s.author.id === debate.challengerId && s.round === debate.currentRound
-    )
-    const opponentStmt = debate.opponentId ? debate.statements.find(s => 
-      s.author.id === debate.opponentId && s.round === debate.currentRound
-    ) : null
-
-    console.log(`\n=== Turn Status ===`)
-    if (!challengerStmt) {
-      console.log('Challenger needs to submit for Round', debate.currentRound)
-    } else {
-      console.log('✅ Challenger submitted for Round', debate.currentRound)
-    }
-    
-    if (debate.opponentId) {
-      if (!opponentStmt) {
-        console.log(`${debate.opponent?.isAI ? '🤖 AI' : 'Opponent'} needs to submit for Round`, debate.currentRound)
-      } else {
-        console.log(`✅ ${debate.opponent?.isAI ? 'AI' : 'Opponent'} submitted for Round`, debate.currentRound)
-      }
-    }
-  } catch (error) {
-    console.error('Error:', error)
-  } finally {
-    await prisma.$disconnect()
+  if (!debate) {
+    console.log('❌ Debate not found')
+    return
   }
+
+  console.log(`\n📊 Debate: "${debate.topic.substring(0, 60)}${debate.topic.length > 60 ? '...' : ''}"\n`)
+  console.log(`   Status: ${debate.status}`)
+  console.log(`   Current Round: ${debate.currentRound} / ${debate.totalRounds}`)
+  console.log(`   Challenger: ${debate.challenger.username} ${debate.challenger.isAI ? '(AI)' : ''}`)
+  console.log(`   Opponent: ${debate.opponent?.username || 'None'} ${debate.opponent?.isAI ? '(AI)' : ''}`)
+  console.log(`\n📝 Statements (${debate.statements.length} total):\n`)
+
+  if (debate.statements.length === 0) {
+    console.log('   No statements yet')
+  } else {
+    debate.statements.forEach((stmt, i) => {
+      const now = new Date()
+      const createdAt = new Date(stmt.createdAt)
+      const ageMinutes = Math.floor((now.getTime() - createdAt.getTime()) / 60000)
+      
+      console.log(`${i + 1}. Round ${stmt.round} - ${stmt.author.username} ${stmt.author.isAI ? '(AI)' : ''}`)
+      console.log(`   Created: ${createdAt.toISOString()} (${ageMinutes} minutes ago)`)
+      console.log(`   Content: "${stmt.content.substring(0, 80)}${stmt.content.length > 80 ? '...' : ''}"`)
+      console.log('')
+    })
+  }
+
+  // Check current round status
+  const currentRoundStatements = debate.statements.filter(s => s.round === debate.currentRound)
+  const challengerStatement = currentRoundStatements.find(s => s.authorId === debate.challengerId)
+  const opponentStatement = currentRoundStatements.find(s => s.authorId === debate.opponentId)
+
+  console.log(`\n🔄 Round ${debate.currentRound} Status:\n`)
+  console.log(`   Challenger (${debate.challenger.username}) statement: ${challengerStatement ? '✅ Submitted' : '❌ Not submitted'}`)
+  console.log(`   Opponent (${debate.opponent?.username || 'None'}) statement: ${opponentStatement ? '✅ Submitted' : '❌ Not submitted'}`)
+  
+  if (opponentStatement) {
+    const now = new Date()
+    const createdAt = new Date(opponentStatement.createdAt)
+    const ageMinutes = Math.floor((now.getTime() - createdAt.getTime()) / 60000)
+    console.log(`   Opponent's statement age: ${ageMinutes} minutes`)
+  }
+
+  await prisma.$disconnect()
 }
 
 checkDebateStatements()
-

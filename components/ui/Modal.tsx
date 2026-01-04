@@ -23,14 +23,6 @@ export function Modal({
   size = 'md',
   showClose = true,
 }: ModalProps) {
-  useEffect(() => {
-    if (isOpen) {
-      console.log('[Modal] Modal is opening:', title)
-    } else {
-      console.log('[Modal] Modal is closed:', title)
-    }
-  }, [isOpen, title])
-  
   // Close on Escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -70,6 +62,12 @@ export function Modal({
   }
 
   if (typeof window === 'undefined') return null
+
+  console.log('🔵 [Modal] Rendering, isOpen:', isOpen, 'title:', title)
+  
+  if (isOpen) {
+    console.log('🔵 [Modal] isOpen is TRUE, should render modal')
+  }
 
   return createPortal(
     <AnimatePresence>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySessionWithDb } from '@/lib/auth/session-verify'
+import { verifySession } from '@/lib/auth/session'
+import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { getOrCreateCustomer, createStripeClient, getStripeKeys } from '@/lib/stripe/stripe-client'
 
@@ -9,12 +10,15 @@ import { getOrCreateCustomer, createStripeClient, getStripeKeys } from '@/lib/st
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await verifySessionWithDb()
-    if (!session || !session.userId) {
+    const session = await verifySession()
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = session.userId
+    const userId = getUserIdFromSession(session)
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const body = await request.json()
     const { packageId } = body

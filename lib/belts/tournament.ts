@@ -90,7 +90,7 @@ export async function createTournamentBelt(
   const belt = await createBelt({
     name: `${tournament.name} Championship Belt`,
     type: 'TOURNAMENT',
-    category: undefined,
+    category: null,
     tournamentId,
     creationCost: coinsPaid,
     createdBy: userId,

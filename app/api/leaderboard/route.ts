@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100) // Max 100 per page, default 50
+    const limit = Math.min(parseInt(searchParams.get('limit') || '25'), 100) // Max 100 per page, default 25
     const skip = (page - 1) * limit
     const category = searchParams.get('category') // Optional: filter by category
     const userId = searchParams.get('userId') // Optional: get rank for specific user
@@ -15,13 +15,13 @@ export async function GET(request: NextRequest) {
     const where: any = {
       isAdmin: false, // Exclude admins/employees
       isBanned: false, // Exclude banned users
-      totalDebates: {
-        gte: 1, // At least 1 completed debate
-      },
+      // Include all users (eloRating has a default value of 1200, so it's never null)
     }
 
     // Cache leaderboard for 10 minutes (only for first page, no userId filter)
-    const cacheKey = page === 1 && !userId && !category 
+    // Skip cache if cache-busting parameter is present
+    const skipCache = searchParams.get('t') !== null
+    const cacheKey = !skipCache && page === 1 && !userId && !category 
       ? `leaderboard:elo:page1` 
       : null
     let cachedData = cacheKey ? cache.get(cacheKey) : null
@@ -99,11 +99,12 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      if (targetUser && !targetUser.isBanned && !targetUser.isAdmin && targetUser.totalDebates >= 1) {
+      if (targetUser && !targetUser.isBanned && !targetUser.isAdmin && targetUser.eloRating !== null && targetUser.eloRating !== undefined) {
         // Count how many users have higher ELO (rank = count + 1)
         const rankCount = await prisma.user.count({
           where: {
-            ...where,
+            isAdmin: false,
+            isBanned: false,
             eloRating: {
               gt: targetUser.eloRating,
             },

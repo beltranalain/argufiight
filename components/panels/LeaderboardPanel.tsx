@@ -36,7 +36,9 @@ export function LeaderboardPanel() {
   const fetchLeaderboard = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/leaderboard?limit=3' + (user?.id ? `&userId=${user.id}` : ''))
+      const response = await fetch(`/api/leaderboard?limit=3&t=${Date.now()}` + (user?.id ? `&userId=${user.id}` : ''), {
+        cache: 'no-store',
+      })
       if (response.ok) {
         const data = await response.json()
         // Ensure leaderboard is an array before setting
@@ -248,7 +250,18 @@ export function LeaderboardPanel() {
             })}
           </div>
         </div>
-        )}
+      )}
+
+      {/* Quick Rules */}
+      <div className="pt-4 mt-4 border-t border-bg-tertiary">
+        <p className="text-xs text-text-secondary mb-2 font-semibold">Quick Rules:</p>
+        <ul className="text-xs text-text-secondary space-y-1">
+          <li>• Ranked by ELO rating (highest first)</li>
+          <li>• All users with ELO ratings are included</li>
+          <li>• Win debates to increase your ELO</li>
+          <li>• ELO changes based on debate performance</li>
+        </ul>
+      </div>
     </div>
   )
 }

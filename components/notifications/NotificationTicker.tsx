@@ -298,6 +298,7 @@ export function NotificationTicker() {
       switch (notification.type) {
         case 'YOUR_TURN':
         case 'DEBATE_TURN':
+        case 'BELT_CHALLENGE':
           return 'text-neon-orange'
         case 'VERDICT_READY':
         case 'DEBATE_COMPLETE':

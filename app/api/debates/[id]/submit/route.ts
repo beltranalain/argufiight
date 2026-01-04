@@ -334,6 +334,17 @@ export async function POST(
       }
     }
 
+    // Trigger AI response generation in the background (non-blocking)
+    // This ensures AI responds automatically in local dev without needing cron jobs
+    // The AI response endpoint will check the delay before responding
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    fetch(`${baseUrl}/api/cron/ai-generate-responses`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    }).catch(() => {
+      // Silently fail - this is a background task
+    })
+
     return NextResponse.json({
       statement,
       debate: updatedDebate,

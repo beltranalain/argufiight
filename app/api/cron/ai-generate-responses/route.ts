@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         username: true,
+        aiResponseDelay: true,
       },
     })
 
@@ -119,6 +120,32 @@ export async function GET(request: NextRequest) {
           if (!shouldRespond) {
             continue
           }
+
+          // Check if enough time has passed since opponent's last statement (only when responding, not when going first)
+          const delayMs = aiUser.aiResponseDelay || 150000 // Default 2.5 minutes (150000ms)
+          const now = new Date()
+          
+          // Only apply delay when AI is responding to opponent's statement (not when going first)
+          if (isOpponent && challengerStatement) {
+            // AI is opponent responding to challenger - check delay
+            const statementAge = now.getTime() - new Date(challengerStatement.createdAt).getTime()
+            if (statementAge < delayMs) {
+              // Not enough time has passed, skip this debate
+              const minutesRemaining = Math.ceil((delayMs - statementAge) / 60000)
+              console.log(`[AI Response] ${aiUser.username} waiting ${minutesRemaining} more minute(s) before responding to debate ${debate.id}`)
+              continue
+            }
+          } else if (isChallenger && opponentStatement) {
+            // AI is challenger responding to opponent - check delay
+            const statementAge = now.getTime() - new Date(opponentStatement.createdAt).getTime()
+            if (statementAge < delayMs) {
+              // Not enough time has passed, skip this debate
+              const minutesRemaining = Math.ceil((delayMs - statementAge) / 60000)
+              console.log(`[AI Response] ${aiUser.username} waiting ${minutesRemaining} more minute(s) before responding to debate ${debate.id}`)
+              continue
+            }
+          }
+          // If AI is going first (no opponent statement yet), no delay needed
 
           // Generate AI response
           const response = await generateAIResponse(debate.id, aiUser.id, debate.currentRound)

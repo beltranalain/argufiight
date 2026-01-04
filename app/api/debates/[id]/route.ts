@@ -9,6 +9,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Trigger AI response generation in the background when debate is viewed
+    // This ensures AI responds automatically in local dev without needing cron jobs
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    fetch(`${baseUrl}/api/cron/ai-generate-responses`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    }).catch(() => {
+      // Silently fail - this is a background task
+    })
+
     const { id } = await params
     const { searchParams } = new URL(request.url)
     const shareToken = searchParams.get('shareToken') // For accessing private debates
@@ -170,6 +180,25 @@ export async function GET(
               joinedAt: 'asc',
             },
           },
+          hasBeltAtStake: true,
+          beltStakeType: true,
+          stakedBelt: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              category: true,
+              designImageUrl: true,
+              currentHolderId: true,
+              currentHolder: {
+                select: {
+                  id: true,
+                  username: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
         },
       })
     } catch (queryError: any) {
@@ -324,6 +353,25 @@ export async function GET(
               },
             },
           },
+          hasBeltAtStake: true,
+          beltStakeType: true,
+          stakedBelt: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              category: true,
+              designImageUrl: true,
+              currentHolderId: true,
+              currentHolder: {
+                select: {
+                  id: true,
+                  username: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
         },
       })
       // Set participants to empty array if query failed
@@ -429,6 +477,129 @@ export async function GET(
       // Continue without rematch data if query fails
     }
 
+    // Debug: Log belt information before returning
+    const beltData = {
+      hasBeltAtStake: (debate as any).hasBeltAtStake,
+      beltStakeType: (debate as any).beltStakeType,
+      stakedBelt: (debate as any).stakedBelt,
+      winnerId: (debate as any).winnerId,
+    }
+    console.log('[API /debates/[id]] Belt data in response:', JSON.stringify(beltData, null, 2))
+    
+    // If hasBeltAtStake is true but stakedBelt is null, try to fetch it directly
+    if ((debate as any).hasBeltAtStake && !(debate as any).stakedBelt) {
+      console.log('[API /debates/[id]] hasBeltAtStake is true but stakedBelt is null, attempting to fetch...')
+      try {
+        // First try: Find belt by stakedInDebateId (if still staked)
+        let stakedBelt = await prisma.belt.findFirst({
+          where: {
+            stakedInDebateId: id,
+          },
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            category: true,
+            designImageUrl: true,
+            currentHolderId: true,
+            currentHolder: {
+              select: {
+                id: true,
+                username: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        })
+        
+        // Second try: Find belt through belt challenge relation
+        if (!stakedBelt) {
+          console.log('[API /debates/[id]] Belt not found via stakedInDebateId, trying belt challenge...')
+          const beltChallenge = await prisma.beltChallenge.findFirst({
+            where: {
+              debateId: id,
+            },
+            select: {
+              beltId: true,
+            },
+          })
+          
+          if (beltChallenge) {
+            console.log('[API /debates/[id]] Found belt challenge with beltId:', beltChallenge.beltId)
+            stakedBelt = await prisma.belt.findUnique({
+              where: {
+                id: beltChallenge.beltId,
+              },
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                category: true,
+                designImageUrl: true,
+                currentHolderId: true,
+                currentHolder: {
+                  select: {
+                    id: true,
+                    username: true,
+                    avatarUrl: true,
+                  },
+                },
+              },
+            })
+          }
+        }
+        
+        // Third try: Find belt through belt history (most recent transfer for this debate)
+        if (!stakedBelt) {
+          console.log('[API /debates/[id]] Belt not found via challenge, trying belt history...')
+          const beltHistory = await prisma.beltHistory.findFirst({
+            where: {
+              debateId: id,
+            },
+            orderBy: {
+              createdAt: 'desc',
+            },
+            select: {
+              beltId: true,
+            },
+          })
+          
+          if (beltHistory) {
+            console.log('[API /debates/[id]] Found belt history with beltId:', beltHistory.beltId)
+            stakedBelt = await prisma.belt.findUnique({
+              where: {
+                id: beltHistory.beltId,
+              },
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                category: true,
+                designImageUrl: true,
+                currentHolderId: true,
+                currentHolder: {
+                  select: {
+                    id: true,
+                    username: true,
+                    avatarUrl: true,
+                  },
+                },
+              },
+            })
+          }
+        }
+        
+        if (stakedBelt) {
+          console.log('[API /debates/[id]] Found staked belt via fallback query:', stakedBelt)
+          ;(debate as any).stakedBelt = stakedBelt
+        } else {
+          console.log('[API /debates/[id]] Could not find staked belt via any method')
+        }
+      } catch (error) {
+        console.error('[API /debates/[id]] Error fetching staked belt:', error)
+      }
+    }
+
     return NextResponse.json({
       ...debate,
       viewCount,
@@ -436,6 +607,10 @@ export async function GET(
       participants: (debate as any).participants || [],
       appealedByUser,
       ...rematchData,
+      // Explicitly include belt data to ensure it's in the response
+      hasBeltAtStake: (debate as any).hasBeltAtStake,
+      beltStakeType: (debate as any).beltStakeType,
+      stakedBelt: (debate as any).stakedBelt,
     })
   } catch (error: any) {
     console.error('Failed to fetch debate:', error)

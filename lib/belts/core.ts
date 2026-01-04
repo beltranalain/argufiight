@@ -16,8 +16,9 @@ function isBeltSystemEnabled(): boolean {
 
 /**
  * Check and reset free belt challenges for a user (weekly reset)
+ * Uses configurable limit from belt settings
  */
-async function checkAndResetFreeChallenges(userId: string): Promise<{ hasFreeChallenge: boolean; available: number }> {
+async function checkAndResetFreeChallenges(userId: string, beltType?: BeltType): Promise<{ hasFreeChallenge: boolean; available: number }> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -30,6 +31,41 @@ async function checkAndResetFreeChallenges(userId: string): Promise<{ hasFreeCha
     return { hasFreeChallenge: false, available: 0 }
   }
 
+  // Get the free challenges limit from belt settings (default to 1 if not found)
+  let freeChallengesLimit = 1
+  if (beltType) {
+    try {
+      const settings = await getBeltSettings(beltType)
+      // Use type assertion to handle case where Prisma client might not have the field yet
+      const settingsAny = settings as any
+      // Safely access freeChallengesPerWeek, default to 1 if not available
+      freeChallengesLimit = (settingsAny.freeChallengesPerWeek !== undefined && settingsAny.freeChallengesPerWeek !== null) 
+        ? settingsAny.freeChallengesPerWeek 
+        : 1
+    } catch (error) {
+      console.error('[checkAndResetFreeChallenges] Error getting belt settings:', error)
+      // Fall back to default of 1
+    }
+  } else {
+    // If no belt type provided, get from first available settings (or use default)
+    try {
+      const defaultSettings = await prisma.beltSettings.findFirst({
+        orderBy: { beltType: 'asc' },
+      })
+      if (defaultSettings) {
+        // Use type assertion to handle case where Prisma client might not have the field yet
+        const settings = defaultSettings as any
+        // Safely access freeChallengesPerWeek, default to 1 if not available
+        freeChallengesLimit = (settings.freeChallengesPerWeek !== undefined && settings.freeChallengesPerWeek !== null) 
+          ? settings.freeChallengesPerWeek 
+          : 1
+      }
+    } catch (error) {
+      console.error('[checkAndResetFreeChallenges] Error getting default settings:', error)
+      // Fall back to default of 1
+    }
+  }
+
   const now = new Date()
   const lastReset = user.lastFreeChallengeReset
 
@@ -37,15 +73,15 @@ async function checkAndResetFreeChallenges(userId: string): Promise<{ hasFreeCha
   const shouldReset = !lastReset || (now.getTime() - lastReset.getTime()) >= 7 * 24 * 60 * 60 * 1000
 
   if (shouldReset) {
-    // Reset to 1 free challenge
+    // Reset to configured free challenge limit
     await prisma.user.update({
       where: { id: userId },
       data: {
-        freeBeltChallengesAvailable: 1,
+        freeBeltChallengesAvailable: freeChallengesLimit,
         lastFreeChallengeReset: now,
       },
     })
-    return { hasFreeChallenge: true, available: 1 }
+    return { hasFreeChallenge: true, available: freeChallengesLimit }
   }
 
   return {
@@ -58,46 +94,38 @@ async function checkAndResetFreeChallenges(userId: string): Promise<{ hasFreeCha
  * Get belt settings for a specific belt type
  */
 export async function getBeltSettings(beltType: BeltType) {
-  let settings = await prisma.beltSettings.findUnique({
-    where: { beltType },
-  })
-
-  // If settings don't exist, create defaults instead of throwing
-  if (!settings) {
-    console.warn(`[getBeltSettings] Settings not found for ${beltType}, creating defaults`)
-    settings = await prisma.beltSettings.create({
-      data: {
-        beltType,
-        // Default values
-        defensePeriodDays: 30,
-        inactivityDays: 30,
-        mandatoryDefenseDays: 60,
-        gracePeriodDays: 30,
-        maxDeclines: 2,
-        challengeCooldownDays: 7,
-        challengeExpiryDays: 3,
-        eloRange: 200,
-        activityRequirementDays: 30,
-        winStreakBonusMultiplier: 1.2,
-        entryFeeBase: 100,
-        entryFeeMultiplier: 1.0,
-        winnerRewardPercent: 60,
-        loserConsolationPercent: 30,
-        platformFeePercent: 10,
-        tournamentBeltCostSmall: 500,
-        tournamentBeltCostMedium: 1000,
-        tournamentBeltCostLarge: 2000,
-        inactiveCompetitorCount: 2,
-        inactiveAcceptDays: 7,
-        requireCoins: false,
-        requireFreeChallenge: false,
-        allowFreeChallenges: true,
-        freeChallengesPerWeek: 1,
-      },
+  // Try Prisma first, fallback to raw SQL if field doesn't exist
+  try {
+    const settings = await prisma.beltSettings.findUnique({
+      where: { beltType },
     })
-  }
 
-  return settings
+    if (!settings) {
+      throw new Error(`Belt settings not found for type: ${beltType}`)
+    }
+
+    // Check if requireCoinsForChallenge exists, if not fetch via raw SQL
+    const settingsAny = settings as any
+    if (settingsAny.requireCoinsForChallenge === undefined) {
+      // Use $queryRawUnsafe with proper enum casting
+      // Cast the enum value to text for comparison
+      const rawSettings = await prisma.$queryRawUnsafe<Array<{ require_coins_for_challenge: boolean | null }>>(
+        `SELECT require_coins_for_challenge FROM belt_settings WHERE belt_type::text = $1`,
+        String(beltType)
+      )
+      if (rawSettings && rawSettings.length > 0) {
+        settingsAny.requireCoinsForChallenge = rawSettings[0].require_coins_for_challenge ?? true
+        console.log('[getBeltSettings] Fetched requireCoinsForChallenge via raw SQL:', settingsAny.requireCoinsForChallenge)
+      }
+    } else {
+      console.log('[getBeltSettings] requireCoinsForChallenge from Prisma:', settingsAny.requireCoinsForChallenge)
+    }
+
+    return settingsAny
+  } catch (error) {
+    console.error('[getBeltSettings] Error fetching settings:', error)
+    throw error
+  }
 }
 
 /**
@@ -109,6 +137,7 @@ export async function createBelt(data: {
   category?: string
   tournamentId?: string
   creationCost?: number
+  coinValue?: number
   createdBy?: string
   designImageUrl?: string
   designColors?: Record<string, string>
@@ -128,9 +157,9 @@ export async function createBelt(data: {
       tournamentId: data.tournamentId || null,
       status: 'VACANT',
       creationCost: data.creationCost || 0,
-      coinValue: data.creationCost || 0,
+      coinValue: data.coinValue ?? data.creationCost ?? 0,
       designImageUrl: data.designImageUrl || null,
-      designColors: data.designColors ? (data.designColors as any) : null,
+      designColors: data.designColors || null,
       sponsorId: data.sponsorId || null,
       sponsorName: data.sponsorName || null,
       sponsorLogoUrl: data.sponsorLogoUrl || null,
@@ -278,10 +307,9 @@ export async function createBeltChallenge(
     roundDuration?: number
     speedMode?: boolean
     allowCopyPaste?: boolean
-  },
-  skipBeltSystemCheck: boolean = false // Allow bypassing the check when called from API routes
+  }
 ) {
-  if (!skipBeltSystemCheck && !isBeltSystemEnabled()) {
+  if (!isBeltSystemEnabled()) {
     throw new Error('Belt system is not enabled')
   }
 
@@ -326,8 +354,8 @@ export async function createBeltChallenge(
     throw new Error('You already have a pending challenge for this belt')
   }
 
-  // Get belt settings (will be used later for coin checks)
-  const beltSettings = await getBeltSettings(belt.type)
+  // Get belt settings
+  const settings = await getBeltSettings(belt.type)
 
   // Get challenger and holder ELO
   const challenger = await prisma.user.findUnique({
@@ -356,59 +384,40 @@ export async function createBeltChallenge(
 
   // Calculate coin reward
   const coinReward = Math.floor(
-    entryFee * (beltSettings.winnerRewardPercent / 100)
+    entryFee * (settings.winnerRewardPercent / 100)
   )
 
   // Calculate expiration date
   const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + beltSettings.challengeExpiryDays)
+  expiresAt.setDate(expiresAt.getDate() + settings.challengeExpiryDays)
 
-  // Get belt settings to check requirements (already have it above)
-  const settings = beltSettings
-  
-  // Check coin/free challenge requirements based on admin settings
-  let hasFreeChallenge = false
-  let requiresCoins = settings.requireCoins ?? false
-  let requiresFreeChallenge = settings.requireFreeChallenge ?? false
-  let allowsFreeChallenges = settings.allowFreeChallenges ?? true
-  
-  // Check if user has a free challenge available (if allowed)
-  if (allowsFreeChallenges) {
-    const freeChallengeCheck = await checkAndResetFreeChallenges(challengerId)
-    hasFreeChallenge = freeChallengeCheck.hasFreeChallenge
-  }
+  // Check if coins are required for challenges (admin setting)
+  const requireCoins = (settings as any).requireCoinsForChallenge !== false // Default to true if not set
+  console.log('[createBeltChallenge] requireCoinsForChallenge setting:', (settings as any).requireCoinsForChallenge, 'requireCoins:', requireCoins)
 
-  // Check coin requirements only if admin has enabled it
-  if (requiresCoins) {
+  // Check if user has a free challenge available (pass belt type to get correct limit)
+  const freeChallengeCheck = await checkAndResetFreeChallenges(challengerId, belt.type)
+  const hasFreeChallenge = freeChallengeCheck.hasFreeChallenge
+  console.log('[createBeltChallenge] hasFreeChallenge:', hasFreeChallenge)
+
+  // Check if user has enough coins (if coins are required and not using free challenge)
+  // Note: We check coins here but don't deduct until challenge is accepted
+  // This ensures they have coins available, but they're only charged when stakes are up
+  if (requireCoins && !hasFreeChallenge) {
+    console.log('[createBeltChallenge] Checking coins because requireCoins=true and hasFreeChallenge=false')
     const challengerWithCoins = await prisma.user.findUnique({
       where: { id: challengerId },
-      select: { coins: true },
+      select: { coins: true, freeBeltChallengesAvailable: true },
     })
 
-    const hasEnoughCoins = challengerWithCoins && challengerWithCoins.coins >= entryFee
-
-    // If coins required but user doesn't have enough
-    if (!hasEnoughCoins) {
-      // Check if free challenge is allowed and available
-      if (allowsFreeChallenges && hasFreeChallenge) {
-        // User can use free challenge, continue
-        console.log(`[createBeltChallenge] User has free challenge available, allowing challenge creation`)
-      } else if (requiresFreeChallenge && !hasFreeChallenge) {
-        // Admin requires free challenge but user doesn't have one
-        throw new Error(`Insufficient coins (need ${entryFee} coins) and no free challenge available. You get ${settings.freeChallengesPerWeek || 1} free challenge(s) per week.`)
-      } else if (!allowsFreeChallenges) {
-        // Free challenges disabled, must have coins
-        throw new Error(`Insufficient coins. Entry fee is ${entryFee} coins. Free challenges are disabled for this belt type.`)
+    if (!challengerWithCoins || challengerWithCoins.coins < entryFee) {
+      const availableFree = challengerWithCoins?.freeBeltChallengesAvailable || 0
+      if (availableFree > 0) {
+        throw new Error(`Insufficient coins. Entry fee is ${entryFee} coins. You have ${availableFree} free challenge(s) available, but they are only used when your challenge is accepted. Please wait for your free challenge to reset or purchase coins.`)
       } else {
-        // Coins required, no free challenge available
-        throw new Error(`Insufficient coins. Entry fee is ${entryFee} coins. You have ${settings.freeChallengesPerWeek || 1} free challenge(s) per week that can be used when your challenge is accepted.`)
+        throw new Error(`Insufficient coins. Entry fee is ${entryFee} coins. You have no free challenges available. Free challenges reset weekly. Please purchase coins or wait for your free challenge to reset.`)
       }
     }
-  }
-  
-  // If admin doesn't require coins, allow challenge creation regardless
-  if (!requiresCoins) {
-    console.log(`[createBeltChallenge] Coin requirements disabled by admin, allowing challenge creation`)
   }
 
   // Don't deduct coins upfront - only charge when challenge is accepted
@@ -493,18 +502,8 @@ export async function acceptBeltChallenge(challengeId: string) {
     throw new Error('Challenge has expired')
   }
 
-  // Use debate topic from challenge, or generate default
+  // Generate debate topic and slug - use challenge's debate topic if available
   const topic = challenge.debateTopic || `Belt Challenge: ${challenge.belt.name}`
-  const description = challenge.debateDescription || null
-  const category = challenge.debateCategory || 'GENERAL'
-  const challengerPosition = challenge.debateChallengerPosition || 'FOR'
-  const opponentPosition = challengerPosition === 'FOR' ? 'AGAINST' : 'FOR'
-  const totalRounds = challenge.debateTotalRounds || 5
-  const roundDuration = challenge.debateRoundDuration || (challenge.debateSpeedMode ? 300000 : 86400000) // 5 min for speed, 24h for normal
-  const speedMode = challenge.debateSpeedMode || false
-  const allowCopyPaste = challenge.debateAllowCopyPaste !== false // Default true
-  
-  // Generate unique slug
   let slug = generateUniqueSlug(topic)
   
   // Ensure slug is unique
@@ -520,55 +519,67 @@ export async function acceptBeltChallenge(challengeId: string) {
     }
   }
 
-  // TESTING MODE: Skip coin restrictions in development or if SKIP_BELT_COIN_CHECKS is enabled
-  const skipCoinChecks = process.env.NODE_ENV === 'development' || process.env.SKIP_BELT_COIN_CHECKS === 'true'
-  
-  if (skipCoinChecks) {
-    console.log(`[acceptBeltChallenge] TESTING MODE: Skipping coin checks and deductions`)
-  } else {
-    // Now charge the challenger (coins or consume free challenge) since challenge is accepted
+  // Extract debate details from challenge
+  const description = challenge.debateDescription || null
+  const category = challenge.debateCategory || challenge.belt.category || 'OTHER'
+  const challengerPosition = challenge.debateChallengerPosition || 'FOR'
+  // Opponent position is opposite of challenger
+  const opponentPosition = challengerPosition === 'FOR' ? 'AGAINST' : 'FOR'
+  const totalRounds = challenge.debateTotalRounds || 5
+  const roundDuration = challenge.debateRoundDuration || 86400000 // 24 hours default
+  const speedMode = challenge.debateSpeedMode || false
+  const allowCopyPaste = challenge.debateAllowCopyPaste !== null ? challenge.debateAllowCopyPaste : true
+
+  // Get belt settings to check if coins are required
+  const settings = await getBeltSettings(challenge.belt.type)
+  const requireCoins = (settings as any).requireCoinsForChallenge !== false // Default to true if not set
+  console.log('[acceptBeltChallenge] requireCoinsForChallenge setting:', (settings as any).requireCoinsForChallenge, 'requireCoins:', requireCoins)
+
+  // Now charge the challenger (coins or consume free challenge) since challenge is accepted
+  // Only charge if coins are required
+  if (requireCoins) {
     // Check if this challenge was marked to use free challenge
     if (challenge.usesFreeChallenge) {
-      // Verify user still has a free challenge available (in case they used it on another challenge that was accepted first)
-      const user = await prisma.user.findUnique({
+    // Verify user still has a free challenge available (in case they used it on another challenge that was accepted first)
+    const user = await prisma.user.findUnique({
+      where: { id: challenge.challengerId },
+      select: { freeBeltChallengesAvailable: true },
+    })
+    
+    if (user && user.freeBeltChallengesAvailable > 0) {
+      // Consume the free challenge
+      await prisma.user.update({
         where: { id: challenge.challengerId },
-        select: { freeBeltChallengesAvailable: true },
+        data: {
+          freeBeltChallengesAvailable: {
+            decrement: 1,
+          },
+        },
       })
-      
-      if (user && user.freeBeltChallengesAvailable > 0) {
-        // Consume the free challenge
-        await prisma.user.update({
-          where: { id: challenge.challengerId },
-          data: {
-            freeBeltChallengesAvailable: {
-              decrement: 1,
-            },
+      console.log(`[acceptBeltChallenge] Consumed free challenge for user ${challenge.challengerId}`)
+    } else {
+      // Free challenge was already consumed (another challenge was accepted first)
+      // Fall back to charging coins
+      console.log(`[acceptBeltChallenge] Free challenge already consumed, charging coins for user ${challenge.challengerId}`)
+      try {
+        await deductCoins(challenge.challengerId, challenge.entryFee, {
+          type: 'BELT_CHALLENGE_ENTRY',
+          description: `Entry fee for challenging ${challenge.belt.name}`,
+          beltId: challenge.beltId,
+          metadata: {
+            beltName: challenge.belt.name,
+            beltType: challenge.belt.type,
+            entryFee: challenge.entryFee,
           },
         })
-        console.log(`[acceptBeltChallenge] Consumed free challenge for user ${challenge.challengerId}`)
-      } else {
-        // Free challenge was already consumed (another challenge was accepted first)
-        // Fall back to charging coins
-        console.log(`[acceptBeltChallenge] Free challenge already consumed, charging coins for user ${challenge.challengerId}`)
-        try {
-          await deductCoins(challenge.challengerId, challenge.entryFee, {
-            type: 'BELT_CHALLENGE_ENTRY',
-            description: `Entry fee for challenging ${challenge.belt.name}`,
-            beltId: challenge.beltId,
-            metadata: {
-              beltName: challenge.belt.name,
-              beltType: challenge.belt.type,
-              entryFee: challenge.entryFee,
-            },
-          })
-          console.log(`[acceptBeltChallenge] Deducted ${challenge.entryFee} coins from challenger ${challenge.challengerId}`)
-        } catch (error: any) {
-          if (error.message === 'Insufficient coins') {
-            throw new Error(`Challenger no longer has sufficient coins. Entry fee is ${challenge.entryFee} coins.`)
-          }
-          throw error
+        console.log(`[acceptBeltChallenge] Deducted ${challenge.entryFee} coins from challenger ${challenge.challengerId}`)
+      } catch (error: any) {
+        if (error.message === 'Insufficient coins') {
+          throw new Error(`Challenger no longer has sufficient coins. Entry fee is ${challenge.entryFee} coins.`)
         }
+        throw error
       }
+    }
     } else {
       // Deduct coins from challenger
       try {
@@ -590,22 +601,21 @@ export async function acceptBeltChallenge(challengeId: string) {
         throw error
       }
     }
+  } else {
+    // Coins not required - skip payment
+    console.log(`[acceptBeltChallenge] Coins not required for challenges, skipping payment`)
   }
 
   // Create debate with belt at stake using challenger's provided details
-  // Since both participants are known (challenger and belt holder), start as ACTIVE
-  const now = new Date()
-  const deadline = new Date(now.getTime() + roundDuration)
-  
   const debate = await prisma.debate.create({
     data: {
       topic,
       slug,
       description,
-      category: category as any,
+      category,
       challengerId: challenge.challengerId,
-      challengerPosition: challengerPosition as any,
-      opponentPosition: opponentPosition as any,
+      challengerPosition,
+      opponentPosition,
       opponentId: challenge.beltHolderId,
       totalRounds,
       roundDuration,
@@ -615,17 +625,19 @@ export async function acceptBeltChallenge(challengeId: string) {
       challengeType: 'DIRECT',
       invitedUserIds: JSON.stringify([challenge.beltHolderId]),
       invitedBy: challenge.challengerId,
-      status: 'ACTIVE', // Start immediately since both participants are known
-      startedAt: now,
-      currentRound: 1,
-      roundDeadline: deadline,
+      status: 'ACTIVE', // Belt challenges are immediately active since both participants are known
+      currentRound: 1, // Start at round 1
+      roundDeadline: new Date(Date.now() + roundDuration), // Set deadline based on round duration
       hasBeltAtStake: true,
       beltStakeType: 'CHALLENGE',
+      stakedBelt: {
+        connect: { id: challenge.beltId }, // Link the belt to the debate via relation
+      },
     },
   })
 
   // Update challenge with debate ID
-  const updatedChallenge = await prisma.beltChallenge.update({
+  await prisma.beltChallenge.update({
     where: { id: challengeId },
     data: {
       status: 'ACCEPTED',
@@ -665,14 +677,16 @@ export async function acceptBeltChallenge(challengeId: string) {
     console.error('Failed to send challenge accepted notification:', error)
   }
 
-  return { challenge: updatedChallenge, debate }
+  return { challenge, debate }
 }
 
 /**
  * Decline a belt challenge
  */
 export async function declineBeltChallenge(challengeId: string) {
-  // Allow challenge decline - belt system should work regardless of flag
+  if (!isBeltSystemEnabled()) {
+    throw new Error('Belt system is not enabled')
+  }
 
   const challenge = await prisma.beltChallenge.findUnique({
     where: { id: challengeId },
@@ -683,6 +697,12 @@ export async function declineBeltChallenge(challengeId: string) {
 
   if (!challenge) {
     throw new Error('Challenge not found')
+  }
+
+  // If already declined, just return success (idempotent operation)
+  if (challenge.status === 'DECLINED') {
+    console.log(`[declineBeltChallenge] Challenge ${challengeId} is already declined, returning success`)
+    return challenge
   }
 
   if (challenge.status !== 'PENDING') {
@@ -884,8 +904,9 @@ export async function checkInactiveBelts() {
  * Get user's belt room (all belts they've held)
  */
 export async function getUserBeltRoom(userId: string) {
-  // Allow users to view their belts regardless of feature flag
-  // The flag should only control new operations, not viewing existing data
+  if (!isBeltSystemEnabled()) {
+    return { currentBelts: [], history: [] }
+  }
 
   // First, let's check the raw database values for debugging
   const rawCheck = await prisma.$queryRaw<Array<{ id: string; name: string; category: string | null; design_image_url: string | null }>>`

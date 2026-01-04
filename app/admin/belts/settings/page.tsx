@@ -17,6 +17,7 @@ interface BeltSettings {
   maxDeclines: number
   challengeCooldownDays: number
   challengeExpiryDays: number
+  freeChallengesPerWeek: number
   eloRange: number
   activityRequirementDays: number
   winStreakBonusMultiplier: number
@@ -30,10 +31,7 @@ interface BeltSettings {
   tournamentBeltCostLarge: number
   inactiveCompetitorCount: number
   inactiveAcceptDays: number
-  requireCoins?: boolean
-  requireFreeChallenge?: boolean
-  allowFreeChallenges?: boolean
-  freeChallengesPerWeek?: number
+  requireCoinsForChallenge?: boolean
 }
 
 const BELT_TYPE_LABELS: Record<string, string> = {
@@ -151,6 +149,117 @@ export default function BeltSettingsPage() {
         <p className="text-text-secondary mb-8">Manage settings for each belt type</p>
       </div>
 
+      {/* Challenge Rules Summary */}
+      <Card>
+        <CardHeader>
+          <h2 className="text-xl font-bold text-white">Challenge Rules Summary</h2>
+          <p className="text-text-secondary text-sm mt-2">
+            Overview of all belt challenge rules and limits
+          </p>
+        </CardHeader>
+        <CardBody>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="bg-bg-tertiary p-4 rounded-lg border border-border border-primary/30">
+              <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                <span className="text-primary">📊</span>
+                Challenges Per User Per Week
+              </h3>
+              <p className="text-text-secondary text-sm mb-2">
+                <span className="text-white font-bold text-lg">{settings[0]?.freeChallengesPerWeek ?? 1} free challenge{settings[0]?.freeChallengesPerWeek !== 1 ? 's' : ''} per week</span> per user
+              </p>
+              <p className="text-text-secondary text-xs">
+                Each user gets {settings[0]?.freeChallengesPerWeek ?? 1} free challenge{settings[0]?.freeChallengesPerWeek !== 1 ? 's' : ''} per week (resets every 7 days). Free challenges are only consumed when the challenge is accepted by the belt holder. Users can also pay coins for additional challenges.
+              </p>
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-text-secondary text-xs">
+                  <span className="text-white font-medium">Note:</span> There is no limit on how many different users can challenge a belt holder per week. Only each individual user is limited to {settings[0]?.freeChallengesPerWeek ?? 1} free challenge{settings[0]?.freeChallengesPerWeek !== 1 ? 's' : ''} per week.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-bg-tertiary p-4 rounded-lg border border-border">
+              <h3 className="text-lg font-semibold text-white mb-3">Challenge Cooldown</h3>
+              <p className="text-text-secondary text-sm mb-2">
+                Cooldown: <span className="text-white font-bold">{settings[0]?.challengeCooldownDays || 7} days</span>
+              </p>
+              <p className="text-text-secondary text-xs">
+                After creating a challenge, users must wait this period before challenging the same belt again.
+              </p>
+            </div>
+
+            <div className="bg-bg-tertiary p-4 rounded-lg border border-border">
+              <h3 className="text-lg font-semibold text-white mb-3">Challenge Expiry</h3>
+              <p className="text-text-secondary text-sm mb-2">
+                Expires after: <span className="text-white font-bold">{settings[0]?.challengeExpiryDays || 3} days</span>
+              </p>
+              <p className="text-text-secondary text-xs">
+                Challenges automatically expire if not accepted or declined within this time period.
+              </p>
+            </div>
+
+            <div className="bg-bg-tertiary p-4 rounded-lg border border-border">
+              <h3 className="text-lg font-semibold text-white mb-3">Max Declines</h3>
+              <p className="text-text-secondary text-sm mb-2">
+                Maximum: <span className="text-white font-bold">{settings[0]?.maxDeclines || 2} declines</span>
+              </p>
+              <p className="text-text-secondary text-xs">
+                Belt holders can decline up to this many challenges before being forced to accept.
+              </p>
+            </div>
+
+            <div className="bg-bg-tertiary p-4 rounded-lg border border-border">
+              <h3 className="text-lg font-semibold text-white mb-3">Grace Period</h3>
+              <p className="text-text-secondary text-sm mb-2">
+                Protection: <span className="text-white font-bold">{settings[0]?.gracePeriodDays || 30} days</span>
+              </p>
+              <p className="text-text-secondary text-xs">
+                New belt holders are protected from challenges during this grace period (first 30 days).
+              </p>
+            </div>
+
+            <div className="bg-bg-tertiary p-4 rounded-lg border border-border">
+              <h3 className="text-lg font-semibold text-white mb-3">Defense Period</h3>
+              <p className="text-text-secondary text-sm mb-2">
+                Required every: <span className="text-white font-bold">{settings[0]?.defensePeriodDays || 30} days</span>
+              </p>
+              <p className="text-text-secondary text-xs">
+                Belt holders must defend their belt at least once during this period to keep it active.
+              </p>
+            </div>
+
+            <div className="bg-bg-tertiary p-4 rounded-lg border border-border">
+              <h3 className="text-lg font-semibold text-white mb-3">Mandatory Defense</h3>
+              <p className="text-text-secondary text-sm mb-2">
+                Required after: <span className="text-white font-bold">{settings[0]?.mandatoryDefenseDays || 60} days</span>
+              </p>
+              <p className="text-text-secondary text-xs">
+                After this period, belt holders must accept the next challenge or lose the belt.
+              </p>
+            </div>
+
+            <div className="bg-bg-tertiary p-4 rounded-lg border border-border">
+              <h3 className="text-lg font-semibold text-white mb-3">Inactivity Period</h3>
+              <p className="text-text-secondary text-sm mb-2">
+                Becomes inactive: <span className="text-white font-bold">{settings[0]?.inactivityDays || 30} days</span>
+              </p>
+              <p className="text-text-secondary text-xs">
+                Belts become inactive if not defended within this period and can be challenged by anyone.
+              </p>
+            </div>
+
+            <div className="bg-bg-tertiary p-4 rounded-lg border border-border">
+              <h3 className="text-lg font-semibold text-white mb-3">ELO Matching</h3>
+              <p className="text-text-secondary text-sm mb-2">
+                Range: <span className="text-white font-bold">±{settings[0]?.eloRange || 200} points</span>
+              </p>
+              <p className="text-text-secondary text-xs">
+                Currently disabled - users can challenge any belt holder regardless of ELO difference.
+              </p>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+
       {settings.map((setting) => (
         <Card key={setting.id}>
           <CardHeader>
@@ -226,7 +335,38 @@ export default function BeltSettingsPage() {
                 {/* Challenge Rules */}
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-4">Challenge Rules</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-text-secondary mb-2">
+                        Free Challenges Per Week
+                      </label>
+                      <Input
+                        type="number"
+                        value={editedSettings.freeChallengesPerWeek ?? setting.freeChallengesPerWeek ?? 1}
+                        onChange={(e) => setEditedSettings({ ...editedSettings, freeChallengesPerWeek: parseInt(e.target.value) || 1 })}
+                        min="0"
+                      />
+                      <p className="text-text-secondary text-xs mt-1">
+                        Number of free challenges users get per week
+                      </p>
+                    </div>
+                    <div className="p-4 bg-bg-tertiary rounded-lg border border-border">
+                      <div className="flex items-center gap-3 mb-2">
+                        <input
+                          type="checkbox"
+                          id="requireCoinsForChallenge"
+                          checked={editedSettings.requireCoinsForChallenge !== undefined ? editedSettings.requireCoinsForChallenge : (setting.requireCoinsForChallenge !== false)}
+                          onChange={(e) => setEditedSettings({ ...editedSettings, requireCoinsForChallenge: e.target.checked })}
+                          className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-electric-blue focus:ring-electric-blue focus:ring-2"
+                        />
+                        <label htmlFor="requireCoinsForChallenge" className="text-sm font-medium text-white cursor-pointer">
+                          Require Coins for Challenges
+                        </label>
+                      </div>
+                      <p className="text-text-secondary text-xs ml-8">
+                        When disabled, users can challenge without coins or free challenges
+                      </p>
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-text-secondary mb-2">
                         Max Declines
@@ -301,73 +441,6 @@ export default function BeltSettingsPage() {
                         min="1"
                       />
                     </div>
-                  </div>
-                </div>
-
-                {/* Challenge Requirements */}
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-4">Challenge Requirements</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id={`requireCoins-${setting.beltType}`}
-                        checked={editedSettings.requireCoins ?? setting.requireCoins ?? false}
-                        onChange={(e) => setEditedSettings({ ...editedSettings, requireCoins: e.target.checked })}
-                        className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-neon-blue focus:ring-2 focus:ring-neon-blue"
-                      />
-                      <label htmlFor={`requireCoins-${setting.beltType}`} className="text-sm font-medium text-text-primary cursor-pointer">
-                        Require Coins to Challenge
-                      </label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id={`requireFreeChallenge-${setting.beltType}`}
-                        checked={editedSettings.requireFreeChallenge ?? setting.requireFreeChallenge ?? false}
-                        onChange={(e) => setEditedSettings({ ...editedSettings, requireFreeChallenge: e.target.checked })}
-                        className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-neon-blue focus:ring-2 focus:ring-neon-blue"
-                      />
-                      <label htmlFor={`requireFreeChallenge-${setting.beltType}`} className="text-sm font-medium text-text-primary cursor-pointer">
-                        Require Free Challenge if No Coins
-                      </label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        id={`allowFreeChallenges-${setting.beltType}`}
-                        checked={editedSettings.allowFreeChallenges ?? setting.allowFreeChallenges ?? true}
-                        onChange={(e) => setEditedSettings({ ...editedSettings, allowFreeChallenges: e.target.checked })}
-                        className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-neon-blue focus:ring-2 focus:ring-neon-blue"
-                      />
-                      <label htmlFor={`allowFreeChallenges-${setting.beltType}`} className="text-sm font-medium text-text-primary cursor-pointer">
-                        Allow Free Weekly Challenges
-                      </label>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-text-secondary mb-2">
-                        Free Challenges Per Week
-                      </label>
-                      <Input
-                        type="number"
-                        value={editedSettings.freeChallengesPerWeek ?? setting.freeChallengesPerWeek ?? 1}
-                        onChange={(e) => setEditedSettings({ ...editedSettings, freeChallengesPerWeek: parseInt(e.target.value) })}
-                        min="0"
-                        max="10"
-                      />
-                    </div>
-                  </div>
-                  <div className="bg-bg-tertiary/50 border border-bg-tertiary rounded-lg p-4 text-sm text-text-secondary">
-                    <p className="font-medium text-text-primary mb-2">💡 How it works:</p>
-                    <ul className="list-disc list-inside space-y-1 ml-2">
-                      <li><strong>Require Coins:</strong> Users must have enough coins OR a free challenge to create a challenge</li>
-                      <li><strong>Require Free Challenge:</strong> If user has no coins, they must have a free challenge available</li>
-                      <li><strong>Allow Free Challenges:</strong> Enable/disable the free weekly challenge system</li>
-                      <li><strong>Free Challenges Per Week:</strong> Number of free challenges users get each week</li>
-                    </ul>
-                    <p className="mt-3 text-neon-orange">
-                      <strong>Note:</strong> If all options are disabled, challenges can be created without any restrictions.
-                    </p>
                   </div>
                 </div>
 
@@ -536,6 +609,19 @@ export default function BeltSettingsPage() {
                   <div>
                     <p className="text-text-secondary">Inactivity</p>
                     <p className="text-white font-medium">{setting.inactivityDays} days</p>
+                  </div>
+                  <div>
+                    <p className="text-text-secondary">Free Challenges/Week</p>
+                    <p className="text-white font-medium">{setting.freeChallengesPerWeek ?? 1}</p>
+                  </div>
+                  <div>
+                    <p className="text-text-secondary">Require Coins</p>
+                    <p className={`font-medium ${setting.requireCoinsForChallenge !== false ? 'text-neon-orange' : 'text-cyber-green'}`}>
+                      {setting.requireCoinsForChallenge !== false ? 'Yes' : 'No'}
+                    </p>
+                    {setting.requireCoinsForChallenge === false && (
+                      <p className="text-text-secondary text-xs mt-1">Coins disabled</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-text-secondary">Max Declines</p>

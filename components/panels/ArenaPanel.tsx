@@ -39,18 +39,6 @@ export function ArenaPanel() {
     fetchDebates()
   }, [filter, myActiveDebate])
 
-  // Listen for belt challenge acceptance to refresh debates
-  useEffect(() => {
-    const handleChallengeAccepted = () => {
-      fetchMyActiveDebate()
-      fetchDebates()
-    }
-    window.addEventListener('belt-challenge-accepted', handleChallengeAccepted)
-    return () => {
-      window.removeEventListener('belt-challenge-accepted', handleChallengeAccepted)
-    }
-  }, [])
-
   const fetchCategories = async () => {
     try {
       const response = await fetch('/api/categories')
@@ -78,15 +66,29 @@ export function ArenaPanel() {
       }
     }
     
+    const handleMyDebateRefresh = () => {
+      if (isMounted && document.visibilityState === 'visible') {
+        fetchMyActiveDebate()
+      }
+    }
+    
     // Small delay to avoid catching events from page refresh
     const timeoutId = setTimeout(() => {
       window.addEventListener('debate-created', handleRefresh)
+      window.addEventListener('belt-challenge-accepted', handleRefresh)
+      window.addEventListener('debate-updated', handleMyDebateRefresh)
+      window.addEventListener('statement-submitted', handleMyDebateRefresh)
+      window.addEventListener('verdict-ready', handleMyDebateRefresh)
     }, 100)
     
     return () => {
       isMounted = false
       clearTimeout(timeoutId)
       window.removeEventListener('debate-created', handleRefresh)
+      window.removeEventListener('belt-challenge-accepted', handleRefresh)
+      window.removeEventListener('debate-updated', handleMyDebateRefresh)
+      window.removeEventListener('statement-submitted', handleMyDebateRefresh)
+      window.removeEventListener('verdict-ready', handleMyDebateRefresh)
     }
   }, [])
 
@@ -109,15 +111,30 @@ export function ArenaPanel() {
     
     try {
       setIsLoadingMyDebate(true)
-      const response = await fetch(`/api/debates?userId=${user.id}&status=ACTIVE`)
+      // Only fetch ACTIVE debates (exclude COMPLETED, VERDICT_READY, WAITING)
+      // Add cache-busting to ensure fresh data
+      const response = await fetch(`/api/debates?userId=${user.id}&status=ACTIVE&t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      })
       if (response.ok) {
         const data = await response.json()
-        const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
-        const active = debates.find((d: any) => d.status === 'ACTIVE')
+          const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
+          console.log('[ArenaPanel] fetchMyActiveDebate - debates found:', debates.length, debates.map((d: any) => ({ id: d.id, status: d.status, topic: d.topic?.substring(0, 40) })))
+          // Only show ACTIVE debates (exclude COMPLETED, VERDICT_READY, WAITING)
+          const active = debates.find((d: any) => d.status === 'ACTIVE' && !d.winnerId)
         
         if (active) {
+          console.log('[ArenaPanel] fetchMyActiveDebate - active debate found:', active.id, active.topic?.substring(0, 40))
           // Fetch full details
-          const detailResponse = await fetch(`/api/debates/${active.id}`)
+          const detailResponse = await fetch(`/api/debates/${active.id}?t=${Date.now()}`, {
+            cache: 'no-store',
+            headers: {
+              'Cache-Control': 'no-cache',
+            },
+          })
           if (detailResponse.ok) {
             const fullDebate = await detailResponse.json()
             setMyActiveDebate({
@@ -131,15 +148,20 @@ export function ArenaPanel() {
                 authorId: s.author.id,
               })) || [],
             })
+            console.log('[ArenaPanel] fetchMyActiveDebate - set myActiveDebate:', active.id)
           } else {
+            console.log('[ArenaPanel] fetchMyActiveDebate - detail fetch failed:', detailResponse.status)
             setMyActiveDebate(active)
           }
         } else {
+          console.log('[ArenaPanel] fetchMyActiveDebate - no active debate found')
           setMyActiveDebate(null)
         }
+      } else {
+        console.error('[ArenaPanel] fetchMyActiveDebate - API error:', response.status, response.statusText)
       }
     } catch (error) {
-      console.error('Failed to fetch my active debate:', error)
+      console.error('[ArenaPanel] Failed to fetch my active debate:', error)
     } finally {
       setIsLoadingMyDebate(false)
     }
@@ -152,6 +174,7 @@ export function ArenaPanel() {
       if (filter !== 'ALL') {
         params.append('category', filter)
       }
+      // Only include ACTIVE debates (exclude WAITING, COMPLETED, VERDICT_READY)
       params.append('status', 'ACTIVE')
       
       const response = await fetch(`/api/debates?${params.toString()}`)
@@ -167,10 +190,22 @@ export function ArenaPanel() {
         allDebates = data.debates
       }
       
-      // Filter out the user's personal debate from the list (if they have one)
-      if (myActiveDebate) {
-        allDebates = allDebates.filter((d: any) => d.id !== myActiveDebate.id)
-      }
+      // Filter out completed debates and user's personal debate
+      allDebates = allDebates.filter((d: any) => {
+        // Exclude completed debates (double-check)
+        if (d.status === 'VERDICT_READY' || d.status === 'COMPLETED' || d.status === 'WAITING' || d.winnerId) {
+          return false
+        }
+        // Only show ACTIVE debates
+        if (d.status !== 'ACTIVE') {
+          return false
+        }
+        // Exclude user's personal debate (if they have one)
+        if (myActiveDebate && d.id === myActiveDebate.id) {
+          return false
+        }
+        return true
+      })
       
       setDebates(allDebates)
     } catch (error) {
@@ -201,21 +236,23 @@ export function ArenaPanel() {
             <p className="text-text-secondary text-sm">Your active debate and all ongoing debates</p>
           </div>
 
-          {/* Filters */}
-          <div className="flex gap-2 flex-wrap">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setFilter(category)}
-                className={`px-3 py-1.5 rounded-lg border-2 text-sm font-semibold transition-all ${
-                  filter === category
-                    ? 'border-electric-blue bg-electric-blue/10 text-electric-blue'
-                    : 'border-bg-tertiary text-text-secondary hover:border-text-secondary'
-                }`}
-              >
-                {category}
-              </button>
-            ))}
+          {/* Category Filter Dropdown */}
+          <div className="flex items-center gap-2">
+            <label htmlFor="category-filter" className="text-sm font-medium text-text-secondary whitespace-nowrap">
+              Category:
+            </label>
+            <select
+              id="category-filter"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-text-primary text-sm font-medium cursor-pointer hover:border-electric-blue/50 focus:outline-none focus:ring-2 focus:ring-electric-blue/50 focus:border-electric-blue transition-colors min-w-[150px]"
+            >
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category === 'ALL' ? 'All Categories' : category}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -227,55 +264,58 @@ export function ArenaPanel() {
                 <div className="w-8 h-8 border-2 border-electric-blue border-t-transparent rounded-full animate-spin" />
               </div>
             ) : myActiveDebate ? (
-              <div className="bg-bg-tertiary rounded-lg p-4 border-2 border-electric-blue/50 mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="default" size="sm" className="bg-neon-orange text-black">
-                      My Battle
-                    </Badge>
-                    <Badge variant={myActiveDebate.category.toLowerCase() as any} size="sm">
-                      {myActiveDebate.category}
-                    </Badge>
-                  </div>
-                  {(() => {
-                    const currentRoundStatements = myActiveDebate.statements?.filter(
-                      (s: any) => s.round === myActiveDebate.currentRound
-                    ) || []
-                    const userSubmitted = currentRoundStatements.some((s: any) => s.authorId === user.id)
-                    const isGroupDebate = !myActiveDebate.opponent || myActiveDebate.challengeType === 'GROUP'
-                    let isMyTurn = false
-                    
-                    if (isGroupDebate) {
-                      isMyTurn = !userSubmitted
-                    } else {
-                      const challengerSubmitted = currentRoundStatements.some(
-                        (s: any) => s.authorId === myActiveDebate.challenger.id
-                      )
-                      const opponentSubmitted = myActiveDebate.opponent && currentRoundStatements.some(
-                        (s: any) => s.authorId === myActiveDebate.opponent!.id
-                      )
-                      const isChallenger = user.id === myActiveDebate.challenger.id
-                      const isOpponent = myActiveDebate.opponent && user.id === myActiveDebate.opponent.id
-                      
-                      if (currentRoundStatements.length === 0 && isChallenger) {
-                        isMyTurn = true
-                      } else if (isChallenger && opponentSubmitted && !challengerSubmitted) {
-                        isMyTurn = true
-                      } else if (isOpponent && challengerSubmitted && !opponentSubmitted) {
-                        isMyTurn = true
-                      }
-                    }
-                    
-                    return isMyTurn ? (
-                      <Badge variant="default" size="sm" className="bg-neon-orange text-black">
-                        Your Turn
-                      </Badge>
-                    ) : null
-                  })()}
-                </div>
-                <h4 className="text-lg font-bold text-text-primary mb-2 line-clamp-2">
-                  {myActiveDebate.topic}
-                </h4>
+              (() => {
+                // Calculate if it's user's turn (once, to avoid duplication)
+                const currentRoundStatements = myActiveDebate.statements?.filter(
+                  (s: any) => s.round === myActiveDebate.currentRound
+                ) || []
+                const userSubmitted = currentRoundStatements.some((s: any) => s.authorId === user.id)
+                const isGroupDebate = !myActiveDebate.opponent || myActiveDebate.challengeType === 'GROUP'
+                let isMyTurn = false
+                
+                if (isGroupDebate) {
+                  isMyTurn = !userSubmitted
+                } else {
+                  const challengerSubmitted = currentRoundStatements.some(
+                    (s: any) => s.authorId === myActiveDebate.challenger.id
+                  )
+                  const opponentSubmitted = myActiveDebate.opponent && currentRoundStatements.some(
+                    (s: any) => s.authorId === myActiveDebate.opponent!.id
+                  )
+                  const isChallenger = user.id === myActiveDebate.challenger.id
+                  const isOpponent = myActiveDebate.opponent && user.id === myActiveDebate.opponent.id
+                  
+                  if (currentRoundStatements.length === 0 && isChallenger) {
+                    isMyTurn = true
+                  } else if (isChallenger && opponentSubmitted && !challengerSubmitted) {
+                    isMyTurn = true
+                  } else if (isOpponent && challengerSubmitted && !opponentSubmitted) {
+                    isMyTurn = true
+                  }
+                }
+                
+                return (
+                  <div className={`bg-bg-tertiary rounded-lg p-4 border-2 mb-4 ${
+                    isMyTurn ? 'border-neon-orange blink-orange-border blink-orange-bg' : 'border-electric-blue/50'
+                  }`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="default" size="sm" className="bg-neon-orange text-black">
+                          My Battle
+                        </Badge>
+                        <Badge variant={myActiveDebate.category.toLowerCase() as any} size="sm">
+                          {myActiveDebate.category}
+                        </Badge>
+                      </div>
+                      {isMyTurn ? (
+                        <Badge variant="default" size="sm" className="bg-neon-orange text-black animate-pulse">
+                          Your Turn
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <h4 className="text-lg font-bold text-text-primary mb-2 line-clamp-2">
+                      {myActiveDebate.topic}
+                    </h4>
                 
                 {/* Images */}
                 {myActiveDebate.images && myActiveDebate.images.length > 0 && (
@@ -332,40 +372,12 @@ export function ArenaPanel() {
                 
                 <Link href={`/debate/${myActiveDebate.id}`}>
                   <Button variant="primary" className="w-full">
-                    {(() => {
-                      const currentRoundStatements = myActiveDebate.statements?.filter(
-                        (s: any) => s.round === myActiveDebate.currentRound
-                      ) || []
-                      const userSubmitted = currentRoundStatements.some((s: any) => s.authorId === user.id)
-                      const isGroupDebate = !myActiveDebate.opponent || myActiveDebate.challengeType === 'GROUP'
-                      let isMyTurn = false
-                      
-                      if (isGroupDebate) {
-                        isMyTurn = !userSubmitted
-                      } else {
-                        const challengerSubmitted = currentRoundStatements.some(
-                          (s: any) => s.authorId === myActiveDebate.challenger.id
-                        )
-                        const opponentSubmitted = myActiveDebate.opponent && currentRoundStatements.some(
-                          (s: any) => s.authorId === myActiveDebate.opponent!.id
-                        )
-                        const isChallenger = user.id === myActiveDebate.challenger.id
-                        const isOpponent = myActiveDebate.opponent && user.id === myActiveDebate.opponent.id
-                        
-                        if (currentRoundStatements.length === 0 && isChallenger) {
-                          isMyTurn = true
-                        } else if (isChallenger && opponentSubmitted && !challengerSubmitted) {
-                          isMyTurn = true
-                        } else if (isOpponent && challengerSubmitted && !opponentSubmitted) {
-                          isMyTurn = true
-                        }
-                      }
-                      
-                      return isMyTurn ? 'Continue Debate' : 'View Debate'
-                    })()}
+                    {isMyTurn ? 'Continue Debate' : 'View Debate'}
                   </Button>
                 </Link>
-              </div>
+                  </div>
+                )
+              })()
             ) : null}
           </div>
         )}

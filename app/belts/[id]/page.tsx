@@ -7,10 +7,9 @@ import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
-import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
-import { Modal } from '@/components/ui/Modal'
 import Link from 'next/link'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { TopNav } from '@/components/layout/TopNav'
 
 interface BeltDetails {
   id: string
@@ -53,6 +52,7 @@ interface BeltDetails {
     debateCategory: string | null
     debateChallengerPosition: string | null
     debateTotalRounds: number | null
+    debateRoundDuration: number | null
     debateSpeedMode: boolean | null
     debateAllowCopyPaste: boolean | null
   }>
@@ -65,10 +65,6 @@ export default function BeltDetailsPage() {
   const [belt, setBelt] = useState<BeltDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isCreatingChallenge, setIsCreatingChallenge] = useState(false)
-  const [challengeModalOpen, setChallengeModalOpen] = useState(false)
-  const [declineModalOpen, setDeclineModalOpen] = useState(false)
-  const [challengeToDecline, setChallengeToDecline] = useState<string | null>(null)
-  const [isDeclining, setIsDeclining] = useState(false)
   const [tournaments, setTournaments] = useState<Array<{ id: string; name: string; status: string }>>([])
   const [isLoadingTournaments, setIsLoadingTournaments] = useState(false)
   const [isStaking, setIsStaking] = useState<string | null>(null)
@@ -136,7 +132,7 @@ export default function BeltDetailsPage() {
     }
   }
 
-  const handleCreateChallenge = () => {
+  const handleCreateChallenge = async () => {
     if (!user || !belt) return
 
     if (belt.currentHolderId === user.id) {
@@ -148,23 +144,41 @@ export default function BeltDetailsPage() {
       return
     }
 
-    if (!belt.currentHolder) {
+    try {
+      setIsCreatingChallenge(true)
+      const response = await fetch('/api/belts/challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          beltId: belt.id,
+        }),
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Challenge Created',
+          description: 'Your challenge has been sent!',
+        })
+        fetchBeltDetails()
+      } else {
+        const error = await response.json()
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: error.error || 'Failed to create challenge',
+        })
+      }
+    } catch (error) {
+      console.error('Failed to create challenge:', error)
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'This belt has no current holder',
+        description: 'Failed to create challenge',
       })
-      return
+    } finally {
+      setIsCreatingChallenge(false)
     }
-
-    // Open the challenge modal
-    setChallengeModalOpen(true)
-  }
-
-  const handleChallengeModalSuccess = () => {
-    // Refresh belt details after successful challenge
-    fetchBeltDetails()
-    setChallengeModalOpen(false)
   }
 
   const handleAcceptChallenge = async (challengeId: string) => {
@@ -174,30 +188,12 @@ export default function BeltDetailsPage() {
       })
 
       if (response.ok) {
-        const data = await response.json()
         showToast({
           type: 'success',
           title: 'Challenge Accepted',
-          description: data.message || 'Debate created successfully!',
+          description: 'The debate will be created shortly',
         })
-        
-        // Refresh belt details immediately
-        await fetchBeltDetails()
-        
-        // Dispatch event to refresh all panels
-        window.dispatchEvent(new CustomEvent('belt-challenge-accepted', { 
-          detail: { challengeId, debateId: data.debate?.id } 
-        }))
-        
-        // Redirect to the debate immediately
-        if (data.debate?.id) {
-          window.location.href = `/debates/${data.debate.id}`
-        } else {
-          // If no debate ID, refresh the page to show updated state
-          setTimeout(() => {
-            window.location.reload()
-          }, 1000)
-        }
+        fetchBeltDetails()
       } else {
         const error = await response.json()
         showToast({
@@ -216,72 +212,58 @@ export default function BeltDetailsPage() {
     }
   }
 
-  const handleDeclineChallenge = (challengeId: string) => {
-    setChallengeToDecline(challengeId)
-    setDeclineModalOpen(true)
-  }
-
-  const confirmDeclineChallenge = async () => {
-    if (!challengeToDecline) return
-
-    setIsDeclining(true)
+  const handleDeclineChallenge = async (challengeId: string) => {
     try {
-      const response = await fetch(`/api/belts/challenge/${challengeToDecline}/decline`, {
+      const response = await fetch(`/api/belts/challenge/${challengeId}/decline`, {
         method: 'POST',
       })
 
       if (response.ok) {
-        const data = await response.json()
         showToast({
           type: 'success',
           title: 'Challenge Declined',
-          description: data.message || 'The challenge has been declined',
+          description: 'The challenge has been declined',
         })
-        setDeclineModalOpen(false)
-        setChallengeToDecline(null)
         fetchBeltDetails()
       } else {
-        let errorMessage = 'Failed to decline challenge'
-        try {
-          const error = await response.json()
-          errorMessage = error.error || error.message || errorMessage
-        } catch (parseError) {
-          const text = await response.text()
-          errorMessage = text || `Server error: ${response.status} ${response.statusText}`
-        }
+        const error = await response.json()
         showToast({
           type: 'error',
-          title: 'Error Declining Challenge',
-          description: errorMessage,
+          title: 'Error',
+          description: error.error || 'Failed to decline challenge',
         })
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to decline challenge:', error)
       showToast({
         type: 'error',
         title: 'Error',
-        description: error?.message || 'Failed to decline challenge',
+        description: 'Failed to decline challenge',
       })
-    } finally {
-      setIsDeclining(false)
     }
   }
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <LoadingSpinner />
+      <div className="min-h-screen bg-bg-primary">
+        <TopNav currentPanel="THE ARENA" />
+        <div className="flex justify-center items-center min-h-screen pt-20">
+          <LoadingSpinner />
+        </div>
       </div>
     )
   }
 
   if (!belt) {
     return (
-      <div className="container mx-auto px-4 py-8 text-center">
-        <p className="text-text-secondary mb-4">Belt not found</p>
-        <Link href="/belts/room">
-          <Button>Back to Belt Room</Button>
-        </Link>
+      <div className="min-h-screen bg-bg-primary">
+        <TopNav currentPanel="THE ARENA" />
+        <div className="container mx-auto px-4 py-8 text-center pt-20">
+          <p className="text-text-secondary mb-4">Belt not found</p>
+          <Link href="/belts/room">
+            <Button>Back to Belt Room</Button>
+          </Link>
+        </div>
       </div>
     )
   }
@@ -341,12 +323,11 @@ export default function BeltDetailsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-8">
-        <Link href="/belts/room" className="text-primary hover:underline mb-4 inline-block">
-          ← Back to Belt Room
-        </Link>
-        <h1 className="text-4xl font-bold text-white mb-2">{belt.name}</h1>
+    <div className="min-h-screen bg-bg-primary">
+      <TopNav currentPanel="THE ARENA" />
+      <div className="container mx-auto px-4 py-8 max-w-4xl pt-20">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">{belt.name}</h1>
         <div className="flex items-center gap-2">
           <Badge className="bg-blue-500 text-white" style={{ color: '#ffffff' }}>{belt.type}</Badge>
           <Badge className="bg-green-500 text-white" style={{ color: '#ffffff' }}>{formatBeltStatus(belt.status)}</Badge>
@@ -428,7 +409,7 @@ export default function BeltDetailsPage() {
                   based on belt value.
                 </p>
               </div>
-              <Button onClick={handleCreateChallenge} disabled={isCreatingChallenge || challengeModalOpen}>
+              <Button onClick={handleCreateChallenge} disabled={isCreatingChallenge}>
                 {isCreatingChallenge ? 'Creating...' : 'Create Challenge'}
               </Button>
             </div>
@@ -437,7 +418,7 @@ export default function BeltDetailsPage() {
       )}
 
       {/* Pending Challenges (for holder) */}
-      {isHolder && belt.challenges.length > 0 && (
+      {isHolder && belt.challenges && Array.isArray(belt.challenges) && belt.challenges.length > 0 && (
         <Card className="mb-6">
           <CardHeader>
             <h2 className="text-xl font-bold text-white">
@@ -451,64 +432,18 @@ export default function BeltDetailsPage() {
                   key={challenge.id}
                   className="bg-bg-tertiary p-4 rounded-lg border border-border"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex-1">
-                      <p className="text-white font-medium mb-2">
-                        Challenger:{' '}
-                        <Link
-                          href={`/profile/${challenge.challenger.username}`}
-                          className="text-primary hover:underline"
-                        >
-                          {challenge.challenger.username}
-                        </Link>
-                      </p>
-                      
-                      {/* Debate Topic - Most Important */}
-                      {challenge.debateTopic && (
-                        <div className="mb-3 p-3 bg-bg-secondary rounded-lg border border-border">
-                          <p className="text-text-secondary text-xs uppercase tracking-wide mb-1">
-                            Debate Topic
-                          </p>
-                          <p className="text-white font-semibold text-base">
-                            {challenge.debateTopic}
-                          </p>
-                          {challenge.debateDescription && (
-                            <p className="text-text-secondary text-sm mt-2">
-                              {challenge.debateDescription}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* Debate Settings */}
-                      <div className="mb-2 space-y-1">
-                        {challenge.debateCategory && (
-                          <p className="text-text-secondary text-sm">
-                            Category: <span className="text-white">{challenge.debateCategory}</span>
-                          </p>
-                        )}
-                        {challenge.debateChallengerPosition && (
-                          <p className="text-text-secondary text-sm">
-                            Challenger Position: <span className="text-white">{challenge.debateChallengerPosition}</span>
-                          </p>
-                        )}
-                        {challenge.debateTotalRounds && (
-                          <p className="text-text-secondary text-sm">
-                            Rounds: <span className="text-white">{challenge.debateTotalRounds}</span>
-                            {challenge.debateSpeedMode && (
-                              <span className="text-primary ml-2">(Speed Mode: 1 hour per round)</span>
-                            )}
-                          </p>
-                        )}
-                        {challenge.debateAllowCopyPaste === false && (
-                          <p className="text-text-secondary text-sm">
-                            <span className="text-yellow-400">⚠️ Copy-paste disabled</span>
-                          </p>
-                        )}
-                      </div>
-                      
-                      {/* Challenge Details */}
-                      <div className="mt-3 pt-3 border-t border-bg-tertiary">
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-white font-medium">
+                          Challenger:{' '}
+                          <Link
+                            href={`/profile/${challenge.challenger.username}`}
+                            className="text-primary hover:underline"
+                          >
+                            {challenge.challenger.username}
+                          </Link>
+                        </p>
                         <p className="text-text-secondary text-sm">
                           ELO: {challenge.challenger.eloRating} | Entry Fee: {challenge.entryFee}{' '}
                           coins | Reward: {challenge.coinReward} coins
@@ -518,6 +453,54 @@ export default function BeltDetailsPage() {
                         </p>
                       </div>
                     </div>
+                    
+                    {/* Debate Details */}
+                    {challenge.debateTopic && (
+                      <div className="mt-4 pt-4 border-t border-border">
+                        <h4 className="text-white font-semibold mb-2">Debate Details</h4>
+                        <p className="text-white mb-2">
+                          <span className="font-medium">Topic:</span> {challenge.debateTopic}
+                        </p>
+                        {challenge.debateDescription && (
+                          <p className="text-text-secondary text-sm mb-2">
+                            {challenge.debateDescription}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-3 text-sm">
+                          {challenge.debateCategory && (
+                            <span className="text-text-secondary">
+                              <span className="font-medium">Category:</span> {challenge.debateCategory}
+                            </span>
+                          )}
+                          {challenge.debateChallengerPosition && (
+                            <span className="text-text-secondary">
+                              <span className="font-medium">Challenger Position:</span>{' '}
+                              {challenge.debateChallengerPosition}
+                            </span>
+                          )}
+                          {challenge.debateTotalRounds && (
+                            <span className="text-text-secondary">
+                              <span className="font-medium">Rounds:</span> {challenge.debateTotalRounds}
+                            </span>
+                          )}
+                          {challenge.debateSpeedMode && (
+                            <span className="text-text-secondary">
+                              <span className="font-medium">Speed Mode:</span> Yes
+                            </span>
+                          )}
+                          {challenge.debateRoundDuration && (
+                            <span className="text-text-secondary">
+                              <span className="font-medium">Round Duration:</span>{' '}
+                              {challenge.debateRoundDuration === 300000
+                                ? '5 minutes'
+                                : challenge.debateRoundDuration === 86400000
+                                ? '24 hours'
+                                : `${Math.round(challenge.debateRoundDuration / 60000)} minutes`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -555,64 +538,13 @@ export default function BeltDetailsPage() {
                   This belt is inactive. You can challenge for it now!
                 </p>
               </div>
-              <Button onClick={handleCreateChallenge} disabled={isCreatingChallenge || challengeModalOpen}>
+              <Button onClick={handleCreateChallenge} disabled={isCreatingChallenge}>
                 {isCreatingChallenge ? 'Creating...' : 'Challenge for Belt'}
               </Button>
             </div>
           </CardBody>
         </Card>
       )}
-
-      {/* Challenge Modal */}
-      {challengeModalOpen && belt && belt.currentHolder && (
-        <CreateDebateModal
-          isOpen={challengeModalOpen}
-          onClose={() => setChallengeModalOpen(false)}
-          onSuccess={handleChallengeModalSuccess}
-          beltChallengeMode={true}
-          beltId={belt.id}
-          opponentId={belt.currentHolder.id}
-          opponentUsername={belt.currentHolder.username}
-          beltName={belt.name}
-        />
-      )}
-
-      {/* Decline Challenge Confirmation Modal */}
-      <Modal
-        isOpen={declineModalOpen}
-        onClose={() => {
-          if (!isDeclining) {
-            setDeclineModalOpen(false)
-            setChallengeToDecline(null)
-          }
-        }}
-        title="Decline Challenge"
-      >
-        <div className="space-y-4">
-          <p className="text-text-secondary">
-            Are you sure you want to decline this challenge? This action cannot be undone.
-          </p>
-          <div className="flex justify-end gap-3 pt-4 border-t border-bg-tertiary">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setDeclineModalOpen(false)
-                setChallengeToDecline(null)
-              }}
-              disabled={isDeclining}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              onClick={confirmDeclineChallenge}
-              isLoading={isDeclining}
-            >
-              Decline Challenge
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Tournament Staking (for belt holder) */}
       {canStake && (
@@ -674,6 +606,7 @@ export default function BeltDetailsPage() {
           </CardBody>
         </Card>
       )}
+      </div>
     </div>
   )
 }

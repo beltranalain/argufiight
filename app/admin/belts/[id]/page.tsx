@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
+import { Avatar } from '@/components/ui/Avatar'
 import { EditBeltModal } from '@/components/admin/EditBeltModal'
 import { ViewBeltModal } from '@/components/admin/ViewBeltModal'
 
@@ -73,13 +74,6 @@ interface BeltDetails {
     coinReward: number
     expiresAt: string
     createdAt: string
-    debateTopic: string | null
-    debateDescription: string | null
-    debateCategory: string | null
-    debateChallengerPosition: string | null
-    debateTotalRounds: number | null
-    debateSpeedMode: boolean | null
-    debateAllowCopyPaste: boolean | null
   }>
 }
 
@@ -97,10 +91,6 @@ export default function BeltDetailsPage() {
   // Define formatBeltStatus at the top to ensure it's always available
   const formatBeltStatus = (status: string) => {
     return status.replace(/_/g, ' ')
-  }
-
-  const formatBeltReason = (reason: string) => {
-    return reason.replace(/_/g, ' ')
   }
 
   useEffect(() => {
@@ -158,7 +148,6 @@ export default function BeltDetailsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           toUserId: transferUserId,
-          toUsername: transferUserId, // Support both ID and username
           reason: 'ADMIN_TRANSFER',
         }),
       })
@@ -170,12 +159,7 @@ export default function BeltDetailsPage() {
           description: 'Belt transferred successfully',
         })
         setTransferUserId('')
-        // Refresh belt details
-        await fetchBeltDetails()
-        // Trigger a custom event to notify the list page to refresh
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('beltUpdated'))
-        }
+        fetchBeltDetails()
       } else {
         const error = await response.json()
         showToast({
@@ -329,60 +313,52 @@ export default function BeltDetailsPage() {
           </CardHeader>
           <CardBody>
             {belt.currentHolder ? (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  {belt.currentHolder.avatarUrl ? (
-                    <img
-                      src={belt.currentHolder.avatarUrl}
-                      alt={belt.currentHolder.username}
-                      className="w-16 h-16 rounded-full border-2 border-primary object-cover"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-full border-2 border-primary bg-bg-secondary flex items-center justify-center text-2xl font-bold text-primary">
-                      {belt.currentHolder.username.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <Avatar
+                    src={belt.currentHolder.avatarUrl}
+                    username={belt.currentHolder.username}
+                    size="md"
+                  />
                   <div>
-                    <p>
-                      <span className="text-white">User: </span>
-                      <a
-                        href={`/admin/users?userId=${belt.currentHolder.id}`}
-                        className="text-primary hover:underline font-medium"
-                      >
-                        {belt.currentHolder.username}
-                      </a>
-                    </p>
+                    <p className="text-text-secondary text-sm">User</p>
+                    <a
+                      href={`/admin/users?userId=${belt.currentHolder.id}`}
+                      className="text-primary hover:underline font-medium text-lg"
+                    >
+                      {belt.currentHolder.username}
+                    </a>
                   </div>
                 </div>
-                <div className="space-y-2">
-                <p>
-                  <span className="text-white">ELO: </span>
-                  <span className="text-white">{belt.currentHolder.eloRating}</span>
-                </p>
-                <p>
-                  <span className="text-white">Total Belt Wins: </span>
-                  <span className="text-white">{belt.currentHolder.totalBeltWins}</span>
-                </p>
-                <p>
-                  <span className="text-white">Total Defenses: </span>
-                  <span className="text-white">{belt.currentHolder.totalBeltDefenses}</span>
-                </p>
-                <p>
-                  <span className="text-white">Acquired: </span>
-                  <span className="text-white">
-                    {belt.acquiredAt
-                      ? new Date(belt.acquiredAt).toLocaleString()
-                      : 'N/A'}
-                  </span>
-                </p>
-                {belt.gracePeriodEnds && (
+                <div className="space-y-2 pt-2 border-t border-border">
                   <p>
-                    <span className="text-white">Grace Period Ends: </span>
-                    <span className="text-white">
-                      {new Date(belt.gracePeriodEnds).toLocaleString()}
+                    <span className="text-text-secondary">ELO: </span>
+                    <span className="text-white font-medium">{belt.currentHolder.eloRating}</span>
+                  </p>
+                  <p>
+                    <span className="text-text-secondary">Total Belt Wins: </span>
+                    <span className="text-white font-medium">{belt.currentHolder.totalBeltWins}</span>
+                  </p>
+                  <p>
+                    <span className="text-text-secondary">Total Defenses: </span>
+                    <span className="text-white font-medium">{belt.currentHolder.totalBeltDefenses}</span>
+                  </p>
+                  <p>
+                    <span className="text-text-secondary">Acquired: </span>
+                    <span className="text-white font-medium">
+                      {belt.acquiredAt
+                        ? new Date(belt.acquiredAt).toLocaleString()
+                        : 'N/A'}
                     </span>
                   </p>
-                )}
+                  {belt.gracePeriodEnds && (
+                    <p>
+                      <span className="text-text-secondary">Grace Period Ends: </span>
+                      <span className="text-white font-medium">
+                        {new Date(belt.gracePeriodEnds).toLocaleString()}
+                      </span>
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (
@@ -453,14 +429,17 @@ export default function BeltDetailsPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-white mb-2">
-                Transfer to User ID or Username
+                Transfer to User
               </label>
               <Input
                 type="text"
                 value={transferUserId}
                 onChange={(e) => setTransferUserId(e.target.value)}
-                placeholder="Enter user ID or username (e.g., RiceSzn)"
+                placeholder="Enter user ID or username (e.g., kubancane)"
               />
+              <p className="text-text-secondary text-xs mt-1">
+                You can enter either a user ID (UUID) or username
+              </p>
             </div>
             <Button
               onClick={handleTransfer}
@@ -488,8 +467,8 @@ export default function BeltDetailsPage() {
                   className="bg-bg-tertiary p-4 rounded-lg border border-border"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-white font-medium mb-2">
+                    <div>
+                      <p className="text-white font-medium">
                         Challenger:{' '}
                         <a
                           href={`/admin/users?userId=${challenge.challenger.id}`}
@@ -498,60 +477,12 @@ export default function BeltDetailsPage() {
                           {challenge.challenger.username}
                         </a>
                       </p>
-                      
-                      {/* Debate Topic - Most Important */}
-                      {challenge.debateTopic && (
-                        <div className="mb-3 p-3 bg-bg-secondary rounded-lg border border-border">
-                          <p className="text-text-secondary text-xs uppercase tracking-wide mb-1">
-                            Debate Topic
-                          </p>
-                          <p className="text-white font-semibold text-base">
-                            {challenge.debateTopic}
-                          </p>
-                          {challenge.debateDescription && (
-                            <p className="text-text-secondary text-sm mt-2">
-                              {challenge.debateDescription}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* Debate Settings */}
-                      <div className="mb-2 space-y-1">
-                        {challenge.debateCategory && (
-                          <p className="text-white text-sm">
-                            Category: <span className="text-primary">{challenge.debateCategory}</span>
-                          </p>
-                        )}
-                        {challenge.debateChallengerPosition && (
-                          <p className="text-white text-sm">
-                            Challenger Position: <span className="text-primary">{challenge.debateChallengerPosition}</span>
-                          </p>
-                        )}
-                        {challenge.debateTotalRounds && (
-                          <p className="text-white text-sm">
-                            Rounds: <span className="text-primary">{challenge.debateTotalRounds}</span>
-                            {challenge.debateSpeedMode && (
-                              <span className="text-yellow-400 ml-2">(Speed Mode)</span>
-                            )}
-                          </p>
-                        )}
-                        {challenge.debateAllowCopyPaste === false && (
-                          <p className="text-white text-sm">
-                            <span className="text-yellow-400">⚠️ Copy-paste disabled</span>
-                          </p>
-                        )}
-                      </div>
-                      
-                      {/* Challenge Details */}
-                      <div className="mt-3 pt-3 border-t border-bg-tertiary">
-                        <p className="text-white text-sm">
-                          ELO: {challenge.challenger.eloRating} | Entry Fee: {challenge.entryFee}{' '}
-                          coins | Expires: {new Date(challenge.expiresAt).toLocaleString()}
-                        </p>
-                      </div>
+                      <p className="text-white text-sm">
+                        ELO: {challenge.challenger.eloRating} | Entry Fee: {challenge.entryFee}{' '}
+                        coins | Expires: {new Date(challenge.expiresAt).toLocaleString()}
+                      </p>
                     </div>
-                    <Badge className="ml-4">{challenge.status}</Badge>
+                    <Badge>{challenge.status}</Badge>
                   </div>
                 </div>
               ))}
@@ -566,7 +497,7 @@ export default function BeltDetailsPage() {
           <h2 className="text-xl font-bold text-white">Transfer History</h2>
         </CardHeader>
         <CardBody>
-          {belt.history.length === 0 ? (
+          {!belt.history || (Array.isArray(belt.history) && belt.history.length === 0) ? (
             <p className="text-white">No transfer history</p>
           ) : (
             <div className="space-y-4">
@@ -578,7 +509,7 @@ export default function BeltDetailsPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <Badge className="bg-gray-600 !text-white">{formatBeltReason(entry.reason)}</Badge>
+                        <Badge className="bg-gray-600 !text-white">{entry.reason}</Badge>
                         <span className="text-white text-sm">
                           {new Date(entry.transferredAt).toLocaleString()}
                         </span>

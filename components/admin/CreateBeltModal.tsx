@@ -178,12 +178,10 @@ export function CreateBeltModal({ isOpen, onClose, onSuccess }: CreateBeltModalP
       })
 
       if (response.ok) {
-        const data = await response.json()
-        console.log('[CreateBeltModal] Belt created successfully:', data.belt)
         showToast({
           type: 'success',
           title: 'Success',
-          description: `Belt "${data.belt?.name || 'created'}" created successfully`,
+          description: 'Belt created successfully',
         })
         // Reset form
         setFormData({
@@ -199,12 +197,11 @@ export function CreateBeltModal({ isOpen, onClose, onSuccess }: CreateBeltModalP
         onSuccess()
         onClose()
       } else {
-        const error = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }))
-        console.error('[CreateBeltModal] Failed to create belt:', response.status, error)
+        const error = await response.json()
         showToast({
           type: 'error',
           title: 'Error',
-          description: error.error || `Failed to create belt (${response.status})`,
+          description: error.error || 'Failed to create belt',
         })
       }
     } catch (error) {

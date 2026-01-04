@@ -28,6 +28,7 @@ async function main() {
         maxDeclines: 2,
         challengeCooldownDays: 7,
         challengeExpiryDays: 3,
+        freeChallengesPerWeek: 1,
         
         // ELO matching (anti-abuse)
         eloRange: 200,

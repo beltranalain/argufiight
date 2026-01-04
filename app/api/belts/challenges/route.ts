@@ -14,14 +14,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Allow users to view their own challenges regardless of feature flag
-    // The flag should only control creating new challenges, not viewing existing ones
+    // Check feature flag
+    if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
+      return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
+    }
 
-    // Get challenges where user is the challenger
+    // Get challenges where user is the challenger (only PENDING, exclude COMPLETED and DECLINED)
     const challengesMade = await prisma.beltChallenge.findMany({
       where: {
         challengerId: session.userId,
-        status: 'PENDING',
+        status: {
+          in: ['PENDING'], // Only PENDING, exclude ACCEPTED, COMPLETED, DECLINED
+        },
       },
       include: {
         belt: {
@@ -48,6 +52,12 @@ export async function GET(request: NextRequest) {
             avatarUrl: true,
           },
         },
+        debate: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -55,10 +65,13 @@ export async function GET(request: NextRequest) {
     })
 
     // Get challenges to user's belts (where user is the belt holder)
+    // Include both PENDING and ACCEPTED challenges (exclude COMPLETED and DECLINED)
     const challengesToMyBelts = await prisma.beltChallenge.findMany({
       where: {
         beltHolderId: session.userId,
-        status: 'PENDING',
+        status: {
+          in: ['PENDING', 'ACCEPTED'], // Exclude COMPLETED and DECLINED
+        },
       },
       include: {
         belt: {
@@ -79,15 +92,37 @@ export async function GET(request: NextRequest) {
             eloRating: true,
           },
         },
+        debate: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
       },
     })
 
+    // Filter out COMPLETED challenges and challenges with completed debates
+    const filteredChallengesMade = challengesMade.filter(
+      (challenge) => 
+        challenge.status !== 'COMPLETED' && 
+        challenge.status !== 'DECLINED' &&
+        challenge.debate?.status !== 'VERDICT_READY' &&
+        challenge.debate?.status !== 'COMPLETED'
+    )
+    const filteredChallengesToMyBelts = challengesToMyBelts.filter(
+      (challenge) => 
+        challenge.status !== 'COMPLETED' && 
+        challenge.status !== 'DECLINED' &&
+        challenge.debate?.status !== 'VERDICT_READY' &&
+        challenge.debate?.status !== 'COMPLETED'
+    )
+
     return NextResponse.json({
-      challengesMade,
-      challengesToMyBelts,
+      challengesMade: filteredChallengesMade,
+      challengesToMyBelts: filteredChallengesToMyBelts,
     })
   } catch (error: any) {
     console.error('[API] Error fetching belt challenges:', error)

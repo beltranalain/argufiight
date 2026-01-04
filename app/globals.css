@@ -195,3 +195,45 @@ span.inline-flex.items-center.bg-gray-600 {
     background-position: 0% 50%;
   }
 }
+
+/* Orange flash animation for belt challenges and your turn */
+@keyframes slow-blink-orange {
+  0%, 100% {
+    background-color: var(--color-bg-primary);
+  }
+  50% {
+    background-color: rgba(255, 107, 53, 0.1);
+  }
+}
+
+.slow-blink-orange {
+  animation: slow-blink-orange 2s ease-in-out infinite;
+}
+
+@keyframes blink-orange-border {
+  0%, 100% {
+    border-color: rgba(255, 107, 53, 0.5);
+    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.4);
+  }
+  50% {
+    border-color: rgba(255, 107, 53, 1);
+    box-shadow: 0 0 20px 5px rgba(255, 107, 53, 0.6);
+  }
+}
+
+.blink-orange-border {
+  animation: blink-orange-border 1.5s ease-in-out infinite;
+}
+
+@keyframes blink-orange-bg {
+  0%, 100% {
+    background-color: rgba(255, 107, 53, 0.1);
+  }
+  50% {
+    background-color: rgba(255, 107, 53, 0.3);
+  }
+}
+
+.blink-orange-bg {
+  animation: blink-orange-bg 1.5s ease-in-out infinite;
+}

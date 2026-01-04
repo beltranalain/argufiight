@@ -18,10 +18,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Temporarily enable belt system for challenge operations
-    const originalFlag = process.env.ENABLE_BELT_SYSTEM
-    if (originalFlag !== 'true') {
-      process.env.ENABLE_BELT_SYSTEM = 'true'
+    // Check feature flag
+    if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
+      return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
     }
 
     const { id } = await params
@@ -45,28 +44,19 @@ export async function POST(
       )
     }
 
-    let result
-    try {
-      result = await acceptBeltChallenge(id)
-    } finally {
-      // Restore original flag value
-      if (originalFlag !== 'true') {
-        process.env.ENABLE_BELT_SYSTEM = originalFlag || ''
-      }
-    }
+    const result = await acceptBeltChallenge(id)
 
+    // acceptBeltChallenge returns { challenge, debate }
     return NextResponse.json({
       challenge: result.challenge,
       debate: result.debate,
       message: 'Challenge accepted. Debate created successfully.',
     })
   } catch (error: any) {
-    console.error('[API /belts/challenge/[id]/accept] Error accepting challenge:', error)
-    console.error('[API /belts/challenge/[id]/accept] Error stack:', error.stack)
-    const errorMessage = error?.message || error?.toString() || 'Failed to accept challenge'
+    console.error('[API] Error accepting challenge:', error)
     return NextResponse.json(
-      { error: errorMessage },
-      { status: error?.statusCode || 500 }
+      { error: error.message || 'Failed to accept challenge' },
+      { status: 500 }
     )
   }
 }

@@ -14,8 +14,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Allow users to view their own belts regardless of feature flag
-    // The flag should only control new operations, not viewing existing data
+    // Check feature flag
+    if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
+      return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
+    }
 
     const beltRoom = await getUserBeltRoom(session.userId)
     

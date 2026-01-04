@@ -91,35 +91,33 @@ export function DebateCard({ debate }: DebateCardProps) {
     >
       <Link
         href={debate.slug ? `/debates/${debate.slug}` : `/debate/${debate.id}`}
-        className="block bg-bg-secondary border border-bg-tertiary rounded-2xl p-6 hover:border-electric-blue hover:shadow-[0_8px_32px_rgba(0,217,255,0.15)] transition-all"
+        className="block bg-bg-secondary border border-bg-tertiary rounded-xl p-5 hover:border-electric-blue hover:shadow-[0_8px_32px_rgba(0,217,255,0.15)] transition-all relative overflow-hidden"
       >
-      {/* Category and Tournament Badges */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
+      {/* Category Badge - Top Right */}
+      <div className="flex items-start justify-between mb-3">
         <Badge 
           variant={debate.category.toLowerCase() as any}
-          size="md"
+          size="sm"
+          className="shrink-0"
         >
           {debate.category}
         </Badge>
-        {debate.tournamentMatch && (
-          <Badge 
-            variant="default"
-            size="md"
-            className="bg-purple-600 text-white border-purple-500"
-          >
-            Tournament: Round {debate.tournamentMatch.round.roundNumber}/{debate.tournamentMatch.tournament.totalRounds}
-          </Badge>
+        {debate.status === 'ACTIVE' && (
+          <div className="flex items-center gap-1.5 px-2 py-0.5 bg-cyber-green/20 border border-cyber-green/30 rounded-full">
+            <span className="w-1.5 h-1.5 bg-cyber-green rounded-full animate-pulse" />
+            <span className="text-cyber-green text-xs font-semibold">LIVE</span>
+          </div>
         )}
       </div>
 
-      {/* Topic */}
-      <h4 className="text-xl font-bold text-white mb-5 group-hover:text-electric-blue transition-colors">
+      {/* Topic - Limited to 2 lines */}
+      <h4 className="text-base font-bold text-white mb-4 line-clamp-2 group-hover:text-electric-blue transition-colors leading-snug">
         {debate.topic}
       </h4>
 
-      {/* Images */}
+      {/* Images - Compact */}
       {debate.images && debate.images.length > 0 && (
-        <div className="mb-5">
+        <div className="mb-4">
           <div className={`grid gap-2 ${
             debate.images.length === 1 ? 'grid-cols-1' :
             debate.images.length === 2 ? 'grid-cols-2' :
@@ -140,53 +138,43 @@ export function DebateCard({ debate }: DebateCardProps) {
         </div>
       )}
 
-      {/* Debaters */}
-      <div className="flex items-center justify-between mb-5">
+      {/* Debaters - Compact Layout (Avatars Only) */}
+      <div className="flex items-center justify-center gap-4 mb-4">
         {/* Challenger */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col items-center gap-1">
           <Avatar 
             src={debate.challenger.avatarUrl}
             username={debate.challenger.username}
             size="md"
           />
-          <div>
-            <p className="font-semibold text-white text-sm">
-              {debate.challenger.username}
-            </p>
-            <p className="text-xs text-text-muted uppercase">
-              {debate.challengerPosition}
-            </p>
-          </div>
+          <p className="text-[10px] text-text-muted uppercase">
+            {debate.challengerPosition}
+          </p>
         </div>
 
-        {/* VS */}
-        <span className="text-xl font-bold text-text-muted">VS</span>
+        {/* VS - Smaller */}
+        <span className="text-sm font-bold text-text-muted">VS</span>
 
         {/* Opponent */}
         {debate.opponent ? (
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="font-semibold text-white text-sm">
-                {debate.opponent.username}
-              </p>
-              <p className="text-xs text-text-muted uppercase">
-                {debate.opponentPosition}
-              </p>
-            </div>
+          <div className="flex flex-col items-center gap-1">
             <Avatar 
               src={debate.opponent.avatarUrl}
               username={debate.opponent.username}
               size="md"
             />
+            <p className="text-[10px] text-text-muted uppercase">
+              {debate.opponentPosition}
+            </p>
           </div>
         ) : (
-          <div className="text-text-muted text-sm">Waiting...</div>
+          <div className="text-text-muted text-xs">Waiting...</div>
         )}
       </div>
 
-      {/* Progress */}
-      <div className="mb-5">
-        <div className="flex justify-between text-sm mb-2">
+      {/* Progress - Compact */}
+      <div className="mb-4">
+        <div className="flex justify-between items-center text-xs mb-1.5">
           <span className="text-text-secondary">
             Round {displayRound}/{displayTotalRounds}
           </span>
@@ -202,26 +190,18 @@ export function DebateCard({ debate }: DebateCardProps) {
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-4 text-text-secondary">
-          <span className="flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-            {debate.spectatorCount} watching
-          </span>
-          {debate.status === 'ACTIVE' && (
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-cyber-green rounded-full animate-pulse" />
-              <span className="text-cyber-green font-semibold">LIVE</span>
-            </div>
-          )}
-        </div>
-        <span className="text-electric-blue font-semibold flex items-center gap-1">
+      {/* Footer - Compact */}
+      <div className="flex items-center justify-between text-xs pt-3 border-t border-bg-tertiary">
+        <span className="flex items-center gap-1.5 text-text-secondary">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          {debate.spectatorCount}
+        </span>
+        <span className="text-electric-blue font-semibold flex items-center gap-1 hover:text-electric-blue/80 transition-colors">
           Watch
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </span>

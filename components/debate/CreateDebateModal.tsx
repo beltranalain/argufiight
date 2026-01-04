@@ -65,26 +65,12 @@ export function CreateDebateModal({
   opponentUsername,
   beltName
 }: CreateDebateModalProps) {
-  console.log('[CreateDebateModal] Component rendered with props:', {
-    isOpen,
-    beltChallengeMode,
-    beltId,
-    opponentId,
-    opponentUsername,
-    beltName,
-  })
-  
-  // Force re-render when isOpen changes
-  useEffect(() => {
-    if (isOpen) {
-      console.log('[CreateDebateModal] Modal opened, isOpen:', isOpen)
-    }
-  }, [isOpen])
+  console.log('[CreateDebateModal] Rendered with isOpen:', isOpen, 'beltChallengeMode:', beltChallengeMode, 'beltId:', beltId)
   
   const [topic, setTopic] = useState('')
   const [description, setDescription] = useState('')
   const [categories, setCategories] = useState<Array<{ value: string; label: string }>>([])
-  const [category, setCategory] = useState<string>('TECH')
+  const [category, setCategory] = useState<string>(initialCategory || 'TECH')
   const [position, setPosition] = useState<PositionValue>('FOR')
   const [totalRounds, setTotalRounds] = useState(5)
   const [speedMode, setSpeedMode] = useState(false)
@@ -203,7 +189,10 @@ export function CreateDebateModal({
         // For belt challenges, don't reset topic - let user fill it in
         // Only reset if it was previously closed
       }
-      if (initialCategory && categories.some(cat => cat.value === initialCategory)) {
+      // In belt challenge mode, always use the belt's category (don't wait for categories to load)
+      if (beltChallengeMode && initialCategory) {
+        setCategory(initialCategory)
+      } else if (initialCategory && categories.length > 0 && categories.some(cat => cat.value === initialCategory)) {
         setCategory(initialCategory)
       } else if (categories.length > 0) {
         setCategory(categories[0].value)
@@ -226,7 +215,7 @@ export function CreateDebateModal({
       setSelectedUsers([])
       setImages([])
     }
-  }, [isOpen, initialTopic, initialCategory, categories])
+  }, [isOpen, initialTopic, initialCategory, categories, beltChallengeMode])
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -318,18 +307,9 @@ export function CreateDebateModal({
     try {
       // Belt challenge mode: create challenge with debate details
       if (beltChallengeMode) {
-        console.log('[CreateDebateModal] ===== BELT CHALLENGE MODE =====')
-        console.log('[CreateDebateModal] beltId:', beltId)
-        console.log('[CreateDebateModal] opponentId:', opponentId)
-        console.log('[CreateDebateModal] opponentUsername:', opponentUsername)
-        console.log('[CreateDebateModal] beltName:', beltName)
-        console.log('[CreateDebateModal] Topic:', topic)
-        console.log('[CreateDebateModal] Topic length:', topic?.length)
-        
         // Double-check topic before sending
         const finalTopic = topic.trim()
         if (!finalTopic) {
-          console.error('[CreateDebateModal] Topic is empty!')
           showToast({
             title: 'Error',
             description: 'Please enter a debate topic',
@@ -360,7 +340,8 @@ export function CreateDebateModal({
         console.log('[CreateDebateModal] Topic state value:', topic)
         console.log('[CreateDebateModal] Topic trimmed:', finalTopic)
         console.log('[CreateDebateModal] Topic length:', finalTopic.length)
-        console.log('[CreateDebateModal] Full requestBody:', JSON.stringify(requestBody, null, 2))
+        console.log('[CreateDebateModal] Full requestBody:', requestBody)
+        console.log('[CreateDebateModal] RequestBody.topic:', requestBody.topic)
         
         const jsonBody = JSON.stringify(requestBody)
         console.log('[CreateDebateModal] JSON body:', jsonBody)
@@ -369,41 +350,27 @@ export function CreateDebateModal({
         const parsed = JSON.parse(jsonBody)
         console.log('[CreateDebateModal] Parsed topic:', parsed.topic, 'Type:', typeof parsed.topic)
 
-        console.log('[CreateDebateModal] Sending POST to /api/belts/challenge')
         const response = await fetch('/api/belts/challenge', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          credentials: 'include',
           body: jsonBody,
         })
-        
-        console.log('[CreateDebateModal] Response status:', response.status, response.statusText)
 
         if (!response.ok) {
           let errorMessage = 'Failed to create belt challenge'
-          let errorDetails = ''
           try {
             const error = await response.json()
             console.error('[CreateDebateModal] API error response:', JSON.stringify(error, null, 2))
             console.error('[CreateDebateModal] Error object keys:', Object.keys(error))
             errorMessage = error.error || error.message || `Server error: ${response.status} ${response.statusText}`
-            errorDetails = error.details || error.reason || ''
           } catch (parseError) {
             // If response is not JSON, get text
             const text = await response.text()
             console.error('[CreateDebateModal] API error (non-JSON):', text)
             errorMessage = text || `Server error: ${response.status} ${response.statusText}`
           }
-          
-          // Show detailed error notification
-          showToast({
-            title: 'Challenge Failed',
-            description: errorMessage + (errorDetails ? `\n${errorDetails}` : ''),
-            type: 'error',
-          })
-          
           throw new Error(errorMessage)
         }
 
@@ -539,15 +506,11 @@ export function CreateDebateModal({
     }
   }
 
-  // Force boolean conversion and ensure modal receives correct prop
-  const modalIsOpen = Boolean(isOpen)
-  console.log('[CreateDebateModal] Rendering Modal with isOpen:', modalIsOpen, 'beltChallengeMode:', beltChallengeMode)
-  
   return (
     <Modal 
-      isOpen={modalIsOpen} 
+      isOpen={isOpen} 
       onClose={onClose} 
-      title={beltChallengeMode ? `Challenge for ${beltName || 'Belt'}` : "Create Debate Challenge"}
+      title={beltChallengeMode ? `Challenge for ${beltName}` : "Create Debate Challenge"}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Belt Challenge Info */}
@@ -705,34 +668,36 @@ export function CreateDebateModal({
           </div>
         </div>
 
-        {/* Category */}
-        <div>
-          <label className="block text-sm font-semibold text-text-primary mb-3">
-            Category
-          </label>
-          {isLoadingCategories ? (
-            <div className="flex items-center justify-center py-4">
-              <div className="text-text-secondary text-sm">Loading categories...</div>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat.value}
-                  type="button"
-                  onClick={() => setCategory(cat.value)}
-                  className={`px-4 py-2 rounded-lg border-2 font-semibold text-sm transition-all ${
-                    category === cat.value
-                      ? 'border-electric-blue bg-electric-blue/10 text-electric-blue'
-                      : 'border-bg-tertiary text-text-secondary hover:border-text-secondary'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Category - Hidden in belt challenge mode */}
+        {!beltChallengeMode && (
+          <div>
+            <label className="block text-sm font-semibold text-text-primary mb-3">
+              Category
+            </label>
+            {isLoadingCategories ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="text-text-secondary text-sm">Loading categories...</div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.value}
+                    type="button"
+                    onClick={() => setCategory(cat.value)}
+                    className={`px-4 py-2 rounded-lg border-2 font-semibold text-sm transition-all ${
+                      category === cat.value
+                        ? 'border-electric-blue bg-electric-blue/10 text-electric-blue'
+                        : 'border-bg-tertiary text-text-secondary hover:border-text-secondary'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Position */}
         <div>

@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { Tabs } from '@/components/ui/Tabs'
+import { Button } from '@/components/ui/Button'
 import Link from 'next/link'
 
 interface ELOLeaderboardEntry {
@@ -40,18 +41,36 @@ interface TournamentLeaderboardEntry {
   tournamentScore: number
 }
 
+interface PaginationInfo {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
 export default function LeaderboardPage() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<'elo' | 'tournaments'>('elo')
   const [eloLeaderboard, setEloLeaderboard] = useState<ELOLeaderboardEntry[]>([])
   const [tournamentLeaderboard, setTournamentLeaderboard] = useState<TournamentLeaderboardEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [eloPagination, setEloPagination] = useState<PaginationInfo>({ page: 1, limit: 25, total: 0, totalPages: 0 })
+  const [tournamentPagination, setTournamentPagination] = useState<PaginationInfo>({ page: 1, limit: 25, total: 0, totalPages: 0 })
 
   useEffect(() => {
     if (activeTab === 'elo') {
-      fetchELOLeaderboard()
+      fetchELOLeaderboard(eloPagination.page)
     } else {
-      fetchTournamentLeaderboard()
+      fetchTournamentLeaderboard(tournamentPagination.page)
+    }
+  }, [activeTab])
+
+  // Reset to page 1 when switching tabs
+  useEffect(() => {
+    if (activeTab === 'elo') {
+      setEloPagination(prev => ({ ...prev, page: 1 }))
+    } else {
+      setTournamentPagination(prev => ({ ...prev, page: 1 }))
     }
   }, [activeTab])
 
@@ -102,12 +121,23 @@ export default function LeaderboardPage() {
     }
   }, [activeTab, eloLeaderboard, tournamentLeaderboard])
 
-  const fetchELOLeaderboard = async () => {
+  const fetchELOLeaderboard = async (page: number = 1) => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/leaderboard?limit=100')
+      // Add cache-busting to ensure fresh data
+      const response = await fetch(`/api/leaderboard?page=${page}&limit=25&t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      })
       if (response.ok) {
         const data = await response.json()
+        console.log('[Leaderboard] API response:', {
+          leaderboardLength: data.leaderboard?.length || 0,
+          total: data.pagination?.total || 0,
+          firstUser: data.leaderboard?.[0]?.username || 'none',
+        })
         // Ensure leaderboard is an array before setting
         if (Array.isArray(data.leaderboard)) {
           setEloLeaderboard(data.leaderboard)
@@ -116,7 +146,18 @@ export default function LeaderboardPage() {
         } else {
           setEloLeaderboard([])
         }
+        // Update pagination info
+        if (data.pagination) {
+          setEloPagination({
+            page: data.pagination.page || page,
+            limit: data.pagination.limit || 25,
+            total: data.pagination.total || 0,
+            totalPages: data.pagination.totalPages || 0,
+          })
+        }
       } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('[Leaderboard] API error:', response.status, errorData)
         setEloLeaderboard([])
       }
     } catch (error) {
@@ -127,16 +168,25 @@ export default function LeaderboardPage() {
     }
   }
 
-  const fetchTournamentLeaderboard = async () => {
+  const fetchTournamentLeaderboard = async (page: number = 1) => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/leaderboard/tournaments?limit=100')
+      const response = await fetch(`/api/leaderboard/tournaments?page=${page}&limit=25`)
       if (response.ok) {
         const data = await response.json()
         if (Array.isArray(data.leaderboard)) {
           setTournamentLeaderboard(data.leaderboard)
         } else {
           setTournamentLeaderboard([])
+        }
+        // Update pagination info
+        if (data.pagination) {
+          setTournamentPagination({
+            page: data.pagination.page || page,
+            limit: data.pagination.limit || 25,
+            total: data.pagination.total || 0,
+            totalPages: data.pagination.totalPages || 0,
+          })
         }
       } else {
         setTournamentLeaderboard([])
@@ -305,6 +355,96 @@ export default function LeaderboardPage() {
                     )
                   })}
                 </div>
+                
+                {/* Pagination Controls */}
+                {(() => {
+                  const pagination = activeTab === 'elo' ? eloPagination : tournamentPagination
+                  if (pagination.totalPages <= 1) return null
+                  
+                  return (
+                    <div className="flex items-center justify-between mt-6 pt-6 border-t border-bg-tertiary">
+                      <div className="text-sm text-text-secondary">
+                        Showing {((pagination.page - 1) * pagination.limit) + 1}-
+                        {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            if (activeTab === 'elo') {
+                              const newPage = eloPagination.page - 1
+                              setEloPagination(prev => ({ ...prev, page: newPage }))
+                              fetchELOLeaderboard(newPage)
+                            } else {
+                              const newPage = tournamentPagination.page - 1
+                              setTournamentPagination(prev => ({ ...prev, page: newPage }))
+                              fetchTournamentLeaderboard(newPage)
+                            }
+                          }}
+                          disabled={pagination.page === 1 || isLoading}
+                        >
+                          Previous
+                        </Button>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: Math.min(pagination.totalPages, 7) }, (_, i) => {
+                            let pageNum: number
+                            if (pagination.totalPages <= 7) {
+                              pageNum = i + 1
+                            } else if (pagination.page <= 4) {
+                              pageNum = i + 1
+                            } else if (pagination.page >= pagination.totalPages - 3) {
+                              pageNum = pagination.totalPages - 6 + i
+                            } else {
+                              pageNum = pagination.page - 3 + i
+                            }
+                            
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => {
+                                  if (activeTab === 'elo') {
+                                    setEloPagination(prev => ({ ...prev, page: pageNum }))
+                                    fetchELOLeaderboard(pageNum)
+                                  } else {
+                                    setTournamentPagination(prev => ({ ...prev, page: pageNum }))
+                                    fetchTournamentLeaderboard(pageNum)
+                                  }
+                                }}
+                                disabled={isLoading}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                  pageNum === pagination.page
+                                    ? 'bg-electric-blue text-black'
+                                    : 'bg-bg-secondary text-text-primary hover:bg-bg-tertiary'
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                              >
+                                {pageNum}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            if (activeTab === 'elo') {
+                              const newPage = eloPagination.page + 1
+                              setEloPagination(prev => ({ ...prev, page: newPage }))
+                              fetchELOLeaderboard(newPage)
+                            } else {
+                              const newPage = tournamentPagination.page + 1
+                              setTournamentPagination(prev => ({ ...prev, page: newPage }))
+                              fetchTournamentLeaderboard(newPage)
+                            }
+                          }}
+                          disabled={pagination.page >= pagination.totalPages || isLoading}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })()}
               </CardBody>
             </Card>
           )}

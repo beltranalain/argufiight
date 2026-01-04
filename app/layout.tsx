@@ -4,6 +4,8 @@ import './globals.css'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ThemeProvider } from '@/lib/contexts/ThemeContext'
+import { ChallengeProvider } from '@/lib/contexts/ChallengeContext'
+import { ChallengeModal } from '@/components/challenge/ChallengeModal'
 import { NotificationTicker } from '@/components/notifications/NotificationTicker'
 import { PushNotificationManager } from '@/components/notifications/PushNotificationManager'
 import { prisma } from '@/lib/db/prisma'
@@ -85,13 +87,16 @@ export default async function RootLayout({
       </head>
       <body suppressHydrationWarning>
         <ThemeProvider>
-          <ErrorBoundary>
-            <ToastProvider>
-              {children}
-              <NotificationTicker />
-              <PushNotificationManager />
-            </ToastProvider>
-          </ErrorBoundary>
+          <ChallengeProvider>
+            <ErrorBoundary>
+              <ToastProvider>
+                {children}
+                <ChallengeModal />
+                <NotificationTicker />
+                <PushNotificationManager />
+              </ToastProvider>
+            </ErrorBoundary>
+          </ChallengeProvider>
         </ThemeProvider>
       </body>
     </html>

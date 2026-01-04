@@ -10,21 +10,14 @@ import { verifySessionWithDb } from '@/lib/auth/session-verify'
 export async function GET(request: NextRequest) {
   try {
     const session = await verifySessionWithDb()
-    if (!session || !session.userId) {
-      console.error('[API /belts] No session or userId')
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check feature flag - but allow admin access even if flag is not set
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { isAdmin: true },
-    })
-
-    console.log('[API /belts] User check:', { userId: session.userId, isAdmin: user?.isAdmin, beltSystemEnabled: process.env.ENABLE_BELT_SYSTEM })
-
-    // Allow all authenticated users to view belts
-    // The flag should only control creating new belts/challenges, not viewing existing ones
+    // Check feature flag
+    if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
+      return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
+    }
 
     const searchParams = request.nextUrl.searchParams
     const status = searchParams.get('status')
@@ -88,7 +81,12 @@ export async function GET(request: NextRequest) {
       take: 100,
     })
 
-    return NextResponse.json({ belts })
+    // Force no cache headers to ensure fresh data
+    const response = NextResponse.json({ belts })
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
+    return response
   } catch (error: any) {
     console.error('[API] Error fetching belts:', error)
     return NextResponse.json(

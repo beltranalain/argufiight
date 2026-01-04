@@ -25,7 +25,12 @@ export function ProfilePanel() {
       setIsLoadingDebates(true)
       // Fetch user's recent debates (all statuses except WAITING)
       // This includes ACTIVE, COMPLETED, VERDICT_READY, APPEALED, etc.
-      const response = await fetch(`/api/debates?userId=${user?.id}`)
+      const response = await fetch(`/api/debates?userId=${user?.id}&t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      })
       if (response.ok) {
         const data = await response.json()
         // Handle paginated response
@@ -40,6 +45,14 @@ export function ProfilePanel() {
             return dateB - dateA
           })
           .slice(0, 3)
+        // Debug: Log debate data to verify winnerId is included
+        console.log('[ProfilePanel] Recent debates data:', filtered.map((d: any) => ({
+          id: d.id,
+          topic: d.topic?.substring(0, 40),
+          status: d.status,
+          winnerId: d.winnerId,
+          hasWinnerId: !!d.winnerId,
+        })))
         setRecentDebates(filtered)
       } else {
         console.error('Failed to fetch recent debates:', response.status, await response.text())
@@ -207,20 +220,23 @@ export function ProfilePanel() {
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        {debate.status === 'VERDICT_READY' ? (
+                        {/* If debate has a winner (result), show Won/Lost/Tie regardless of status */}
+                        {/* Check for winnerId first - if it exists, debate has a result */}
+                        {debate.winnerId ? (
                           isWinner ? (
                             <Badge variant="default" size="sm" className="bg-cyber-green text-black text-xs">
                               Won
-                            </Badge>
-                          ) : isTie ? (
-                            <Badge variant="default" size="sm" className="bg-text-muted text-text-primary text-xs">
-                              Tie
                             </Badge>
                           ) : (
                             <Badge variant="default" size="sm" className="bg-neon-orange text-black text-xs">
                               Lost
                             </Badge>
                           )
+                        ) : debate.status === 'VERDICT_READY' ? (
+                          // VERDICT_READY but no winnerId means it's a tie
+                          <Badge variant="default" size="sm" className="bg-text-muted text-text-primary text-xs">
+                            Tie
+                          </Badge>
                         ) : debate.status === 'ACTIVE' ? (
                           <Badge variant="default" size="sm" className="bg-electric-blue text-white text-xs">
                             Ongoing

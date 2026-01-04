@@ -1,32 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySessionWithDb } from '@/lib/auth/session-verify'
+import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
+import { getUserIdFromSession } from '@/lib/auth/session-utils'
 
 // GET /api/admin/users - Get all users
 export async function GET(request: NextRequest) {
   try {
-    const session = await verifySessionWithDb()
+    const session = await verifySession()
 
-    if (!session || !session.userId) {
-      console.error('[API /admin/users] No session or userId')
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Verify admin
+    const userId = getUserIdFromSession(session)
+    if (!userId) {
+      console.log('[admin/users] No userId from session')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    console.log('[admin/users] Checking admin status for userId:', userId)
     const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { isAdmin: true },
+      where: { id: userId },
+      select: { isAdmin: true, username: true, email: true },
     })
 
-    if (!user?.isAdmin) {
-      console.error('[API /admin/users] User is not admin:', session.userId)
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    console.log('[admin/users] User found:', { 
+      userId, 
+      username: user?.username, 
+      email: user?.email, 
+      isAdmin: user?.isAdmin 
+    })
+
+    if (!user) {
+      console.log('[admin/users] User not found in database for userId:', userId)
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    if (!user.isAdmin) {
+      console.log('[admin/users] User is not an admin, returning 403')
+      console.log('[admin/users] User details:', { username: user.username, email: user.email, isAdmin: user.isAdmin })
+      return NextResponse.json({ 
+        error: 'Forbidden', 
+        details: `User ${user.username} (${user.email}) is not an admin. isAdmin: ${user.isAdmin}` 
+      }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
-    // Increase default limit to ensure all employees are visible
-    const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 200) // Max 200 per page, default 100
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100) // Max 100 per page
     const skip = (page - 1) * limit
     const search = searchParams.get('search')?.trim()
 

@@ -20,6 +20,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { AdDisplay } from '@/components/ads/AdDisplay'
+import { BeltTransferAnimation } from '@/components/debate/BeltTransferAnimation'
 
 interface Statement {
   id: string
@@ -148,6 +149,21 @@ interface Debate {
       roundNumber: number
     }
   } | null
+  hasBeltAtStake?: boolean
+  beltStakeType?: string | null
+  stakedBelt?: {
+    id: string
+    name: string
+    type: string
+    category: string
+    designImageUrl: string | null
+    currentHolderId: string | null
+    currentHolder: {
+      id: string
+      username: string
+      avatarUrl: string | null
+    } | null
+  } | null
 }
 
 export default function DebatePage() {
@@ -158,6 +174,7 @@ export default function DebatePage() {
   const [debate, setDebate] = useState<Debate | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isAccepting, setIsAccepting] = useState(false)
+  const [showBeltTransfer, setShowBeltTransfer] = useState(false)
   const scrollPositionRef = useRef<number>(0)
   const isRestoringScrollRef = useRef<boolean>(false)
 
@@ -277,6 +294,26 @@ export default function DebatePage() {
       if (response.ok) {
         const data = await response.json()
         const previousStatus = debate?.status
+        const previousWinnerId = debate?.winnerId
+        
+        // Debug: Log belt information with full details
+        console.log('[DebatePage] Debate data received:', JSON.stringify({
+          hasBeltAtStake: data.hasBeltAtStake,
+          beltStakeType: data.beltStakeType,
+          stakedBelt: data.stakedBelt,
+          winnerId: data.winnerId,
+          status: data.status,
+        }, null, 2))
+        console.log('[DebatePage] Belt condition check:', {
+          hasBeltAtStake: data.hasBeltAtStake,
+          hasStakedBelt: !!data.stakedBelt,
+          stakedBeltName: data.stakedBelt?.name,
+          stakedBeltImage: data.stakedBelt?.designImageUrl,
+          hasWinnerId: !!data.winnerId,
+          winnerId: data.winnerId,
+          willShowBelt: !!(data.hasBeltAtStake && data.stakedBelt && data.winnerId),
+        })
+        
         setDebate(data)
         
         // If status changed from WAITING to ACTIVE, show a message
@@ -286,6 +323,23 @@ export default function DebatePage() {
             description: 'The debate has started',
             type: 'success',
           })
+        }
+        
+        // Check if belt was transferred (verdict ready, has belt at stake, winner changed)
+        // For belt challenges: belt holder is the opponent (defending), challenger is trying to win it
+        // Transfer occurs when challenger wins (belt goes from opponent to challenger)
+        if (
+          data.status === 'VERDICT_READY' &&
+          data.hasBeltAtStake &&
+          data.stakedBelt &&
+          data.winnerId &&
+          previousWinnerId !== data.winnerId &&
+          data.opponent &&
+          data.beltStakeType === 'CHALLENGE' &&
+          data.winnerId === data.challenger.id
+        ) {
+          // Show belt transfer animation (challenger won, belt transferred from opponent to challenger)
+          setShowBeltTransfer(true)
         }
       } else {
         if (showLoading) {
@@ -416,9 +470,9 @@ export default function DebatePage() {
   )
 
   // Determine if it's user's turn and if they can submit
-  const currentRoundStatements = debate?.statements.filter(
-    s => s.round === debate.currentRound
-  ) || []
+  const currentRoundStatements = (debate?.statements && Array.isArray(debate.statements))
+    ? debate.statements.filter(s => s.round === debate.currentRound)
+    : []
   
   // Debug: Log statement filtering
   if (debate && user) {
@@ -906,6 +960,31 @@ export default function DebatePage() {
             </>
           )}
 
+          {/* Belt Transfer Animation */}
+          {showBeltTransfer &&
+            debate.hasBeltAtStake &&
+            debate.stakedBelt &&
+            debate.winnerId &&
+            debate.opponent &&
+            debate.beltStakeType === 'CHALLENGE' &&
+            debate.winnerId === debate.challenger.id && (
+              <BeltTransferAnimation
+                beltName={debate.stakedBelt.name}
+                beltImageUrl={debate.stakedBelt.designImageUrl}
+                fromUser={{
+                  id: debate.opponent.id,
+                  username: debate.opponent.username,
+                  avatarUrl: debate.opponent.avatarUrl,
+                }}
+                toUser={{
+                  id: debate.challenger.id,
+                  username: debate.challenger.username,
+                  avatarUrl: debate.challenger.avatarUrl,
+                }}
+                onComplete={() => setShowBeltTransfer(false)}
+              />
+            )}
+
           {/* Regular 2-Person Verdict Display */}
           {debate.status === 'VERDICT_READY' && debate.verdicts && debate.verdicts.length > 0 && debate.opponent && debate.challengeType !== 'GROUP' && (
             <>
@@ -928,6 +1007,16 @@ export default function DebatePage() {
                 appealStatus={debate.appealStatus}
                 originalWinnerId={debate.originalWinnerId}
                 appealRejectionReason={debate.appealRejectionReason}
+                beltWon={
+                  debate.hasBeltAtStake && 
+                  debate.stakedBelt && 
+                  debate.winnerId
+                    ? {
+                        name: debate.stakedBelt.name,
+                        imageUrl: debate.stakedBelt.designImageUrl,
+                      }
+                    : null
+                }
               />
               {user && !debate.tournamentMatch && (
                 <>
@@ -1043,6 +1132,16 @@ export default function DebatePage() {
                 appealStatus={debate.appealStatus}
                 originalWinnerId={debate.originalWinnerId}
                 appealRejectionReason={debate.appealRejectionReason}
+                beltWon={
+                  debate.hasBeltAtStake && 
+                  debate.stakedBelt && 
+                  debate.winnerId
+                    ? {
+                        name: debate.stakedBelt.name,
+                        imageUrl: debate.stakedBelt.designImageUrl,
+                      }
+                    : null
+                }
               />
             </>
           )}

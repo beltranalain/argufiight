@@ -27,6 +27,15 @@ export async function GET(request: NextRequest) {
       // Silently fail - this is a background task
     })
 
+    // Also trigger AI response generation in the background (non-blocking)
+    // This ensures AI responds automatically when debates are viewed/refreshed
+    fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/cron/ai-generate-responses`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    }).catch(() => {
+      // Silently fail - this is a background task
+    })
+
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const category = searchParams.get('category')
