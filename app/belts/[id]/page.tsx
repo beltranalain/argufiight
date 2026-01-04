@@ -136,8 +136,6 @@ export default function BeltDetailsPage() {
     }
   }
 
-  const [challengeModalOpen, setChallengeModalOpen] = useState(false)
-
   const handleCreateChallenge = () => {
     if (!user || !belt) return
 
