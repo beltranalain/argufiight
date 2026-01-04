@@ -522,11 +522,20 @@ export function CreateDebateModal({
     }
   }
 
+  console.log('[CreateDebateModal] Render - isOpen:', isOpen, 'beltChallengeMode:', beltChallengeMode, 'beltId:', beltId)
+  
+  if (!isOpen) {
+    console.log('[CreateDebateModal] Modal is closed, not rendering')
+    return null
+  }
+  
+  console.log('[CreateDebateModal] Modal is open, rendering...')
+  
   return (
     <Modal 
       isOpen={isOpen} 
       onClose={onClose} 
-      title={beltChallengeMode ? `Challenge for ${beltName}` : "Create Debate Challenge"}
+      title={beltChallengeMode ? `Challenge for ${beltName || 'Belt'}` : "Create Debate Challenge"}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Belt Challenge Info */}
