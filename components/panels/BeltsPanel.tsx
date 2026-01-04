@@ -540,7 +540,7 @@ export function BeltsPanel() {
                         src={challenge.belt.designImageUrl}
                         alt={challenge.belt.name}
                         className="w-[140%] h-[140%] object-contain"
-                        style={{ imageRendering: 'high-quality' }}
+                        style={{ imageRendering: 'auto' as const }}
                         loading="lazy"
                         onError={(e) => {
                           console.error('Challenge belt image failed to load:', challenge.belt.designImageUrl)
