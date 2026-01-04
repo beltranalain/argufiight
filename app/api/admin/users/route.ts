@@ -1,35 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
+import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
-import { getUserIdFromSession } from '@/lib/auth/session-utils'
 
 // GET /api/admin/users - Get all users
 export async function GET(request: NextRequest) {
   try {
-    const session = await verifySession()
+    const session = await verifySessionWithDb()
 
-    if (!session) {
+    if (!session || !session.userId) {
+      console.error('[API /admin/users] No session or userId')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Verify admin
-    const userId = getUserIdFromSession(session)
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: session.userId },
       select: { isAdmin: true },
     })
 
     if (!user?.isAdmin) {
+      console.error('[API /admin/users] User is not admin:', session.userId)
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100) // Max 100 per page
+    // Increase default limit to ensure all employees are visible
+    const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 200) // Max 200 per page, default 100
     const skip = (page - 1) * limit
     const search = searchParams.get('search')?.trim()
 
