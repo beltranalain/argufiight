@@ -329,7 +329,7 @@ export default function CoinsAdminPage() {
                           </div>
                         </div>
                         <Button
-                          variant="secondary"
+                            variant="secondary"
                           onClick={() => startEditing(pkg)}
                         >
                           Edit
