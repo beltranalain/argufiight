@@ -103,7 +103,7 @@ export default function DebatesHistoryPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-black">
+      <div className="min-h-screen bg-bg-primary">
         <TopNav currentPanel="DEBATE HISTORY" />
         <div className="pt-20 flex items-center justify-center min-h-[calc(100vh-80px)]">
           <LoadingSpinner size="lg" />
@@ -216,7 +216,7 @@ export default function DebatesHistoryPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-bg-primary">
       <TopNav currentPanel="DEBATE HISTORY" />
       
       <div className="pt-20 px-4 md:px-8 pb-8">
