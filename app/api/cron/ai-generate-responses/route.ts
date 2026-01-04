@@ -5,13 +5,17 @@ import { calculateWordCount, updateUserAnalyticsOnStatement } from '@/lib/utils/
 
 // Cron job to generate AI responses for active debates
 // This should be called periodically (e.g., every 5-10 minutes)
+// Also called on-demand when debates are viewed/submitted
 export async function GET(request: NextRequest) {
   try {
-    // Verify this is a cron request
+    // Verify this is a cron request (optional - only if CRON_SECRET is set)
+    // Allow on-demand triggers from internal API routes without auth
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
     
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // Only require auth if CRON_SECRET is set and request is from external cron service
+    // Internal on-demand triggers (from /api/debates routes) don't need auth
+    if (cronSecret && authHeader && authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

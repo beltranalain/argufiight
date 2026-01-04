@@ -33,11 +33,14 @@ export async function GET(request: NextRequest) {
 
     // Also trigger AI response generation in the background (non-blocking)
     // This ensures AI responds automatically when debates are viewed/refreshed
-    fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/cron/ai-generate-responses`, {
+    const aiResponseBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    fetch(`${aiResponseBaseUrl}/api/cron/ai-generate-responses`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-    }).catch(() => {
-      // Silently fail - this is a background task
+    }).catch((error) => {
+      // Log error but don't block the request
+      console.error('[Debates API] Failed to trigger AI response generation:', error.message)
     })
 
     const { searchParams } = new URL(request.url)

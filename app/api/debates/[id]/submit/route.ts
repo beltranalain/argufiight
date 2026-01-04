@@ -337,12 +337,14 @@ export async function POST(
     // Trigger AI response generation in the background (non-blocking)
     // This ensures AI responds automatically in local dev without needing cron jobs
     // The AI response endpoint will check the delay before responding
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
     fetch(`${baseUrl}/api/cron/ai-generate-responses`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-    }).catch(() => {
-      // Silently fail - this is a background task
+    }).catch((error) => {
+      // Log error but don't block the request
+      console.error('[Debate Submit API] Failed to trigger AI response generation:', error.message)
     })
 
     return NextResponse.json({
