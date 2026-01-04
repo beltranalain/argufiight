@@ -20,9 +20,8 @@ export async function GET(request: NextRequest) {
 
     // Also trigger AI auto-accept in the background (non-blocking)
     // Note: Also runs daily via Vercel Cron, but this ensures immediate processing
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
     
     fetch(`${baseUrl}/api/cron/ai-auto-accept`, {
       method: 'GET',
