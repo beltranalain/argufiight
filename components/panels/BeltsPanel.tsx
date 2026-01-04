@@ -372,7 +372,7 @@ export function BeltsPanel() {
                           src={belt.designImageUrl}
                           alt={belt.name}
                           className="w-[140%] h-[140%] object-contain"
-                          style={{ imageRendering: 'high-quality' }}
+                          style={{ imageRendering: 'auto' as const }}
                           loading="lazy"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none'
@@ -468,7 +468,7 @@ export function BeltsPanel() {
                           src={belt.designImageUrl}
                           alt={belt.name}
                           className="w-[140%] h-[140%] object-contain"
-                          style={{ imageRendering: 'high-quality' }}
+                          style={{ imageRendering: 'auto' as const }}
                           loading="lazy"
                           onError={(e) => {
                             console.error('Image failed to load:', belt.designImageUrl)
