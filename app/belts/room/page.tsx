@@ -273,7 +273,7 @@ export default function BeltRoomPage() {
                                     src={belt.designImageUrl}
                                     alt={belt.name}
                                     className="w-[140%] h-[140%] object-contain"
-                                    style={{ imageRendering: 'high-quality' }}
+                                    style={{ imageRendering: 'auto' as const }}
                                     loading="lazy"
                                     onError={(e) => {
                                       e.currentTarget.style.display = 'none'
@@ -402,7 +402,7 @@ export default function BeltRoomPage() {
                                       src={entry.belt.designImageUrl}
                                       alt={entry.belt.name}
                                       className="w-[140%] h-[140%] object-contain"
-                                      style={{ imageRendering: 'high-quality' }}
+                                      style={{ imageRendering: 'auto' as const }}
                                       loading="lazy"
                                       onError={(e) => {
                                         e.currentTarget.style.display = 'none'
@@ -562,7 +562,7 @@ export default function BeltRoomPage() {
                                     src={belt.designImageUrl}
                                     alt={belt.name}
                                     className="w-[140%] h-[140%] object-contain"
-                                    style={{ imageRendering: 'high-quality' }}
+                                    style={{ imageRendering: 'auto' as const }}
                                     loading="lazy"
                                     onError={(e) => {
                                       e.currentTarget.style.display = 'none'

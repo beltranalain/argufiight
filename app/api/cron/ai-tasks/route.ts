@@ -113,6 +113,7 @@ export async function GET(request: NextRequest) {
           id: true,
           username: true,
           aiPersonality: true,
+          aiResponseDelay: true,
         },
       })
 
@@ -170,6 +171,49 @@ export async function GET(request: NextRequest) {
               continue // Not time yet
             }
 
+            // Check if enough time has passed since opponent's last statement (only when responding, not when going first)
+            const delayMs = aiUser.aiResponseDelay || 150000 // Default 2.5 minutes (150000ms)
+            const isChallenger = debate.challengerId === aiUser.id
+            
+            // Get statements for current round
+            const challengerStatement = await prisma.statement.findFirst({
+              where: {
+                debateId: debate.id,
+                authorId: debate.challengerId,
+                round: debate.currentRound,
+              },
+            })
+            
+            const opponentStatement = debate.opponentId ? await prisma.statement.findFirst({
+              where: {
+                debateId: debate.id,
+                authorId: debate.opponentId,
+                round: debate.currentRound,
+              },
+            }) : null
+            
+            // Only apply delay when AI is responding to opponent's statement (not when going first)
+            if (isChallenger && opponentStatement) {
+              // AI is challenger responding to opponent - check delay
+              const statementAge = now.getTime() - new Date(opponentStatement.createdAt).getTime()
+              if (statementAge < delayMs) {
+                // Not enough time has passed, skip this debate
+                const minutesRemaining = Math.ceil((delayMs - statementAge) / 60000)
+                console.log(`[AI Tasks] ${aiUser.username} waiting ${minutesRemaining} more minute(s) before responding to debate ${debate.id}`)
+                continue
+              }
+            } else if (!isChallenger && challengerStatement) {
+              // AI is opponent responding to challenger - check delay
+              const statementAge = now.getTime() - new Date(challengerStatement.createdAt).getTime()
+              if (statementAge < delayMs) {
+                // Not enough time has passed, skip this debate
+                const minutesRemaining = Math.ceil((delayMs - statementAge) / 60000)
+                console.log(`[AI Tasks] ${aiUser.username} waiting ${minutesRemaining} more minute(s) before responding to debate ${debate.id}`)
+                continue
+              }
+            }
+            // If AI is going first (no opponent statement yet), no delay needed
+
             // Generate AI response
             const aiResponse = await generateAIResponse(
               debate.id,
@@ -192,7 +236,9 @@ export async function GET(request: NextRequest) {
             await updateUserAnalyticsOnStatement(aiUser.id, wordCount)
 
             // Check if both users have submitted for this round
-            const challengerStatement = await prisma.statement.findFirst({
+            // Note: challengerStatement and opponentStatement are already fetched above (lines 179-193)
+            // We need to refetch to get the latest state after AI submission
+            const challengerStatementAfter = await prisma.statement.findFirst({
               where: {
                 debateId: debate.id,
                 round: debate.currentRound,
@@ -200,7 +246,7 @@ export async function GET(request: NextRequest) {
               },
             })
 
-            const opponentStatement = debate.opponentId ? await prisma.statement.findFirst({
+            const opponentStatementAfter = debate.opponentId ? await prisma.statement.findFirst({
               where: {
                 debateId: debate.id,
                 round: debate.currentRound,
@@ -208,7 +254,7 @@ export async function GET(request: NextRequest) {
               },
             }) : null
 
-            if (challengerStatement && opponentStatement) {
+            if (challengerStatementAfter && opponentStatementAfter) {
               if (debate.currentRound >= debate.totalRounds) {
                 // Debate complete
                 await prisma.debate.update({
