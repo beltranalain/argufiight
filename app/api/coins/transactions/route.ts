@@ -34,12 +34,6 @@ export async function GET(request: NextRequest) {
             name: true,
           },
         },
-        tournament: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
       },
       orderBy: {
         createdAt: 'desc',

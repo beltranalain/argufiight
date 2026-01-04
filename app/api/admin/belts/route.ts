@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       name,
       type: type as any,
       category: category || undefined,
-      coinValue,
+      creationCost: coinValue || 0,
       designImageUrl: designImageUrl || undefined,
       designColors: designColors || undefined,
       sponsorName: sponsorName || undefined,
