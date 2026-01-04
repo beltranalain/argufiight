@@ -53,12 +53,15 @@ export function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmployeeModa
     setIsLoading(true)
 
     try {
+      console.log('[AddEmployeeModal] Creating employee with data:', { ...formData, password: '[REDACTED]', confirmPassword: '[REDACTED]' })
+      
       const response = await fetch('/api/admin/employees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          username: formData.username,
-          email: formData.email,
+          username: formData.username.trim(),
+          email: formData.email.trim(),
           password: formData.password,
           role: formData.role,
           accessLevel: formData.accessLevel,
@@ -66,12 +69,20 @@ export function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmployeeModa
       })
 
       const data = await response.json()
+      console.log('[AddEmployeeModal] Response:', { status: response.status, data })
 
       if (!response.ok) {
-        showToast({ title: data.error || 'Failed to create employee', type: 'error' })
+        const errorMessage = data.error || `Failed to create employee (${response.status})`
+        console.error('[AddEmployeeModal] Error creating employee:', errorMessage)
+        showToast({ 
+          title: 'Error', 
+          description: errorMessage,
+          type: 'error' 
+        })
         return
       }
 
+      console.log('[AddEmployeeModal] Employee created successfully:', data.employee)
       showToast({ title: 'Employee created successfully', type: 'success' })
       setFormData({
         username: '',
@@ -84,8 +95,12 @@ export function AddEmployeeModal({ isOpen, onClose, onSuccess }: AddEmployeeModa
       onSuccess()
       onClose()
     } catch (error: any) {
-      console.error('Failed to create employee:', error)
-      showToast({ title: 'An unexpected error occurred', type: 'error' })
+      console.error('[AddEmployeeModal] Failed to create employee:', error)
+      showToast({ 
+        title: 'Error', 
+        description: error.message || 'An unexpected error occurred',
+        type: 'error' 
+      })
     } finally {
       setIsLoading(false)
     }
