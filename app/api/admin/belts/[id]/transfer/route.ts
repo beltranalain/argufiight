@@ -30,10 +30,10 @@ export async function POST(
     }
 
     const body = await request.json()
-    const { toUserId, reason, adminNotes } = body
+    const { toUserId, toUsername, reason, adminNotes } = body
 
-    if (!toUserId) {
-      return NextResponse.json({ error: 'toUserId is required' }, { status: 400 })
+    if (!toUserId && !toUsername) {
+      return NextResponse.json({ error: 'toUserId or toUsername is required' }, { status: 400 })
     }
 
     // Get current belt holder
@@ -44,6 +44,46 @@ export async function POST(
 
     if (!belt) {
       return NextResponse.json({ error: 'Belt not found' }, { status: 404 })
+    }
+
+    // Resolve user ID - accept either userId or username
+    let finalToUserId: string | null = null
+    if (toUserId) {
+      // Check if it's a valid UUID (user ID) or a username
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toUserId)
+      if (isUUID) {
+        finalToUserId = toUserId
+      } else {
+        // It's a username, look it up
+        const user = await prisma.user.findUnique({
+          where: { username: toUserId },
+          select: { id: true },
+        })
+        if (!user) {
+          return NextResponse.json({ error: `User not found: ${toUserId}` }, { status: 404 })
+        }
+        finalToUserId = user.id
+      }
+    } else if (toUsername) {
+      const user = await prisma.user.findUnique({
+        where: { username: toUsername },
+        select: { id: true },
+      })
+      if (!user) {
+        return NextResponse.json({ error: `User not found: ${toUsername}` }, { status: 404 })
+      }
+      finalToUserId = user.id
+    }
+
+    // Validate the target user exists
+    if (finalToUserId) {
+      const targetUser = await prisma.user.findUnique({
+        where: { id: finalToUserId },
+        select: { id: true, username: true },
+      })
+      if (!targetUser) {
+        return NextResponse.json({ error: 'Target user not found' }, { status: 404 })
+      }
     }
 
     // Transfer belt - temporarily enable belt system for admin operations
@@ -57,7 +97,7 @@ export async function POST(
       result = await transferBelt(
         id,
         belt.currentHolderId,
-        toUserId,
+        finalToUserId,
         reason || 'ADMIN_TRANSFER',
         {
           adminNotes: adminNotes || 'Admin transfer',

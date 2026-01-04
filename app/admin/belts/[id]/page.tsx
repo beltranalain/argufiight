@@ -138,11 +138,11 @@ export default function BeltDetailsPage() {
   }
 
   const handleTransfer = async () => {
-    if (!transferUserId.trim()) {
+      if (!transferUserId.trim()) {
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Please enter a user ID',
+        description: 'Please enter a user ID or username',
       })
       return
     }
