@@ -26,6 +26,7 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    const { userId } = await params
     const body = await request.json()
     const { amount, reason } = body
 
@@ -38,7 +39,7 @@ export async function POST(
 
     // Verify user exists
     const user = await prisma.user.findUnique({
-      where: { id: params.userId },
+      where: { id: userId },
       select: { id: true, username: true, coins: true },
     })
 
