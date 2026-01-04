@@ -154,6 +154,7 @@ export default function BeltDetailsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           toUserId: transferUserId,
+          toUsername: transferUserId, // Support both ID and username
           reason: 'ADMIN_TRANSFER',
         }),
       })
@@ -448,13 +449,13 @@ export default function BeltDetailsPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-white mb-2">
-                Transfer to User ID
+                Transfer to User ID or Username
               </label>
               <Input
                 type="text"
                 value={transferUserId}
                 onChange={(e) => setTransferUserId(e.target.value)}
-                placeholder="Enter user ID"
+                placeholder="Enter user ID or username (e.g., RiceSzn)"
               />
             </div>
             <Button
