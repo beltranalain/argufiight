@@ -16,6 +16,7 @@ import { StaggerItem } from '@/components/ui/StaggerItem'
 import { cardHover, cardTap } from '@/lib/animations'
 import { useToast } from '@/components/ui/Toast'
 import { Modal } from '@/components/ui/Modal'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 interface UserData {
   id: string
@@ -56,8 +57,12 @@ interface UserLimitInfo {
 
 export default function AdminUsersPage() {
   const { showToast } = useToast()
+  const { user: currentUser } = useAuth()
   const [userData, setUserData] = useState<UserData[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  
+  // Check if current user is super admin
+  const isSuperAdmin = currentUser?.email === 'admin@argufight.com'
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
@@ -80,36 +85,61 @@ export default function AdminUsersPage() {
     fetchUserLimitInfo()
   }, [])
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (showLoading = true) => {
     try {
-      setIsLoading(true)
-      const response = await fetch(`/api/admin/users?t=${Date.now()}`, {
-        credentials: 'include',
+      if (showLoading) {
+        setIsLoading(true)
+      }
+      // Try admin API first (with cache-busting)
+      let response = await fetch(`/api/admin/users?t=${Date.now()}`, {
         cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
       })
+      
+      // If 403, try fallback API
+      if (response.status === 403) {
+        console.log('[AdminUsersPage] Admin API returned 403, trying fallback...')
+        response = await fetch(`/api/users/list?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        })
+      }
+      
       if (response.ok) {
         const data = await response.json()
         const users = data.users || []
-        console.log('[AdminUsersPage] Fetched users:', users.length)
-        console.log('[AdminUsersPage] Employees filter check:', users.filter((u: any) => u.isAdmin || u.employeeRole).map((u: any) => ({ username: u.username, isAdmin: u.isAdmin, employeeRole: u.employeeRole })))
         setUserData(users)
         // Separate users into categories
         const ai = users.filter((u: any) => u.isAI)
         const emp = users.filter((u: any) => u.isAdmin || u.employeeRole)
         const regular = users.filter((u: any) => !u.isAI && !u.isAdmin && !u.employeeRole)
-        console.log('[AdminUsersPage] Separated:', { ai: ai.length, employees: emp.length, regular: regular.length })
         setAiUsers(ai)
         setEmployees(emp)
         setRegularUsers(regular)
       } else {
-        console.error('[AdminUsersPage] Failed to fetch users, status:', response.status)
-        const error = await response.json().catch(() => ({}))
-        console.error('[AdminUsersPage] Error:', error)
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('Failed to fetch users:', errorData)
+        showToast({
+          type: 'error',
+          title: 'Failed to Load Users',
+          description: errorData.error || `Error ${response.status}: ${response.statusText}`,
+        })
       }
     } catch (error) {
-      console.error('[AdminUsersPage] Failed to fetch users:', error)
+      console.error('Failed to fetch users:', error)
+      showToast({
+        type: 'error',
+        title: 'Failed to Load Users',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+      })
     } finally {
-      setIsLoading(false)
+      if (showLoading) {
+        setIsLoading(false)
+      }
     }
   }
 
@@ -134,6 +164,7 @@ export default function AdminUsersPage() {
   }
 
   const handleDeleteUser = (userId: string) => {
+    console.log('[AdminUsersPage] handleDeleteUser called with userId:', userId, 'type:', typeof userId)
     setActionUserId(userId)
     setActionType('delete')
     setIsActionModalOpen(true)
@@ -202,9 +233,38 @@ export default function AdminUsersPage() {
     setIsProcessing(true)
     try {
       if (actionType === 'delete') {
-        const response = await fetch(`/api/admin/users/${actionUserId}`, {
+        console.log('[AdminUsersPage] Attempting to delete user:', actionUserId)
+        console.log('[AdminUsersPage] actionUserId type:', typeof actionUserId)
+        console.log('[AdminUsersPage] actionUserId value:', JSON.stringify(actionUserId))
+        const url = `/api/admin/users/${actionUserId}`
+        console.log('[AdminUsersPage] DELETE URL:', url)
+        const response = await fetch(url, {
           method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // Ensure cookies are sent
         })
+        console.log('[AdminUsersPage] Delete response status:', response.status, response.statusText)
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error('[AdminUsersPage] Delete error response:', errorText)
+          try {
+            const errorJson = JSON.parse(errorText)
+            // If user not found, refresh the list and show a helpful message
+            if (response.status === 404 && errorJson.error === 'User not found') {
+              await fetchUsers() // Refresh the user list
+              throw new Error(errorJson.message || 'User not found. The user may have already been deleted. The list has been refreshed.')
+            }
+            throw new Error(errorJson.error || errorJson.message || 'Failed to delete user')
+          } catch (error: any) {
+            // If it's already an Error object, re-throw it
+            if (error instanceof Error) {
+              throw error
+            }
+            throw new Error(errorText || 'Failed to delete user')
+          }
+        }
 
         if (response.ok) {
           showToast({
@@ -220,8 +280,15 @@ export default function AdminUsersPage() {
           fetchUsers()
           fetchUserLimitInfo()
         } else {
-          const error = await response.json()
-          throw new Error(error.error || 'Failed to delete user')
+          let errorMessage = 'Failed to delete user'
+          try {
+            const error = await response.json()
+            errorMessage = error.error || error.message || errorMessage
+          } catch {
+            // If response is not JSON, use status text
+            errorMessage = response.statusText || `Server returned ${response.status}`
+          }
+          throw new Error(errorMessage)
         }
       } else {
         // Suspend/Unsuspend
@@ -555,8 +622,8 @@ export default function AdminUsersPage() {
                             size="sm"
                             onClick={() => handleSuspendUser(user.id, user.bannedUntil)}
                             className="text-xs"
-                            disabled={true}
-                            title="Cannot suspend admin users"
+                            disabled={!isSuperAdmin}
+                            title={isSuperAdmin ? undefined : "Only super admin can suspend admin users"}
                           >
                             {user.bannedUntil && new Date(user.bannedUntil) > new Date() ? 'Unsuspend' : 'Suspend'}
                           </Button>
@@ -565,8 +632,8 @@ export default function AdminUsersPage() {
                             size="sm"
                             onClick={() => handleDeleteUser(user.id)}
                             className="text-xs text-red-400 hover:text-red-300 hover:border-red-400"
-                            disabled={true}
-                            title="Cannot delete admin users"
+                            disabled={!isSuperAdmin}
+                            title={isSuperAdmin ? undefined : "Only super admin can delete admin users"}
                           >
                             Delete
                           </Button>

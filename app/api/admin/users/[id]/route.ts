@@ -192,9 +192,14 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  console.log('[DELETE /api/admin/users/[id]] ===== DELETE REQUEST RECEIVED =====')
+  console.log('[DELETE /api/admin/users/[id]] Request URL:', request.url)
+  console.log('[DELETE /api/admin/users/[id]] Request method:', request.method)
+  console.log('[DELETE /api/admin/users/[id]] Request headers:', Object.fromEntries(request.headers.entries()))
   try {
     const session = await verifySession()
     const userId = getUserIdFromSession(session)
+    console.log('[DELETE /api/admin/users/[id]] Session verified, userId:', userId)
     
     if (!userId) {
       return NextResponse.json(
@@ -217,31 +222,57 @@ export async function DELETE(
     }
 
     const { id } = await params
+    console.log('[DELETE /api/admin/users/[id]] Extracted ID from params:', id)
+    console.log('[DELETE /api/admin/users/[id]] ID type:', typeof id)
+    console.log('[DELETE /api/admin/users/[id]] ID length:', id?.length)
 
-    // Prevent admin from deleting themselves
+    // Prevent admin from deleting themselves (unless super admin - but still prevent for safety)
     if (id === userId) {
       return NextResponse.json(
         { error: 'You cannot delete your own account' },
         { status: 400 }
       )
     }
+    
+    // Check if current user is super admin
+    const currentAdminUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    })
+    const isSuperAdmin = currentAdminUser?.email === 'admin@argufight.com'
 
     // Check if user exists
+    console.log('[DELETE /api/admin/users/[id]] Looking up user with ID:', id)
     const user = await prisma.user.findUnique({
       where: { id },
       select: { id: true, username: true, email: true, isAdmin: true },
     })
+    console.log('[DELETE /api/admin/users/[id]] User lookup result:', user ? `Found: ${user.username}` : 'NOT FOUND')
 
     if (!user) {
+      console.log('[DELETE /api/admin/users/[id]] User not found - may have been already deleted')
+      // Return 404 but with a message indicating the user may have been already deleted
       return NextResponse.json(
-        { error: 'User not found' },
+        { 
+          error: 'User not found',
+          message: 'This user may have already been deleted. Please refresh the page.',
+          receivedId: id 
+        },
         { status: 404 }
       )
     }
 
+    // Only super admin can delete other admin users
+    if (user.isAdmin && !isSuperAdmin) {
+      return NextResponse.json(
+        { error: 'Only super admin can delete admin users' },
+        { status: 403 }
+      )
+    }
+    
     // Allow deleting admin users, but show a warning in the log
     if (user.isAdmin) {
-      console.warn(`[ADMIN] Admin user being deleted: ${user.username} (${user.email}) by admin ${userId}`)
+      console.warn(`[ADMIN] Admin user being deleted: ${user.username} (${user.email}) by ${isSuperAdmin ? 'super admin' : 'admin'} ${userId}`)
     }
 
     // Manually delete related records that don't have cascade delete
@@ -255,6 +286,38 @@ export async function DELETE(
     await prisma.tournamentSubscription.deleteMany({
       where: {
         userId: id,
+      },
+    })
+
+    // Delete belt-related records (BeltChallenge doesn't have cascade delete on user relations)
+    await prisma.beltChallenge.deleteMany({
+      where: {
+        OR: [
+          { challengerId: id },
+          { beltHolderId: id },
+        ],
+      },
+    })
+
+    // Delete belt history records
+    await prisma.beltHistory.deleteMany({
+      where: {
+        OR: [
+          { fromUserId: id },
+          { toUserId: id },
+        ],
+      },
+    })
+
+    // Handle belts currently held by this user (set to VACANT)
+    await prisma.belt.updateMany({
+      where: {
+        currentHolderId: id,
+      },
+      data: {
+        currentHolderId: null,
+        status: 'VACANT',
+        acquiredAt: null,
       },
     })
 
