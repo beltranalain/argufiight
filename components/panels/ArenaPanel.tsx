@@ -1,18 +1,24 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { TrendingTopics } from '@/components/debate/TrendingTopics'
+import Link from 'next/link'
 import { DebateCard } from '@/components/debate/DebateCard'
 import { LoadingCard } from '@/components/ui/Loading'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Card, CardBody } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/Badge'
 import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
 import { StaggerContainer } from '@/components/ui/StaggerContainer'
 import { StaggerItem } from '@/components/ui/StaggerItem'
-import { LeaderboardPanel } from '@/components/panels/LeaderboardPanel'
+import { ChallengesPanel } from '@/components/panels/ChallengesPanel'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 export function ArenaPanel() {
+  const { user } = useAuth()
   const [debates, setDebates] = useState<any[]>([])
+  const [myActiveDebate, setMyActiveDebate] = useState<any | null>(null)
+  const [isLoadingMyDebate, setIsLoadingMyDebate] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [filter, setFilter] = useState('ALL')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -24,8 +30,26 @@ export function ArenaPanel() {
   }, [])
 
   useEffect(() => {
+    if (user) {
+      fetchMyActiveDebate()
+    }
+  }, [user])
+
+  useEffect(() => {
     fetchDebates()
-  }, [filter])
+  }, [filter, myActiveDebate])
+
+  // Listen for belt challenge acceptance to refresh debates
+  useEffect(() => {
+    const handleChallengeAccepted = () => {
+      fetchMyActiveDebate()
+      fetchDebates()
+    }
+    window.addEventListener('belt-challenge-accepted', handleChallengeAccepted)
+    return () => {
+      window.removeEventListener('belt-challenge-accepted', handleChallengeAccepted)
+    }
+  }, [])
 
   const fetchCategories = async () => {
     try {
@@ -80,6 +104,47 @@ export function ArenaPanel() {
     }
   }, [])
 
+  const fetchMyActiveDebate = async () => {
+    if (!user) return
+    
+    try {
+      setIsLoadingMyDebate(true)
+      const response = await fetch(`/api/debates?userId=${user.id}&status=ACTIVE`)
+      if (response.ok) {
+        const data = await response.json()
+        const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
+        const active = debates.find((d: any) => d.status === 'ACTIVE')
+        
+        if (active) {
+          // Fetch full details
+          const detailResponse = await fetch(`/api/debates/${active.id}`)
+          if (detailResponse.ok) {
+            const fullDebate = await detailResponse.json()
+            setMyActiveDebate({
+              ...active,
+              challengeType: fullDebate.challengeType || active.challengeType,
+              tournamentMatch: fullDebate.tournamentMatch || active.tournamentMatch,
+              images: fullDebate.images || [],
+              statements: fullDebate.statements?.map((s: any) => ({
+                id: s.id,
+                round: s.round,
+                authorId: s.author.id,
+              })) || [],
+            })
+          } else {
+            setMyActiveDebate(active)
+          }
+        } else {
+          setMyActiveDebate(null)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch my active debate:', error)
+    } finally {
+      setIsLoadingMyDebate(false)
+    }
+  }
+
   const fetchDebates = async () => {
     try {
       setIsLoading(true)
@@ -95,13 +160,19 @@ export function ArenaPanel() {
       }
       const data = await response.json()
       // Ensure data is an array before setting
+      let allDebates: any[] = []
       if (Array.isArray(data)) {
-        setDebates(data)
+        allDebates = data
       } else if (Array.isArray(data.debates)) {
-        setDebates(data.debates)
-      } else {
-        setDebates([])
+        allDebates = data.debates
       }
+      
+      // Filter out the user's personal debate from the list (if they have one)
+      if (myActiveDebate) {
+        allDebates = allDebates.filter((d: any) => d.id !== myActiveDebate.id)
+      }
+      
+      setDebates(allDebates)
     } catch (error) {
       console.error('Failed to fetch debates:', error)
       // Error is logged but we don't show toast to avoid spam
@@ -113,15 +184,21 @@ export function ArenaPanel() {
 
   return (
     <div className="space-y-8">
-      {/* Trending Topics */}
-      <TrendingTopics />
+      {/* Open Challenges - Moved from right column */}
+      <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary mt-8">
+        <h2 className="text-2xl font-bold text-text-primary mb-2">Open Challenges</h2>
+        <p className="text-text-secondary text-sm mb-4">Debates waiting for opponents</p>
+        <div className="max-h-[500px] overflow-y-auto pr-2">
+          <ChallengesPanel />
+        </div>
+      </div>
 
-      {/* Live Debates */}
+      {/* Live Battles - Combined */}
       <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
           <div>
             <h3 className="text-2xl font-bold text-text-primary mb-1">Live Battles</h3>
-            <p className="text-text-secondary text-sm">Watch debates unfold in real-time</p>
+            <p className="text-text-secondary text-sm">Your active debate and all ongoing debates</p>
           </div>
 
           {/* Filters */}
@@ -142,8 +219,170 @@ export function ArenaPanel() {
           </div>
         </div>
 
-      {/* Debate Grid */}
-      {isLoading ? (
+        {/* My Active Debate - Shown at top if user has one */}
+        {user && (
+          <div className="mb-6">
+            {isLoadingMyDebate ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-8 h-8 border-2 border-electric-blue border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : myActiveDebate ? (
+              <div className="bg-bg-tertiary rounded-lg p-4 border-2 border-electric-blue/50 mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="default" size="sm" className="bg-neon-orange text-black">
+                      My Battle
+                    </Badge>
+                    <Badge variant={myActiveDebate.category.toLowerCase() as any} size="sm">
+                      {myActiveDebate.category}
+                    </Badge>
+                  </div>
+                  {(() => {
+                    const currentRoundStatements = myActiveDebate.statements?.filter(
+                      (s: any) => s.round === myActiveDebate.currentRound
+                    ) || []
+                    const userSubmitted = currentRoundStatements.some((s: any) => s.authorId === user.id)
+                    const isGroupDebate = !myActiveDebate.opponent || myActiveDebate.challengeType === 'GROUP'
+                    let isMyTurn = false
+                    
+                    if (isGroupDebate) {
+                      isMyTurn = !userSubmitted
+                    } else {
+                      const challengerSubmitted = currentRoundStatements.some(
+                        (s: any) => s.authorId === myActiveDebate.challenger.id
+                      )
+                      const opponentSubmitted = myActiveDebate.opponent && currentRoundStatements.some(
+                        (s: any) => s.authorId === myActiveDebate.opponent!.id
+                      )
+                      const isChallenger = user.id === myActiveDebate.challenger.id
+                      const isOpponent = myActiveDebate.opponent && user.id === myActiveDebate.opponent.id
+                      
+                      if (currentRoundStatements.length === 0 && isChallenger) {
+                        isMyTurn = true
+                      } else if (isChallenger && opponentSubmitted && !challengerSubmitted) {
+                        isMyTurn = true
+                      } else if (isOpponent && challengerSubmitted && !opponentSubmitted) {
+                        isMyTurn = true
+                      }
+                    }
+                    
+                    return isMyTurn ? (
+                      <Badge variant="default" size="sm" className="bg-neon-orange text-black">
+                        Your Turn
+                      </Badge>
+                    ) : null
+                  })()}
+                </div>
+                <h4 className="text-lg font-bold text-text-primary mb-2 line-clamp-2">
+                  {myActiveDebate.topic}
+                </h4>
+                
+                {/* Images */}
+                {myActiveDebate.images && myActiveDebate.images.length > 0 && (
+                  <div className="mb-3">
+                    <div className={`grid gap-2 ${
+                      myActiveDebate.images.length === 1 ? 'grid-cols-1' :
+                      myActiveDebate.images.length === 2 ? 'grid-cols-2' :
+                      myActiveDebate.images.length === 3 ? 'grid-cols-3' :
+                      myActiveDebate.images.length === 4 ? 'grid-cols-2' :
+                      'grid-cols-2'
+                    }`}>
+                      {myActiveDebate.images.slice(0, 4).map((image: any) => (
+                        <div key={image.id} className="relative aspect-square rounded overflow-hidden border border-bg-secondary bg-bg-secondary">
+                          <img
+                            src={image.url}
+                            alt={image.alt || myActiveDebate.topic}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-2 text-sm text-text-secondary mb-3">
+                  <span>
+                    Round {myActiveDebate.tournamentMatch 
+                      ? myActiveDebate.tournamentMatch.round.roundNumber 
+                      : myActiveDebate.currentRound}/{myActiveDebate.tournamentMatch 
+                      ? myActiveDebate.tournamentMatch.tournament.totalRounds 
+                      : myActiveDebate.totalRounds}
+                  </span>
+                </div>
+                
+                {/* Progress Bar */}
+                {(() => {
+                  const displayRound = myActiveDebate.tournamentMatch 
+                    ? myActiveDebate.tournamentMatch.round.roundNumber 
+                    : myActiveDebate.currentRound
+                  const displayTotalRounds = myActiveDebate.tournamentMatch 
+                    ? myActiveDebate.tournamentMatch.tournament.totalRounds 
+                    : myActiveDebate.totalRounds
+                  const progress = (displayRound / displayTotalRounds) * 100
+                  
+                  return (
+                    <div className="w-full h-1.5 bg-bg-tertiary rounded-full overflow-hidden mb-4">
+                      <div 
+                        className="h-full bg-electric-blue transition-all"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  )
+                })()}
+                
+                <Link href={`/debate/${myActiveDebate.id}`}>
+                  <Button variant="primary" className="w-full">
+                    {(() => {
+                      const currentRoundStatements = myActiveDebate.statements?.filter(
+                        (s: any) => s.round === myActiveDebate.currentRound
+                      ) || []
+                      const userSubmitted = currentRoundStatements.some((s: any) => s.authorId === user.id)
+                      const isGroupDebate = !myActiveDebate.opponent || myActiveDebate.challengeType === 'GROUP'
+                      let isMyTurn = false
+                      
+                      if (isGroupDebate) {
+                        isMyTurn = !userSubmitted
+                      } else {
+                        const challengerSubmitted = currentRoundStatements.some(
+                          (s: any) => s.authorId === myActiveDebate.challenger.id
+                        )
+                        const opponentSubmitted = myActiveDebate.opponent && currentRoundStatements.some(
+                          (s: any) => s.authorId === myActiveDebate.opponent!.id
+                        )
+                        const isChallenger = user.id === myActiveDebate.challenger.id
+                        const isOpponent = myActiveDebate.opponent && user.id === myActiveDebate.opponent.id
+                        
+                        if (currentRoundStatements.length === 0 && isChallenger) {
+                          isMyTurn = true
+                        } else if (isChallenger && opponentSubmitted && !challengerSubmitted) {
+                          isMyTurn = true
+                        } else if (isOpponent && challengerSubmitted && !opponentSubmitted) {
+                          isMyTurn = true
+                        }
+                      }
+                      
+                      return isMyTurn ? 'Continue Debate' : 'View Debate'
+                    })()}
+                  </Button>
+                </Link>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* Divider if user has active debate */}
+        {myActiveDebate && (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-bg-tertiary"></div>
+              <span className="text-sm text-text-secondary">All Active Debates</span>
+              <div className="flex-1 h-px bg-bg-tertiary"></div>
+            </div>
+          </div>
+        )}
+
+        {/* All Active Debates Grid */}
+        {isLoading ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {[1, 2, 3, 4].map((i) => (
             <LoadingCard key={i} lines={4} />
@@ -166,7 +405,7 @@ export function ArenaPanel() {
           />
         </div>
       ) : (
-        <div className={`${debates.length > 4 ? 'max-h-[800px] overflow-y-auto pr-2' : ''}`}>
+        <div className="max-h-[500px] overflow-y-auto pr-2">
           <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {debates.map((debate: any) => (
               <StaggerItem key={debate.id}>
@@ -176,11 +415,6 @@ export function ArenaPanel() {
           </StaggerContainer>
         </div>
       )}
-      </div>
-
-      {/* ELO Leaderboard */}
-      <div>
-        <LeaderboardPanel />
       </div>
 
       {/* Create Debate Modal */}

@@ -68,6 +68,7 @@ export function ChallengesPanel() {
       window.addEventListener('debate-created', handleRefresh)
       window.addEventListener('rematch-requested', handleRefresh)
       window.addEventListener('rematch-accepted', handleRefresh)
+      window.addEventListener('belt-challenge-accepted', handleRefresh)
     }, 100)
     
     return () => {
@@ -76,6 +77,7 @@ export function ChallengesPanel() {
       window.removeEventListener('debate-created', handleRefresh)
       window.removeEventListener('rematch-requested', handleRefresh)
       window.removeEventListener('rematch-accepted', handleRefresh)
+      window.removeEventListener('belt-challenge-accepted', handleRefresh)
     }
   }, [user])
 

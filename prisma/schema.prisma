@@ -30,6 +30,12 @@ model User {
   debatesTied  Int @default(0) @map("debates_tied")
   totalDebates Int @default(0) @map("total_debates")
 
+  // Belt stats
+  totalBeltWins     Int @default(0) @map("total_belt_wins")
+  totalBeltDefenses Int @default(0) @map("total_belt_defenses")
+  longestBeltHeld   Int @default(0) @map("longest_belt_held") // Days
+  currentBeltsCount Int @default(0) @map("current_belts_count") // Cached count
+
   // Score System
   totalScore    Int @default(0) @map("total_score") // Sum of all scores from all debates
   totalMaxScore Int @default(0) @map("total_max_score") // Max possible (judges × 100 × debates)
@@ -122,6 +128,13 @@ model User {
   // Multi-participant debate relations
   debateParticipations DebateParticipant[] @relation("DebateParticipants")
 
+  // Belt relations
+  beltsHeld              Belt[]          @relation("BeltHolder")
+  beltChallengesSent     BeltChallenge[] @relation("BeltChallenger")
+  beltChallengesReceived BeltChallenge[] @relation("BeltHolderChallenge")
+  beltHistoryFrom        BeltHistory[]   @relation("BeltHistoryFrom")
+  beltHistoryTo          BeltHistory[]   @relation("BeltHistoryTo")
+
   // Appeal limits
   appealLimit         AppealLimit?
   appealSubscriptions AppealSubscription[]
@@ -138,7 +151,7 @@ model User {
   assignedTickets      SupportTicket[]      @relation("AssignedTickets")
 
   // FCM Push Notification Tokens
-  fcmTokens FCMToken[] @relation("FCMTokens")
+  fcmTokens   FCMToken[]   @relation("FCMTokens")
   cardMembers CardMember[] @relation("CardMembers")
 
   // Direct messages
@@ -700,12 +713,12 @@ model SocialMediaPost {
   publishedAt DateTime? @map("published_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
-  
+
   // Marketing system relations
-  calendarItemId String? @unique @map("calendar_item_id")
+  calendarItemId String?              @unique @map("calendar_item_id")
   calendarItem   ContentCalendarItem? @relation(fields: [calendarItemId], references: [id], onDelete: SetNull)
-  strategyId     String? @map("strategy_id")
-  strategy       MarketingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  strategyId     String?              @map("strategy_id")
+  strategy       MarketingStrategy?   @relation(fields: [strategyId], references: [id], onDelete: SetNull)
   analytics      ContentAnalytics[]
 
   @@index([debateId])
@@ -718,7 +731,7 @@ model SocialMediaPost {
 // Marketing Strategy - 12-month AI-generated marketing plan
 model MarketingStrategy {
   id          String   @id @default(uuid())
-  name        String   // e.g., "Q1 2025 Marketing Strategy"
+  name        String // e.g., "Q1 2025 Marketing Strategy"
   description String?  @db.Text
   startDate   DateTime @map("start_date")
   endDate     DateTime @map("end_date")
@@ -726,14 +739,14 @@ model MarketingStrategy {
   goals       String?  @db.Text // JSON array of marketing goals
   themes      String?  @db.Text // JSON array of content themes
   platforms   String?  @db.Text // JSON array of platforms to focus on
-  frequency   String?  // e.g., "3 posts per week"
+  frequency   String? // e.g., "3 posts per week"
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-  
+
   // Relations
-  posts       SocialMediaPost[]
-  blogPosts   BlogPost[]
-  newsletters EmailNewsletter[]
+  posts         SocialMediaPost[]
+  blogPosts     BlogPost[]
+  newsletters   EmailNewsletter[]
   calendarItems ContentCalendarItem[]
 
   @@index([status])
@@ -743,26 +756,26 @@ model MarketingStrategy {
 
 // Content Calendar - Scheduled content items
 model ContentCalendarItem {
-  id          String   @id @default(uuid())
-  strategyId String?  @map("strategy_id")
-  strategy    MarketingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
-  contentType String   @map("content_type") // SOCIAL_POST, BLOG_POST, NEWSLETTER, VIDEO
-  title       String?
-  description String?  @db.Text
-  scheduledDate DateTime @map("scheduled_date")
-  scheduledTime String?  @map("scheduled_time") // e.g., "09:00"
-  status      String   @default("DRAFT") // DRAFT, APPROVED, SCHEDULED, PUBLISHED, CANCELLED
-  platform    String?  // For social posts: INSTAGRAM, LINKEDIN, TWITTER
-  requiresApproval Boolean @default(true) @map("requires_approval")
-  approvedAt  DateTime? @map("approved_at")
-  approvedBy  String?   @map("approved_by")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  
+  id               String             @id @default(uuid())
+  strategyId       String?            @map("strategy_id")
+  strategy         MarketingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  contentType      String             @map("content_type") // SOCIAL_POST, BLOG_POST, NEWSLETTER, VIDEO
+  title            String?
+  description      String?            @db.Text
+  scheduledDate    DateTime           @map("scheduled_date")
+  scheduledTime    String?            @map("scheduled_time") // e.g., "09:00"
+  status           String             @default("DRAFT") // DRAFT, APPROVED, SCHEDULED, PUBLISHED, CANCELLED
+  platform         String? // For social posts: INSTAGRAM, LINKEDIN, TWITTER
+  requiresApproval Boolean            @default(true) @map("requires_approval")
+  approvedAt       DateTime?          @map("approved_at")
+  approvedBy       String?            @map("approved_by")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
   // Relations
-  socialPost  SocialMediaPost?
-  blogPost    BlogPost?
-  newsletter  EmailNewsletter?
+  socialPost SocialMediaPost?
+  blogPost   BlogPost?
+  newsletter EmailNewsletter?
 
   @@index([scheduledDate])
   @@index([status])
@@ -770,24 +783,23 @@ model ContentCalendarItem {
   @@map("content_calendar_items")
 }
 
-
 // Email Newsletters
 model EmailNewsletter {
-  id          String   @id @default(uuid())
-  strategyId  String?  @map("strategy_id")
-  strategy    MarketingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
-  subject     String
-  content     String   @db.Text
-  htmlContent String?  @map("html_content") @db.Text
-  status      String   @default("DRAFT") // DRAFT, SCHEDULED, SENT
-  sentAt      DateTime? @map("sent_at")
-  recipientCount Int?   @map("recipient_count")
-  openRate    Float?   @map("open_rate")
-  clickRate   Float?   @map("click_rate")
-  calendarItemId String? @unique @map("calendar_item_id")
+  id             String               @id @default(uuid())
+  strategyId     String?              @map("strategy_id")
+  strategy       MarketingStrategy?   @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  subject        String
+  content        String               @db.Text
+  htmlContent    String?              @map("html_content") @db.Text
+  status         String               @default("DRAFT") // DRAFT, SCHEDULED, SENT
+  sentAt         DateTime?            @map("sent_at")
+  recipientCount Int?                 @map("recipient_count")
+  openRate       Float?               @map("open_rate")
+  clickRate      Float?               @map("click_rate")
+  calendarItemId String?              @unique @map("calendar_item_id")
   calendarItem   ContentCalendarItem? @relation(fields: [calendarItemId], references: [id], onDelete: SetNull)
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
 
   @@index([status])
   @@index([sentAt])
@@ -796,31 +808,31 @@ model EmailNewsletter {
 
 // Content Analytics - Performance metrics
 model ContentAnalytics {
-  id          String   @id @default(uuid())
+  id           String  @id @default(uuid())
   socialPostId String? @map("social_post_id")
   blogPostId   String? @map("blog_post_id")
-  contentType String   @map("content_type") // SOCIAL_POST, BLOG_POST
-  platform    String?  // For social posts
-  
+  contentType  String  @map("content_type") // SOCIAL_POST, BLOG_POST
+  platform     String? // For social posts
+
   // Engagement metrics
-  impressions Int      @default(0)
-  reach       Int      @default(0)
-  likes       Int      @default(0)
-  comments    Int      @default(0)
-  shares      Int      @default(0)
-  clicks      Int      @default(0)
-  saves       Int      @default(0)
-  
+  impressions Int @default(0)
+  reach       Int @default(0)
+  likes       Int @default(0)
+  comments    Int @default(0)
+  shares      Int @default(0)
+  clicks      Int @default(0)
+  saves       Int @default(0)
+
   // Calculated metrics
-  engagementRate Float? @map("engagement_rate")
+  engagementRate   Float? @map("engagement_rate")
   clickThroughRate Float? @map("click_through_rate")
-  
+
   // Relations
-  socialPost  SocialMediaPost? @relation(fields: [socialPostId], references: [id], onDelete: Cascade)
-  blogPost    BlogPost? @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
-  
-  recordedAt  DateTime  @default(now()) @map("recorded_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  socialPost SocialMediaPost? @relation(fields: [socialPostId], references: [id], onDelete: Cascade)
+  blogPost   BlogPost?        @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  recordedAt DateTime @default(now()) @map("recorded_at")
+  createdAt  DateTime @default(now()) @map("created_at")
 
   @@index([socialPostId])
   @@index([blogPostId])
@@ -911,6 +923,10 @@ model Debate {
   isPrivate  Boolean @default(false) @map("is_private") // Private debates require share token
   shareToken String? @unique @map("share_token") // Unique token for sharing private debates
 
+  // Belt at stake indicator
+  hasBeltAtStake Boolean @default(false) @map("has_belt_at_stake")
+  beltStakeType  String? @map("belt_stake_type") // "CHALLENGE", "TOURNAMENT", "MANDATORY"
+
   // SEO & Public Access
   visibility DebateVisibility @default(PRIVATE) // PUBLIC, PRIVATE, UNLISTED
 
@@ -947,6 +963,11 @@ model Debate {
   tournamentMatch   TournamentMatch?    @relation("TournamentDebate")
   socialMediaPosts  SocialMediaPost[]
   participants      DebateParticipant[] // Multi-participant support for group challenges
+
+  // Belt relations
+  stakedBelt    Belt?          @relation("BeltStakedDebate")
+  beltChallenge BeltChallenge? @relation("BeltChallengeDebate")
+  beltHistory   BeltHistory[]  @relation("BeltHistoryDebate")
 
   @@index([status])
   @@index([category])
@@ -1929,6 +1950,46 @@ enum SubscriptionStatus {
   PAST_DUE
 }
 
+// ============================================
+// BELT SYSTEM ENUMS
+// ============================================
+
+enum BeltType {
+  ROOKIE // First belt earned
+  CATEGORY // Category-specific belt (Sports, Politics, etc.)
+  CHAMPIONSHIP // Cross-category, highest tier
+  UNDEFEATED // Streak-based belt
+  TOURNAMENT // Tournament-specific belt
+}
+
+enum BeltStatus {
+  ACTIVE // Currently held, can be challenged
+  INACTIVE // Not defended for X days, top competitors can compete
+  VACANT // No holder, anyone can claim
+  STAKED // Currently at risk in a debate/tournament
+  GRACE_PERIOD // First 30 days, protected from loss
+  MANDATORY // Mandatory defense required
+}
+
+enum ChallengeStatus {
+  PENDING // Challenge sent, awaiting response
+  ACCEPTED // Challenge accepted, debate created
+  DECLINED // Challenge declined
+  EXPIRED // Challenge expired (time limit)
+  CANCELLED // Challenge cancelled by challenger
+  COMPLETED // Challenge completed, belt transferred
+}
+
+enum BeltTransferReason {
+  DEBATE_WIN // Lost belt in a debate
+  TOURNAMENT_WIN // Lost belt in a tournament
+  MANDATORY_LOSS // Lost in mandatory defense
+  INACTIVITY // Lost due to inactivity
+  ADMIN_TRANSFER // Manually transferred by admin
+  CHALLENGE_WIN // Won belt via challenge
+  FORFEIT // Forfeited belt
+}
+
 model Tournament {
   id          String  @id @default(uuid())
   name        String
@@ -1964,12 +2025,22 @@ model Tournament {
   format         TournamentFormat @default(BRACKET)
   assignedJudges String?          @map("assigned_judges") // JSON array of judge IDs (Championship format only)
 
+  // Belt creation
+  beltCreated      Boolean @default(false) @map("belt_created")
+  beltCreationCost Int?    @map("belt_creation_cost") // Coins paid
+  beltCreatedBy    String? @map("belt_created_by") // User ID who paid
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   participants TournamentParticipant[]
   matches      TournamentMatch[]
   rounds       TournamentRound[]
+
+  // Belt relations
+  tournamentBelt Belt?         @relation("TournamentBelt")
+  stakedBelts    Belt[]        @relation("BeltStakedTournament")
+  beltHistory    BeltHistory[] @relation("BeltHistoryTournament")
 
   @@index([creatorId])
   @@index([status])
@@ -2256,9 +2327,9 @@ model BlogPost {
   tags       BlogPostToTag[]
 
   // Marketing System Relations
-  strategyId String? @map("strategy_id")
-  strategy   MarketingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
-  calendarItemId String? @unique @map("calendar_item_id")
+  strategyId     String?              @map("strategy_id")
+  strategy       MarketingStrategy?   @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  calendarItemId String?              @unique @map("calendar_item_id")
   calendarItem   ContentCalendarItem? @relation(fields: [calendarItemId], references: [id], onDelete: SetNull)
   analytics      ContentAnalytics[]
 
@@ -2362,26 +2433,26 @@ model List {
 }
 
 model Card {
-  id          String      @id @default(uuid())
-  listId      String      @map("list_id")
-  list        List        @relation(fields: [listId], references: [id], onDelete: Cascade)
-  title       String
-  description String? // Rich text description
-  position    Int         @default(0) // For ordering cards within a list
-  dueDate     DateTime?   @map("due_date")
-  startDate   DateTime?   @map("start_date")
-  reminderDate DateTime?  @map("reminder_date")
-  location    String?     // Address or location name
-  latitude    Float?      // For map view
-  longitude   Float?      // For map view
-  isArchived  Boolean     @default(false) @map("is_archived")
-  labels      CardLabel[]
-  checklists  CardChecklist[]
-  members     CardMember[]
-  attachments CardAttachment[]
+  id           String            @id @default(uuid())
+  listId       String            @map("list_id")
+  list         List              @relation(fields: [listId], references: [id], onDelete: Cascade)
+  title        String
+  description  String? // Rich text description
+  position     Int               @default(0) // For ordering cards within a list
+  dueDate      DateTime?         @map("due_date")
+  startDate    DateTime?         @map("start_date")
+  reminderDate DateTime?         @map("reminder_date")
+  location     String? // Address or location name
+  latitude     Float? // For map view
+  longitude    Float? // For map view
+  isArchived   Boolean           @default(false) @map("is_archived")
+  labels       CardLabel[]
+  checklists   CardChecklist[]
+  members      CardMember[]
+  attachments  CardAttachment[]
   customFields CardCustomField[]
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
 
   @@index([listId])
   @@index([position])
@@ -2402,28 +2473,28 @@ model CardLabel {
 
 // Checklist for cards (subtasks)
 model CardChecklist {
-  id        String   @id @default(uuid())
-  cardId    String   @map("card_id")
-  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  title     String   @default("Checklist")
+  id        String              @id @default(uuid())
+  cardId    String              @map("card_id")
+  card      Card                @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  title     String              @default("Checklist")
   items     CardChecklistItem[]
-  position  Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  position  Int                 @default(0)
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
 
   @@index([cardId])
   @@map("card_checklists")
 }
 
 model CardChecklistItem {
-  id          String          @id @default(uuid())
-  checklistId String          @map("checklist_id")
-  checklist   CardChecklist   @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  id          String        @id @default(uuid())
+  checklistId String        @map("checklist_id")
+  checklist   CardChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
   text        String
-  isCompleted Boolean         @default(false) @map("is_completed")
-  position    Int             @default(0)
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
+  isCompleted Boolean       @default(false) @map("is_completed")
+  position    Int           @default(0)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
 
   @@index([checklistId])
   @@map("card_checklist_items")
@@ -2446,16 +2517,16 @@ model CardMember {
 
 // Attachments (links, files, work items)
 model CardAttachment {
-  id          String   @id @default(uuid())
-  cardId      String   @map("card_id")
-  card        Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  name        String
-  url         String
-  type        String   // "link", "file", "work_item"
-  mimeType    String?  @map("mime_type")
-  fileSize    Int?     @map("file_size")
-  uploadedBy  String?  @map("uploaded_by") // User ID
-  createdAt   DateTime @default(now()) @map("created_at")
+  id         String   @id @default(uuid())
+  cardId     String   @map("card_id")
+  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  name       String
+  url        String
+  type       String // "link", "file", "work_item"
+  mimeType   String?  @map("mime_type")
+  fileSize   Int?     @map("file_size")
+  uploadedBy String?  @map("uploaded_by") // User ID
+  createdAt  DateTime @default(now()) @map("created_at")
 
   @@index([cardId])
   @@map("card_attachments")
@@ -2475,4 +2546,204 @@ model CardCustomField {
 
   @@index([cardId])
   @@map("card_custom_fields")
+}
+
+// ============================================
+// BELT SYSTEM MODELS
+// ============================================
+
+model Belt {
+  id       String   @id @default(uuid())
+  name     String // e.g., "Sports Championship Belt"
+  type     BeltType
+  category String? // For CATEGORY belts (SPORTS, POLITICS, etc.)
+
+  // Current holder
+  currentHolderId String? @map("current_holder_id")
+  currentHolder   User?   @relation("BeltHolder", fields: [currentHolderId], references: [id])
+
+  // Status tracking
+  status         BeltStatus @default(VACANT)
+  acquiredAt     DateTime?  @map("acquired_at") // When current holder got it
+  lastDefendedAt DateTime?  @map("last_defended_at")
+  nextDefenseDue DateTime?  @map("next_defense_due") // Mandatory defense date
+  inactiveAt     DateTime?  @map("inactive_at") // When it becomes inactive
+
+  // Defense tracking
+  timesDefended      Int @default(0) @map("times_defended")
+  successfulDefenses Int @default(0) @map("successful_defenses")
+  totalDaysHeld      Int @default(0) @map("total_days_held") // Cumulative across all holders
+
+  // Grace period (first 30 days protection)
+  gracePeriodEnds DateTime? @map("grace_period_ends")
+  isFirstHolder   Boolean   @default(false) @map("is_first_holder")
+
+  // Staking (when belt is at risk)
+  isStaked             Boolean     @default(false) @map("is_staked")
+  stakedInDebateId     String?     @unique @map("staked_in_debate_id")
+  stakedInDebate       Debate?     @relation("BeltStakedDebate", fields: [stakedInDebateId], references: [id])
+  stakedInTournamentId String?     @map("staked_in_tournament_id")
+  stakedInTournament   Tournament? @relation("BeltStakedTournament", fields: [stakedInTournamentId], references: [id])
+
+  // Tournament-specific belt
+  tournamentId String?     @unique @map("tournament_id")
+  tournament   Tournament? @relation("TournamentBelt", fields: [tournamentId], references: [id])
+
+  // Belt design/customization
+  designImageUrl String? @map("design_image_url")
+  designColors   Json?   @map("design_colors") // { primary: "#FF0000", secondary: "#0000FF" }
+  sponsorId      String? @map("sponsor_id") // For sponsored belts
+  sponsorName    String? @map("sponsor_name")
+  sponsorLogoUrl String? @map("sponsor_logo_url")
+
+  // Coin value
+  coinValue    Int @default(0) @map("coin_value") // Current market value
+  creationCost Int @default(0) @map("creation_cost") // Coins paid to create
+
+  // Admin controls
+  isActive   Boolean @default(true) @map("is_active") // Can be deactivated by admin
+  adminNotes String? @map("admin_notes")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  history    BeltHistory[]
+  challenges BeltChallenge[]
+
+  @@index([currentHolderId])
+  @@index([type])
+  @@index([category])
+  @@index([status])
+  @@index([tournamentId])
+  @@index([stakedInDebateId])
+  @@index([stakedInTournamentId])
+  @@map("belts")
+}
+
+model BeltHistory {
+  id     String @id @default(uuid())
+  beltId String @map("belt_id")
+  belt   Belt   @relation(fields: [beltId], references: [id], onDelete: Cascade)
+
+  // Transfer details
+  fromUserId String? @map("from_user_id")
+  fromUser   User?   @relation("BeltHistoryFrom", fields: [fromUserId], references: [id])
+  toUserId   String? @map("to_user_id")
+  toUser     User?   @relation("BeltHistoryTo", fields: [toUserId], references: [id])
+
+  // Transfer context
+  reason       BeltTransferReason
+  debateId     String?            @map("debate_id")
+  debate       Debate?            @relation("BeltHistoryDebate", fields: [debateId], references: [id])
+  tournamentId String?            @map("tournament_id")
+  tournament   Tournament?        @relation("BeltHistoryTournament", fields: [tournamentId], references: [id])
+
+  // Stats at time of transfer
+  daysHeld     Int @map("days_held")
+  defensesWon  Int @map("defenses_won")
+  defensesLost Int @map("defenses_lost")
+
+  // Admin notes (if manually transferred)
+  adminNotes    String? @map("admin_notes")
+  transferredBy String? @map("transferred_by") // Admin user ID if manual transfer
+
+  // Timestamps
+  transferredAt DateTime @default(now()) @map("transferred_at")
+
+  @@index([beltId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([debateId])
+  @@index([tournamentId])
+  @@map("belt_history")
+}
+
+model BeltChallenge {
+  id     String @id @default(uuid())
+  beltId String @map("belt_id")
+  belt   Belt   @relation(fields: [beltId], references: [id], onDelete: Cascade)
+
+  // Participants
+  challengerId String @map("challenger_id")
+  challenger   User   @relation("BeltChallenger", fields: [challengerId], references: [id])
+  beltHolderId String @map("belt_holder_id")
+  beltHolder   User   @relation("BeltHolderChallenge", fields: [beltHolderId], references: [id])
+
+  // Challenge details
+  status     ChallengeStatus @default(PENDING)
+  entryFee   Int             @default(0) @map("entry_fee") // Coins challenger pays
+  coinReward Int             @default(0) @map("coin_reward") // Coins winner gets
+
+  // Response tracking
+  response     ChallengeStatus? // ACCEPTED, DECLINED
+  respondedAt  DateTime?        @map("responded_at")
+  declineCount Int              @default(0) @map("decline_count") // Track declines for mandatory
+
+  // Debate created from challenge
+  debateId String? @unique @map("debate_id")
+  debate   Debate? @relation("BeltChallengeDebate", fields: [debateId], references: [id])
+
+  // ELO matching (anti-abuse)
+  challengerElo Int @map("challenger_elo")
+  holderElo     Int @map("holder_elo")
+  eloDifference Int @map("elo_difference") // Absolute difference
+
+  // Expiration
+  expiresAt DateTime @map("expires_at") // Challenge expires if not responded
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([beltId])
+  @@index([challengerId])
+  @@index([beltHolderId])
+  @@index([status])
+  @@index([debateId])
+  @@map("belt_challenges")
+}
+
+model BeltSettings {
+  id String @id @default(uuid())
+
+  // Belt type this applies to
+  beltType BeltType @unique @map("belt_type")
+
+  // Defense periods (in days)
+  defensePeriodDays    Int @default(30) @map("defense_period_days")
+  inactivityDays       Int @default(30) @map("inactivity_days")
+  mandatoryDefenseDays Int @default(60) @map("mandatory_defense_days")
+  gracePeriodDays      Int @default(30) @map("grace_period_days")
+
+  // Challenge rules
+  maxDeclines           Int @default(2) @map("max_declines")
+  challengeCooldownDays Int @default(7) @map("challenge_cooldown_days")
+  challengeExpiryDays   Int @default(3) @map("challenge_expiry_days")
+
+  // ELO matching (anti-abuse)
+  eloRange                 Int   @default(200) @map("elo_range") // ±ELO points allowed
+  activityRequirementDays  Int   @default(30) @map("activity_requirement_days")
+  winStreakBonusMultiplier Float @default(1.2) @map("win_streak_bonus_multiplier") // Can challenge higher ELO
+
+  // Coin economics
+  entryFeeBase            Int   @default(100) @map("entry_fee_base")
+  entryFeeMultiplier      Float @default(1.0) @map("entry_fee_multiplier") // Based on belt value
+  winnerRewardPercent     Int   @default(60) @map("winner_reward_percent")
+  loserConsolationPercent Int   @default(30) @map("loser_consolation_percent")
+  platformFeePercent      Int   @default(10) @map("platform_fee_percent")
+
+  // Tournament belt creation costs
+  tournamentBeltCostSmall  Int @default(500) @map("tournament_belt_cost_small") // 8 players
+  tournamentBeltCostMedium Int @default(1000) @map("tournament_belt_cost_medium") // 16 players
+  tournamentBeltCostLarge  Int @default(2000) @map("tournament_belt_cost_large") // 32+ players
+
+  // Inactive belt rules
+  inactiveCompetitorCount Int @default(2) @map("inactive_competitor_count") // Top N can compete
+  inactiveAcceptDays      Int @default(7) @map("inactive_accept_days") // Days to accept challenge
+
+  // Timestamps
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by") // Admin user ID
+
+  @@map("belt_settings")
 }

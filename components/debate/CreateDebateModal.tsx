@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/Toast'
+import { useAuth } from '@/lib/hooks/useAuth'
 import { UserSearchInput } from './UserSearchInput'
 
 interface CreateDebateModalProps {
@@ -14,6 +15,11 @@ interface CreateDebateModalProps {
   onSuccess?: () => void
   initialTopic?: string
   initialCategory?: string
+  beltChallengeMode?: boolean
+  beltId?: string
+  opponentId?: string
+  opponentUsername?: string
+  beltName?: string
 }
 
 interface User {
@@ -21,6 +27,15 @@ interface User {
   username: string
   avatarUrl: string | null
   eloRating: number
+}
+
+interface Belt {
+  id: string
+  name: string
+  type: string
+  category: string | null
+  status: string
+  isStaked: boolean
 }
 
 const POSITIONS = [
@@ -38,7 +53,18 @@ const CHALLENGE_TYPES = [
 
 type ChallengeTypeValue = typeof CHALLENGE_TYPES[number]['value']
 
-export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, initialCategory }: CreateDebateModalProps) {
+export function CreateDebateModal({ 
+  isOpen, 
+  onClose, 
+  onSuccess, 
+  initialTopic, 
+  initialCategory,
+  beltChallengeMode = false,
+  beltId,
+  opponentId,
+  opponentUsername,
+  beltName
+}: CreateDebateModalProps) {
   const [topic, setTopic] = useState('')
   const [description, setDescription] = useState('')
   const [categories, setCategories] = useState<Array<{ value: string; label: string }>>([])
@@ -48,18 +74,55 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
   const [speedMode, setSpeedMode] = useState(false)
   const [allowCopyPaste, setAllowCopyPaste] = useState(true)
   const [isPrivate, setIsPrivate] = useState(false)
+  const { user } = useAuth()
   const [challengeType, setChallengeType] = useState<ChallengeTypeValue>('OPEN')
   const [selectedUsers, setSelectedUsers] = useState<User[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [images, setImages] = useState<Array<{ file: File; preview: string; alt?: string; caption?: string; order: number }>>([])
   const [uploadingImages, setUploadingImages] = useState(false)
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+  const [userBelts, setUserBelts] = useState<Belt[]>([])
+  const [isLoadingBelts, setIsLoadingBelts] = useState(false)
+  const [selectedBeltId, setSelectedBeltId] = useState<string | null>(null)
   const { showToast } = useToast()
+
+  // Fetch user's belts when modal opens
+  useEffect(() => {
+    const fetchUserBelts = async () => {
+      if (!user || !isOpen) {
+        setUserBelts([])
+        return
+      }
+
+      try {
+        setIsLoadingBelts(true)
+        const response = await fetch('/api/belts/room')
+        if (response.ok) {
+          const data = await response.json()
+          // Filter to only active, unstaked belts that can be staked
+          const stakableBelts = (data.currentBelts || []).filter(
+            (belt: Belt) => 
+              (belt.status === 'ACTIVE' || belt.status === 'MANDATORY') && 
+              !belt.isStaked
+          )
+          setUserBelts(stakableBelts)
+        }
+      } catch (error) {
+        console.error('Failed to fetch user belts:', error)
+        setUserBelts([])
+      } finally {
+        setIsLoadingBelts(false)
+      }
+    }
+
+    fetchUserBelts()
+  }, [user, isOpen])
 
   // Fetch categories from API
   useEffect(() => {
     const fetchCategories = async () => {
       try {
+        setIsLoadingCategories(true)
         const response = await fetch('/api/categories')
         if (response.ok) {
           const data = await response.json()
@@ -120,6 +183,9 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
     if (isOpen) {
       if (initialTopic) {
         setTopic(initialTopic)
+      } else if (beltChallengeMode) {
+        // For belt challenges, don't reset topic - let user fill it in
+        // Only reset if it was previously closed
       }
       if (initialCategory && categories.some(cat => cat.value === initialCategory)) {
         setCategory(initialCategory)
@@ -152,6 +218,7 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
 
     // Limit to 6 images max
     const remainingSlots = 6 - images.length
+      setSelectedBeltId(null)
     if (remainingSlots <= 0) {
       showToast({
         title: 'Limit Reached',
@@ -198,28 +265,124 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
       return
     }
 
-    // Validate challenge type requirements
-    if (challengeType === 'DIRECT' && selectedUsers.length !== 1) {
-      showToast({
-        title: 'Error',
-        description: 'Please select exactly one user for a direct challenge',
-        type: 'error',
-      })
-      return
-    }
+    // Belt challenge mode validation
+    if (beltChallengeMode) {
+      if (!beltId || !opponentId) {
+        showToast({
+          title: 'Error',
+          description: 'Belt challenge information is missing',
+          type: 'error',
+        })
+        return
+      }
+    } else {
+      // Regular debate mode validation
+      // Validate challenge type requirements
+      if (challengeType === 'DIRECT' && selectedUsers.length !== 1) {
+        showToast({
+          title: 'Error',
+          description: 'Please select exactly one user for a direct challenge',
+          type: 'error',
+        })
+        return
+      }
 
-    if (challengeType === 'GROUP' && selectedUsers.length === 0) {
-      showToast({
-        title: 'Error',
-        description: 'Please select at least one user for a group challenge',
-        type: 'error',
-      })
-      return
+      if (challengeType === 'GROUP' && selectedUsers.length === 0) {
+        showToast({
+          title: 'Error',
+          description: 'Please select at least one user for a group challenge',
+          type: 'error',
+        })
+        return
+      }
     }
 
     setIsSubmitting(true)
 
     try {
+      // Belt challenge mode: create challenge with debate details
+      if (beltChallengeMode) {
+        // Double-check topic before sending
+        const finalTopic = topic.trim()
+        if (!finalTopic) {
+          showToast({
+            title: 'Error',
+            description: 'Please enter a debate topic',
+            type: 'error',
+          })
+          setIsSubmitting(false)
+          return
+        }
+
+        // Ensure beltId is a string (extract ID if it's an object)
+        const beltIdString = typeof beltId === 'string' ? beltId : (beltId as any)?.id || beltId
+        
+        const requestBody = {
+          beltId: beltIdString,
+          // Debate details
+          topic: finalTopic,
+          description: description.trim() || null,
+          category,
+          challengerPosition: position,
+          totalRounds,
+          roundDuration: speedMode ? 300000 : 86400000, // 5 min for speed, 24h for normal
+          speedMode,
+          allowCopyPaste,
+        }
+
+        // Comprehensive logging
+        console.log('[CreateDebateModal] ===== BELT CHALLENGE REQUEST =====')
+        console.log('[CreateDebateModal] Topic state value:', topic)
+        console.log('[CreateDebateModal] Topic trimmed:', finalTopic)
+        console.log('[CreateDebateModal] Topic length:', finalTopic.length)
+        console.log('[CreateDebateModal] Full requestBody:', requestBody)
+        console.log('[CreateDebateModal] RequestBody.topic:', requestBody.topic)
+        
+        const jsonBody = JSON.stringify(requestBody)
+        console.log('[CreateDebateModal] JSON body:', jsonBody)
+        
+        // Verify topic is in the JSON
+        const parsed = JSON.parse(jsonBody)
+        console.log('[CreateDebateModal] Parsed topic:', parsed.topic, 'Type:', typeof parsed.topic)
+
+        const response = await fetch('/api/belts/challenge', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: jsonBody,
+        })
+
+        if (!response.ok) {
+          let errorMessage = 'Failed to create belt challenge'
+          try {
+            const error = await response.json()
+            console.error('[CreateDebateModal] API error response:', JSON.stringify(error, null, 2))
+            console.error('[CreateDebateModal] Error object keys:', Object.keys(error))
+            errorMessage = error.error || error.message || `Server error: ${response.status} ${response.statusText}`
+          } catch (parseError) {
+            // If response is not JSON, get text
+            const text = await response.text()
+            console.error('[CreateDebateModal] API error (non-JSON):', text)
+            errorMessage = text || `Server error: ${response.status} ${response.statusText}`
+          }
+          throw new Error(errorMessage)
+        }
+
+        const { challenge } = await response.json()
+
+        showToast({
+          title: 'Challenge Created',
+          description: `Your challenge for ${beltName} has been sent to ${opponentUsername}!`,
+          type: 'success',
+        })
+
+        onClose()
+        onSuccess?.()
+        return
+      }
+
+      // Regular debate mode
       const response = await fetch('/api/debates', {
         method: 'POST',
         headers: {
@@ -236,6 +399,7 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
           isPrivate,
           challengeType,
           invitedUserIds: challengeType !== 'OPEN' ? selectedUsers.map(u => u.id) : null,
+          beltId: selectedBeltId || null,
         }),
       })
 
@@ -338,13 +502,32 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create Debate Challenge">
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      title={beltChallengeMode ? `Challenge for ${beltName}` : "Create Debate Challenge"}
+    >
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Belt Challenge Info */}
+        {beltChallengeMode && (
+          <div className="bg-bg-secondary border border-bg-tertiary rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-text-secondary">Challenging belt holder:</p>
+                <p className="text-lg font-semibold text-text-primary">{opponentUsername}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-text-secondary">Belt:</p>
+                <p className="text-lg font-semibold text-electric-blue">{beltName}</p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Topic */}
         <div>
           <Input
-            label="Debate Topic"
-            placeholder="e.g., Is AI Art Real Art?"
+            label={beltChallengeMode ? "Debate Topic (Required)" : "Debate Topic"}
+            placeholder={beltChallengeMode ? "Enter the topic you want to debate for this belt..." : "e.g., Is AI Art Real Art?"}
             value={topic}
             onChange={(e) => {
               let value = e.target.value
@@ -552,7 +735,8 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
           </div>
         </div>
 
-        {/* Challenge Type */}
+        {/* Challenge Type - Hidden in belt challenge mode */}
+        {!beltChallengeMode && (
         <div>
           <label className="block text-sm font-semibold text-text-primary mb-3">
             Challenge Type
@@ -593,9 +777,10 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
             ))}
           </div>
         </div>
+        )}
 
         {/* User Selection (for Direct/Group challenges) */}
-        {(challengeType === 'DIRECT' || challengeType === 'GROUP') && (
+        {!beltChallengeMode && (challengeType === 'DIRECT' || challengeType === 'GROUP') && (
           <div>
             <label className="block text-sm font-semibold text-text-primary mb-2">
               {challengeType === 'DIRECT' ? 'Select User' : 'Select Users'}
@@ -632,6 +817,53 @@ export function CreateDebateModal({ isOpen, onClose, onSuccess, initialTopic, in
             onChange={(e) => setSpeedMode(e.target.checked)}
             className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-electric-blue focus:ring-electric-blue focus:ring-2"
           />
+        {/* Belt Staking - Hidden in belt challenge mode */}
+        {!beltChallengeMode && userBelts.length > 0 && (
+          <div className="p-4 bg-bg-secondary border border-bg-tertiary rounded-lg">
+            <div className="flex items-start gap-3 mb-3">
+              <input
+                type="checkbox"
+                id="stakeBelt"
+                checked={selectedBeltId !== null}
+                onChange={(e) => {
+                  if (!e.target.checked) {
+                    setSelectedBeltId(null)
+                  } else if (userBelts.length > 0) {
+                    setSelectedBeltId(userBelts[0].id)
+                  }
+                }}
+                className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-electric-blue focus:ring-electric-blue focus:ring-2 mt-0.5"
+              />
+              <div className="flex-1">
+                <label htmlFor="stakeBelt" className="text-sm text-text-primary cursor-pointer">
+                  <span className="font-semibold">Stake a Belt</span>
+                </label>
+                <p className="text-xs text-text-secondary mt-1">
+                  Put one of your belts at stake. If you lose, the winner gets it. If you win, you keep it.
+                </p>
+              </div>
+            </div>
+            {selectedBeltId && (
+              <div className="mt-3">
+                <label className="block text-xs font-semibold text-text-primary mb-2">
+                  Select Belt to Stake
+                </label>
+                <select
+                  value={selectedBeltId}
+                  onChange={(e) => setSelectedBeltId(e.target.value)}
+                  className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-text-primary focus:outline-none focus:border-electric-blue"
+                >
+                  {userBelts.map((belt) => (
+                    <option key={belt.id} value={belt.id}>
+                      {belt.name} {belt.category ? `(${belt.category})` : ''} - {belt.type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+
           <label htmlFor="speedMode" className="text-sm text-text-primary cursor-pointer">
             <span className="font-semibold">Speed Mode</span>
             <span className="text-text-secondary ml-2">(1 hour per round instead of 24 hours)</span>
