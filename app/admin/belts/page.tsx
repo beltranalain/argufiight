@@ -1,15 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
+import { Avatar } from '@/components/ui/Avatar'
 import { CreateBeltModal } from '@/components/admin/CreateBeltModal'
-import { Modal } from '@/components/ui/Modal'
 import Link from 'next/link'
 
 interface Belt {
@@ -36,55 +35,38 @@ interface Belt {
   timesDefended: number
   successfulDefenses: number
   createdAt: string
-  isStaked: boolean
+}
+
+interface BeltSettings {
+  id: string
+  beltType: string
+  challengeCooldownDays: number
+  challengeExpiryDays: number
+  maxDeclines: number
+  defensePeriodDays: number
+  inactivityDays: number
+  mandatoryDefenseDays: number
+  gracePeriodDays: number
+  eloRange: number
+  requireCoinsForChallenge?: boolean
+  freeChallengesPerWeek: number
 }
 
 export default function BeltsAdminPage() {
-  const router = useRouter()
   const { showToast } = useToast()
   const [belts, setBelts] = useState<Belt[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [beltToDelete, setBeltToDelete] = useState<Belt | null>(null)
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [deletingBeltId, setDeletingBeltId] = useState<string | null>(null)
   const [filters, setFilters] = useState({
     status: '',
     type: '',
     category: '',
   })
-
-  useEffect(() => {
-    fetchBelts()
-  }, [filters])
-
-  // Refresh when page becomes visible or when belt is updated
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchBelts()
-      }
-    }
-
-    const handleFocus = () => {
-      fetchBelts()
-    }
-
-    // Listen for belt update events from detail page
-    const handleBeltUpdate = () => {
-      fetchBelts()
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
-    window.addEventListener('beltUpdated', handleBeltUpdate)
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
-      window.removeEventListener('beltUpdated', handleBeltUpdate)
-    }
-  }, [])
+  const [showChallengeRules, setShowChallengeRules] = useState(false)
+  const [beltSettings, setBeltSettings] = useState<BeltSettings[]>([])
+  const [editingSettings, setEditingSettings] = useState<Partial<BeltSettings>>({})
+  const [isSavingRules, setIsSavingRules] = useState(false)
 
   const fetchBelts = async () => {
     try {
@@ -93,27 +75,21 @@ export default function BeltsAdminPage() {
       if (filters.status) params.append('status', filters.status)
       if (filters.type) params.append('type', filters.type)
       if (filters.category) params.append('category', filters.category)
-      // Add cache busting timestamp to ensure fresh data
+      // Add cache busting to ensure fresh data
       params.append('t', Date.now().toString())
 
       const response = await fetch(`/api/belts?${params.toString()}`, {
-        credentials: 'include',
         cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-        },
       })
       if (response.ok) {
         const data = await response.json()
         setBelts(data.belts || [])
       } else {
-        const error = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }))
-        console.error('[Admin Belts] Failed to fetch belts:', response.status, error)
+        const error = await response.json()
         showToast({
           type: 'error',
           title: 'Error',
-          description: error.error || `Failed to load belts (${response.status})`,
+          description: error.error || 'Failed to load belts',
         })
       }
     } catch (error) {
@@ -127,6 +103,103 @@ export default function BeltsAdminPage() {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    fetchBelts()
+    fetchBeltSettings()
+  }, [filters])
+
+  const fetchBeltSettings = async () => {
+    try {
+      const response = await fetch('/api/admin/belts/settings')
+      if (response.ok) {
+        const data = await response.json()
+        setBeltSettings(data.settings || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch belt settings:', error)
+    }
+  }
+
+  const handleSaveChallengeRules = async () => {
+    try {
+      setIsSavingRules(true)
+      
+      // Update all belt types with the same rules (or you could make it per-type)
+      const updates = editingSettings
+      const beltType = updates.beltType || beltSettings[0]?.beltType
+
+      if (!beltType) {
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: 'No belt type found',
+        })
+        return
+      }
+
+      const response = await fetch('/api/admin/belts/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          beltType,
+          ...updates,
+        }),
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: 'Challenge rules updated successfully',
+        })
+        setEditingSettings({})
+        fetchBeltSettings()
+        // Optionally refresh belts to show updated info
+        fetchBelts()
+      } else {
+        const error = await response.json()
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: error.error || 'Failed to update challenge rules',
+        })
+      }
+    } catch (error) {
+      console.error('Failed to save challenge rules:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to update challenge rules',
+      })
+    } finally {
+      setIsSavingRules(false)
+    }
+  }
+
+  // Refresh belts when page becomes visible (user navigates back from details page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Small delay to ensure any navigation is complete
+        setTimeout(() => {
+          fetchBelts()
+        }, 100)
+      }
+    }
+    const handleFocus = () => {
+      // Also refresh when window regains focus
+      setTimeout(() => {
+        fetchBelts()
+      }, 100)
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -152,51 +225,6 @@ export default function BeltsAdminPage() {
     return status.replace(/_/g, ' ')
   }
 
-  const handleDeleteBelt = (belt: Belt) => {
-    setBeltToDelete(belt)
-    setIsDeleteModalOpen(true)
-  }
-
-  const confirmDeleteBelt = async () => {
-    if (!beltToDelete) return
-
-    setIsDeleting(true)
-    try {
-      const response = await fetch(`/api/admin/belts/${beltToDelete.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: `Belt "${beltToDelete.name}" deleted successfully`,
-        })
-        setIsDeleteModalOpen(false)
-        setBeltToDelete(null)
-        fetchBelts()
-      } else {
-        const error = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }))
-        console.error('[Admin Belts] Failed to delete belt:', response.status, error)
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: error.error || `Failed to delete belt (${response.status})`,
-        })
-      }
-    } catch (error: any) {
-      console.error('[Admin Belts] Error deleting belt:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to delete belt',
-      })
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
   const getTypeBadgeColor = (type: string) => {
     switch (type) {
       case 'ROOKIE':
@@ -211,6 +239,45 @@ export default function BeltsAdminPage() {
         return 'bg-orange-500 text-white'
       default:
         return 'bg-gray-500 text-white'
+    }
+  }
+
+  const handleDeleteBelt = async (beltId: string, beltName: string) => {
+    if (!confirm(`Are you sure you want to delete "${beltName}"?\n\nThis action cannot be undone. All belt history and challenges will be permanently deleted.`)) {
+      return
+    }
+
+    try {
+      setDeletingBeltId(beltId)
+      const response = await fetch(`/api/admin/belts/${beltId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Belt Deleted',
+          description: `"${beltName}" has been deleted successfully.`,
+        })
+        // Refresh the list
+        fetchBelts()
+      } else {
+        const error = await response.json()
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: error.error || 'Failed to delete belt',
+        })
+      }
+    } catch (error) {
+      console.error('Failed to delete belt:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to delete belt',
+      })
+    } finally {
+      setDeletingBeltId(null)
     }
   }
 
@@ -234,6 +301,225 @@ export default function BeltsAdminPage() {
           </Link>
         </div>
       </div>
+
+      {/* Challenge Rules Configuration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-white">Challenge Rules Configuration</h2>
+              <p className="text-text-secondary text-sm mt-1">
+                Configure how many times users can challenge belt holders and other challenge rules
+              </p>
+            </div>
+            <Button
+              onClick={() => {
+                setShowChallengeRules(!showChallengeRules)
+                if (!showChallengeRules && beltSettings.length > 0) {
+                  setEditingSettings(beltSettings[0])
+                }
+              }}
+              variant="secondary"
+              size="sm"
+            >
+              {showChallengeRules ? 'Hide' : 'Configure Rules'}
+            </Button>
+          </div>
+        </CardHeader>
+        {showChallengeRules && (
+          <CardBody>
+            <div className="space-y-6">
+              <div className="bg-bg-tertiary p-4 rounded-lg border border-border">
+                <h3 className="text-lg font-semibold text-white mb-4">Current Rules</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <p className="text-text-secondary">Free Challenges</p>
+                    <p className="text-white font-medium">
+                      {editingSettings.freeChallengesPerWeek ?? beltSettings[0]?.freeChallengesPerWeek ?? 1} per week
+                    </p>
+                    <p className="text-text-secondary text-xs mt-1">(Resets every 7 days)</p>
+                  </div>
+                  <div>
+                    <p className="text-text-secondary">Require Coins</p>
+                    <p className="text-white font-medium">
+                      {editingSettings.requireCoinsForChallenge !== false && (beltSettings[0]?.requireCoinsForChallenge !== false) ? 'Yes' : 'No'}
+                    </p>
+                    <p className="text-text-secondary text-xs mt-1">(When disabled, no coins needed)</p>
+                  </div>
+                  <div>
+                    <p className="text-text-secondary">Challenge Cooldown</p>
+                    <p className="text-white font-medium">
+                      {editingSettings.challengeCooldownDays ?? beltSettings[0]?.challengeCooldownDays ?? 7} days
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-text-secondary">Challenge Expiry</p>
+                    <p className="text-white font-medium">
+                      {editingSettings.challengeExpiryDays ?? beltSettings[0]?.challengeExpiryDays ?? 3} days
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-text-secondary">Max Declines</p>
+                    <p className="text-white font-medium">
+                      {editingSettings.maxDeclines ?? beltSettings[0]?.maxDeclines ?? 2}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4">Edit Challenge Rules</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                      Challenge Cooldown (Days)
+                    </label>
+                    <Input
+                      type="number"
+                      value={editingSettings.challengeCooldownDays ?? beltSettings[0]?.challengeCooldownDays ?? 7}
+                      onChange={(e) => setEditingSettings({
+                        ...editingSettings,
+                        challengeCooldownDays: parseInt(e.target.value) || 7,
+                        beltType: beltSettings[0]?.beltType,
+                      })}
+                      min="0"
+                      placeholder="7"
+                    />
+                    <p className="text-text-secondary text-xs mt-1">
+                      Days before same user can challenge same belt again
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                      Challenge Expiry (Days)
+                    </label>
+                    <Input
+                      type="number"
+                      value={editingSettings.challengeExpiryDays ?? beltSettings[0]?.challengeExpiryDays ?? 3}
+                      onChange={(e) => setEditingSettings({
+                        ...editingSettings,
+                        challengeExpiryDays: parseInt(e.target.value) || 3,
+                        beltType: beltSettings[0]?.beltType,
+                      })}
+                      min="1"
+                      placeholder="3"
+                    />
+                    <p className="text-text-secondary text-xs mt-1">
+                      Days before challenge expires if not responded to
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                      Max Declines
+                    </label>
+                    <Input
+                      type="number"
+                      value={editingSettings.maxDeclines ?? beltSettings[0]?.maxDeclines ?? 2}
+                      onChange={(e) => setEditingSettings({
+                        ...editingSettings,
+                        maxDeclines: parseInt(e.target.value) || 2,
+                        beltType: beltSettings[0]?.beltType,
+                      })}
+                      min="0"
+                      placeholder="2"
+                    />
+                    <p className="text-text-secondary text-xs mt-1">
+                      Max times holder can decline before forced to accept
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                      Grace Period (Days)
+                    </label>
+                    <Input
+                      type="number"
+                      value={editingSettings.gracePeriodDays ?? beltSettings[0]?.gracePeriodDays ?? 30}
+                      onChange={(e) => setEditingSettings({
+                        ...editingSettings,
+                        gracePeriodDays: parseInt(e.target.value) || 30,
+                        beltType: beltSettings[0]?.beltType,
+                      })}
+                      min="0"
+                      placeholder="30"
+                    />
+                    <p className="text-text-secondary text-xs mt-1">
+                      Protection period for new belt holders
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-2">
+                      Free Challenges Per Week
+                    </label>
+                    <Input
+                      type="number"
+                      value={editingSettings.freeChallengesPerWeek ?? beltSettings[0]?.freeChallengesPerWeek ?? 1}
+                      onChange={(e) => setEditingSettings({
+                        ...editingSettings,
+                        freeChallengesPerWeek: parseInt(e.target.value) || 1,
+                        beltType: beltSettings[0]?.beltType,
+                      })}
+                      min="0"
+                      placeholder="1"
+                    />
+                    <p className="text-text-secondary text-xs mt-1">
+                      Number of free challenges each user gets per week (resets every 7 days)
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-bg-secondary rounded-lg border border-border">
+                    <div className="flex items-center gap-3 mb-2">
+                      <input
+                        type="checkbox"
+                        id="requireCoinsForChallenge"
+                        checked={editingSettings.requireCoinsForChallenge !== undefined ? editingSettings.requireCoinsForChallenge : (beltSettings[0]?.requireCoinsForChallenge !== false)}
+                        onChange={(e) => setEditingSettings({
+                          ...editingSettings,
+                          requireCoinsForChallenge: e.target.checked,
+                          beltType: beltSettings[0]?.beltType,
+                        })}
+                        className="w-5 h-5 rounded border-bg-tertiary bg-bg-secondary text-electric-blue focus:ring-electric-blue focus:ring-2"
+                      />
+                      <label htmlFor="requireCoinsForChallenge" className="text-sm font-medium text-white cursor-pointer">
+                        Require Coins for Challenges
+                      </label>
+                    </div>
+                    <p className="text-text-secondary text-xs ml-8">
+                      When unchecked, users can challenge without coins or free challenges
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-border">
+
+                  <div className="flex justify-end gap-3">
+                    <Button
+                      onClick={() => {
+                        setEditingSettings({})
+                        setShowChallengeRules(false)
+                      }}
+                      variant="secondary"
+                      disabled={isSavingRules}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSaveChallengeRules}
+                      variant="primary"
+                      disabled={isSavingRules}
+                    >
+                      {isSavingRules ? 'Saving...' : 'Save Challenge Rules'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardBody>
+        )}
+      </Card>
 
       {/* Filters */}
       <Card>
@@ -337,7 +623,7 @@ export default function BeltsAdminPage() {
                           src={belt.designImageUrl}
                           alt={belt.name}
                           className="w-[140%] h-[140%] object-contain"
-                          style={{ imageRendering: 'auto' }}
+                          style={{ imageRendering: 'auto' as const }}
                           loading="lazy"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none'
@@ -375,23 +661,17 @@ export default function BeltsAdminPage() {
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
-                          <p className="text-text-secondary mb-2">Current Holder</p>
+                          <p className="text-text-secondary">Current Holder</p>
                           {belt.currentHolder ? (
                             <div className="flex items-center gap-2">
-                              {belt.currentHolder.avatarUrl ? (
-                                <img
-                                  src={belt.currentHolder.avatarUrl}
-                                  alt={belt.currentHolder.username}
-                                  className="w-8 h-8 rounded-full border border-primary object-cover flex-shrink-0"
-                                />
-                              ) : (
-                                <div className="w-8 h-8 rounded-full border border-primary bg-bg-secondary flex items-center justify-center text-sm font-bold text-primary flex-shrink-0">
-                                  {belt.currentHolder.username.charAt(0).toUpperCase()}
-                                </div>
-                              )}
+                              <Avatar
+                                src={belt.currentHolder.avatarUrl}
+                                username={belt.currentHolder.username}
+                                size="sm"
+                              />
                               <a
                                 href={`/admin/users?userId=${belt.currentHolder.id}`}
-                                className="text-primary hover:underline font-medium"
+                                className="text-white font-medium hover:text-primary hover:underline"
                               >
                                 {belt.currentHolder.username}
                               </a>
@@ -441,19 +721,13 @@ export default function BeltsAdminPage() {
                         </Button>
                       </a>
                       <Button
-                        variant="danger"
+                        variant="secondary"
                         size="sm"
-                        onClick={() => handleDeleteBelt(belt)}
-                        disabled={belt.isStaked}
-                        title={
-                          belt.isStaked
-                            ? 'Cannot delete staked belt'
-                            : belt.currentHolder
-                            ? 'Delete belt (will remove from current holder)'
-                            : 'Delete belt'
-                        }
+                        onClick={() => handleDeleteBelt(belt.id, belt.name)}
+                        disabled={deletingBeltId === belt.id}
+                        className="bg-red-600 hover:bg-red-700 text-white border-red-600"
                       >
-                        Delete
+                        {deletingBeltId === belt.id ? 'Deleting...' : 'Delete'}
                       </Button>
                     </div>
                   </div>
@@ -472,57 +746,6 @@ export default function BeltsAdminPage() {
           fetchBelts()
         }}
       />
-
-      {/* Delete Belt Confirmation Modal */}
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          if (!isDeleting) {
-            setIsDeleteModalOpen(false)
-            setBeltToDelete(null)
-          }
-        }}
-        title="Delete Belt"
-      >
-        <div className="space-y-4">
-          <p className="text-text-secondary">
-            Are you sure you want to permanently delete the belt <strong className="text-white">"{beltToDelete?.name}"</strong>?
-          </p>
-          <p className="text-text-secondary text-sm">
-            This action cannot be undone. All belt history, challenges, and related data will be permanently removed.
-          </p>
-          {beltToDelete?.currentHolder && (
-            <p className="text-neon-orange text-sm font-medium">
-              ⚠️ Warning: This belt has an active holder ({beltToDelete.currentHolder.username}). The belt will be removed from the holder and all pending challenges will be cancelled.
-            </p>
-          )}
-          {beltToDelete?.isStaked && (
-            <p className="text-red-500 text-sm font-bold">
-              ❌ Error: This belt is currently staked in a debate or tournament. You cannot delete a staked belt. Please wait until the debate/tournament is complete.
-            </p>
-          )}
-          <div className="flex justify-end gap-3 pt-4 border-t border-bg-tertiary">
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setIsDeleteModalOpen(false)
-                setBeltToDelete(null)
-              }}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              onClick={confirmDeleteBelt}
-              isLoading={isDeleting}
-              disabled={beltToDelete?.isStaked === true}
-            >
-              {beltToDelete?.currentHolder ? 'Force Delete Belt' : 'Delete Belt'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   )
 }
