@@ -13,12 +13,21 @@ export async function GET(
 ) {
   try {
     const session = await verifySessionWithDb()
-    if (!session) {
+    if (!session || !session.userId) {
+      console.error('[API /belts/[id]] No session or userId')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check feature flag
-    if (process.env.ENABLE_BELT_SYSTEM !== 'true') {
+    // Check feature flag - but allow admin access even if flag is not set
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { isAdmin: true },
+    })
+
+    console.log('[API /belts/[id]] User check:', { userId: session.userId, isAdmin: user?.isAdmin, beltSystemEnabled: process.env.ENABLE_BELT_SYSTEM })
+
+    if (process.env.ENABLE_BELT_SYSTEM !== 'true' && !user?.isAdmin) {
+      console.error('[API /belts/[id]] Belt system not enabled and user is not admin')
       return NextResponse.json({ error: 'Belt system is not enabled' }, { status: 403 })
     }
 
