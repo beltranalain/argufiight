@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { notFound, permanentRedirect } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
+import { verifySession } from '@/lib/auth/session'
+import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
@@ -118,10 +120,14 @@ export async function generateMetadata({
 
 export default async function PublicDebatePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>
+  searchParams?: Promise<{ token?: string }>
 }) {
   const { slug } = await params
+  const urlParams = await searchParams
+  const shareToken = urlParams?.token
 
   // Check if this is a UUID (old format) - UUIDs are 36 characters with dashes
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)
@@ -148,60 +154,87 @@ export default async function PublicDebatePage({
     if (debateCheck) {
       debate = await prisma.debate.findUnique({
         where: { id: slug },
-        include: {
-      challenger: {
         select: {
           id: true,
-          username: true,
-          avatarUrl: true,
-          eloRating: true,
-        },
-      },
-      opponent: {
-        select: {
-          id: true,
-          username: true,
-          avatarUrl: true,
-          eloRating: true,
-        },
-      },
-      statements: {
-        include: {
-          author: {
+          slug: true,
+          topic: true,
+          description: true,
+          category: true,
+          visibility: true,
+          shareToken: true,
+          challengerId: true,
+          opponentId: true,
+          challenger: {
             select: {
               id: true,
               username: true,
               avatarUrl: true,
+              eloRating: true,
             },
           },
-        },
-        orderBy: {
-          round: 'asc',
-        },
-      },
-      verdicts: {
-        include: {
-          judge: {
+          opponent: {
             select: {
               id: true,
-              name: true,
-              emoji: true,
-              personality: true,
+              username: true,
+              avatarUrl: true,
+              eloRating: true,
             },
           },
+          statements: {
+            include: {
+              author: {
+                select: {
+                  id: true,
+                  username: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+            orderBy: {
+              round: 'asc',
+            },
+          },
+          verdicts: {
+            include: {
+              judge: {
+                select: {
+                  id: true,
+                  name: true,
+                  emoji: true,
+                  personality: true,
+                },
+              },
+            },
+            orderBy: {
+              createdAt: 'asc',
+            },
+          },
+          status: true,
+          currentRound: true,
+          totalRounds: true,
+          roundDeadline: true,
+          createdAt: true,
+          updatedAt: true,
+          winnerId: true,
+          verdictReached: true,
+          verdictDate: true,
         },
-        orderBy: {
-          createdAt: 'asc',
-        },
-      },
-      },
-    })
+      })
     }
   } else {
     // This is a slug URL - find by slug
     debate = await prisma.debate.findUnique({
       where: { slug },
-      include: {
+      select: {
+        id: true,
+        slug: true,
+        topic: true,
+        description: true,
+        category: true,
+        visibility: true,
+        shareToken: true,
+        challengerId: true,
+        opponentId: true,
         challenger: {
           select: {
             id: true,
@@ -247,6 +280,15 @@ export default async function PublicDebatePage({
             createdAt: 'asc',
           },
         },
+        status: true,
+        currentRound: true,
+        totalRounds: true,
+        roundDeadline: true,
+        createdAt: true,
+        updatedAt: true,
+        winnerId: true,
+        verdictReached: true,
+        verdictDate: true,
       },
     })
   }
@@ -255,9 +297,25 @@ export default async function PublicDebatePage({
     notFound()
   }
 
-  // Only show public debates
+  // Check access for private debates
   if (debate.visibility !== 'PUBLIC') {
-    notFound()
+    // Get current user session to check if they're a participant
+    const session = await verifySession()
+    const currentUserId = session ? getUserIdFromSession(session) : null
+    
+    // Check if user is a participant
+    const isParticipant = currentUserId && (
+      debate.challengerId === currentUserId || 
+      debate.opponentId === currentUserId
+    )
+    
+    // Check for shareToken in URL (for private debates with share links)
+    const hasValidToken = shareToken && debate.shareToken === shareToken
+    
+    // Only allow access if user is a participant or has valid share token
+    if (!isParticipant && !hasValidToken) {
+      notFound()
+    }
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
