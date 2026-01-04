@@ -220,6 +220,10 @@ export default function BeltRoomPage() {
     return status.replace(/_/g, ' ')
   }
 
+  const formatBeltReason = (reason: string) => {
+    return reason.replace(/_/g, ' ')
+  }
+
   return (
     <div className="min-h-screen bg-bg-primary">
       <TopNav currentPanel="BELT ROOM" />
@@ -431,7 +435,7 @@ export default function BeltRoomPage() {
                                     <Badge className={getTypeBadgeColor(entry.belt.type)}>
                                       {entry.belt.type}
                                     </Badge>
-                                    <Badge className="bg-gray-600">{entry.reason}</Badge>
+                                    <Badge className="bg-gray-600">{formatBeltReason(entry.reason)}</Badge>
                                     {isGain && (
                                       <Badge className="bg-green-500">Gained</Badge>
                                     )}
