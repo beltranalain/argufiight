@@ -26,6 +26,12 @@ interface Belt {
   lastDefendedAt: string | null
   timesDefended: number
   successfulDefenses: number
+  currentHolder: {
+    id: string
+    username: string
+    avatarUrl: string | null
+    eloRating?: number
+  } | null
   tournament: {
     id: string
     name: string
