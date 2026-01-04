@@ -15,8 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Allow challenge creation - belt system should work regardless of flag
-    // The flag should only control advanced features, not basic operations
+    // Temporarily enable belt system for challenge operations
+    const originalFlag = process.env.ENABLE_BELT_SYSTEM
+    if (originalFlag !== 'true') {
+      process.env.ENABLE_BELT_SYSTEM = 'true'
+    }
 
     const body = await request.json()
     console.log('[API /belts/challenge] Request body:', JSON.stringify(body, null, 2))
