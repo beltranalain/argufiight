@@ -164,7 +164,7 @@ export default function BeltRoomPage() {
     }
   }
 
-  const handleCreateChallenge = async (belt: Belt | BeltWithHolder) => {
+  const handleCreateChallenge = (belt: Belt | BeltWithHolder) => {
     if (!user) {
       showToast({
         type: 'error',
@@ -192,56 +192,10 @@ export default function BeltRoomPage() {
       return
     }
 
-    // BYPASS MODAL - Direct API call with prompt
-    const topic = prompt(`Enter debate topic for challenging ${belt.currentHolder.username} for ${belt.name}:`)
-    if (!topic || !topic.trim()) {
-      return
-    }
-
+    // Open the challenge modal (same as belt detail page)
     setIsCreatingChallenge(belt.id)
-    
-    try {
-      const response = await fetch('/api/belts/challenge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          beltId: belt.id,
-          topic: topic.trim(),
-          description: `Challenge for ${belt.name}`,
-          category: 'GENERAL',
-          challengerPosition: 'FOR',
-          totalRounds: 5,
-          roundDuration: 86400000,
-          speedMode: false,
-          allowCopyPaste: true,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to create challenge')
-      }
-
-      const { challenge } = await response.json()
-      
-      showToast({
-        type: 'success',
-        title: 'Challenge Created',
-        description: `Your challenge has been sent to ${belt.currentHolder.username}!`,
-      })
-
-      fetchBeltRoom()
-      fetchAllBelts()
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Challenge Failed',
-        description: error.message || 'Failed to create challenge',
-      })
-    } finally {
-      setIsCreatingChallenge(null)
-    }
+    setSelectedBeltForChallenge(belt as BeltWithHolder)
+    setChallengeModalOpen(true)
   }
 
   const handleChallengeModalSuccess = () => {
@@ -586,7 +540,23 @@ export default function BeltRoomPage() {
                                 </div>
       </div>
 
-      {/* MODAL BYPASSED - Using direct API call instead */}
+      {/* Challenge Modal - Same as belt detail page */}
+      {challengeModalOpen && selectedBeltForChallenge && selectedBeltForChallenge.currentHolder && (
+        <CreateDebateModal
+          isOpen={challengeModalOpen}
+          onClose={() => {
+            setIsCreatingChallenge(null)
+            setChallengeModalOpen(false)
+            setSelectedBeltForChallenge(null)
+          }}
+          onSuccess={handleChallengeModalSuccess}
+          beltChallengeMode={true}
+          beltId={selectedBeltForChallenge.id}
+          opponentId={selectedBeltForChallenge.currentHolder.id}
+          opponentUsername={selectedBeltForChallenge.currentHolder.username}
+          beltName={selectedBeltForChallenge.name}
+        />
+      )}
       
       {/* Debug info - remove in production */}
       {process.env.NODE_ENV === 'development' && (
