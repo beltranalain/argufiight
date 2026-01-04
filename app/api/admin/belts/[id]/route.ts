@@ -142,14 +142,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Belt not found' }, { status: 404 })
     }
 
-    // Check if belt can be deleted (must be vacant and not staked)
-    if (belt.currentHolderId) {
-      return NextResponse.json(
-        { error: 'Cannot delete belt with an active holder. Transfer the belt first.' },
-        { status: 400 }
-      )
-    }
-
+    // Check if belt can be deleted (cannot delete if staked)
     if (belt.isStaked) {
       return NextResponse.json(
         { error: 'Cannot delete belt that is currently staked in a debate or tournament.' },
@@ -157,19 +150,37 @@ export async function DELETE(
       )
     }
 
-    // Check for pending challenges
-    const pendingChallenges = await prisma.beltChallenge.count({
+    // Check for pending challenges - cancel them automatically
+    const pendingChallenges = await prisma.beltChallenge.findMany({
       where: {
         beltId: id,
         status: 'PENDING',
       },
     })
 
-    if (pendingChallenges > 0) {
-      return NextResponse.json(
-        { error: `Cannot delete belt with ${pendingChallenges} pending challenge(s). Cancel or resolve challenges first.` },
-        { status: 400 }
-      )
+    if (pendingChallenges.length > 0) {
+      // Cancel all pending challenges
+      await prisma.beltChallenge.updateMany({
+        where: {
+          beltId: id,
+          status: 'PENDING',
+        },
+        data: {
+          status: 'CANCELLED',
+        },
+      })
+      console.log(`[API /admin/belts/[id]] Cancelled ${pendingChallenges.length} pending challenge(s) before deletion`)
+    }
+
+    // If belt has a holder, clear it first (belt will be deleted anyway, but this ensures clean state)
+    if (belt.currentHolderId) {
+      await prisma.belt.update({
+        where: { id },
+        data: {
+          currentHolderId: null,
+        },
+      })
+      console.log(`[API /admin/belts/[id]] Cleared holder before deletion`)
     }
 
     // Delete belt history first (cascade should handle this, but being explicit)
@@ -177,7 +188,7 @@ export async function DELETE(
       where: { beltId: id },
     })
 
-    // Delete belt challenges
+    // Delete belt challenges (all statuses)
     await prisma.beltChallenge.deleteMany({
       where: { beltId: id },
     })

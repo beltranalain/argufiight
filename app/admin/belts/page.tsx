@@ -408,12 +408,12 @@ export default function BeltsAdminPage() {
                         variant="danger"
                         size="sm"
                         onClick={() => handleDeleteBelt(belt)}
-                        disabled={belt.currentHolder !== null || belt.isStaked}
+                        disabled={belt.isStaked}
                         title={
-                          belt.currentHolder
-                            ? 'Cannot delete belt with active holder'
-                            : belt.isStaked
+                          belt.isStaked
                             ? 'Cannot delete staked belt'
+                            : belt.currentHolder
+                            ? 'Delete belt (will remove from current holder)'
                             : 'Delete belt'
                         }
                       >
@@ -457,12 +457,12 @@ export default function BeltsAdminPage() {
           </p>
           {beltToDelete?.currentHolder && (
             <p className="text-neon-orange text-sm font-medium">
-              ⚠️ Warning: This belt has an active holder. Transfer the belt first before deleting.
+              ⚠️ Warning: This belt has an active holder ({beltToDelete.currentHolder.username}). The belt will be removed from the holder and all pending challenges will be cancelled.
             </p>
           )}
           {beltToDelete?.isStaked && (
-            <p className="text-neon-orange text-sm font-medium">
-              ⚠️ Warning: This belt is currently staked. Unstake the belt first before deleting.
+            <p className="text-red-500 text-sm font-bold">
+              ❌ Error: This belt is currently staked in a debate or tournament. You cannot delete a staked belt. Please wait until the debate/tournament is complete.
             </p>
           )}
           <div className="flex justify-end gap-3 pt-4 border-t border-bg-tertiary">
@@ -480,9 +480,9 @@ export default function BeltsAdminPage() {
               variant="danger"
               onClick={confirmDeleteBelt}
               isLoading={isDeleting}
-              disabled={beltToDelete?.currentHolder !== null || beltToDelete?.isStaked}
+              disabled={beltToDelete?.isStaked === true}
             >
-              Delete Belt
+              {beltToDelete?.currentHolder ? 'Force Delete Belt' : 'Delete Belt'}
             </Button>
           </div>
         </div>
