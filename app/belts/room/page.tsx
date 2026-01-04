@@ -552,8 +552,8 @@ export default function BeltRoomPage() {
                                 </div>
       </div>
 
-      {/* Challenge Modal */}
-      {selectedBeltForChallenge && selectedBeltForChallenge.currentHolder && (
+      {/* Challenge Modal - Always render if state is set to avoid conditional rendering issues */}
+      {challengeModalOpen && selectedBeltForChallenge && selectedBeltForChallenge.currentHolder && (
         <CreateDebateModal
           isOpen={challengeModalOpen}
           onClose={() => {
