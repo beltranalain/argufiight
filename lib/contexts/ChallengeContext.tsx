@@ -41,7 +41,17 @@ export function ChallengeProvider({ children }: { children: ReactNode }) {
 export function useChallenge() {
   const context = useContext(ChallengeContext)
   if (!context) {
-    throw new Error('useChallenge must be used within ChallengeProvider')
+    // Return a no-op implementation during SSR/static generation
+    // This prevents build errors when ChallengeProvider isn't available
+    return {
+      challenge: null,
+      openChallenge: () => {
+        if (typeof window !== 'undefined') {
+          console.warn('Challenge context not available - ChallengeProvider may not be mounted')
+        }
+      },
+      closeChallenge: () => {},
+    }
   }
   return context
 }

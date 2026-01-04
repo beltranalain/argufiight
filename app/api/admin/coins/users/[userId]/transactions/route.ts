@@ -11,7 +11,6 @@ export async function GET(
   { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
-    const { userId } = await params
     const session = await verifySessionWithDb()
     if (!session?.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -25,6 +24,8 @@ export async function GET(
     if (!user?.isAdmin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
+
+    const { userId } = await params
 
     const transactions = await prisma.coinTransaction.findMany({
       where: {
@@ -42,6 +43,12 @@ export async function GET(
           },
         },
         belt: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        tournament: {
           select: {
             id: true,
             name: true,
