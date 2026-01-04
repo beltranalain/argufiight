@@ -65,6 +65,15 @@ export function CreateDebateModal({
   opponentUsername,
   beltName
 }: CreateDebateModalProps) {
+  console.log('[CreateDebateModal] Component rendered with props:', {
+    isOpen,
+    beltChallengeMode,
+    beltId,
+    opponentId,
+    opponentUsername,
+    beltName,
+  })
+  
   const [topic, setTopic] = useState('')
   const [description, setDescription] = useState('')
   const [categories, setCategories] = useState<Array<{ value: string; label: string }>>([])

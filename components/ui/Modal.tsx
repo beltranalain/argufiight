@@ -23,6 +23,14 @@ export function Modal({
   size = 'md',
   showClose = true,
 }: ModalProps) {
+  useEffect(() => {
+    if (isOpen) {
+      console.log('[Modal] Modal is opening:', title)
+    } else {
+      console.log('[Modal] Modal is closed:', title)
+    }
+  }, [isOpen, title])
+  
   // Close on Escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {

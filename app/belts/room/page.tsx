@@ -554,24 +554,43 @@ export default function BeltRoomPage() {
 
       {/* Challenge Modal - Always render if state is set to avoid conditional rendering issues */}
       {challengeModalOpen && selectedBeltForChallenge && selectedBeltForChallenge.currentHolder && (
-        <CreateDebateModal
-          isOpen={challengeModalOpen}
-          onClose={() => {
-            console.log('[BeltRoomPage] Closing challenge modal')
-            setIsCreatingChallenge(null)
-            setChallengeModalOpen(false)
-            setSelectedBeltForChallenge(null)
-          }}
-          onSuccess={() => {
-            console.log('[BeltRoomPage] Challenge modal success callback')
-            handleChallengeModalSuccess()
-          }}
-          beltChallengeMode={true}
-          beltId={selectedBeltForChallenge.id}
-          opponentId={selectedBeltForChallenge.currentHolder.id}
-          opponentUsername={selectedBeltForChallenge.currentHolder.username}
-          beltName={selectedBeltForChallenge.name}
-        />
+        <>
+          {console.log('[BeltRoomPage] Rendering CreateDebateModal with:', {
+            isOpen: challengeModalOpen,
+            beltId: selectedBeltForChallenge.id,
+            opponentId: selectedBeltForChallenge.currentHolder.id,
+            opponentUsername: selectedBeltForChallenge.currentHolder.username,
+            beltName: selectedBeltForChallenge.name,
+          })}
+          <CreateDebateModal
+            isOpen={challengeModalOpen}
+            onClose={() => {
+              console.log('[BeltRoomPage] Closing challenge modal')
+              setIsCreatingChallenge(null)
+              setChallengeModalOpen(false)
+              setSelectedBeltForChallenge(null)
+            }}
+            onSuccess={() => {
+              console.log('[BeltRoomPage] Challenge modal success callback')
+              handleChallengeModalSuccess()
+            }}
+            beltChallengeMode={true}
+            beltId={selectedBeltForChallenge.id}
+            opponentId={selectedBeltForChallenge.currentHolder.id}
+            opponentUsername={selectedBeltForChallenge.currentHolder.username}
+            beltName={selectedBeltForChallenge.name}
+          />
+        </>
+      )}
+      
+      {/* Always render modal component to test if it's a rendering issue */}
+      {challengeModalOpen && !selectedBeltForChallenge && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
+            <p>DEBUG: Modal should be open but selectedBeltForChallenge is null</p>
+            <button onClick={() => setChallengeModalOpen(false)}>Close</button>
+          </div>
+        </div>
       )}
       
       {/* Debug info - remove in production */}
