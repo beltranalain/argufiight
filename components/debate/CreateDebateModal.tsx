@@ -539,10 +539,13 @@ export function CreateDebateModal({
     }
   }
 
-  // Always render the Modal component - let it handle isOpen internally
+  // Force boolean conversion and ensure modal receives correct prop
+  const modalIsOpen = Boolean(isOpen)
+  console.log('[CreateDebateModal] Rendering Modal with isOpen:', modalIsOpen, 'beltChallengeMode:', beltChallengeMode)
+  
   return (
     <Modal 
-      isOpen={isOpen} 
+      isOpen={modalIsOpen} 
       onClose={onClose} 
       title={beltChallengeMode ? `Challenge for ${beltName || 'Belt'}` : "Create Debate Challenge"}
     >

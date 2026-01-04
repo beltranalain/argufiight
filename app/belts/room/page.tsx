@@ -552,11 +552,11 @@ export default function BeltRoomPage() {
                                 </div>
       </div>
 
-      {/* Challenge Modal - Render when state is set */}
-      {challengeModalOpen && selectedBeltForChallenge && selectedBeltForChallenge.currentHolder && (
+      {/* Challenge Modal - Always render, control with isOpen prop */}
+      {selectedBeltForChallenge && selectedBeltForChallenge.currentHolder && (
         <CreateDebateModal
-          key={`challenge-modal-${selectedBeltForChallenge.id}-${Date.now()}`}
-          isOpen={challengeModalOpen}
+          key={`challenge-modal-${selectedBeltForChallenge.id}`}
+          isOpen={!!challengeModalOpen}
           onClose={() => {
             console.log('[BeltRoomPage] Closing challenge modal')
             setIsCreatingChallenge(null)
