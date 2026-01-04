@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
+import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
 
 /**
@@ -8,8 +8,8 @@ import { prisma } from '@/lib/db/prisma'
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await verifySession()
-    if (!session) {
+    const session = await verifySessionWithDb()
+    if (!session || !session.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
