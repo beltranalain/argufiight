@@ -158,53 +158,27 @@ export default function BeltRoomPage() {
     }
   }
 
-  const handleCreateChallenge = async (beltId: string) => {
-    if (!user) return
-
-    try {
-      setIsCreatingChallenge(beltId)
-      const response = await fetch('/api/belts/challenge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          beltId,
-        }),
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Challenge Created',
-          description: 'Your challenge has been sent!',
-        })
-        // Refresh data
-        fetchAllBelts()
-        fetchBeltRoom()
-      } else {
-        const error = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: error.error || 'Failed to create challenge',
-        })
-      }
-    } catch (error) {
-      console.error('Failed to create challenge:', error)
+  const handleCreateChallenge = (belt: Belt) => {
+    if (!user || !belt.currentHolder) {
       showToast({
         type: 'error',
-        title: 'Error',
-        description: 'Failed to create challenge',
+        title: 'Cannot Challenge',
+        description: belt.currentHolder ? 'You must be logged in to challenge a belt' : 'This belt has no current holder',
       })
-    } finally {
-      setIsCreatingChallenge(null)
+      return
     }
+    
+    // Set state to open modal
+    setSelectedBeltForChallenge(belt)
+    setChallengeModalOpen(true)
   }
 
   const handleChallengeModalSuccess = () => {
-    setChallengeModalOpen(false)
-    setSelectedBeltForChallenge(null)
+    // Refresh data after successful challenge creation
     fetchBeltRoom()
     fetchAllBelts()
+    setChallengeModalOpen(false)
+    setSelectedBeltForChallenge(null)
   }
 
   const getStatusBadgeColor = (status: string) => {

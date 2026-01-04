@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
+import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
 import Link from 'next/link'
 import { useAuth } from '@/lib/hooks/useAuth'
 
@@ -130,7 +131,9 @@ export default function BeltDetailsPage() {
     }
   }
 
-  const handleCreateChallenge = async () => {
+  const [challengeModalOpen, setChallengeModalOpen] = useState(false)
+
+  const handleCreateChallenge = () => {
     if (!user || !belt) return
 
     if (belt.currentHolderId === user.id) {
@@ -142,41 +145,23 @@ export default function BeltDetailsPage() {
       return
     }
 
-    try {
-      setIsCreatingChallenge(true)
-      const response = await fetch('/api/belts/challenge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          beltId: belt.id,
-        }),
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Challenge Created',
-          description: 'Your challenge has been sent!',
-        })
-        fetchBeltDetails()
-      } else {
-        const error = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: error.error || 'Failed to create challenge',
-        })
-      }
-    } catch (error) {
-      console.error('Failed to create challenge:', error)
+    if (!belt.currentHolder) {
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Failed to create challenge',
+        description: 'This belt has no current holder',
       })
-    } finally {
-      setIsCreatingChallenge(false)
+      return
     }
+
+    // Open the challenge modal
+    setChallengeModalOpen(true)
+  }
+
+  const handleChallengeModalSuccess = () => {
+    // Refresh belt details after successful challenge
+    fetchBeltDetails()
+    setChallengeModalOpen(false)
   }
 
   const handleAcceptChallenge = async (challengeId: string) => {
@@ -432,7 +417,7 @@ export default function BeltDetailsPage() {
                   based on belt value.
                 </p>
               </div>
-              <Button onClick={handleCreateChallenge} disabled={isCreatingChallenge}>
+              <Button onClick={handleCreateChallenge} disabled={isCreatingChallenge || challengeModalOpen}>
                 {isCreatingChallenge ? 'Creating...' : 'Create Challenge'}
               </Button>
             </div>
