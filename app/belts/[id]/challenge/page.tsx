@@ -118,7 +118,7 @@ export default function ChallengeBeltPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-bg-primary">
-        <TopNav />
+        <TopNav currentPanel="BELT CHALLENGE" />
         <div className="container mx-auto px-4 py-8">
           <LoadingSpinner />
         </div>
@@ -129,7 +129,7 @@ export default function ChallengeBeltPage() {
   if (!belt) {
     return (
       <div className="min-h-screen bg-bg-primary">
-        <TopNav />
+        <TopNav currentPanel="BELT CHALLENGE" />
         <div className="container mx-auto px-4 py-8">
           <Card>
             <CardBody>
@@ -146,7 +146,7 @@ export default function ChallengeBeltPage() {
 
   return (
     <div className="min-h-screen bg-bg-primary">
-      <TopNav />
+      <TopNav currentPanel="BELT CHALLENGE" />
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <Card>
           <CardHeader>
