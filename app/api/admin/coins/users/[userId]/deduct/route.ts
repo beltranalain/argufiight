@@ -9,9 +9,10 @@ import { deductCoins } from '@/lib/belts/coin-economics'
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
+    const { userId } = await params
     const session = await verifySessionWithDb()
     if (!session?.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -38,7 +39,7 @@ export async function POST(
 
     // Verify user exists
     const user = await prisma.user.findUnique({
-      where: { id: params.userId },
+      where: { id: userId },
       select: { id: true, username: true, coins: true },
     })
 
@@ -54,7 +55,7 @@ export async function POST(
     }
 
     // Deduct coins
-    await deductCoins(params.userId, amount, {
+    await deductCoins(userId, amount, {
       type: 'ADMIN_DEDUCT',
       description: reason || `Coins deducted by admin ${admin.username}`,
       metadata: {

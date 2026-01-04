@@ -8,9 +8,10 @@ import { prisma } from '@/lib/db/prisma'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
+    const { userId } = await params
     const session = await verifySessionWithDb()
     if (!session?.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -27,7 +28,7 @@ export async function GET(
 
     const transactions = await prisma.coinTransaction.findMany({
       where: {
-        userId: params.userId,
+        userId: userId,
       },
       include: {
         beltChallenge: {
