@@ -544,12 +544,26 @@ export default function BeltDetailsPage() {
                   This belt is inactive. You can challenge for it now!
                 </p>
               </div>
-              <Button onClick={handleCreateChallenge} disabled={isCreatingChallenge}>
+              <Button onClick={handleCreateChallenge} disabled={isCreatingChallenge || challengeModalOpen}>
                 {isCreatingChallenge ? 'Creating...' : 'Challenge for Belt'}
               </Button>
             </div>
           </CardBody>
         </Card>
+      )}
+
+      {/* Challenge Modal */}
+      {challengeModalOpen && belt && belt.currentHolder && (
+        <CreateDebateModal
+          isOpen={challengeModalOpen}
+          onClose={() => setChallengeModalOpen(false)}
+          onSuccess={handleChallengeModalSuccess}
+          beltChallengeMode={true}
+          beltId={belt.id}
+          opponentId={belt.currentHolder.id}
+          opponentUsername={belt.currentHolder.username}
+          beltName={belt.name}
+        />
       )}
 
       {/* Tournament Staking (for belt holder) */}
