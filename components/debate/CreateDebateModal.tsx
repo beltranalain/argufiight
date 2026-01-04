@@ -74,6 +74,13 @@ export function CreateDebateModal({
     beltName,
   })
   
+  // Force re-render when isOpen changes
+  useEffect(() => {
+    if (isOpen) {
+      console.log('[CreateDebateModal] Modal opened, isOpen:', isOpen)
+    }
+  }, [isOpen])
+  
   const [topic, setTopic] = useState('')
   const [description, setDescription] = useState('')
   const [categories, setCategories] = useState<Array<{ value: string; label: string }>>([])
@@ -532,15 +539,7 @@ export function CreateDebateModal({
     }
   }
 
-  console.log('[CreateDebateModal] Render - isOpen:', isOpen, 'beltChallengeMode:', beltChallengeMode, 'beltId:', beltId)
-  
-  if (!isOpen) {
-    console.log('[CreateDebateModal] Modal is closed, not rendering')
-    return null
-  }
-  
-  console.log('[CreateDebateModal] Modal is open, rendering...')
-  
+  // Always render the Modal component - let it handle isOpen internally
   return (
     <Modal 
       isOpen={isOpen} 

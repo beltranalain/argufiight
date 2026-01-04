@@ -58,12 +58,43 @@ async function checkAndResetFreeChallenges(userId: string): Promise<{ hasFreeCha
  * Get belt settings for a specific belt type
  */
 export async function getBeltSettings(beltType: BeltType) {
-  const settings = await prisma.beltSettings.findUnique({
+  let settings = await prisma.beltSettings.findUnique({
     where: { beltType },
   })
 
+  // If settings don't exist, create defaults instead of throwing
   if (!settings) {
-    throw new Error(`Belt settings not found for type: ${beltType}`)
+    console.warn(`[getBeltSettings] Settings not found for ${beltType}, creating defaults`)
+    settings = await prisma.beltSettings.create({
+      data: {
+        beltType,
+        // Default values
+        defensePeriodDays: 30,
+        inactivityDays: 30,
+        mandatoryDefenseDays: 60,
+        gracePeriodDays: 30,
+        maxDeclines: 2,
+        challengeCooldownDays: 7,
+        challengeExpiryDays: 3,
+        eloRange: 200,
+        activityRequirementDays: 30,
+        winStreakBonusMultiplier: 1.2,
+        entryFeeBase: 100,
+        entryFeeMultiplier: 1.0,
+        winnerRewardPercent: 60,
+        loserConsolationPercent: 30,
+        platformFeePercent: 10,
+        tournamentBeltCostSmall: 500,
+        tournamentBeltCostMedium: 1000,
+        tournamentBeltCostLarge: 2000,
+        inactiveCompetitorCount: 2,
+        inactiveAcceptDays: 7,
+        requireCoins: false,
+        requireFreeChallenge: false,
+        allowFreeChallenges: true,
+        freeChallengesPerWeek: 1,
+      },
+    })
   }
 
   return settings
