@@ -319,16 +319,32 @@ export default function BeltDetailsPage() {
           </CardHeader>
           <CardBody>
             {belt.currentHolder ? (
-              <div className="space-y-2">
-                <p>
-                  <span className="text-white">User: </span>
-                  <a
-                    href={`/admin/users?userId=${belt.currentHolder.id}`}
-                    className="text-primary hover:underline font-medium"
-                  >
-                    {belt.currentHolder.username}
-                  </a>
-                </p>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  {belt.currentHolder.avatarUrl ? (
+                    <img
+                      src={belt.currentHolder.avatarUrl}
+                      alt={belt.currentHolder.username}
+                      className="w-16 h-16 rounded-full border-2 border-primary object-cover"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full border-2 border-primary bg-bg-secondary flex items-center justify-center text-2xl font-bold text-primary">
+                      {belt.currentHolder.username.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div>
+                    <p>
+                      <span className="text-white">User: </span>
+                      <a
+                        href={`/admin/users?userId=${belt.currentHolder.id}`}
+                        className="text-primary hover:underline font-medium"
+                      >
+                        {belt.currentHolder.username}
+                      </a>
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
                 <p>
                   <span className="text-white">ELO: </span>
                   <span className="text-white">{belt.currentHolder.eloRating}</span>

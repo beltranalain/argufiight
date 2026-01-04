@@ -46,32 +46,34 @@ export async function POST(
       return NextResponse.json({ error: 'Belt not found' }, { status: 404 })
     }
 
-    // Resolve user ID - accept either userId or username
+    // Resolve user ID - accept either userId or username (case-insensitive)
     let finalToUserId: string | null = null
-    if (toUserId) {
-      // Check if it's a valid UUID (user ID) or a username
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(toUserId)
-      if (isUUID) {
-        finalToUserId = toUserId
-      } else {
-        // It's a username, look it up
-        const user = await prisma.user.findUnique({
-          where: { username: toUserId },
-          select: { id: true },
-        })
-        if (!user) {
-          return NextResponse.json({ error: `User not found: ${toUserId}` }, { status: 404 })
-        }
-        finalToUserId = user.id
-      }
-    } else if (toUsername) {
-      const user = await prisma.user.findUnique({
-        where: { username: toUsername },
-        select: { id: true },
+    const searchTerm = (toUserId || toUsername || '').trim()
+    
+    if (!searchTerm) {
+      return NextResponse.json({ error: 'toUserId or toUsername is required' }, { status: 400 })
+    }
+
+    // Check if it's a valid UUID (user ID)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(searchTerm)
+    if (isUUID) {
+      finalToUserId = searchTerm
+    } else {
+      // It's a username, look it up case-insensitively
+      const user = await prisma.user.findFirst({
+        where: {
+          username: {
+            equals: searchTerm,
+            mode: 'insensitive',
+          },
+        },
+        select: { id: true, username: true },
       })
       if (!user) {
-        return NextResponse.json({ error: `User not found: ${toUsername}` }, { status: 404 })
+        console.error('[API /admin/belts/[id]/transfer] User not found:', searchTerm)
+        return NextResponse.json({ error: `User not found: ${searchTerm}` }, { status: 404 })
       }
+      console.log('[API /admin/belts/[id]/transfer] Found user:', user.username, 'ID:', user.id)
       finalToUserId = user.id
     }
 
