@@ -557,7 +557,7 @@ export async function GET(
               debateId: id,
             },
             orderBy: {
-              createdAt: 'desc',
+              transferredAt: 'desc',
             },
             select: {
               beltId: true,
