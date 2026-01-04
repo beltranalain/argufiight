@@ -165,7 +165,12 @@ export default function BeltRoomPage() {
   }
 
   const handleCreateChallenge = (belt: Belt) => {
+    console.log('[BeltRoomPage] handleCreateChallenge called with belt:', belt)
+    console.log('[BeltRoomPage] User:', user)
+    console.log('[BeltRoomPage] Belt currentHolder:', belt.currentHolder)
+    
     if (!user || !belt.currentHolder) {
+      console.log('[BeltRoomPage] Cannot challenge - missing user or holder')
       showToast({
         type: 'error',
         title: 'Cannot Challenge',
@@ -174,10 +179,21 @@ export default function BeltRoomPage() {
       return
     }
     
+    // Convert Belt to BeltWithHolder for the modal
+    const beltWithHolder: BeltWithHolder = {
+      ...belt,
+      currentHolder: belt.currentHolder,
+    }
+    
+    console.log('[BeltRoomPage] Opening challenge modal for belt:', beltWithHolder.id, beltWithHolder.name)
+    console.log('[BeltRoomPage] Opponent:', beltWithHolder.currentHolder?.username)
+    
     // Set state to open modal
     setIsCreatingChallenge(belt.id)
-    setSelectedBeltForChallenge(belt)
+    setSelectedBeltForChallenge(beltWithHolder)
     setChallengeModalOpen(true)
+    
+    console.log('[BeltRoomPage] Modal state set - challengeModalOpen:', true, 'selectedBeltForChallenge:', beltWithHolder.id)
   }
 
   const handleChallengeModalSuccess = () => {
@@ -527,17 +543,30 @@ export default function BeltRoomPage() {
         <CreateDebateModal
           isOpen={challengeModalOpen}
           onClose={() => {
+            console.log('[BeltRoomPage] Closing challenge modal')
             setIsCreatingChallenge(null)
             setChallengeModalOpen(false)
             setSelectedBeltForChallenge(null)
           }}
-          onSuccess={handleChallengeModalSuccess}
+          onSuccess={() => {
+            console.log('[BeltRoomPage] Challenge modal success callback')
+            handleChallengeModalSuccess()
+          }}
           beltChallengeMode={true}
           beltId={selectedBeltForChallenge.id}
           opponentId={selectedBeltForChallenge.currentHolder.id}
           opponentUsername={selectedBeltForChallenge.currentHolder.username}
           beltName={selectedBeltForChallenge.name}
         />
+      )}
+      
+      {/* Debug info - remove in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={{ display: 'none' }}>
+          <p>Modal Open: {challengeModalOpen ? 'true' : 'false'}</p>
+          <p>Selected Belt: {selectedBeltForChallenge?.id || 'none'}</p>
+          <p>Has Holder: {selectedBeltForChallenge?.currentHolder ? 'yes' : 'no'}</p>
+        </div>
       )}
     </div>
   )

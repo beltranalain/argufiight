@@ -302,9 +302,18 @@ export function CreateDebateModal({
     try {
       // Belt challenge mode: create challenge with debate details
       if (beltChallengeMode) {
+        console.log('[CreateDebateModal] ===== BELT CHALLENGE MODE =====')
+        console.log('[CreateDebateModal] beltId:', beltId)
+        console.log('[CreateDebateModal] opponentId:', opponentId)
+        console.log('[CreateDebateModal] opponentUsername:', opponentUsername)
+        console.log('[CreateDebateModal] beltName:', beltName)
+        console.log('[CreateDebateModal] Topic:', topic)
+        console.log('[CreateDebateModal] Topic length:', topic?.length)
+        
         // Double-check topic before sending
         const finalTopic = topic.trim()
         if (!finalTopic) {
+          console.error('[CreateDebateModal] Topic is empty!')
           showToast({
             title: 'Error',
             description: 'Please enter a debate topic',
@@ -335,8 +344,7 @@ export function CreateDebateModal({
         console.log('[CreateDebateModal] Topic state value:', topic)
         console.log('[CreateDebateModal] Topic trimmed:', finalTopic)
         console.log('[CreateDebateModal] Topic length:', finalTopic.length)
-        console.log('[CreateDebateModal] Full requestBody:', requestBody)
-        console.log('[CreateDebateModal] RequestBody.topic:', requestBody.topic)
+        console.log('[CreateDebateModal] Full requestBody:', JSON.stringify(requestBody, null, 2))
         
         const jsonBody = JSON.stringify(requestBody)
         console.log('[CreateDebateModal] JSON body:', jsonBody)
@@ -345,13 +353,17 @@ export function CreateDebateModal({
         const parsed = JSON.parse(jsonBody)
         console.log('[CreateDebateModal] Parsed topic:', parsed.topic, 'Type:', typeof parsed.topic)
 
+        console.log('[CreateDebateModal] Sending POST to /api/belts/challenge')
         const response = await fetch('/api/belts/challenge', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include',
           body: jsonBody,
         })
+        
+        console.log('[CreateDebateModal] Response status:', response.status, response.statusText)
 
         if (!response.ok) {
           let errorMessage = 'Failed to create belt challenge'
