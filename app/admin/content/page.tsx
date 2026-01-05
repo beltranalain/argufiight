@@ -579,6 +579,34 @@ function StaticPagesManager() {
     }
   }
 
+  const handleToggleVisibility = async (page: any) => {
+    try {
+      const response = await fetch(`/api/admin/static-pages/${page.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isVisible: !page.isVisible }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle visibility')
+      }
+
+      showToast({
+        type: 'success',
+        title: 'Visibility Updated',
+        description: `Page is now ${!page.isVisible ? 'visible' : 'hidden'}`,
+      })
+
+      fetchPages()
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Update Failed',
+        description: error.message || 'Failed to update visibility',
+      })
+    }
+  }
+
   const getSlugFromTitle = (title: string) => {
     return title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
   }
@@ -614,14 +642,16 @@ function StaticPagesManager() {
                   <span className="px-2 py-1 text-xs rounded bg-bg-tertiary text-text-secondary">
                     {predefined.slug}
                   </span>
-                  {page?.isVisible ? (
-                    <span className="px-2 py-1 text-xs rounded bg-cyber-green/20 text-cyber-green">
-                      Visible
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 text-xs rounded bg-text-muted/20 text-text-muted">
-                      Hidden
-                    </span>
+                  {page && (
+                    page.isVisible ? (
+                      <span className="px-2 py-1 text-xs rounded bg-cyber-green/20 text-cyber-green">
+                        Visible
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 text-xs rounded bg-text-muted/20 text-text-muted">
+                        Hidden
+                      </span>
+                    )
                   )}
                 </div>
                 {page ? (
@@ -642,26 +672,37 @@ function StaticPagesManager() {
                   View page →
                 </a>
               </div>
-              <Button
-                onClick={() => {
-                  if (page) {
-                    handleEdit(page)
-                  } else {
-                    setFormData({
-                      title: predefined.title,
-                      content: '',
-                      metaTitle: '',
-                      metaDescription: '',
-                      keywords: '',
-                      isVisible: true,
-                    })
-                    setEditingPage(null)
-                    setIsModalOpen(true)
-                  }
-                }}
-              >
-                {page ? 'Edit' : 'Create'}
-              </Button>
+              <div className="flex items-center gap-2">
+                {page && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => handleToggleVisibility(page)}
+                    className="text-sm"
+                  >
+                    {page.isVisible ? 'Hide' : 'Show'}
+                  </Button>
+                )}
+                <Button
+                  onClick={() => {
+                    if (page) {
+                      handleEdit(page)
+                    } else {
+                      setFormData({
+                        title: predefined.title,
+                        content: '',
+                        metaTitle: '',
+                        metaDescription: '',
+                        keywords: '',
+                        isVisible: true,
+                      })
+                      setEditingPage(null)
+                      setIsModalOpen(true)
+                    }
+                  }}
+                >
+                  {page ? 'Edit' : 'Create'}
+                </Button>
+              </div>
             </div>
           </div>
         )
