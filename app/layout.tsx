@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: process.env.NEXT_PUBLIC_APP_URL || 'https://honorable-ai.vercel.app',
+    url: process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com',
     title: 'Argu Fight - AI-Judged Debate Platform',
     description: 'Engage in structured debates judged by AI personalities. Climb the ELO leaderboard and prove your argumentation skills.',
     siteName: 'Argu Fight',
