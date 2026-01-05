@@ -179,10 +179,10 @@ export async function GET(request: NextRequest) {
           const wordCount = calculateWordCount(response)
           await updateUserAnalyticsOnStatement(aiUser.id, wordCount)
 
-          responsesGenerated++
-          console.log(`[AI Response Generation] ${aiUser.username} completed. Total responses: ${responsesGenerated}`)
+          console.log(`[AI Response Generation] ${aiUser.username} completed. Total responses: ${responsesGenerated + 1}`)
 
           // Check if both participants have submitted for this round
+          console.log(`[AI Response Generation] Checking if both participants submitted for round ${debate.currentRound}`)
           const updatedChallengerStatement = await prisma.statement.findUnique({
             where: {
               debateId_authorId_round: {
@@ -203,10 +203,19 @@ export async function GET(request: NextRequest) {
             },
           }) : null
 
+          console.log(`[AI Response Generation] Round ${debate.currentRound} status:`, {
+            challengerSubmitted: !!updatedChallengerStatement,
+            opponentSubmitted: !!updatedOpponentStatement,
+            bothSubmitted: !!(updatedChallengerStatement && updatedOpponentStatement),
+          })
+
           // If both have submitted, advance to next round or complete
           if (updatedChallengerStatement && updatedOpponentStatement) {
+            console.log(`[AI Response Generation] Both participants submitted for round ${debate.currentRound}`)
+            
             if (debate.currentRound >= debate.totalRounds) {
               // Debate complete, mark as COMPLETED
+              console.log(`[AI Response Generation] Debate ${debate.id} completed (final round)`)
               await prisma.debate.update({
                 where: { id: debate.id },
                 data: {
@@ -229,14 +238,22 @@ export async function GET(request: NextRequest) {
               })
             } else {
               // Advance to next round
+              const newRound = debate.currentRound + 1
+              const newDeadline = new Date(Date.now() + debate.roundDuration)
+              console.log(`[AI Response Generation] Advancing debate ${debate.id} to round ${newRound}`)
+              
               await prisma.debate.update({
                 where: { id: debate.id },
                 data: {
-                  currentRound: debate.currentRound + 1,
-                  roundDeadline: new Date(Date.now() + debate.roundDuration),
+                  currentRound: newRound,
+                  roundDeadline: newDeadline,
                 },
               })
+              
+              console.log(`[AI Response Generation] ✅ Debate advanced to round ${newRound}, deadline: ${newDeadline}`)
             }
+          } else {
+            console.log(`[AI Response Generation] Waiting for other participant to submit`)
           }
 
           responsesGenerated++
