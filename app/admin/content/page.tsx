@@ -1519,6 +1519,13 @@ function ImageItemComponent({
   const [position, setPosition] = useState(image.imagePosition || 'left')
   const [isSaving, setIsSaving] = useState(false)
 
+  // Update local state when image prop changes (e.g., after save/refresh)
+  useEffect(() => {
+    setAltText(image.alt || '')
+    setCaption(image.caption || '')
+    setPosition(image.imagePosition || 'left')
+  }, [image.alt, image.caption, image.imagePosition])
+
   const handleSave = async () => {
     setIsSaving(true)
     try {
