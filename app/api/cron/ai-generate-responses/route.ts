@@ -131,7 +131,8 @@ export async function GET(request: NextRequest) {
           }
 
           // Check if enough time has passed since opponent's last statement (only when responding, not when going first)
-          const delayMs = aiUser.aiResponseDelay || 150000 // Default 2.5 minutes (150000ms)
+          // Reduced delay for better responsiveness - AI should respond within 1 minute of opponent's statement
+          const delayMs = Math.min(aiUser.aiResponseDelay || 60000, 60000) // Max 1 minute delay (60000ms)
           const now = new Date()
           
           // Only apply delay when AI is responding to opponent's statement (not when going first)
@@ -140,8 +141,8 @@ export async function GET(request: NextRequest) {
             const statementAge = now.getTime() - new Date(challengerStatement.createdAt).getTime()
             if (statementAge < delayMs) {
               // Not enough time has passed, skip this debate
-              const minutesRemaining = Math.ceil((delayMs - statementAge) / 60000)
-              console.log(`[AI Response] ${aiUser.username} waiting ${minutesRemaining} more minute(s) before responding to debate ${debate.id}`)
+              const secondsRemaining = Math.ceil((delayMs - statementAge) / 1000)
+              console.log(`[AI Response] ${aiUser.username} waiting ${secondsRemaining} more second(s) before responding to debate ${debate.id}`)
               continue
             }
           } else if (isChallenger && opponentStatement) {
@@ -149,8 +150,8 @@ export async function GET(request: NextRequest) {
             const statementAge = now.getTime() - new Date(opponentStatement.createdAt).getTime()
             if (statementAge < delayMs) {
               // Not enough time has passed, skip this debate
-              const minutesRemaining = Math.ceil((delayMs - statementAge) / 60000)
-              console.log(`[AI Response] ${aiUser.username} waiting ${minutesRemaining} more minute(s) before responding to debate ${debate.id}`)
+              const secondsRemaining = Math.ceil((delayMs - statementAge) / 1000)
+              console.log(`[AI Response] ${aiUser.username} waiting ${secondsRemaining} more second(s) before responding to debate ${debate.id}`)
               continue
             }
           }

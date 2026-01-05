@@ -339,13 +339,26 @@ export async function POST(
     // The AI response endpoint will check the delay before responding
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    
+    // Use a more reliable fetch with timeout and better error handling
     fetch(`${baseUrl}/api/cron/ai-generate-responses`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-    }).catch((error) => {
-      // Log error but don't block the request
-      console.error('[Debate Submit API] Failed to trigger AI response generation:', error.message)
+      signal: AbortSignal.timeout(5000), // 5 second timeout
     })
+      .then((response) => {
+        if (!response.ok) {
+          console.error(`[Debate Submit API] AI response trigger returned ${response.status}`)
+        } else {
+          console.log(`[Debate Submit API] Successfully triggered AI response generation`)
+        }
+      })
+      .catch((error) => {
+        // Log error but don't block the request
+        if (error.name !== 'AbortError') {
+          console.error('[Debate Submit API] Failed to trigger AI response generation:', error.message)
+        }
+      })
 
     return NextResponse.json({
       statement,

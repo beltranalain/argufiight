@@ -13,13 +13,26 @@ export async function GET(
     // This ensures AI responds automatically in local dev without needing cron jobs
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    
+    // Use a more reliable fetch with timeout and better error handling
     fetch(`${baseUrl}/api/cron/ai-generate-responses`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-    }).catch((error) => {
-      // Log error but don't block the request
-      console.error('[Debate API] Failed to trigger AI response generation:', error.message)
+      signal: AbortSignal.timeout(5000), // 5 second timeout
     })
+      .then((response) => {
+        if (!response.ok) {
+          console.error(`[Debate API] AI response trigger returned ${response.status}`)
+        } else {
+          console.log(`[Debate API] Successfully triggered AI response generation`)
+        }
+      })
+      .catch((error) => {
+        // Log error but don't block the request
+        if (error.name !== 'AbortError') {
+          console.error('[Debate API] Failed to trigger AI response generation:', error.message)
+        }
+      })
 
     const { id } = await params
     const { searchParams } = new URL(request.url)
