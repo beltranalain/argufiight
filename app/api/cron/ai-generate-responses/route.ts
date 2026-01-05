@@ -229,13 +229,24 @@ export async function GET(request: NextRequest) {
               console.log(`[AI Response Cron] Debate ${debate.id} completed, triggering verdict generation`)
               import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
                 try {
+                  console.log(`[AI Response Cron] Starting verdict generation for debate ${debate.id}`)
                   await generateModule.generateInitialVerdicts(debate.id)
                   console.log(`[AI Response Cron] ✅ Verdict generation completed for debate ${debate.id}`)
+                  
+                  // Update debate status to VERDICT_READY after successful generation
+                  await prisma.debate.update({
+                    where: { id: debate.id },
+                    data: { status: 'VERDICT_READY' },
+                  })
+                  console.log(`[AI Response Cron] ✅ Debate ${debate.id} status updated to VERDICT_READY`)
                 } catch (error: any) {
                   console.error(`[AI Response Cron] ❌ Failed to generate verdicts for debate ${debate.id}:`, error.message)
+                  console.error(`[AI Response Cron] Error stack:`, error.stack)
+                  // Don't throw - allow debate to remain COMPLETED for manual retry
                 }
               }).catch((importError: any) => {
                 console.error(`[AI Response Cron] ❌ Failed to import verdict generation module:`, importError.message)
+                console.error(`[AI Response Cron] Import error stack:`, importError.stack)
               })
             } else {
               // Advance to next round
