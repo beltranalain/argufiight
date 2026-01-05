@@ -212,6 +212,12 @@ export default function ContentManagerPage() {
   const handleSaveSection = async (sectionData: Partial<HomepageSection>) => {
     if (!selectedSection) return
 
+    console.log('[Content Manager] Saving section:', {
+      sectionId: selectedSection.id,
+      sectionKey: selectedSection.key,
+      data: sectionData,
+    })
+
     try {
       const response = await fetch(`/api/admin/content/sections/${selectedSection.id}`, {
         method: 'PATCH',
@@ -219,36 +225,55 @@ export default function ContentManagerPage() {
         body: JSON.stringify(sectionData),
       })
 
+      console.log('[Content Manager] Save response status:', response.status, response.statusText)
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Save failed' }))
         throw new Error(errorData.error || 'Save failed')
       }
 
       const result = await response.json()
+      
+      // Refresh sections list
+      await fetchSections()
+      
+      // Update selected section with fresh data from response (includes images and buttons)
+      if (result.section) {
+        setSelectedSection({
+          ...result.section,
+          images: result.section.images || [],
+          buttons: result.section.buttons || [],
+        })
+      } else {
+        // Fallback: fetch updated section if not in response
+        const updatedSections = await fetch('/api/admin/content/sections').then(r => r.json())
+        const updatedSection = (updatedSections.sections || updatedSections || []).find(
+          (s: HomepageSection) => s.id === selectedSection.id
+        )
+        
+        if (updatedSection) {
+          setSelectedSection({
+            ...updatedSection,
+            images: updatedSection.images || [],
+            buttons: updatedSection.buttons || [],
+          })
+        }
+      }
+      
       showToast({
         type: 'success',
         title: 'Section Saved',
         description: 'Homepage section updated successfully',
       })
-      
-      // Fetch updated section data to refresh the modal
-      await fetchSections()
-        const updatedSections = await fetch('/api/admin/content/sections').then(r => r.json())
-      const updatedSection = (updatedSections.sections || updatedSections || []).find(
-        (s: HomepageSection) => s.id === selectedSection.id
-      )
-      
-        if (updatedSection) {
-        // Update selected section with fresh data including images and buttons
-        setSelectedSection({
-          ...updatedSection,
-          images: updatedSection.images || [],
-          buttons: updatedSection.buttons || [],
-        })
-        }
       // Keep modal open - don't close it
     } catch (error: any) {
-      console.error('Save error:', error)
+      console.error('[Content Manager] Save error:', error)
+      console.error('[Content Manager] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        sectionId: selectedSection?.id,
+        sectionData: sectionData,
+      })
       showToast({
         type: 'error',
         title: 'Save Failed',
@@ -812,16 +837,23 @@ function EditSectionModal({
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      await onSave({
-        title,
-        content,
-        metaTitle,
-        metaDescription,
-        contactEmail: section.key === 'footer' ? contactEmail : undefined,
+      const saveData: Partial<HomepageSection> = {
         order,
-      })
+      }
+      
+      // Only include fields that have values or are explicitly set
+      if (title !== undefined) saveData.title = title || null
+      if (content !== undefined) saveData.content = content || null
+      if (metaTitle !== undefined) saveData.metaTitle = metaTitle || null
+      if (metaDescription !== undefined) saveData.metaDescription = metaDescription || null
+      if (section.key === 'footer' && contactEmail !== undefined) {
+        saveData.contactEmail = contactEmail || null
+      }
+      
+      console.log('[EditSectionModal] Saving with data:', saveData)
+      await onSave(saveData)
     } catch (error) {
-      console.error('Save error:', error)
+      console.error('[EditSectionModal] Save error:', error)
     } finally {
       setIsSaving(false)
     }
@@ -1033,12 +1065,15 @@ function SectionImagesManager({
       }
 
       const data = await response.json()
+      
+      // Refresh sections to get updated image data
+      await onUpdate()
+      
       showToast({
         type: 'success',
         title: 'Image Uploaded',
         description: 'Image added to section successfully',
       })
-      await onUpdate()
     } catch (error: any) {
       console.error('Image upload error:', error)
       showToast({

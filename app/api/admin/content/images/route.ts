@@ -112,6 +112,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Clear homepage cache when image is added
+    const { cache } = await import('@/lib/utils/cache')
+    cache.delete('homepage:sections')
+
     return NextResponse.json({ 
       image, 
       media,
