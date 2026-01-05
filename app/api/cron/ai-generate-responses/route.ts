@@ -37,9 +37,14 @@ export async function GET(request: NextRequest) {
     }
 
     let responsesGenerated = 0
+    const startTime = Date.now()
+
+    console.log(`[AI Response Generation] Starting at ${new Date().toISOString()}`)
+    console.log(`[AI Response Generation] Found ${aiUsers.length} active AI user(s)`)
 
     // For each AI user, find debates where it's their turn
     for (const aiUser of aiUsers) {
+      console.log(`[AI Response Generation] Processing AI user: ${aiUser.username}`)
       // Find active debates where:
       // 1. AI user is a participant (challenger or opponent)
       // 2. Debate is ACTIVE
@@ -151,8 +156,12 @@ export async function GET(request: NextRequest) {
           }
           // If AI is going first (no opponent statement yet), no delay needed
 
+          console.log(`[AI Response Generation] ${aiUser.username} generating response for debate ${debate.id} (Round ${debate.currentRound})`)
+
           // Generate AI response
           const response = await generateAIResponse(debate.id, aiUser.id, debate.currentRound)
+
+          console.log(`[AI Response Generation] ${aiUser.username} generated response (${response.length} chars)`)
 
           // Create statement
           const statement = await prisma.statement.create({
@@ -164,9 +173,14 @@ export async function GET(request: NextRequest) {
             },
           })
 
+          console.log(`[AI Response Generation] ${aiUser.username} created statement ${statement.id}`)
+
           // Update user analytics
           const wordCount = calculateWordCount(response)
           await updateUserAnalyticsOnStatement(aiUser.id, wordCount)
+
+          responsesGenerated++
+          console.log(`[AI Response Generation] ${aiUser.username} completed. Total responses: ${responsesGenerated}`)
 
           // Check if both participants have submitted for this round
           const updatedChallengerStatement = await prisma.statement.findUnique({
