@@ -467,46 +467,166 @@ export default async function PublicDebatePage({
           {debate.verdicts.length > 0 && (
             <section className="mb-12">
               <h2 className="text-2xl font-bold text-white mb-6">AI Judge Verdicts</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {debate.verdicts.map((verdict) => (
-                  <div
-                    key={verdict.id}
-                    className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="text-2xl">{verdict.judge.emoji}</span>
-                      <div>
-                        <p className="text-white font-semibold">{verdict.judge.name}</p>
-                        <p className="text-text-secondary text-sm">{verdict.judge.personality}</p>
+              
+              {/* Vote Counts */}
+              {(() => {
+                const challengerVotes = debate.verdicts.filter(v => v.decision === 'CHALLENGER_WINS').length
+                const opponentVotes = debate.verdicts.filter(v => v.decision === 'OPPONENT_WINS').length
+                const tieVotes = debate.verdicts.filter(v => v.decision === 'TIE').length
+                const challengerTotalScore = debate.verdicts.reduce((sum, v) => sum + (v.challengerScore ?? 0), 0)
+                const opponentTotalScore = debate.verdicts.reduce((sum, v) => sum + (v.opponentScore ?? 0), 0)
+                const maxPossibleScore = debate.verdicts.length * 100
+                
+                return (
+                  <>
+                    <div className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6 mb-6">
+                      <div className="flex flex-wrap items-center gap-6 mb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-electric-blue font-semibold text-lg">{challengerVotes}</span>
+                          <span className="text-text-secondary">for {debate.challenger.username}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-neon-orange font-semibold text-lg">{opponentVotes}</span>
+                          <span className="text-text-secondary">for {debate.opponent?.username || 'Opponent'}</span>
+                        </div>
+                        {tieVotes > 0 && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-text-muted font-semibold text-lg">{tieVotes}</span>
+                            <span className="text-text-secondary">Ties</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Total Scores */}
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-text-secondary">{debate.challenger.username}</span>
+                            <span className="text-electric-blue font-semibold">{challengerTotalScore}/{maxPossibleScore}</span>
+                          </div>
+                          <div className="w-full bg-bg-tertiary rounded-full h-2">
+                            <div 
+                              className="bg-electric-blue h-2 rounded-full transition-all"
+                              style={{ width: `${(challengerTotalScore / maxPossibleScore) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-text-secondary">{debate.opponent?.username || 'Opponent'}</span>
+                            <span className="text-neon-orange font-semibold">{opponentTotalScore}/{maxPossibleScore}</span>
+                          </div>
+                          <div className="w-full bg-bg-tertiary rounded-full h-2">
+                            <div 
+                              className="bg-neon-orange h-2 rounded-full transition-all"
+                              style={{ width: `${(opponentTotalScore / maxPossibleScore) * 100}%` }}
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <p className="text-text-primary mb-2">{verdict.reasoning}</p>
-                    {verdict.challengerScore !== null && verdict.opponentScore !== null && (
-                      <div className="flex gap-4 mt-4 text-sm">
-                        <span className="text-electric-blue">
-                          Challenger: {verdict.challengerScore}/100
-                        </span>
-                        <span className="text-neon-orange">
-                          Opponent: {verdict.opponentScore}/100
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                    
+                    {/* Individual Judge Verdicts */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {debate.verdicts.map((verdict) => {
+                        const isChallengerWinner = verdict.decision === 'CHALLENGER_WINS'
+                        const isOpponentWinner = verdict.decision === 'OPPONENT_WINS'
+                        const isTie = verdict.decision === 'TIE'
+                        
+                        return (
+                          <div
+                            key={verdict.id}
+                            className="bg-bg-secondary border border-bg-tertiary rounded-xl p-6"
+                          >
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-full bg-electric-blue/20 flex items-center justify-center border border-electric-blue/30">
+                                  <span className="text-electric-blue font-bold text-lg">
+                                    {verdict.judge.name.charAt(0)}
+                                  </span>
+                                </div>
+                                <div>
+                                  <p className="text-white font-semibold">{verdict.judge.name}</p>
+                                  <p className="text-text-secondary text-sm">{verdict.judge.personality}</p>
+                                </div>
+                              </div>
+                              {isChallengerWinner && (
+                                <span className="px-3 py-1 text-xs bg-electric-blue/20 text-electric-blue rounded">
+                                  {debate.challenger.username} Wins
+                                </span>
+                              )}
+                              {isOpponentWinner && (
+                                <span className="px-3 py-1 text-xs bg-neon-orange/20 text-neon-orange rounded">
+                                  {debate.opponent?.username || 'Opponent'} Wins
+                                </span>
+                              )}
+                              {isTie && (
+                                <span className="px-3 py-1 text-xs bg-text-muted/20 text-text-muted rounded">
+                                  Tie
+                                </span>
+                              )}
+                            </div>
+                            
+                            <p className="text-text-primary mb-4">{verdict.reasoning}</p>
+                            
+                            {/* Scores */}
+                            {verdict.challengerScore !== null && verdict.opponentScore !== null && (
+                              <div className="grid grid-cols-2 gap-4 mt-4">
+                                <div>
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-text-secondary">{debate.challenger.username}</span>
+                                    <span className="text-electric-blue font-semibold">{verdict.challengerScore}/100</span>
+                                  </div>
+                                  <div className="w-full bg-bg-tertiary rounded-full h-2">
+                                    <div 
+                                      className="bg-electric-blue h-2 rounded-full"
+                                      style={{ width: `${verdict.challengerScore}%` }}
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span className="text-text-secondary">{debate.opponent?.username || 'Opponent'}</span>
+                                    <span className="text-neon-orange font-semibold">{verdict.opponentScore}/100</span>
+                                  </div>
+                                  <div className="w-full bg-bg-tertiary rounded-full h-2">
+                                    <div 
+                                      className="bg-neon-orange h-2 rounded-full"
+                                      style={{ width: `${verdict.opponentScore}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                )
+              })()}
             </section>
           )}
 
           {/* Winner */}
           {debate.winnerId && (
             <section className="mb-12">
-              <div className="bg-gradient-to-r from-cyber-green/20 to-electric-blue/20 border border-cyber-green/50 rounded-xl p-8 text-center">
-                <h2 className="text-3xl font-bold text-white mb-2">Winner</h2>
-                <p className="text-2xl text-cyber-green font-semibold">
-                  {debate.winnerId === debate.challengerId 
-                    ? debate.challenger.username 
-                    : debate.opponent?.username || 'Unknown'}
-                </p>
+              <div className="bg-gradient-to-r from-cyber-green/20 to-cyber-green/5 border-2 border-cyber-green rounded-xl p-8 text-center">
+                <h2 className="text-3xl font-bold text-white mb-4">Final Winner</h2>
+                <div className="flex items-center justify-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-neon-orange to-electric-blue flex items-center justify-center text-2xl font-bold text-white">
+                    {debate.winnerId === debate.challengerId 
+                      ? debate.challenger.username.charAt(0).toUpperCase()
+                      : debate.opponent?.username?.charAt(0).toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <p className="text-2xl text-cyber-green font-semibold">
+                      {debate.winnerId === debate.challengerId 
+                        ? debate.challenger.username 
+                        : debate.opponent?.username || 'Unknown'} Wins!
+                    </p>
+                  </div>
+                </div>
               </div>
             </section>
           )}
