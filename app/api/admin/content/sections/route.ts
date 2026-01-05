@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
+import { cache } from '@/lib/utils/cache'
 
 // GET /api/admin/content/sections - Get all homepage sections
 export async function GET() {
@@ -87,6 +88,9 @@ export async function POST(request: NextRequest) {
         buttons: true,
       },
     })
+
+    // Clear homepage cache when section is created
+    cache.delete('homepage:sections')
 
     return NextResponse.json({ section }, { status: 201 })
   } catch (error: any) {

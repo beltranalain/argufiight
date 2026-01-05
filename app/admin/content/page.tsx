@@ -281,10 +281,10 @@ export default function ContentManagerPage() {
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-bg-tertiary">
           {[
-            { id: 'homepage', label: 'Homepage', icon: '🏠' },
-            { id: 'blog', label: 'Blog', icon: '📝' },
-            { id: 'seo', label: 'SEO', icon: '🔍' },
-            { id: 'legal', label: 'Legal', icon: '📄' },
+            { id: 'homepage', label: 'Homepage' },
+            { id: 'blog', label: 'Blog' },
+            { id: 'seo', label: 'SEO' },
+            { id: 'legal', label: 'Legal' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -295,7 +295,6 @@ export default function ContentManagerPage() {
                   : 'border-transparent text-text-secondary hover:text-white'
               }`}
             >
-              <span className="mr-2">{tab.icon}</span>
               {tab.label}
             </button>
           ))}

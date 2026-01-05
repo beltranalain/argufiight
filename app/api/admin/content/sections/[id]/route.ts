@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
+import { cache } from '@/lib/utils/cache'
 
 // PATCH /api/admin/content/sections/[id] - Update section
 export async function PATCH(
@@ -28,6 +29,9 @@ export async function PATCH(
         contactEmail: body.contactEmail !== undefined ? body.contactEmail : undefined,
       },
     })
+
+    // Clear homepage cache when section is updated
+    cache.delete('homepage:sections')
 
     return NextResponse.json({ section })
   } catch (error) {
