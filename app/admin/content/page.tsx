@@ -179,27 +179,59 @@ export default function ContentManagerPage() {
     }
   }
 
-  const handleToggleVisibility = async (sectionId: string, isVisible: boolean) => {
+  const handleToggleVisibility = async (sectionId: string, currentVisibility: boolean) => {
+    const newVisibility = !currentVisibility
+    console.log('[Content Manager] Toggling visibility:', {
+      sectionId,
+      currentVisibility,
+      newVisibility,
+    })
+
     try {
       const response = await fetch(`/api/admin/content/sections/${sectionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isVisible: !isVisible }),
+        body: JSON.stringify({ isVisible: newVisibility }),
       })
 
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Section Updated',
-          description: `Section ${!isVisible ? 'shown' : 'hidden'} successfully`,
-        })
-        fetchSections()
+      console.log('[Content Manager] Toggle response status:', response.status)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Update failed' }))
+        throw new Error(errorData.error || 'Update failed')
       }
-    } catch (error) {
+
+      const result = await response.json()
+      console.log('[Content Manager] Toggle response data:', result)
+
+      // Update the section in local state immediately
+      setSections(prevSections =>
+        prevSections.map(s =>
+          s.id === sectionId
+            ? { ...s, isVisible: newVisibility }
+            : s
+        )
+      )
+
+      // Also update selectedSection if it's the one being toggled
+      if (selectedSection?.id === sectionId) {
+        setSelectedSection(prev => prev ? { ...prev, isVisible: newVisibility } : null)
+      }
+
+      showToast({
+        type: 'success',
+        title: 'Section Updated',
+        description: `Section ${newVisibility ? 'shown' : 'hidden'} successfully`,
+      })
+
+      // Refresh sections to ensure consistency
+      await fetchSections()
+    } catch (error: any) {
+      console.error('[Content Manager] Toggle visibility error:', error)
       showToast({
         type: 'error',
         title: 'Update Failed',
-        description: 'Failed to update section visibility',
+        description: error.message || 'Failed to update section visibility',
       })
     }
   }
@@ -360,7 +392,7 @@ export default function ContentManagerPage() {
               key={section.id}
               section={section}
               onEdit={() => handleEditSection(section)}
-              onToggleVisibility={() => handleToggleVisibility(section.id, section.isVisible)}
+              onToggleVisibility={() => handleToggleVisibility(section.id, section.isVisible !== false)}
             />
           ))}
         </div>
@@ -749,7 +781,7 @@ function SectionCard({
             <span className="px-2 py-1 text-xs rounded bg-bg-tertiary text-text-secondary">
               {section.key}
             </span>
-            {section.isVisible ? (
+            {section.isVisible !== false ? (
               <span className="px-2 py-1 text-xs rounded bg-cyber-green/20 text-cyber-green">
                 Visible
               </span>
@@ -776,7 +808,7 @@ function SectionCard({
             onClick={onToggleVisibility}
             className="text-sm px-3 py-1.5"
           >
-            {section.isVisible ? 'Hide' : 'Show'}
+            {section.isVisible !== false ? 'Hide' : 'Show'}
           </Button>
           <Button onClick={onEdit} className="text-sm px-3 py-1.5">
             Edit
@@ -1065,6 +1097,7 @@ function SectionImagesManager({
       }
 
       const data = await response.json()
+      console.log('[SectionImagesManager] Image upload response:', data)
       
       // Refresh sections to get updated image data
       await onUpdate()
@@ -1480,24 +1513,38 @@ function ImageItemComponent({
   }
 
   const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this image?')) {
+      return
+    }
+
+    console.log('[ImageItemComponent] Deleting image:', image.id)
+
     try {
       const response = await fetch(`/api/admin/content/images/${image.id}`, {
         method: 'DELETE',
       })
 
+      console.log('[ImageItemComponent] Delete response status:', response.status)
+
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Delete failed' }))
-        throw new Error(error.error || 'Failed to delete image')
+        const errorData = await response.json().catch(() => ({ error: 'Delete failed' }))
+        console.error('[ImageItemComponent] Delete error response:', errorData)
+        throw new Error(errorData.error || 'Failed to delete image')
       }
+
+      const result = await response.json()
+      console.log('[ImageItemComponent] Delete success:', result)
 
       showToast({
         type: 'success',
         title: 'Image Deleted',
         description: 'Image removed from section successfully',
       })
-      onUpdate()
+
+      // Refresh section data
+      await onUpdate()
     } catch (error: any) {
-      console.error('Delete image error:', error)
+      console.error('[ImageItemComponent] Delete image error:', error)
       showToast({
         type: 'error',
         title: 'Delete Failed',

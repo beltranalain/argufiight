@@ -120,19 +120,37 @@ export async function DELETE(
 
     console.log('Found image:', image.url)
 
-    // Delete file from filesystem
-    try {
-      const filepath = join(process.cwd(), 'public', image.url)
-      await unlink(filepath)
-    } catch (error) {
-      // File might not exist, continue with database deletion
-      console.error('Failed to delete file:', error)
+    // Note: For Vercel Blob Storage URLs, we don't delete the file from filesystem
+    // The blob will remain in storage but won't be referenced anymore
+    // If you want to delete from blob storage, you'd need to use @vercel/blob's delete method
+    // For now, we just delete the database record
+    
+    // Only try to delete from filesystem if it's a local file path
+    if (image.url && !image.url.startsWith('http') && !image.url.startsWith('data:')) {
+      try {
+        const filepath = join(process.cwd(), 'public', image.url)
+        await unlink(filepath)
+        console.log('Deleted local file:', filepath)
+      } catch (error) {
+        // File might not exist or is a blob URL, continue with database deletion
+        console.log('Skipping local file deletion (may be blob URL):', error)
+      }
+    } else {
+      console.log('Skipping file deletion - URL appears to be blob storage or data URL')
     }
 
     // Delete from database
     await prisma.homepageImage.delete({
       where: { id },
     })
+    
+    console.log('Image deleted from database:', id)
+
+    // Clear homepage cache when image is deleted
+    const { cache } = await import('@/lib/utils/cache')
+    cache.delete('homepage:sections')
+
+    console.log('Image deleted successfully:', id)
 
     return NextResponse.json({ success: true })
   } catch (error) {
