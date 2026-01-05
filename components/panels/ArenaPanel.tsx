@@ -124,7 +124,14 @@ export function ArenaPanel() {
           const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
           console.log('[ArenaPanel] fetchMyActiveDebate - debates found:', debates.length, debates.map((d: any) => ({ id: d.id, status: d.status, topic: d.topic?.substring(0, 40) })))
           // Only show ACTIVE debates (exclude COMPLETED, VERDICT_READY, WAITING)
-          const active = debates.find((d: any) => d.status === 'ACTIVE' && !d.winnerId)
+          // Double-check status to ensure we don't show completed debates
+          const active = debates.find((d: any) => 
+            d.status === 'ACTIVE' && 
+            !d.winnerId &&
+            d.status !== 'COMPLETED' &&
+            d.status !== 'VERDICT_READY' &&
+            d.status !== 'WAITING'
+          )
         
         if (active) {
           console.log('[ArenaPanel] fetchMyActiveDebate - active debate found:', active.id, active.topic?.substring(0, 40))
@@ -192,11 +199,15 @@ export function ArenaPanel() {
       
       // Filter out completed debates and user's personal debate
       allDebates = allDebates.filter((d: any) => {
-        // Exclude completed debates (double-check)
-        if (d.status === 'VERDICT_READY' || d.status === 'COMPLETED' || d.status === 'WAITING' || d.winnerId) {
+        // Exclude completed debates (double-check) - be very explicit
+        if (d.status === 'VERDICT_READY' || 
+            d.status === 'COMPLETED' || 
+            d.status === 'WAITING' || 
+            d.status === 'CANCELLED' ||
+            d.winnerId) {
           return false
         }
-        // Only show ACTIVE debates
+        // Only show ACTIVE debates - strict check
         if (d.status !== 'ACTIVE') {
           return false
         }

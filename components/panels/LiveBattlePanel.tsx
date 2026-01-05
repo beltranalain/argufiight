@@ -66,8 +66,14 @@ export function LiveBattlePanel() {
         const data = await response.json()
         // Ensure data is an array
         const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
-        // Get the most recent active debate
-        const active = debates.find((d: any) => d.status === 'ACTIVE')
+        // Get the most recent active debate - ensure it's truly ACTIVE
+        const active = debates.find((d: any) => 
+          d.status === 'ACTIVE' && 
+          d.status !== 'COMPLETED' &&
+          d.status !== 'VERDICT_READY' &&
+          d.status !== 'WAITING' &&
+          !d.winnerId
+        )
         
         // If we found an active debate, fetch full details including statements
         if (active) {
