@@ -1520,11 +1520,12 @@ function ImageItemComponent({
   const [isSaving, setIsSaving] = useState(false)
 
   // Update local state when image prop changes (e.g., after save/refresh)
+  // Use image.id as key dependency to detect when a different image is loaded
   useEffect(() => {
     setAltText(image.alt || '')
     setCaption(image.caption || '')
     setPosition(image.imagePosition || 'left')
-  }, [image.alt, image.caption, image.imagePosition])
+  }, [image.id, image.alt, image.caption, image.imagePosition])
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -1543,12 +1544,22 @@ function ImageItemComponent({
         throw new Error('Failed to update image')
       }
 
+      const result = await response.json()
+      
+      // Update local state immediately with saved values
+      // This ensures the UI reflects the saved data even before refresh
+      setAltText(result.image?.alt || altText)
+      setCaption(result.image?.caption || caption)
+      setPosition(result.image?.imagePosition || position)
+
       showToast({
         type: 'success',
         title: 'Image Updated',
         description: 'Image details saved successfully',
       })
-      onUpdate()
+      
+      // Refresh section data to ensure everything is in sync
+      await onUpdate()
     } catch (error: any) {
       showToast({
         type: 'error',
