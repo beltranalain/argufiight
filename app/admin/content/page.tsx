@@ -408,7 +408,29 @@ export default function ContentManagerPage() {
             }}
             onSave={handleSaveSection}
             onMediaUpload={fetchMediaLibrary}
-            onSectionsUpdate={fetchSections}
+            onSectionsUpdate={async () => {
+              await fetchSections()
+              // Also refresh the selected section if it exists
+              if (selectedSection) {
+                try {
+                  const response = await fetch('/api/admin/content/sections')
+                  if (response.ok) {
+                    const data = await response.json()
+                    const sections = Array.isArray(data.sections) ? data.sections : []
+                    const updatedSection = sections.find((s: HomepageSection) => s.id === selectedSection.id)
+                    if (updatedSection) {
+                      setSelectedSection({
+                        ...updatedSection,
+                        images: updatedSection.images || [],
+                        buttons: updatedSection.buttons || [],
+                      })
+                    }
+                  }
+                } catch (error) {
+                  console.error('Failed to refresh selected section:', error)
+                }
+              }
+            }}
           />
         )}
 
@@ -905,7 +927,7 @@ function EditSectionModal({
     setMetaDescription(initialSection.metaDescription || '')
     setContactEmail(initialSection.contactEmail || '')
     setOrder(initialSection.order)
-  }, [initialSection])
+  }, [initialSection.id, initialSection.images, initialSection.buttons])
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -1058,6 +1080,7 @@ function EditSectionModal({
             } catch (error) {
               console.error('Failed to refresh section:', error)
             }
+            // This will refresh both the sections list AND the selectedSection
             await onSectionsUpdate()
           }}
         />
