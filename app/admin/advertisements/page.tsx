@@ -1182,7 +1182,7 @@ function PlatformAdsTab() {
                 setSelectedCampaign(null)
               }}
               title={`Campaign Details: ${campaignDetails.name}`}
-              className="max-w-4xl"
+              size="xl"
             >
               {isLoadingCampaignDetails ? (
                 <div className="flex justify-center items-center h-48">
