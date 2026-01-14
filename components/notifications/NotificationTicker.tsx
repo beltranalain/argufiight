@@ -50,6 +50,15 @@ export function NotificationTicker() {
         const sponsoredCount = updates.filter((u: any) => u.type === 'SPONSORED').length
         const advertiserCount = updates.filter((u: any) => u.type === 'ADVERTISER').length
         console.log('[Ticker] Fetched', updates.length, 'updates -', sponsoredCount, 'sponsored,', advertiserCount, 'advertiser/admin')
+        if (sponsoredCount > 0) {
+          console.log('[Ticker] SPONSORED ads:', updates.filter((u: any) => u.type === 'SPONSORED').map((u: any) => ({ 
+            id: u.id, 
+            title: u.title, 
+            message: u.message, 
+            adId: u.adId, 
+            imageUrl: u.imageUrl ? 'present' : 'missing' 
+          })))
+        }
         if (advertiserCount > 0) {
           console.log('[Ticker] Advertiser/Admin updates:', updates.filter((u: any) => u.type === 'ADVERTISER').map((u: any) => ({ title: u.title, message: u.message })))
         }
@@ -175,7 +184,8 @@ export function NotificationTicker() {
       return itemDate > oneDayAgo || ('read' in item && !item.read)
     })
 
-    console.log('[Ticker] Final filtered items:', filtered.length)
+    const sponsoredInFiltered = filtered.filter(item => 'type' in item && item.type === 'SPONSORED').length
+    console.log('[Ticker] Final filtered items:', filtered.length, '(', sponsoredInFiltered, 'sponsored ads)')
     setItemsToShow(filtered.slice(0, 20))
   }, [notifications, tickerUpdates, yourTurnUpdate])
 
