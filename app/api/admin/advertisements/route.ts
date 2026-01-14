@@ -31,7 +31,15 @@ export async function GET(request: NextRequest) {
     })
 
     console.log('[API /admin/advertisements] Found', ads.length, 'ads')
-    console.log('[API /admin/advertisements] Ads:', ads.map(a => ({ id: a.id, title: a.title, status: a.status, type: a.type })))
+    console.log('[API /admin/advertisements] Ads:', ads.map(a => ({ 
+      id: a.id, 
+      title: a.title, 
+      status: a.status, 
+      type: a.type,
+      creativeUrl: a.creativeUrl ? 'present' : 'missing',
+      startDate: a.startDate?.toISOString() || 'null',
+      endDate: a.endDate?.toISOString() || 'null',
+    })))
 
     return NextResponse.json({ ads })
   } catch (error: any) {
