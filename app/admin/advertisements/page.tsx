@@ -61,15 +61,22 @@ function DirectAdsTab() {
   const fetchAds = async (showLoading = true) => {
     try {
       if (showLoading) setIsLoading(true)
+      console.log('[DirectAdsTab] Fetching ads from /api/admin/advertisements')
       const response = await fetch('/api/admin/advertisements', {
         cache: 'no-store', // Prevent stale data
       })
+      console.log('[DirectAdsTab] Response status:', response.status)
       if (response.ok) {
         const data = await response.json()
+        console.log('[DirectAdsTab] Received data:', data)
+        console.log('[DirectAdsTab] Number of ads:', data.ads?.length || 0)
         setAds(data.ads || [])
+      } else {
+        const errorText = await response.text()
+        console.error('[DirectAdsTab] API error:', response.status, errorText)
       }
     } catch (error) {
-      console.error('Failed to fetch ads:', error)
+      console.error('[DirectAdsTab] Failed to fetch ads:', error)
     } finally {
       if (showLoading) setIsLoading(false)
     }
