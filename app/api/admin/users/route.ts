@@ -97,9 +97,6 @@ export async function GET(request: NextRequest) {
         isCreator: true,
         creatorStatus: true,
         creatorSince: true,
-        isCreator: true,
-        creatorStatus: true,
-        creatorSince: true,
         subscription: {
           select: {
             tier: true,
