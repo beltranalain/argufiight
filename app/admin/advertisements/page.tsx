@@ -212,12 +212,31 @@ function DirectAdsTab() {
       const result = await response.json()
       console.log('[DirectAdsTab] Save successful:', result)
       const savedAd = result.ad
+      console.log('[DirectAdsTab] Saved ad object:', {
+        id: savedAd?.id,
+        title: savedAd?.title,
+        type: savedAd?.type,
+        status: savedAd?.status,
+        creativeUrl: savedAd?.creativeUrl,
+        targetUrl: savedAd?.targetUrl,
+        fullObject: savedAd,
+      })
 
       // Optimistic update - add/update ad in list immediately
       if (editingAd) {
-        setAds(prevAds => prevAds.map(ad => ad.id === editingAd.id ? savedAd : ad))
+        console.log('[DirectAdsTab] Updating existing ad:', editingAd.id)
+        setAds(prevAds => {
+          const updated = prevAds.map(ad => ad.id === editingAd.id ? savedAd : ad)
+          console.log('[DirectAdsTab] Updated ads array length:', updated.length)
+          return updated
+        })
       } else {
-        setAds(prevAds => [savedAd, ...prevAds])
+        console.log('[DirectAdsTab] Adding new ad to list')
+        setAds(prevAds => {
+          const updated = [savedAd, ...prevAds]
+          console.log('[DirectAdsTab] New ads array length:', updated.length)
+          return updated
+        })
       }
 
       showToast({
