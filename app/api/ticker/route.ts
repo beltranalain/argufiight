@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { verifySession } from '@/lib/auth/session'
+import { getUserIdFromSession } from '@/lib/auth/session-utils'
 
 interface TickerUpdate {
   id: string
-  type: 'BIG_BATTLE' | 'HIGH_VIEWS' | 'MAJOR_UPSET' | 'NEW_VERDICT' | 'STREAK' | 'MILESTONE'
+  type: 'BIG_BATTLE' | 'HIGH_VIEWS' | 'MAJOR_UPSET' | 'NEW_VERDICT' | 'STREAK' | 'MILESTONE' | 'SPONSORED' | 'ADVERTISER'
   title: string
   message: string
   debateId: string | null
   priority: 'high' | 'medium' | 'low'
   createdAt: string
+  destinationUrl?: string
+  adId?: string
+  imageUrl?: string
 }
 
 export async function GET(request: NextRequest) {
@@ -17,6 +22,446 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
+
+    // Check if user is logged in and if they're an advertiser
+    let isAdvertiser = false
+    let advertiserId: string | null = null
+    let userId: string | null = null
+    let userEmail: string | null = null
+    let session: any = null
+    
+    try {
+      session = await verifySession()
+      if (session) {
+        userId = getUserIdFromSession(session)
+        if (userId) {
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { email: true },
+          })
+          
+          if (user) {
+            userEmail = user.email
+            const advertiser = await prisma.advertiser.findUnique({
+              where: { contactEmail: user.email },
+              select: { id: true, status: true },
+            })
+            
+            if (advertiser && advertiser.status === 'APPROVED') {
+              isAdvertiser = true
+              advertiserId = advertiser.id
+              console.log('[Ticker API] ✅ Advertiser detected:', { 
+                advertiserId, 
+                email: user.email,
+                status: advertiser.status 
+              })
+            } else {
+              console.log('[Ticker API] User is not an approved advertiser:', { 
+                email: user.email,
+                hasAdvertiser: !!advertiser,
+                status: advertiser?.status 
+              })
+            }
+          }
+        }
+      } else {
+        console.log('[Ticker API] No session found')
+      }
+    } catch (error) {
+      // Not logged in or session error - continue as regular user
+      console.log('[Ticker API] Error checking advertiser status:', error)
+    }
+    
+    console.log('[Ticker API] Advertiser check result:', { 
+      isAdvertiser, 
+      advertiserId, 
+      userId,
+      hasSession: !!session,
+      userEmail 
+    })
+
+    // Check if user is admin
+    let isAdmin = false
+    if (userId) {
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { isAdmin: true },
+        })
+        isAdmin = user?.isAdmin || false
+      } catch (error) {
+        console.log('[Ticker API] Error checking admin status:', error)
+      }
+    }
+
+    // If user is an admin, show admin-specific notifications
+    if (isAdmin && userId) {
+      console.log('[Ticker API] User is admin, showing admin-specific updates')
+      
+      // Get admin-specific notifications
+      // 1. New support tickets (OPEN status, created in last 24 hours)
+      try {
+        const newTickets = await prisma.supportTicket.findMany({
+          where: {
+            status: 'OPEN',
+            createdAt: { gte: oneDayAgo },
+          },
+          include: {
+            user: {
+              select: {
+                username: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        })
+
+        for (const ticket of newTickets) {
+          updates.push({
+            id: `support-ticket-${ticket.id}`,
+            type: 'ADVERTISER', // Using ADVERTISER type for admin notifications
+            title: 'New Support Ticket',
+            message: `${ticket.user.username} submitted: "${ticket.subject}"`,
+            debateId: null,
+            priority: ticket.priority === 'URGENT' ? 'high' : ticket.priority === 'HIGH' ? 'high' : 'medium',
+            createdAt: ticket.createdAt.toISOString(),
+          })
+        }
+      } catch (ticketError) {
+        console.error('[Ticker API] Error fetching new support tickets:', ticketError)
+      }
+
+      // 2. New replies from users (non-admin replies to tickets)
+      try {
+        const newReplies = await prisma.supportTicketReply.findMany({
+          where: {
+            author: {
+              isAdmin: false, // Only non-admin replies
+            },
+            createdAt: { gte: oneDayAgo },
+            isInternal: false, // Not internal notes
+          },
+          include: {
+            ticket: {
+              select: {
+                id: true,
+                subject: true,
+                user: {
+                  select: {
+                    username: true,
+                  },
+                },
+              },
+            },
+            author: {
+              select: {
+                username: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        })
+
+        for (const reply of newReplies) {
+          updates.push({
+            id: `support-reply-${reply.id}`,
+            type: 'ADVERTISER',
+            title: 'New Ticket Reply',
+            message: `${reply.author.username} replied to "${reply.ticket.subject}"`,
+            debateId: null,
+            priority: 'medium',
+            createdAt: reply.createdAt.toISOString(),
+          })
+        }
+      } catch (replyError) {
+        console.error('[Ticker API] Error fetching new support ticket replies:', replyError)
+      }
+
+      // 3. Only show IN_FEED ads for admins (same as advertiser)
+      const allInFeedAds = await prisma.advertisement.findMany({
+        where: {
+          status: 'ACTIVE',
+          type: 'IN_FEED',
+          OR: [
+            { startDate: null, endDate: null },
+            { startDate: { lte: now }, endDate: { gte: now } },
+            { startDate: null, endDate: { gte: now } },
+            { startDate: { lte: now }, endDate: null },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      })
+
+      const inFeedAds = allInFeedAds.filter(ad => ad.creativeUrl && ad.creativeUrl.trim() !== '')
+      
+      for (const ad of inFeedAds.slice(0, 2)) {
+        updates.push({
+          id: `sponsored-${ad.id}`,
+          type: 'SPONSORED',
+          title: 'SPONSORED',
+          message: ad.title || 'Advertisement',
+          debateId: null,
+          priority: 'medium',
+          createdAt: ad.createdAt.toISOString(),
+          destinationUrl: ad.targetUrl || null,
+          adId: ad.id,
+          imageUrl: ad.creativeUrl!,
+        })
+      }
+
+      // Sort by priority and recency
+      updates.sort((a, b) => {
+        const priorityOrder = { high: 3, medium: 2, low: 1 }
+        const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority]
+        if (priorityDiff !== 0) return priorityDiff
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      })
+
+      console.log('[Ticker API] Admin - Returning', updates.length, 'updates:', updates.map(u => ({ type: u.type, title: u.title, message: u.message })))
+
+      return NextResponse.json(
+        { updates: updates.slice(0, 10) },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
+        }
+      )
+    }
+
+    // If user is an advertiser, show advertiser-specific notifications only
+    if (isAdvertiser && advertiserId) {
+      console.log('[Ticker API] User is advertiser, showing advertiser-specific updates')
+      
+      // Get advertiser-specific notifications
+      // 1. Campaign status updates (approved, rejected, active)
+      try {
+        // Use select to avoid querying payment_status if it doesn't exist
+        const recentCampaigns = await prisma.campaign.findMany({
+          where: {
+            advertiserId: advertiserId,
+            OR: [
+              { status: 'APPROVED', createdAt: { gte: oneDayAgo } },
+              { status: 'REJECTED', createdAt: { gte: oneDayAgo } },
+              { status: 'ACTIVE', createdAt: { gte: oneDayAgo } },
+            ],
+          },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        })
+
+        for (const campaign of recentCampaigns) {
+          const campaignDate = campaign.updatedAt || campaign.createdAt
+          if (campaign.status === 'APPROVED' && campaignDate > oneHourAgo) {
+          updates.push({
+            id: `campaign-approved-${campaign.id}`,
+            type: 'ADVERTISER',
+            title: 'Campaign Approved',
+            message: `Your campaign "${campaign.name}" has been approved and is now active!`,
+            debateId: null,
+            priority: 'high',
+            createdAt: campaignDate.toISOString(),
+          })
+          } else if (campaign.status === 'REJECTED' && campaignDate > oneHourAgo) {
+            updates.push({
+              id: `campaign-rejected-${campaign.id}`,
+              type: 'ADVERTISER',
+              title: 'Campaign Update',
+              message: `Your campaign "${campaign.name}" requires review. Check your dashboard for details.`,
+              debateId: null,
+              priority: 'medium',
+              createdAt: campaignDate.toISOString(),
+            })
+          } else if (campaign.status === 'ACTIVE' && campaignDate > oneHourAgo) {
+            updates.push({
+              id: `campaign-active-${campaign.id}`,
+              type: 'ADVERTISER',
+              title: 'Campaign Active',
+              message: `Your campaign "${campaign.name}" is currently running.`,
+              debateId: null,
+              priority: 'low',
+              createdAt: campaignDate.toISOString(),
+            })
+          }
+        }
+      } catch (campaignError) {
+        console.error('[Ticker API] Error fetching campaigns:', campaignError)
+      }
+
+      // 2. Support ticket reply notifications
+      try {
+        // Get the user ID for this advertiser
+        const advertiserUser = await prisma.user.findUnique({
+          where: { email: userEmail },
+          select: { id: true },
+        })
+
+        if (advertiserUser) {
+          // Get recent support ticket replies from admins
+          const recentTicketReplies = await prisma.supportTicketReply.findMany({
+            where: {
+              ticket: {
+                userId: advertiserUser.id, // Get tickets for this advertiser's user
+              },
+              author: {
+                isAdmin: true, // Only admin replies
+              },
+              isInternal: false, // Not internal notes
+              createdAt: { gte: oneDayAgo },
+            },
+            include: {
+              ticket: {
+                select: {
+                  id: true,
+                  subject: true,
+                },
+              },
+              author: {
+                select: {
+                  username: true,
+                },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+          })
+
+          for (const reply of recentTicketReplies) {
+            updates.push({
+              id: `support-reply-${reply.id}`,
+              type: 'ADVERTISER',
+              title: 'Support Ticket Reply',
+              message: `${reply.author.username} replied to your support ticket: "${reply.ticket.subject}"`,
+              debateId: null,
+              priority: 'high',
+              createdAt: reply.createdAt.toISOString(),
+            })
+          }
+        }
+      } catch (ticketError) {
+        console.error('[Ticker API] Error fetching support ticket replies:', ticketError)
+      }
+
+      // 3. Offer status updates (creator accepted, replied, declined)
+      const recentOffers = await prisma.offer.findMany({
+        where: {
+          advertiserId: advertiserId,
+          OR: [
+            { respondedAt: { gte: oneDayAgo } },
+            { createdAt: { gte: oneDayAgo } },
+          ],
+          status: { in: ['ACCEPTED', 'DECLINED'] },
+        },
+        include: {
+          creator: {
+            select: { username: true },
+          },
+          campaign: {
+            select: { name: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      })
+
+      for (const offer of recentOffers) {
+        const offerDate = offer.respondedAt || offer.createdAt
+        if (offer.status === 'ACCEPTED' && offerDate > oneHourAgo) {
+          updates.push({
+            id: `offer-accepted-${offer.id}`,
+            type: 'ADVERTISER',
+            title: 'Offer Accepted',
+            message: `${offer.creator.username} accepted your offer for "${offer.campaign.name}"`,
+            debateId: null,
+            priority: 'high',
+            createdAt: offerDate.toISOString(),
+          })
+        } else if (offer.status === 'DECLINED' && offerDate > oneHourAgo) {
+          updates.push({
+            id: `offer-declined-${offer.id}`,
+            type: 'ADVERTISER',
+            title: 'Offer Update',
+            message: `${offer.creator.username} declined your offer for "${offer.campaign.name}"`,
+            debateId: null,
+            priority: 'low',
+            createdAt: offerDate.toISOString(),
+          })
+        }
+      }
+
+      // 3. Only show IN_FEED ads (not BANNER) for advertisers
+      const allInFeedAds = await prisma.advertisement.findMany({
+        where: {
+          status: 'ACTIVE',
+          type: 'IN_FEED', // Only IN_FEED, not BANNER
+          OR: [
+            { startDate: null, endDate: null },
+            { startDate: { lte: now }, endDate: { gte: now } },
+            { startDate: null, endDate: { gte: now } },
+            { startDate: { lte: now }, endDate: null },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      })
+
+      // Filter for ads with images (creativeUrl)
+      const inFeedAds = allInFeedAds.filter(ad => ad.creativeUrl && ad.creativeUrl.trim() !== '')
+      
+      console.log('[Ticker API] Advertiser - Found', allInFeedAds.length, 'IN_FEED ads,', inFeedAds.length, 'with images')
+
+      for (const ad of inFeedAds.slice(0, 2)) { // Limit to 2 for advertisers
+        updates.push({
+          id: `sponsored-${ad.id}`,
+          type: 'SPONSORED',
+          title: 'SPONSORED',
+          message: ad.title || 'Advertisement',
+          debateId: null,
+          priority: 'medium',
+          createdAt: ad.createdAt.toISOString(),
+          destinationUrl: ad.targetUrl || null,
+          adId: ad.id,
+          imageUrl: ad.creativeUrl!,
+        })
+        console.log('[Ticker API] Advertiser - Added IN_FEED ad:', ad.title)
+      }
+      
+      console.log('[Ticker API] Advertiser - Total updates:', updates.length)
+
+      // Sort by priority and recency
+      updates.sort((a, b) => {
+        const priorityOrder = { high: 3, medium: 2, low: 1 }
+        const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority]
+        if (priorityDiff !== 0) return priorityDiff
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      })
+
+      return NextResponse.json(
+        { updates: updates.slice(0, 10) },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
+        }
+      )
+    }
+
+    // Regular user flow - show debate updates and sponsored ads
 
     // 1. BIG BATTLES - High ELO matchups (both players ELO > 1500 or combined > 3000)
     const bigBattles = await prisma.debate.findMany({
@@ -366,6 +811,104 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 7. SPONSORED ADS - IN_FEED ads from advertisements table (admin-created)
+    const inFeedAds = await prisma.advertisement.findMany({
+      where: {
+        status: 'ACTIVE',
+        type: 'IN_FEED', // Only IN_FEED, not BANNER
+        OR: [
+          { startDate: null, endDate: null },
+          { startDate: { lte: now }, endDate: { gte: now } },
+          { startDate: null, endDate: { gte: now } },
+          { startDate: { lte: now }, endDate: null },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    })
+
+    // Filter for ads with images (creativeUrl)
+    const sponsoredAds = inFeedAds.filter(ad => ad.creativeUrl && ad.creativeUrl.trim() !== '')
+    
+    console.log('[Ticker API] Found', inFeedAds.length, 'IN_FEED ads,', sponsoredAds.length, 'with images')
+
+    for (const sponsoredAd of sponsoredAds.slice(0, 3)) { // Limit to 3 for ticker
+      updates.push({
+        id: `sponsored-${sponsoredAd.id}`,
+        type: 'SPONSORED',
+        title: 'SPONSORED',
+        message: sponsoredAd.title || 'Advertisement',
+        debateId: null,
+        priority: 'medium',
+        createdAt: sponsoredAd.createdAt.toISOString(),
+        destinationUrl: sponsoredAd.targetUrl || null,
+        adId: sponsoredAd.id,
+        imageUrl: sponsoredAd.creativeUrl!,
+      })
+      console.log('[Ticker API] Added IN_FEED ad to updates:', {
+        id: sponsoredAd.id,
+        title: sponsoredAd.title,
+        imageUrl: sponsoredAd.creativeUrl?.substring(0, 50) + '...',
+      })
+    }
+
+    // 7b. PLATFORM ADS CAMPAIGNS - Only IN_FEED type (same as Direct Ads)
+    // Platform Ads should only show in ticker if they're IN_FEED type
+    try {
+      const platformAdsCampaigns = await prisma.campaign.findMany({
+        where: {
+          type: 'PLATFORM_ADS',
+          status: 'ACTIVE',
+          startDate: { lte: now },
+          endDate: { gte: now },
+          bannerUrl: { not: null },
+          adType: 'IN_FEED', // Only IN_FEED type Platform Ads show in ticker (matches Direct Ads)
+        },
+        select: {
+          id: true,
+          name: true,
+          bannerUrl: true,
+          destinationUrl: true,
+          ctaText: true,
+          createdAt: true,
+          adType: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 3, // Limit to 3 for ticker
+      })
+
+      console.log('[Ticker API] Found', platformAdsCampaigns.length, 'ACTIVE Platform Ads campaigns (IN_FEED type)')
+
+      for (const campaign of platformAdsCampaigns) {
+        if (campaign.bannerUrl) {
+          updates.push({
+            id: `platform-ad-${campaign.id}`,
+            type: 'SPONSORED',
+            title: 'SPONSORED',
+            message: campaign.name,
+            debateId: null,
+            priority: 'medium',
+            createdAt: campaign.createdAt.toISOString(),
+            destinationUrl: campaign.destinationUrl || null,
+            adId: campaign.id,
+            campaignId: campaign.id,
+            imageUrl: campaign.bannerUrl,
+          })
+          console.log('[Ticker API] Added Platform Ads campaign to updates:', {
+            id: campaign.id,
+            name: campaign.name,
+            adType: campaign.adType,
+            imageUrl: campaign.bannerUrl?.substring(0, 50) + '...',
+          })
+        }
+      }
+    } catch (error: any) {
+      // If Platform Ads query fails (e.g., adType field doesn't exist yet), skip it
+      console.error('[Ticker API] Failed to fetch Platform Ads campaigns:', error.message)
+    }
+    
+    console.log('[Ticker API] Total updates after adding sponsored ads:', updates.length)
+
     // Sort by priority and recency
     updates.sort((a, b) => {
       const priorityOrder = { high: 3, medium: 2, low: 1 }
@@ -376,10 +919,19 @@ export async function GET(request: NextRequest) {
     })
 
     // Return top 20 updates
-    return NextResponse.json({
-      updates: updates.slice(0, 20),
-      total: updates.length,
-    })
+    return NextResponse.json(
+      {
+        updates: updates.slice(0, 20),
+        total: updates.length,
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        },
+      }
+    )
   } catch (error) {
     console.error('Failed to fetch ticker updates:', error)
     return NextResponse.json(

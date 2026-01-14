@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { cardHover, cardTap } from '@/lib/animations'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/Toast'
+import { AdDisplay } from '@/components/ads/AdDisplay'
 
 interface Topic {
   id: string
@@ -110,40 +111,50 @@ export function TrendingTopics({ onTopicClick }: TrendingTopicsProps) {
       ) : (
         <div className="flex gap-6 overflow-x-auto overflow-y-visible pt-2 pb-4 scrollbar-thin scrollbar-thumb-electric-blue scrollbar-track-bg-secondary mt-6">
           {topics.map((topic, index) => (
-            <motion.div
-              key={topic.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05, duration: 0.3 }}
-              whileHover={cardHover}
-              whileTap={cardTap}
-              onClick={() => handleCardClick(topic)}
-              className="min-w-[320px] max-w-[320px] h-[200px] bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-electric-blue hover:shadow-[0_8px_24px_rgba(0,217,255,0.1)] transition-all text-left flex flex-col flex-shrink-0 shadow-sm cursor-pointer"
-            >
-              <Badge 
-                variant={topic.category.toLowerCase() as any}
-                size="sm"
-                className="mb-3 self-start"
+            <div key={topic.id} className="flex flex-col gap-4">
+              {/* In-Feed Ad (show every 3rd topic) */}
+              {index > 0 && index % 3 === 0 && (
+                <div className="min-w-[320px] max-w-[320px] flex-shrink-0">
+                  <div className="max-h-[200px] overflow-hidden rounded-lg">
+                    <AdDisplay placement="IN_FEED" context="trending-topics" />
+                  </div>
+                </div>
+              )}
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05, duration: 0.3 }}
+                whileHover={cardHover}
+                whileTap={cardTap}
+                onClick={() => handleCardClick(topic)}
+                className="min-w-[320px] max-w-[320px] h-[200px] bg-bg-secondary border border-bg-tertiary rounded-xl p-6 hover:border-electric-blue hover:shadow-[0_8px_24px_rgba(0,217,255,0.1)] transition-all text-left flex flex-col flex-shrink-0 shadow-sm cursor-pointer"
               >
-                {topic.category}
-              </Badge>
-              
-              <h4 className="text-lg font-bold text-text-primary mb-3 flex-grow line-clamp-2 overflow-hidden leading-relaxed min-h-[3.5rem]">
-                {topic.title}
-              </h4>
-              
-              <div className="flex items-center justify-between text-sm mt-auto">
-                <span className="text-text-secondary">
-                  {topic.debateCount} debates
-                </span>
-                <button
-                  onClick={(e) => handleStartDebate(topic, e)}
-                  className="text-electric-blue font-semibold whitespace-nowrap hover:text-neon-orange transition-colors"
+                <Badge 
+                  variant={topic.category.toLowerCase() as any}
+                  size="sm"
+                  className="mb-3 self-start"
                 >
-                  Start Debate →
-                </button>
-              </div>
-            </motion.div>
+                  {topic.category}
+                </Badge>
+                
+                <h4 className="text-lg font-bold text-text-primary mb-3 flex-grow line-clamp-2 overflow-hidden leading-relaxed min-h-[3.5rem]">
+                  {topic.title}
+                </h4>
+                
+                <div className="flex items-center justify-between text-sm mt-auto">
+                  <span className="text-text-secondary">
+                    {topic.debateCount} debates
+                  </span>
+                  <button
+                    onClick={(e) => handleStartDebate(topic, e)}
+                    className="text-electric-blue font-semibold whitespace-nowrap hover:text-neon-orange transition-colors"
+                  >
+                    Start Debate →
+                  </button>
+                </div>
+              </motion.div>
+            </div>
           ))}
         </div>
       )}

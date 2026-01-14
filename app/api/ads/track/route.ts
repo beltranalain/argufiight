@@ -6,17 +6,18 @@ import { headers } from 'next/headers'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { contractId, campaignId, type } = body
+    const { contractId, campaignId, adId, type } = body // adId for Basic Ads
 
-    if (!contractId || !campaignId || !type) {
-      return NextResponse.json(
-        { error: 'contractId, campaignId, and type are required' },
-        { status: 400 }
-      )
+    if (!type || (type !== 'IMPRESSION' && type !== 'CLICK')) {
+      return NextResponse.json({ error: 'Valid type (IMPRESSION or CLICK) is required' }, { status: 400 })
     }
 
-    if (type !== 'IMPRESSION' && type !== 'CLICK') {
-      return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
+    // Must have at least one identifier
+    if (!contractId && !campaignId && !adId) {
+      return NextResponse.json(
+        { error: 'At least one of contractId, campaignId, or adId is required' },
+        { status: 400 }
+      )
     }
 
     // Get user info if available
@@ -31,12 +32,33 @@ export async function POST(request: NextRequest) {
     const userAgent = headersList.get('user-agent') || 'unknown'
     const referrer = headersList.get('referer') || null
 
+    // Handle Basic Ads (adId provided, no contractId/campaignId)
+    if (adId && !contractId && !campaignId) {
+      if (type === 'IMPRESSION') {
+        await prisma.advertisement.update({
+          where: { id: adId },
+          data: {
+            impressions: { increment: 1 },
+          },
+        })
+      } else if (type === 'CLICK') {
+        await prisma.advertisement.update({
+          where: { id: adId },
+          data: {
+            clicks: { increment: 1 },
+          },
+        })
+      }
+      return NextResponse.json({ success: true })
+    }
+
+    // Handle Platform Ads and Creator Contracts (campaignId/contractId)
     // Create tracking record
     if (type === 'IMPRESSION') {
       await prisma.impression.create({
         data: {
           contractId: contractId || undefined,
-          campaignId,
+          campaignId: campaignId || undefined,
           userId: userId || undefined,
           ipAddress,
           userAgent,
@@ -59,7 +81,7 @@ export async function POST(request: NextRequest) {
       await prisma.click.create({
         data: {
           contractId: contractId || undefined,
-          campaignId,
+          campaignId: campaignId || undefined,
           userId: userId || undefined,
           ipAddress,
           userAgent,

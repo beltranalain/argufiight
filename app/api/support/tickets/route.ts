@@ -27,6 +27,14 @@ export async function GET(request: NextRequest) {
     const tickets = await prisma.supportTicket.findMany({
       where,
       include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
         replies: {
           include: {
             author: {
@@ -53,6 +61,15 @@ export async function GET(request: NextRequest) {
       orderBy: {
         createdAt: 'desc',
       },
+    })
+
+    console.log('[API /support/tickets GET] Returning tickets:', {
+      count: tickets.length,
+      tickets: tickets.map(t => ({
+        id: t.id,
+        subject: t.subject,
+        replyCount: t.replies?.length || 0,
+      })),
     })
 
     return NextResponse.json({ tickets })
@@ -88,6 +105,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('[API /support/tickets POST] Creating ticket:', {
+      userId,
+      subject,
+      category,
+      priority,
+    })
+
     const ticket = await prisma.supportTicket.create({
       data: {
         userId,
@@ -107,6 +131,29 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+
+    console.log('[API /support/tickets POST] Ticket created successfully:', {
+      id: ticket.id,
+      userId: ticket.userId,
+      subject: ticket.subject,
+      status: ticket.status,
+      priority: ticket.priority,
+      category: ticket.category,
+      createdAt: ticket.createdAt,
+      userEmail: ticket.user?.email,
+    })
+
+    // Verify the ticket was actually saved by fetching it back
+    const verifyTicket = await prisma.supportTicket.findUnique({
+      where: { id: ticket.id },
+      select: { id: true, userId: true, subject: true },
+    })
+    
+    if (!verifyTicket) {
+      console.error('[API /support/tickets POST] CRITICAL: Ticket was not saved to database!', ticket.id)
+    } else {
+      console.log('[API /support/tickets POST] Ticket verified in database:', verifyTicket.id)
+    }
 
     return NextResponse.json({ ticket }, { status: 201 })
   } catch (error) {

@@ -43,10 +43,10 @@ export function SettingsTab() {
   const fetchSettings = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/creator/profile')
+      const response = await fetch('/api/creator/settings')
       if (response.ok) {
         const data = await response.json()
-        setIsCreator(true)
+        setIsCreator(data.user.isCreator || false)
         setSettings({
           profileBannerPrice: data.user.profileBannerPrice ? Number(data.user.profileBannerPrice) : 300,
           postDebatePrice: data.user.postDebatePrice ? Number(data.user.postDebatePrice) : 150,

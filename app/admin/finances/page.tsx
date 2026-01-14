@@ -470,7 +470,8 @@ export default function FinancesPage() {
                                         {tx.campaign?.name || 'Campaign'}
                                       </p>
                                       <p className="text-sm text-text-secondary">
-                                        {tx.advertiser?.companyName} → {tx.creator?.username}
+                                        {tx.advertiser?.companyName}
+                                        {tx.type === 'platform_ad' ? ' (Platform Ad)' : tx.creator ? ` → ${tx.creator?.username}` : ''}
                                       </p>
                                       <p className="text-xs text-text-muted mt-1">
                                         {formatDate(tx.date)} • {tx.status}
@@ -481,20 +482,42 @@ export default function FinancesPage() {
                                     </p>
                                   </div>
                                   <div className="flex gap-4 text-sm pt-2 border-t border-bg-secondary">
-                                    <div>
-                                      <span className="text-text-secondary">Platform Fee: </span>
-                                      <span className="text-neon-orange font-semibold">
-                                        {formatCurrency(tx.platformFee)}
-                                      </span>
-                                    </div>
-                                    <div>
-                                      <span className="text-text-secondary">Creator Payout: </span>
-                                      <span className="text-[#FF6B35] font-semibold">
-                                        {formatCurrency(tx.creatorPayout)}
-                                      </span>
-                                    </div>
-                                    {tx.payoutSent && (
-                                      <span className="text-green-500 ml-auto">✓ Paid</span>
+                                    {tx.type === 'platform_ad' ? (
+                                      <>
+                                        <div>
+                                          <span className="text-text-secondary">Stripe Fee: </span>
+                                          <span className="text-neon-orange font-semibold">
+                                            {formatCurrency(tx.stripeFee || 0)}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-text-secondary">Total Paid: </span>
+                                          <span className="text-cyber-green font-semibold">
+                                            {formatCurrency(tx.totalPaid || tx.amount)}
+                                          </span>
+                                        </div>
+                                        {tx.stripePaymentId && (
+                                          <span className="text-green-500 ml-auto">✓ Paid</span>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div>
+                                          <span className="text-text-secondary">Platform Fee: </span>
+                                          <span className="text-neon-orange font-semibold">
+                                            {formatCurrency(tx.platformFee)}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <span className="text-text-secondary">Creator Payout: </span>
+                                          <span className="text-[#FF6B35] font-semibold">
+                                            {formatCurrency(tx.creatorPayout)}
+                                          </span>
+                                        </div>
+                                        {tx.payoutSent && (
+                                          <span className="text-green-500 ml-auto">✓ Paid</span>
+                                        )}
+                                      </>
                                     )}
                                   </div>
                                 </div>

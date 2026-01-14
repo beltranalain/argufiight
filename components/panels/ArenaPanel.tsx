@@ -234,7 +234,7 @@ export function ArenaPanel() {
       <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary mt-8">
         <h2 className="text-2xl font-bold text-text-primary mb-2">Open Challenges</h2>
         <p className="text-text-secondary text-sm mb-4">Debates waiting for opponents</p>
-        <div className="max-h-[500px] overflow-y-auto pr-2">
+        <div className="max-h-[500px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
           <ChallengesPanel />
         </div>
       </div>
@@ -428,7 +428,7 @@ export function ArenaPanel() {
           />
         </div>
       ) : (
-        <div className="max-h-[500px] overflow-y-auto pr-2">
+        <div className="max-h-[500px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
           <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {debates.map((debate: any) => (
               <StaggerItem key={debate.id}>

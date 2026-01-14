@@ -128,6 +128,8 @@ export async function GET(request: NextRequest) {
         winnerId: true,
         endedAt: true,
         createdAt: true,
+        verdictReached: true,
+        verdictDate: true,
         challengeType: true,
         invitedUserIds: true,
         currentRound: true,
@@ -215,8 +217,14 @@ export async function GET(request: NextRequest) {
       take: limit,
     })
 
+    // Add hasNoStatements flag to each debate
+    const debatesWithFlags = debates.map(debate => ({
+      ...debate,
+      hasNoStatements: !debate.statements || debate.statements.length === 0,
+    }))
+
     return NextResponse.json({
-      debates,
+      debates: debatesWithFlags,
       pagination: {
         page,
         limit,

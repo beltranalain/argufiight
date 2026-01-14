@@ -1,55 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
-import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
 
+// POST /api/creator/offers/[id]/decline - Decline an offer
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const session = await verifySession()
+    const session = await verifySessionWithDb()
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = getUserIdFromSession(session)
+    const userId = session.userId
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
+    const offerId = params.id
 
+    // Get the offer
     const offer = await prisma.offer.findUnique({
-      where: { id },
+      where: { id: offerId },
     })
 
     if (!offer) {
       return NextResponse.json({ error: 'Offer not found' }, { status: 404 })
     }
 
+    // Verify the offer belongs to this creator
     if (offer.creatorId !== userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
+    // Check if offer can be declined
     if (offer.status !== 'PENDING') {
       return NextResponse.json(
-        { error: 'Offer is not pending' },
+        { error: `Cannot decline offer that is ${offer.status.toLowerCase()}` },
         { status: 400 }
       )
     }
 
+    // Update offer status to DECLINED
     await prisma.offer.update({
-      where: { id: offer.id },
-      data: {
-        status: 'DECLINED',
-        respondedAt: new Date(),
-      },
+      where: { id: offerId },
+      data: { status: 'DECLINED' },
     })
 
-    // TODO: Send notification to advertiser
-
-    return NextResponse.json({ success: true })
+    return NextResponse.json({
+      success: true,
+      message: 'Offer declined',
+    })
   } catch (error: any) {
     console.error('Failed to decline offer:', error)
     return NextResponse.json(
@@ -58,4 +60,3 @@ export async function POST(
     )
   }
 }
-

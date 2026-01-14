@@ -35,6 +35,12 @@ interface UserData {
   accessLevel: string | null
   createdAt: string
   googleId: string | null
+  // Coin and login fields
+  coins?: number
+  consecutiveLoginDays?: number
+  longestLoginStreak?: number
+  totalLoginDays?: number
+  lastLoginDate?: string | null
   // AI User fields (optional)
   isAI?: boolean
   aiPersonality?: string | null
@@ -46,6 +52,10 @@ interface UserData {
     status: string
     billingCycle: string | null
   } | null
+  // Creator fields
+  isCreator?: boolean
+  creatorStatus?: string | null
+  creatorSince?: string | null
 }
 
 interface UserLimitInfo {
@@ -187,6 +197,46 @@ export default function AdminUsersPage() {
       setSelectedUserIds(new Set())
     } else {
       setSelectedUserIds(new Set(userList.map(u => u.id)))
+    }
+  }
+
+  
+  const handleToggleCreatorMode = async (userId: string, currentStatus: boolean) => {
+    setIsProcessing(true)
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/creator/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !currentStatus }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        showToast({
+          type: 'success',
+          title: 'Creator Mode Updated',
+          description: data.message || `Creator mode ${!currentStatus ? 'enabled' : 'disabled'}`,
+        })
+        fetchUsers()
+      } else {
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const error = await response.json()
+          throw new Error(error.error || error.message || 'Failed to toggle creator mode')
+        } else {
+          const errorText = await response.text()
+          throw new Error(`Failed to toggle creator mode: ${response.status} ${response.statusText}`)
+        }
+      }
+    } catch (error: any) {
+      showToast({
+        type: 'error',
+        title: 'Update Failed',
+        description: error.message || 'Failed to toggle creator mode',
+      })
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -465,12 +515,30 @@ export default function AdminUsersPage() {
                                       Paused
                                     </Badge>
                                   )}
-                                </div>
-                                <p className="text-sm text-text-secondary">{user.email}</p>
-                                <div className="flex items-center gap-4 mt-2 text-sm text-text-secondary">
-                                  <span>ELO: {user.eloRating}</span>
+                                                              {user.isCreator && (
+                                <Badge variant="default" size="sm" className="bg-electric-blue text-black">
+                                  Creator ({user.creatorStatus || 'N/A'})
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-text-secondary">{user.email}</p>
+                            <div className="flex items-center gap-4 mt-2 text-sm text-text-secondary">
+                              <span>ELO: {user.eloRating}</span>
+                              <span>•</span>
+                              <span>{user.totalDebates} debates</span>
+                              <span>•</span>
+                              <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={user.isCreator || false}
+                                  onChange={() => handleToggleCreatorMode(user.id, user.isCreator || false)}
+                                  disabled={isProcessing}
+                                  className="w-4 h-4 rounded border-bg-tertiary bg-bg-tertiary text-electric-blue focus:ring-electric-blue focus:ring-2"
+                                />
+                                <span className="text-xs text-text-secondary">Creator Mode</span>
+                              </label>
                                   <span>•</span>
-                                  <span>{user.totalDebates} debates</span>
+                                  <span>Coins: {user.coins?.toLocaleString() || 0}</span>
                                   <span>•</span>
                                   <span>Auto-accept: {delayLabel}</span>
                                 </div>
@@ -599,17 +667,56 @@ export default function AdminUsersPage() {
                                 Suspended
                               </Badge>
                             )}
-                          </div>
-                          <p className="text-sm text-text-secondary">{user.email}</p>
-                          <div className="flex items-center gap-4 mt-2 text-sm text-text-secondary">
-                            <span>ELO: {user.eloRating}</span>
+                                                        {user.isCreator && (
+                                <Badge variant="default" size="sm" className="bg-electric-blue text-black">
+                                  Creator ({user.creatorStatus || 'N/A'})
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-text-secondary">{user.email}</p>
+                            <div className="flex items-center gap-4 mt-2 text-sm text-text-secondary">
+                              <span>ELO: {user.eloRating}</span>
+                              <span>•</span>
+                              <span>{user.totalDebates} debates</span>
+                              <span>•</span>
+                              <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={user.isCreator || false}
+                                  onChange={() => handleToggleCreatorMode(user.id, user.isCreator || false)}
+                                  disabled={isProcessing}
+                                  className="w-4 h-4 rounded border-bg-tertiary bg-bg-tertiary text-electric-blue focus:ring-electric-blue focus:ring-2"
+                                />
+                                <span className="text-xs text-text-secondary">Creator Mode</span>
+                              </label>
                             <span>•</span>
-                            <span>{user.totalDebates} debates</span>
+                            <span>Coins: {user.coins?.toLocaleString() || 0}</span>
                             <span>•</span>
                             <span className="text-cyber-green">{user.debatesWon}W</span>
                             <span className="text-neon-orange">{user.debatesLost}L</span>
                             <span className="text-yellow-500">{user.debatesTied || 0}T</span>
                           </div>
+                          {(user.consecutiveLoginDays !== undefined || user.longestLoginStreak !== undefined) && (
+                            <div className="flex items-center gap-4 mt-1 text-xs text-text-secondary">
+                              {user.consecutiveLoginDays !== undefined && (
+                                <>
+                                  <span>Streak: {user.consecutiveLoginDays} days</span>
+                                  <span>•</span>
+                                </>
+                              )}
+                              {user.longestLoginStreak !== undefined && (
+                                <>
+                                  <span>Best: {user.longestLoginStreak} days</span>
+                                  {user.totalLoginDays !== undefined && (
+                                    <>
+                                      <span>•</span>
+                                      <span>Total: {user.totalLoginDays} logins</span>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -741,17 +848,56 @@ export default function AdminUsersPage() {
                                 Suspended
                               </Badge>
                             )}
-                          </div>
-                          <p className="text-sm text-text-secondary">{user.email}</p>
-                          <div className="flex items-center gap-4 mt-2 text-sm text-text-secondary">
-                            <span>ELO: {user.eloRating}</span>
+                                                        {user.isCreator && (
+                                <Badge variant="default" size="sm" className="bg-electric-blue text-black">
+                                  Creator ({user.creatorStatus || 'N/A'})
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-text-secondary">{user.email}</p>
+                            <div className="flex items-center gap-4 mt-2 text-sm text-text-secondary">
+                              <span>ELO: {user.eloRating}</span>
+                              <span>•</span>
+                              <span>{user.totalDebates} debates</span>
+                              <span>•</span>
+                              <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={user.isCreator || false}
+                                  onChange={() => handleToggleCreatorMode(user.id, user.isCreator || false)}
+                                  disabled={isProcessing}
+                                  className="w-4 h-4 rounded border-bg-tertiary bg-bg-tertiary text-electric-blue focus:ring-electric-blue focus:ring-2"
+                                />
+                                <span className="text-xs text-text-secondary">Creator Mode</span>
+                              </label>
                             <span>•</span>
-                            <span>{user.totalDebates} debates</span>
+                            <span>Coins: {user.coins?.toLocaleString() || 0}</span>
                             <span>•</span>
                             <span className="text-cyber-green">{user.debatesWon}W</span>
                             <span className="text-neon-orange">{user.debatesLost}L</span>
                             <span className="text-yellow-500">{user.debatesTied || 0}T</span>
                           </div>
+                          {(user.consecutiveLoginDays !== undefined || user.longestLoginStreak !== undefined) && (
+                            <div className="flex items-center gap-4 mt-1 text-xs text-text-secondary">
+                              {user.consecutiveLoginDays !== undefined && (
+                                <>
+                                  <span>Streak: {user.consecutiveLoginDays} days</span>
+                                  <span>•</span>
+                                </>
+                              )}
+                              {user.longestLoginStreak !== undefined && (
+                                <>
+                                  <span>Best: {user.longestLoginStreak} days</span>
+                                  {user.totalLoginDays !== undefined && (
+                                    <>
+                                      <span>•</span>
+                                      <span>Total: {user.totalLoginDays} logins</span>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">

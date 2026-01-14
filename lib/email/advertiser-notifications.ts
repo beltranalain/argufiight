@@ -1,4 +1,5 @@
-import { createResendClient } from './resend'
+import { createResendClient, getResendFromEmail } from './resend'
+import { logApiUsage } from '@/lib/ai/api-tracking'
 
 /**
  * Send approval email to advertiser
@@ -6,20 +7,39 @@ import { createResendClient } from './resend'
 export async function sendAdvertiserApprovalEmail(
   advertiserEmail: string,
   advertiserName: string,
-  companyName: string
+  companyName: string,
+  accountJustCreated?: boolean,
+  passwordResetToken?: string | null
 ): Promise<boolean> {
   try {
+    console.log('[Advertiser Approval Email] Starting email send to:', advertiserEmail)
     const resend = await createResendClient()
     if (!resend) {
-      console.warn('Resend client not available, skipping email notification')
+      console.error('[Advertiser Approval Email] Resend client not available - API key may be missing or invalid')
+      // Log the failure
+      await logApiUsage({
+        provider: 'resend',
+        endpoint: 'emails.send',
+        success: false,
+        errorMessage: 'Resend API key not configured',
+        metadata: { type: 'advertiser_approval', to: advertiserEmail, error: true },
+      })
       return false
     }
+    console.log('[Advertiser Approval Email] Resend client created, attempting to send email')
 
     const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'}/advertiser/dashboard`
     const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'}/login`
+    const forgotPasswordUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'}/forgot-password`
+    const resetPasswordUrl = passwordResetToken 
+      ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'}/reset-password?token=${passwordResetToken}`
+      : forgotPasswordUrl
+
+    const fromEmail = await getResendFromEmail()
+    console.log('[Advertiser Approval Email] Using from email:', fromEmail)
 
     const result = await resend.emails.send({
-      from: 'Argu Fight <noreply@argufight.com>',
+      from: fromEmail,
       to: advertiserEmail,
       subject: 'Your Advertiser Application Has Been Approved!',
       html: `
@@ -40,23 +60,40 @@ export async function sendAdvertiserApprovalEmail(
             
             <p>Great news! Your advertiser application for <strong>${companyName}</strong> has been approved.</p>
             
-            <p>You can now access your advertiser dashboard to:</p>
-            <ul>
-              <li>Create and manage advertising campaigns</li>
-              <li>Connect your Stripe account for payments</li>
-              <li>Discover and sponsor creators</li>
-              <li>Track your campaign performance</li>
-            </ul>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${dashboardUrl}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                Access Dashboard
-              </a>
-            </div>
-            
-            <p style="font-size: 14px; color: #666;">
-              If you haven't already, you'll need to <a href="${loginUrl}" style="color: #667eea;">sign in</a> using the email address you provided: <strong>${advertiserEmail}</strong>
-            </p>
+            ${accountJustCreated && passwordResetToken ? `
+              <div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 20px; margin: 20px 0; border-radius: 5px;">
+                <p style="margin: 0 0 10px 0; font-weight: bold; font-size: 16px;">🎉 Account Created!</p>
+                <p style="margin: 5px 0 15px 0; font-size: 14px;">
+                  We've created a user account for you. To access your advertiser dashboard, please set your password first:
+                </p>
+                <div style="text-align: center; margin: 20px 0;">
+                  <a href="${resetPasswordUrl}" style="display: inline-block; background: #2196f3; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                    Set Your Password
+                  </a>
+                </div>
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">
+                  This link will expire in 7 days. If you need a new link, use the <a href="${forgotPasswordUrl}" style="color: #2196f3;">Forgot Password</a> feature with your email: <strong>${advertiserEmail}</strong>
+                </p>
+              </div>
+            ` : `
+              <p>You can now access your advertiser dashboard to:</p>
+              <ul>
+                <li>Create and manage advertising campaigns</li>
+                <li>Connect your Stripe account for payments</li>
+                <li>Discover and sponsor creators</li>
+                <li>Track your campaign performance</li>
+              </ul>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${dashboardUrl}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                  Access Dashboard
+                </a>
+              </div>
+              
+              <p style="font-size: 14px; color: #666;">
+                If you haven't already, you'll need to <a href="${loginUrl}" style="color: #667eea;">sign in</a> using the email address you provided: <strong>${advertiserEmail}</strong>
+              </p>
+            `}
             
             <p style="font-size: 14px; color: #666; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
               If you have any questions, please contact our support team.
@@ -73,11 +110,47 @@ export async function sendAdvertiserApprovalEmail(
     })
 
     if (result.error) {
-      console.error('Failed to send advertiser approval email:', result.error)
+      const errorMessage = result.error.message || 'Failed to send email'
+      console.error('[Advertiser Approval Email] Failed to send email:', {
+        error: result.error,
+        message: errorMessage,
+        statusCode: result.error.statusCode,
+        name: result.error.name,
+        to: advertiserEmail,
+      })
+      // Log failed email attempt with detailed error
+      await logApiUsage({
+        provider: 'resend',
+        endpoint: 'emails.send',
+        success: false,
+        errorMessage: errorMessage,
+        metadata: { 
+          type: 'advertiser_approval', 
+          to: advertiserEmail,
+          contactName: advertiserName,
+          company: companyName,
+          error: true,
+          errorDetails: result.error,
+        },
+      })
       return false
     }
 
-    console.log(`✅ Approval email sent to ${advertiserEmail}`)
+    // Log successful email with full metadata
+    await logApiUsage({
+      provider: 'resend',
+      endpoint: 'emails.send',
+      success: true,
+      metadata: { 
+        type: 'advertiser_approval', 
+        to: advertiserEmail,
+        contactName: advertiserName,
+        company: companyName,
+        userCreated: accountJustCreated || false,
+      },
+    })
+
+    console.log(`Approval email sent to ${advertiserEmail}`)
     return true
   } catch (error: any) {
     console.error('Error sending advertiser approval email:', error)
@@ -101,8 +174,11 @@ export async function sendAdvertiserRejectionEmail(
       return false
     }
 
+    const fromEmail = await getResendFromEmail()
+    console.log('[Advertiser Rejection Email] Using from email:', fromEmail)
+
     const result = await resend.emails.send({
-      from: 'Argu Fight <noreply@argufight.com>',
+      from: fromEmail,
       to: advertiserEmail,
       subject: 'Update on Your Advertiser Application',
       html: `
@@ -140,11 +216,46 @@ export async function sendAdvertiserRejectionEmail(
     })
 
     if (result.error) {
-      console.error('Failed to send advertiser rejection email:', result.error)
+      const errorMessage = result.error.message || 'Failed to send email'
+      console.error('Failed to send advertiser rejection email:', {
+        error: result.error,
+        message: errorMessage,
+        to: advertiserEmail,
+      })
+      // Log failed email attempt with detailed error
+      await logApiUsage({
+        provider: 'resend',
+        endpoint: 'emails.send',
+        success: false,
+        errorMessage: errorMessage,
+        metadata: { 
+          type: 'advertiser_rejection', 
+          to: advertiserEmail,
+          contactName: advertiserName,
+          company: companyName,
+          reason: reason || '',
+          error: true,
+          errorDetails: result.error,
+        },
+      })
       return false
     }
 
-    console.log(`✅ Rejection email sent to ${advertiserEmail}`)
+    // Log successful email with full metadata
+    await logApiUsage({
+      provider: 'resend',
+      endpoint: 'emails.send',
+      success: true,
+      metadata: { 
+        type: 'advertiser_rejection', 
+        to: advertiserEmail,
+        contactName: advertiserName,
+        company: companyName,
+        reason: reason || '',
+      },
+    })
+
+    console.log(`Rejection email sent to ${advertiserEmail}`)
     return true
   } catch (error: any) {
     console.error('Error sending advertiser rejection email:', error)

@@ -149,17 +149,21 @@ export async function POST(request: NextRequest) {
 
     const stripe = await createStripeClient()
     
-    // Always use production domain for checkout success URLs
-    let baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
+    // Determine base URL for checkout success/cancel URLs
+    // Priority: NEXT_PUBLIC_APP_URL > VERCEL_URL (for preview deployments) > localhost (for local dev)
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     
-    // Only use VERCEL_URL for local development
-    if (!process.env.NEXT_PUBLIC_APP_URL) {
-      if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-        baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'
-      }
+    // For local development, always use localhost
+    if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+      baseUrl = 'http://localhost:3000'
+    } else if (process.env.VERCEL_URL && !process.env.NEXT_PUBLIC_APP_URL) {
+      // Use VERCEL_URL for preview deployments if NEXT_PUBLIC_APP_URL is not set
+      baseUrl = `https://${process.env.VERCEL_URL}`
     }
     
     baseUrl = baseUrl.replace(/\/$/, '')
+    
+    console.log('[Checkout API] Using baseUrl:', baseUrl, 'for success URL')
 
     // Create Stripe Checkout Session for one-time payment
     // Note: Payment is captured immediately and held in escrow in our Stripe account

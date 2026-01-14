@@ -20,7 +20,13 @@ function SuccessPageContent() {
   useEffect(() => {
     const sessionId = searchParams.get('session_id')
     if (!sessionId) {
-      router.push('/advertiser/dashboard')
+      // If no session_id, still show success message but redirect to dashboard
+      setError('No session ID found. If payment was successful, please check your dashboard.')
+      setTimeout(() => {
+        // Use window.location to ensure a full page reload and session refresh
+        window.location.href = '/advertiser/dashboard'
+      }, 5000)
+      setIsLoading(false)
       return
     }
 
@@ -51,10 +57,11 @@ function SuccessPageContent() {
         description: 'Your payment has been processed and held in escrow.',
       })
 
-      // Redirect to dashboard after 3 seconds
+      // Redirect to dashboard after 2 seconds (reduced from 3)
       setTimeout(() => {
-        router.push('/advertiser/dashboard')
-      }, 3000)
+        // Use window.location to ensure a full page reload and session refresh
+        window.location.href = '/advertiser/dashboard'
+      }, 2000)
     } catch (error: any) {
       console.error('Payment verification error:', error)
       setError(error.message || 'Failed to verify payment')
@@ -94,7 +101,10 @@ function SuccessPageContent() {
             <div className="flex gap-4">
               <Button
                 variant="primary"
-                onClick={() => router.push('/advertiser/dashboard')}
+                onClick={() => {
+                  // Use window.location to ensure a full page reload and session refresh
+                  window.location.href = '/advertiser/dashboard'
+                }}
                 className="flex-1"
               >
                 Back to Dashboard
@@ -129,7 +139,10 @@ function SuccessPageContent() {
             </p>
             <Button
               variant="primary"
-              onClick={() => router.push('/advertiser/dashboard')}
+              onClick={() => {
+                // Use window.location to ensure a full page reload and session refresh
+                window.location.href = '/advertiser/dashboard'
+              }}
               className="w-full"
             >
               Go to Dashboard

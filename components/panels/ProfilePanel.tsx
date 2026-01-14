@@ -45,13 +45,16 @@ export function ProfilePanel() {
             return dateB - dateA
           })
           .slice(0, 3)
-        // Debug: Log debate data to verify winnerId is included
+        // Debug: Log debate data to verify winnerId, verdictReached, and hasNoStatements
         console.log('[ProfilePanel] Recent debates data:', filtered.map((d: any) => ({
           id: d.id,
           topic: d.topic?.substring(0, 40),
           status: d.status,
           winnerId: d.winnerId,
           hasWinnerId: !!d.winnerId,
+          verdictReached: d.verdictReached,
+          hasNoStatements: d.hasNoStatements,
+          statementCount: d.statements?.length || 0,
         })))
         setRecentDebates(filtered)
       } else {
@@ -107,6 +110,11 @@ export function ProfilePanel() {
             {user.totalMaxScore > 0 && (
               <Badge variant="default" size="sm" className="bg-electric-blue/20 text-electric-blue">
                 Score: {user.totalScore}/{user.totalMaxScore}
+              </Badge>
+            )}
+            {user.coins !== undefined && (
+              <Badge variant="default" size="sm" className="bg-cyan-500/20 text-cyan-400">
+                Coins: {(user.coins || 0).toLocaleString()}
               </Badge>
             )}
           </div>
@@ -200,6 +208,18 @@ export function ProfilePanel() {
                 const isTie = !debate.winnerId
                 const opponent = debate.challengerId === user?.id ? debate.opponent : debate.challenger
                 
+                // Debug logging for status badge
+                if (debate.status === 'COMPLETED') {
+                  console.log('[ProfilePanel] COMPLETED debate status check:', {
+                    id: debate.id,
+                    topic: debate.topic?.substring(0, 30),
+                    status: debate.status,
+                    hasNoStatements: debate.hasNoStatements,
+                    verdictReached: debate.verdictReached,
+                    statementCount: debate.statements?.length || 0,
+                  })
+                }
+                
                 return (
                   <Link
                     key={debate.id}
@@ -242,9 +262,31 @@ export function ProfilePanel() {
                             Ongoing
                           </Badge>
                         ) : debate.status === 'COMPLETED' ? (
-                          <Badge variant="default" size="sm" className="bg-neon-yellow text-black text-xs">
-                            Awaiting Verdict
-                          </Badge>
+                          // Check if debate has no statements - show "Ended" instead of "Awaiting Verdict"
+                          (() => {
+                            const hasNoStatements = debate.hasNoStatements === true || (debate.statements && debate.statements.length === 0)
+                            const verdictReached = debate.verdictReached === true
+                            
+                            if (hasNoStatements) {
+                              return (
+                                <Badge variant="default" size="sm" className="bg-text-muted text-text-primary text-xs">
+                                  Ended
+                                </Badge>
+                              )
+                            } else if (verdictReached) {
+                              return (
+                                <Badge variant="default" size="sm" className="bg-neon-yellow text-black text-xs">
+                                  Verdict Ready
+                                </Badge>
+                              )
+                            } else {
+                              return (
+                                <Badge variant="default" size="sm" className="bg-neon-yellow text-black text-xs">
+                                  Awaiting Verdict
+                                </Badge>
+                              )
+                            }
+                          })()
                         ) : debate.status === 'APPEALED' ? (
                           <Badge variant="default" size="sm" className="bg-neon-orange text-black text-xs">
                             Appealed

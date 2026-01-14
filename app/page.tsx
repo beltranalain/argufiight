@@ -86,8 +86,9 @@ export default async function RootPage() {
             select: { status: true },
           })
 
-          // If user is an approved advertiser, redirect to advertiser dashboard
-          if (advertiser && advertiser.status === 'APPROVED') {
+          // If user is an advertiser (any status), redirect to advertiser dashboard
+          // The advertiser dashboard will show appropriate message based on status
+          if (advertiser) {
             redirect('/advertiser/dashboard')
           }
         }

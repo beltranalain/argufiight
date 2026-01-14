@@ -39,30 +39,32 @@ export function Tabs({ tabs, defaultTab, activeTab: controlledActiveTab, onTabCh
     <div>
       {/* Tab Headers */}
       <div className="border-b border-bg-tertiary">
-        <div className="flex gap-1 relative">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              className={cn(
-                'relative px-4 py-3 font-medium transition-colors flex items-center gap-2',
-                activeTab === tab.id
-                  ? 'text-electric-blue'
-                  : 'text-text-secondary hover:text-text-primary'
-              )}
-            >
-              {tab.icon}
-              {tab.label}
-              
-              {activeTab === tab.id && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-electric-blue"
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              )}
-            </button>
-          ))}
+        <div className="flex gap-1 relative overflow-x-auto scrollbar-hide">
+          <div className="flex gap-1 min-w-max">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={cn(
+                  'relative px-3 sm:px-4 py-3 font-medium transition-colors flex items-center gap-2 whitespace-nowrap text-sm sm:text-base',
+                  activeTab === tab.id
+                    ? 'text-electric-blue'
+                    : 'text-text-secondary hover:text-text-primary'
+                )}
+              >
+                {tab.icon}
+                {tab.label}
+                
+                {activeTab === tab.id && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-electric-blue"
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

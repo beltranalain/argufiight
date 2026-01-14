@@ -1,4 +1,5 @@
-import { createResendClient } from './resend'
+import { createResendClient, getResendFromEmail } from './resend'
+import { logApiUsage } from '@/lib/ai/api-tracking'
 
 /**
  * Send subscription activation email to user
@@ -21,8 +22,11 @@ export async function sendSubscriptionActivatedEmail(
     const billingText = billingCycle === 'MONTHLY' ? 'monthly' : billingCycle === 'YEARLY' ? 'yearly' : ''
     const periodEndText = periodEnd ? new Date(periodEnd).toLocaleDateString() : ''
 
+    const fromEmail = await getResendFromEmail()
+    console.log('[Subscription Email] Using from email:', fromEmail)
+
     const result = await resend.emails.send({
-      from: 'Argu Fight <noreply@argufight.com>',
+      from: fromEmail,
       to: userEmail,
       subject: '🎉 Welcome to Argu Fight Pro!',
       html: `
@@ -90,10 +94,26 @@ export async function sendSubscriptionActivatedEmail(
 
     if (result.error) {
       console.error('Failed to send subscription activation email:', result.error)
+      // Log failed email attempt
+      await logApiUsage({
+        provider: 'resend',
+        endpoint: 'emails.send',
+        success: false,
+        errorMessage: result.error.message || 'Failed to send email',
+        metadata: { type: 'subscription_activation', to: userEmail, error: true },
+      })
       return false
     }
 
-    console.log(`✅ Subscription activation email sent to ${userEmail}`)
+    // Log successful email
+    await logApiUsage({
+      provider: 'resend',
+      endpoint: 'emails.send',
+      success: true,
+      metadata: { type: 'subscription_activation', to: userEmail },
+    })
+
+    console.log(`Subscription activation email sent to ${userEmail}`)
     return true
   } catch (error: any) {
     console.error('Error sending subscription activation email:', error)

@@ -5,6 +5,32 @@
 /* Smooth scrolling for Apple-like feel */
 html {
   scroll-behavior: smooth;
+  /* Slow down scroll speed */
+  scroll-padding-top: 0;
+}
+
+/* Reduce scroll speed for better control */
+* {
+  scroll-margin: 0;
+}
+
+/* Custom scrollbar styling for slower, more controlled scrolling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }
 
 /* Reduce motion for users who prefer it */
@@ -234,6 +260,56 @@ span.inline-flex.items-center.bg-gray-600 {
   }
 }
 
+/* Ticker scroll animation */
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.ticker-wrapper {
+  display: flex !important;
+  width: max-content !important;
+}
+
+.ticker-scroll {
+  animation: ticker-scroll 120s linear infinite !important;
+  will-change: transform;
+}
+
+.ticker-scroll.fast {
+  animation: ticker-scroll 60s linear infinite !important;
+}
+
+.ticker-scroll.paused {
+  animation-play-state: paused !important;
+}
+
 .blink-orange-bg {
   animation: blink-orange-bg 1.5s ease-in-out infinite;
+}
+
+/* Stripe Connect Form Styling */
+/* Note: Stripe Connect.js has limited customization, but we can style the container */
+.stripe-connect-wrapper {
+  min-height: 500px;
+}
+
+/* Try to match Stripe form to our dark theme (limited control) */
+.stripe-connect-wrapper :global([data-testid]),
+.stripe-connect-wrapper :global(.ConnectAccountOnboarding) {
+  color: var(--color-text-primary);
+}
+
+/* Hide scrollbar while maintaining scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
 }

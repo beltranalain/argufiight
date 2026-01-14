@@ -61,7 +61,20 @@ export async function GET(request: NextRequest) {
 
     const records = await prisma.apiUsage.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        provider: true,
+        endpoint: true,
+        model: true,
+        promptTokens: true,
+        completionTokens: true,
+        totalTokens: true,
+        cost: true,
+        success: true,
+        errorMessage: true,
+        responseTime: true,
+        createdAt: true,
+        metadata: true, // Include metadata
         debate: {
           select: {
             id: true,

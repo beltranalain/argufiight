@@ -126,8 +126,19 @@ export async function GET(request: NextRequest) {
     // Filter by category if provided (would need debate history analysis)
     // For now, return all matching creators
 
+    // Ensure numeric fields have default values to prevent frontend errors
+    const safeCreators = creators.map(creator => ({
+      ...creator,
+      eloRating: creator.eloRating ?? 0,
+      totalDebates: creator.totalDebates ?? 0,
+      debatesWon: creator.debatesWon ?? 0,
+      avgMonthlyViews: creator.avgMonthlyViews ?? 0,
+      avgDebateViews: creator.avgDebateViews ?? 0,
+      followerCount: creator.followerCount ?? 0,
+    }))
+
     return NextResponse.json({
-      creators,
+      creators: safeCreators,
       pagination: {
         page,
         limit,

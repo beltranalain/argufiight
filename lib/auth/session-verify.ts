@@ -42,7 +42,10 @@ export async function verifySessionWithDb() {
   const sessionJWT = cookieStore.get('session')?.value
 
   if (!sessionJWT) {
-    console.log('[verifySessionWithDb] No session JWT cookie found')
+    // Only log in development to reduce console noise
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[verifySessionWithDb] No session JWT cookie found')
+    }
     return null
   }
 

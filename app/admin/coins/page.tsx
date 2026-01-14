@@ -181,6 +181,10 @@ export default function CoinsAdminPage() {
         return 'bg-red-500 text-white'
       case 'REFUND':
         return 'bg-orange-500 text-white'
+      case 'DAILY_LOGIN_REWARD':
+        return 'bg-cyan-500 text-white'
+      case 'STREAK_BONUS':
+        return 'bg-pink-500 text-white'
       default:
         return 'bg-gray-500 text-white'
     }
@@ -367,6 +371,8 @@ export default function CoinsAdminPage() {
                     <option value="ADMIN_GRANT">Admin Grant</option>
                     <option value="ADMIN_DEDUCT">Admin Deduct</option>
                     <option value="REFUND">Refund</option>
+                    <option value="DAILY_LOGIN_REWARD">Daily Login Reward</option>
+                    <option value="STREAK_BONUS">Streak Bonus</option>
                   </select>
                 </div>
                 <div>

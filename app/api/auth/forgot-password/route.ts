@@ -1,20 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { hashPassword } from '@/lib/auth/password'
+import { generateResetToken, getTokenData, deleteToken } from '@/lib/auth/password-reset-tokens'
+import { sendPasswordResetEmail } from '@/lib/email/password-reset'
 import crypto from 'crypto'
-
-// Store reset tokens in memory (in production, use Redis or database)
-const resetTokens = new Map<string, { email: string; expiresAt: number }>()
-
-// Clean up expired tokens every hour
-setInterval(() => {
-  const now = Date.now()
-  for (const [token, data] of resetTokens.entries()) {
-    if (data.expiresAt < now) {
-      resetTokens.delete(token)
-    }
-  }
-}, 60 * 60 * 1000)
 
 // POST /api/auth/forgot-password - Request password reset
 export async function POST(request: NextRequest) {
@@ -40,20 +29,29 @@ export async function POST(request: NextRequest) {
     // Don't reveal if user exists (security best practice)
     // Always return success message
     if (user) {
-      // Generate reset token
-      const token = crypto.randomBytes(32).toString('hex')
-      const expiresAt = Date.now() + 60 * 60 * 1000 // 1 hour
+      // Generate reset token (1 hour expiry)
+      const token = await generateResetToken(normalizedEmail, 1)
 
-      // Store token
-      resetTokens.set(token, { email: normalizedEmail, expiresAt })
-
-      // In production, send email with reset link
-      // For now, we'll return the token in development
-      console.log(`[FORGOT-PASSWORD] Reset token for ${normalizedEmail}: ${token}`)
-      console.log(`[FORGOT-PASSWORD] Reset link: http://localhost:3000/reset-password?token=${token}`)
-
-      // TODO: Send email with reset link
-      // await sendPasswordResetEmail(user.email, token)
+      console.log(`[FORGOT-PASSWORD] Reset token generated for ${normalizedEmail}`)
+      
+      // Send email with reset link
+      try {
+        const emailSent = await sendPasswordResetEmail(user.email, token)
+        if (emailSent) {
+          console.log(`[FORGOT-PASSWORD] ✅ Password reset email sent successfully to ${normalizedEmail}`)
+        } else {
+          console.warn(`[FORGOT-PASSWORD] ⚠️  Failed to send password reset email to ${normalizedEmail}`)
+          // Still return success to not reveal if user exists
+        }
+      } catch (emailError: any) {
+        console.error('[FORGOT-PASSWORD] Error sending email:', emailError)
+        // Still return success to not reveal if user exists
+      }
+      
+      // Also log to console for development/debugging
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                     (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : 'https://www.argufight.com')
+      console.log(`[FORGOT-PASSWORD] Reset link: ${appUrl}/reset-password?token=${token}`)
     }
 
     // Always return success (don't reveal if user exists)
@@ -91,19 +89,10 @@ export async function PUT(request: NextRequest) {
     }
 
     // Check token
-    const tokenData = resetTokens.get(token)
+    const tokenData = await getTokenData(token)
     if (!tokenData) {
       return NextResponse.json(
         { error: 'Invalid or expired reset token' },
-        { status: 400 }
-      )
-    }
-
-    // Check if token expired
-    if (tokenData.expiresAt < Date.now()) {
-      resetTokens.delete(token)
-      return NextResponse.json(
-        { error: 'Reset token has expired' },
         { status: 400 }
       )
     }
@@ -130,7 +119,7 @@ export async function PUT(request: NextRequest) {
     })
 
     // Delete used token
-    resetTokens.delete(token)
+    deleteToken(token)
 
     console.log(`[RESET-PASSWORD] Password reset successful for: ${user.email}`)
 
@@ -160,19 +149,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Check token
-    const tokenData = resetTokens.get(token)
+    const tokenData = await getTokenData(token)
     if (!tokenData) {
       return NextResponse.json(
-        { valid: false, error: 'Invalid token' },
-        { status: 200 }
-      )
-    }
-
-    // Check if token expired
-    if (tokenData.expiresAt < Date.now()) {
-      resetTokens.delete(token)
-      return NextResponse.json(
-        { valid: false, error: 'Token has expired' },
+        { valid: false, error: 'Invalid or expired token' },
         { status: 200 }
       )
     }

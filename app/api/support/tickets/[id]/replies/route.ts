@@ -89,6 +89,47 @@ export async function POST(
       })
     }
 
+    // Create notification for ticket owner if admin replied (and not internal)
+    if (user?.isAdmin && !isInternal && ticket.userId !== userId) {
+      try {
+        // Get ticket details for notification
+        const ticketDetails = await prisma.supportTicket.findUnique({
+          where: { id },
+          select: {
+            subject: true,
+            user: {
+              select: {
+                email: true,
+              },
+            },
+          },
+        })
+
+        // Get admin username for notification
+        const adminUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { username: true },
+        })
+
+        if (ticketDetails && adminUser) {
+          // Create notification
+          await prisma.notification.create({
+            data: {
+              userId: ticket.userId,
+              type: 'NEW_MESSAGE', // Using existing type for now
+              title: 'Support Ticket Reply',
+              message: `${adminUser.username} replied to your support ticket: "${ticketDetails.subject}"`,
+            },
+          })
+
+          console.log('[Support Ticket Reply] Created notification for user:', ticket.userId)
+        }
+      } catch (notificationError) {
+        // Log but don't fail if notification creation fails
+        console.error('Failed to create support ticket reply notification:', notificationError)
+      }
+    }
+
     return NextResponse.json({ reply }, { status: 201 })
   } catch (error) {
     console.error('Failed to create support ticket reply:', error)

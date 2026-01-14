@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
                 totalMaxScore: true,
                 isAdmin: true,
                 isBanned: true,
+                coins: true,
                 createdAt: true,
                 updatedAt: true,
               },
@@ -88,7 +89,10 @@ export async function GET(request: NextRequest) {
     }
     
     if (!userId) {
-      console.log('[API /auth/me] No userId found, returning 401')
+      // Only log in development to reduce console noise
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[API /auth/me] No userId found, returning 401')
+      }
       return NextResponse.json(
         { user: null },
         { status: 401 }
@@ -115,6 +119,7 @@ export async function GET(request: NextRequest) {
         isAdmin: true,
         isBanned: true,
         isCreator: true,
+        coins: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -154,6 +159,7 @@ export async function GET(request: NextRequest) {
         isAdmin: user.isAdmin,
         isBanned: user.isBanned,
         isCreator: user.isCreator,
+        coins: user.coins,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         // snake_case (for mobile compatibility)

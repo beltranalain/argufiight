@@ -76,6 +76,20 @@ export default function AdminSettingsPage() {
     checkNotificationStatus()
   }, [])
 
+  // Refresh settings when activeTab changes to ensure we have latest data
+  useEffect(() => {
+    if (activeTab === 'features') {
+      console.log('[Settings] Features tab opened, fetching settings...')
+      fetchSettings()
+    }
+  }, [activeTab])
+  
+  // Also refresh on mount to ensure we have latest data
+  useEffect(() => {
+    console.log('[Settings] Component mounted, fetching settings...')
+    fetchSettings()
+  }, [])
+
   const checkNotificationStatus = async () => {
     // Check browser notification permission
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -96,7 +110,9 @@ export default function AdminSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('/api/admin/settings')
+      const response = await fetch(`/api/admin/settings?t=${Date.now()}`, {
+        cache: 'no-store',
+      })
       if (response.ok) {
         const data = await response.json()
         setDeepseekKey(data.DEEPSEEK_API_KEY || '')
@@ -123,7 +139,10 @@ export default function AdminSettingsPage() {
         
         // Advertising settings
         setPlatformAdsEnabled(data.ADS_PLATFORM_ENABLED === 'true')
-        setCreatorMarketplaceEnabled(data.ADS_CREATOR_MARKETPLACE_ENABLED === 'true')
+        // Explicitly check if the setting exists, default to false if not
+        const marketplaceValue = data.ADS_CREATOR_MARKETPLACE_ENABLED
+        console.log('[Settings] Fetched ADS_CREATOR_MARKETPLACE_ENABLED:', marketplaceValue)
+        setCreatorMarketplaceEnabled(marketplaceValue === 'true')
         setCreatorMinELO(data.CREATOR_MIN_ELO || '1500')
         setCreatorMinDebates(data.CREATOR_MIN_DEBATES || '10')
         setCreatorMinAgeMonths(data.CREATOR_MIN_ACCOUNT_AGE_MONTHS || '3')
@@ -263,7 +282,7 @@ export default function AdminSettingsPage() {
       if (data.success) {
         setTestResendResult({
           success: true,
-          message: `✅ Connection successful! Found ${data.apiKeysFound || 0} API keys`,
+          message: `Connection successful! API key is valid. (Note: This checks your API key, not emails sent. Emails are tracked separately.)`,
         })
         showToast({
           type: 'success',
@@ -789,9 +808,9 @@ export default function AdminSettingsPage() {
       {/* Tabs */}
       <div className="flex gap-2 mb-6 border-b border-bg-tertiary">
         {[
-          { id: 'general', label: 'General', icon: '⚙️' },
-          { id: 'features', label: 'Features', icon: '🎛️' },
-          { id: 'api-usage', label: 'API Usage', icon: '📊' },
+          { id: 'general', label: 'General', icon: null },
+          { id: 'features', label: 'Features', icon: null },
+          { id: 'api-usage', label: 'API Usage', icon: null },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -802,7 +821,7 @@ export default function AdminSettingsPage() {
                 : 'border-transparent text-text-secondary hover:text-white'
             }`}
           >
-            <span className="mr-2">{tab.icon}</span>
+            {tab.icon && <span className="mr-2">{tab.icon}</span>}
             {tab.label}
           </button>
         ))}
@@ -1757,7 +1776,50 @@ export default function AdminSettingsPage() {
                     type="checkbox"
                     className="sr-only peer"
                     checked={creatorMarketplaceEnabled}
-                    onChange={(e) => setCreatorMarketplaceEnabled(e.target.checked)}
+                    onChange={async (e) => {
+                      const newValue = e.target.checked
+                      console.log('[Settings] Toggling Creator Marketplace to:', newValue)
+                      setCreatorMarketplaceEnabled(newValue)
+                      // Auto-save immediately when toggled
+                      try {
+                        const response = await fetch('/api/admin/settings', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            ADS_CREATOR_MARKETPLACE_ENABLED: newValue.toString(),
+                          }),
+                        })
+                        const result = await response.json()
+                        console.log('[Settings] Save response:', response.status, result)
+                        
+                        if (response.ok) {
+                          // Refresh settings to ensure we have the latest value
+                          await fetchSettings()
+                          showToast({
+                            type: 'success',
+                            title: 'Setting Saved',
+                            description: `Creator Marketplace ${newValue ? 'enabled' : 'disabled'}`,
+                          })
+                        } else {
+                          // Revert on error
+                          setCreatorMarketplaceEnabled(!newValue)
+                          showToast({
+                            type: 'error',
+                            title: 'Error',
+                            description: result.error || 'Failed to save setting',
+                          })
+                        }
+                      } catch (error: any) {
+                        console.error('[Settings] Error saving toggle:', error)
+                        // Revert on error
+                        setCreatorMarketplaceEnabled(!newValue)
+                        showToast({
+                          type: 'error',
+                          title: 'Error',
+                          description: 'Failed to save setting',
+                        })
+                      }
+                    }}
                   />
                   <div className={`w-11 h-6 rounded-full transition-colors ${
                     creatorMarketplaceEnabled ? 'bg-electric-blue' : 'bg-bg-secondary'

@@ -9,6 +9,7 @@ import { LoadingCard } from '@/components/ui/Loading'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
 import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
+import { AdDisplay } from '@/components/ads/AdDisplay'
 
 interface Topic {
   id: string
@@ -268,12 +269,20 @@ export default function TrendingTopicsPage() {
           </div>
         ) : (
           <div className="space-y-12">
-            {filteredTopics.map((topic) => {
+            {filteredTopics.map((topic, topicIndex) => {
               const topicDebates = debates[topic.id] || []
               const hotDebates = topicDebates.slice(0, 5) // Top 5 hottest debates
 
               return (
-                <div key={topic.id} className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
+                <div key={topic.id}>
+                  {/* In-Feed Ad (show every 3rd topic) */}
+                  {topicIndex > 0 && topicIndex % 3 === 0 && (
+                    <div className="mb-6">
+                      <AdDisplay placement="IN_FEED" context="trending-page" />
+                    </div>
+                  )}
+                  
+                  <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
                   {/* Topic Header */}
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex-1">
@@ -342,6 +351,7 @@ export default function TrendingTopicsPage() {
                       }}
                     />
                   )}
+                  </div>
                 </div>
               )
             })}

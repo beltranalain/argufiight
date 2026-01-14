@@ -18,6 +18,7 @@ interface User {
   isAdmin: boolean
   isBanned: boolean
   isCreator?: boolean
+  coins?: number
 }
 
 export function useAuth() {
@@ -82,6 +83,7 @@ export function useAuth() {
             totalScore: data.user.totalScore || data.user.total_score || 0,
             totalMaxScore: data.user.totalMaxScore || data.user.total_max_score || 0,
             isCreator: data.user.isCreator || data.user.is_creator || false,
+            coins: data.user.coins !== undefined ? data.user.coins : 0,
           }
           
           // DEBUG: Log what we're setting
@@ -99,7 +101,7 @@ export function useAuth() {
         }
       } else if (response.status === 401) {
         // 401 is expected when user is not logged in - not an error
-        console.log('[useAuth] 401 response, user not logged in')
+        // Don't log this as it's normal behavior for logged-out users
         setUser(null)
       } else {
         console.error('[useAuth] Error response:', response.status, response.statusText)

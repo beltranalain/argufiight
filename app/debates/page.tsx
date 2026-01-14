@@ -5,6 +5,7 @@ import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
+import { AdDisplay } from '@/components/ads/AdDisplay'
 
 export async function generateMetadata({
   searchParams,
@@ -253,6 +254,11 @@ export default async function DebatesArchivePage({
             <Card>
               <CardBody>
                 <div className="text-center py-12">
+                  {/* Show IN_FEED ad even when no debates */}
+                  <div className="mb-6">
+                    <AdDisplay placement="IN_FEED" context="debates-list-empty" />
+                  </div>
+                  
                   <p className="text-text-secondary text-lg mb-4">
                     {search
                       ? `No debates found matching "${search}"`
@@ -272,13 +278,20 @@ export default async function DebatesArchivePage({
           ) : (
             <>
               <div className="space-y-4">
-                {debates.map((debate) => (
-                  <Link
-                    key={debate.id}
-                    href={`/debates/${debate.slug || debate.id}`}
-                    className="block"
-                  >
-                    <Card className="hover:border-electric-blue transition-colors">
+                {debates.map((debate, index) => (
+                  <div key={debate.id}>
+                    {/* In-Feed Ad (show every 7th debate) */}
+                    {index > 0 && index % 7 === 0 && (
+                      <div className="mb-4">
+                        <AdDisplay placement="IN_FEED" context="debates-list" />
+                      </div>
+                    )}
+                    
+                    <Link
+                      href={`/debates/${debate.slug || debate.id}`}
+                      className="block"
+                    >
+                      <Card className="hover:border-electric-blue transition-colors">
                       <CardBody>
                         <div className="flex items-start gap-4">
                           <div className="flex-1 min-w-0">
@@ -340,6 +353,7 @@ export default async function DebatesArchivePage({
                       </CardBody>
                     </Card>
                   </Link>
+                  </div>
                 ))}
               </div>
 

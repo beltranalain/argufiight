@@ -110,6 +110,8 @@ interface Debate {
   viewCount: number
   createdAt: Date
   challengeType?: string
+  hasNoStatements?: boolean
+  verdictReached?: boolean
   participants?: Array<{
     id: string
     userId: string
@@ -303,6 +305,9 @@ export default function DebatePage() {
           stakedBelt: data.stakedBelt,
           winnerId: data.winnerId,
           status: data.status,
+          verdictReached: data.verdictReached,
+          hasNoStatements: data.hasNoStatements,
+          statementCount: data.statements?.length || 0,
         }, null, 2))
         console.log('[DebatePage] Belt condition check:', {
           hasBeltAtStake: data.hasBeltAtStake,
@@ -892,6 +897,15 @@ export default function DebatePage() {
             </Card>
           )}
 
+          {/* IN_FEED Ad - Between Arguments and Verdict */}
+          {debate.status === 'VERDICT_READY' && debate.verdicts && debate.verdicts.length > 0 && (
+            <AdDisplay
+              placement="IN_FEED"
+              debateId={debate.id}
+              context="debate-verdict"
+            />
+          )}
+
           {/* Submit Form */}
           {canSubmit && (
             <Card id="submit-argument-form">
@@ -935,9 +949,35 @@ export default function DebatePage() {
           {debate.status === 'COMPLETED' && (
             <Card>
               <CardBody>
-                <p className="text-text-secondary text-center py-4">
-                  Debate completed! AI judges are generating verdicts...
-                </p>
+                {(() => {
+                  // Debug logging
+                  console.log('[DebatePage] Status message check:', {
+                    status: debate.status,
+                    hasNoStatements: debate.hasNoStatements,
+                    verdictReached: debate.verdictReached,
+                    statementCount: debate.statements?.length || 0,
+                  })
+                  
+                  if (debate.hasNoStatements) {
+                    return (
+                      <p className="text-text-secondary text-center py-4">
+                        Debate ended - no statements were submitted. No verdict needed.
+                      </p>
+                    )
+                  } else if (debate.verdictReached) {
+                    return (
+                      <p className="text-text-secondary text-center py-4">
+                        Debate completed! Verdicts are ready.
+                      </p>
+                    )
+                  } else {
+                    return (
+                      <p className="text-text-secondary text-center py-4">
+                        Debate completed! AI judges are generating verdicts...
+                      </p>
+                    )
+                  }
+                })()}
               </CardBody>
             </Card>
           )}
@@ -1044,14 +1084,6 @@ export default function DebatePage() {
                     }}
                   />
                 </>
-              )}
-              {/* Post-Debate Ad */}
-              {user && (user.id === debate.challenger.id || user.id === debate.opponent.id) && (
-                <AdDisplay
-                  placement="POST_DEBATE"
-                  userId={user.id}
-                  debateId={debate.id}
-                />
               )}
             </>
           )}

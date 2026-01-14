@@ -18,6 +18,7 @@ interface CampaignAnalytics {
   id: string
   name: string
   status: string
+  type: string
   budget: number
   startDate: string
   endDate: string
@@ -231,42 +232,44 @@ export default function CampaignAnalyticsPage() {
             </CardBody>
           </Card>
 
-          {/* Contracts Breakdown */}
-          <Card>
-            <CardHeader>
-              <h2 className="text-xl font-bold text-text-primary">Creator Contracts</h2>
-            </CardHeader>
-            <CardBody>
-              {analytics.contracts.length === 0 ? (
-                <p className="text-text-secondary">No contracts for this campaign</p>
-              ) : (
-                <div className="space-y-4">
-                  {analytics.contracts.map((contract) => (
-                    <div
-                      key={contract.id}
-                      className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
-                    >
-                      <div>
-                        <p className="font-semibold text-text-primary">
-                          @{contract.creator.username}
-                        </p>
-                        <div className="text-sm text-text-secondary space-y-1 mt-1">
-                          <p>
-                            {contract.impressionsDelivered.toLocaleString()} impressions •{' '}
-                            {contract.clicksDelivered.toLocaleString()} clicks
+          {/* Contracts Breakdown - Only show for Creator Sponsorship campaigns */}
+          {analytics.type === 'CREATOR_SPONSORSHIP' && (
+            <Card>
+              <CardHeader>
+                <h2 className="text-xl font-bold text-text-primary">Creator Contracts</h2>
+              </CardHeader>
+              <CardBody>
+                {analytics.contracts.length === 0 ? (
+                  <p className="text-text-secondary">No contracts for this campaign</p>
+                ) : (
+                  <div className="space-y-4">
+                    {analytics.contracts.map((contract) => (
+                      <div
+                        key={contract.id}
+                        className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
+                      >
+                        <div>
+                          <p className="font-semibold text-text-primary">
+                            @{contract.creator.username}
                           </p>
-                          <p>Status: {formatStatus(contract.status)}</p>
+                          <div className="text-sm text-text-secondary space-y-1 mt-1">
+                            <p>
+                              {contract.impressionsDelivered.toLocaleString()} impressions •{' '}
+                              {contract.clicksDelivered.toLocaleString()} clicks
+                            </p>
+                            <p>Status: {formatStatus(contract.status)}</p>
+                          </div>
                         </div>
+                        <Badge className={getStatusColor(contract.status)}>
+                          {formatStatus(contract.status)}
+                        </Badge>
                       </div>
-                      <Badge className={getStatusColor(contract.status)}>
-                        {formatStatus(contract.status)}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardBody>
-          </Card>
+                    ))}
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          )}
         </div>
       </div>
     </div>

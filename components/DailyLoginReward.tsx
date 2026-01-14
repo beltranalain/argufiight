@@ -1,0 +1,32 @@
+'use client'
+
+import { useDailyLoginReward } from '@/lib/hooks/useDailyLoginReward'
+import { useToast } from '@/components/ui/Toast'
+import { useEffect } from 'react'
+
+/**
+ * Component that automatically claims daily login reward and shows notification
+ * Add this to your root layout or main app component
+ */
+export function DailyLoginReward() {
+  const { status, claimed, rewardAmount, error } = useDailyLoginReward()
+  const { showToast } = useToast()
+
+  useEffect(() => {
+    console.log('[DailyLoginReward Component] Status:', status, 'Claimed:', claimed, 'Amount:', rewardAmount)
+    if (status && claimed && rewardAmount > 0) {
+      console.log('[DailyLoginReward Component] Showing toast notification')
+      showToast({
+        type: 'success',
+        title: 'Daily Login Reward!',
+        description: `You earned ${rewardAmount} coins! ${status.streak > 1 ? `(${status.streak} day streak)` : ''}`,
+        duration: 5000,
+      })
+    } else if (status && !claimed) {
+      console.log('[DailyLoginReward Component] Already rewarded today or no reward')
+    }
+  }, [status, claimed, rewardAmount, showToast])
+
+  // Don't render anything - this is just a side-effect component
+  return null
+}

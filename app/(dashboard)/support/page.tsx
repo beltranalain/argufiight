@@ -343,7 +343,7 @@ export default function SupportPage() {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Please provide detailed information about your issue..."
               rows={6}
-              className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
+              className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:border-bg-tertiary"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -478,7 +478,7 @@ export default function SupportPage() {
                 onChange={(e) => setReplyContent(e.target.value)}
                 placeholder="Type your reply..."
                 rows={4}
-                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent mb-2"
+                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:border-bg-tertiary mb-2"
               />
               <Button
                 onClick={handleSubmitReply}

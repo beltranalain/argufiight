@@ -49,6 +49,8 @@ export async function PUT(
     }
 
     const { id } = await params
+    console.log(`[Update Ad API] Updating advertisement ${id}`)
+    
     const formData = await request.formData()
     const title = formData.get('title') as string
     const type = formData.get('type') as string
@@ -58,10 +60,20 @@ export async function PUT(
     const endDate = formData.get('endDate') as string
     const category = formData.get('category') as string
     const file = formData.get('file') as File | null
+    const creativeUrl = formData.get('creativeUrl') as string
+
+    console.log(`[Update Ad API] Received data:`, {
+      title,
+      type,
+      targetUrl,
+      status,
+      hasFile: !!file,
+      creativeUrl: creativeUrl ? 'provided' : 'not provided',
+    })
 
     const updateData: any = {}
-    if (title !== undefined) updateData.title = title.trim()
-    if (type !== undefined) {
+    if (title !== undefined && title !== null) updateData.title = title.trim()
+    if (type !== undefined && type !== null) {
       if (!['BANNER', 'SPONSORED_DEBATE', 'IN_FEED'].includes(type)) {
         return NextResponse.json(
           { error: 'type must be BANNER, SPONSORED_DEBATE, or IN_FEED' },
@@ -70,31 +82,34 @@ export async function PUT(
       }
       updateData.type = type
     }
-    if (targetUrl !== undefined) updateData.targetUrl = targetUrl.trim()
-    if (status !== undefined) updateData.status = status
-    if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null
-    if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null
+    if (targetUrl !== undefined && targetUrl !== null) updateData.targetUrl = targetUrl.trim()
+    if (status !== undefined && status !== null) updateData.status = status
+    if (startDate !== undefined && startDate !== null) updateData.startDate = startDate ? new Date(startDate) : null
+    if (endDate !== undefined && endDate !== null) updateData.endDate = endDate ? new Date(endDate) : null
     if (category !== undefined) updateData.category = category?.trim() || null
 
     if (file) {
       // Upload new file
+      console.log(`[Update Ad API] Uploading new file: ${file.name}`)
       const blob = await put(`advertisements/${Date.now()}-${file.name}`, file, {
         access: 'public',
       })
       updateData.creativeUrl = blob.url
-    } else {
-      // Allow URL update
-      const urlInput = formData.get('creativeUrl') as string
-      if (urlInput) {
-        updateData.creativeUrl = urlInput
-      }
+      console.log(`[Update Ad API] New file uploaded to: ${blob.url}`)
+    } else if (creativeUrl && creativeUrl.trim()) {
+      // Allow URL update - always update if provided
+      updateData.creativeUrl = creativeUrl.trim()
+      console.log(`[Update Ad API] Updating creativeUrl to: ${updateData.creativeUrl}`)
     }
+    // If no file and no URL provided, keep existing creativeUrl (don't update it)
 
+    console.log(`[Update Ad API] Updating with data:`, updateData)
     const ad = await prisma.advertisement.update({
       where: { id },
       data: updateData,
     })
 
+    console.log(`[Update Ad API] ✅ Successfully updated ad ${id}`)
     return NextResponse.json({ ad })
   } catch (error: any) {
     console.error('Failed to update advertisement:', error)

@@ -108,7 +108,7 @@ export function EarningsTab() {
         <Card>
           <CardBody>
             <div className="text-2xl font-bold text-cyber-green">
-              ${earnings.totalEarned.toLocaleString()}
+              ${(earnings.totalEarned ?? 0).toLocaleString()}
             </div>
             <div className="text-text-secondary">Total Earned</div>
           </CardBody>
@@ -116,7 +116,7 @@ export function EarningsTab() {
         <Card>
           <CardBody>
             <div className="text-2xl font-bold text-electric-blue">
-              ${earnings.pendingPayout.toLocaleString()}
+              ${(earnings.pendingPayout ?? 0).toLocaleString()}
             </div>
             <div className="text-text-secondary">Pending Payout</div>
           </CardBody>
@@ -124,7 +124,7 @@ export function EarningsTab() {
         <Card>
           <CardBody>
             <div className="text-2xl font-bold text-neon-orange">
-              ${earnings.thisMonth.toLocaleString()}
+              ${(earnings.thisMonth ?? 0).toLocaleString()}
             </div>
             <div className="text-text-secondary">This Month</div>
           </CardBody>
@@ -132,7 +132,7 @@ export function EarningsTab() {
         <Card>
           <CardBody>
             <div className="text-2xl font-bold text-text-primary">
-              ${earnings.thisYear.toLocaleString()}
+              ${(earnings.thisYear ?? 0).toLocaleString()}
             </div>
             <div className="text-text-secondary">This Year</div>
           </CardBody>
@@ -179,7 +179,7 @@ export function EarningsTab() {
                         className={
                           contract.status === 'COMPLETED'
                             ? 'bg-cyber-green/20 text-cyber-green'
-                            : contract.status === 'ACTIVE'
+                            : contract.status === 'ACTIVE' || contract.status === 'SCHEDULED'
                             ? 'bg-electric-blue/20 text-electric-blue'
                             : 'bg-gray-500/20 text-gray-400'
                         }
@@ -190,8 +190,8 @@ export function EarningsTab() {
                     <div className="text-sm text-text-secondary space-y-1">
                       <p>Advertiser: {contract.advertiser.companyName}</p>
                       <p>
-                        Payout: ${Number(contract.creatorPayout).toLocaleString()} / $
-                        {Number(contract.totalAmount).toLocaleString()} total
+                        Payout: ${Number(contract.creatorPayout ?? 0).toLocaleString()} / $
+                        {Number(contract.totalAmount ?? 0).toLocaleString()} total
                       </p>
                       {contract.payoutDate && (
                         <p>Paid: {new Date(contract.payoutDate).toLocaleDateString()}</p>

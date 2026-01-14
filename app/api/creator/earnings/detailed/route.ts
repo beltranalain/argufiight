@@ -1,37 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
-import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
 
-// GET /api/creator/earnings/detailed - Get detailed earnings data
+// GET /api/creator/earnings/detailed - Get detailed earnings with contract breakdown
 export async function GET(request: NextRequest) {
   try {
-    const session = await verifySession()
+    const session = await verifySessionWithDb()
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = getUserIdFromSession(session)
+    const userId = session.userId
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify user is a creator
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isCreator: true },
-    })
-
-    if (!user || !user.isCreator) {
-      return NextResponse.json(
-        { error: 'Creator mode not enabled' },
-        { status: 403 }
-      )
-    }
-
-    // Get all contracts
-    const contracts = await prisma.adContract.findMany({
-      where: { creatorId: userId },
+    // Get all completed contracts
+    const completedContracts = await prisma.adContract.findMany({
+      where: {
+        creatorId: userId,
+        status: 'COMPLETED',
+        payoutSent: true,
+      },
       include: {
         advertiser: {
           select: {
@@ -44,19 +34,39 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: { signedAt: 'desc' },
+      orderBy: { payoutDate: 'desc' },
+    })
+
+    // Get pending contracts (active or scheduled, not yet paid)
+    const pendingContracts = await prisma.adContract.findMany({
+      where: {
+        creatorId: userId,
+        status: {
+          in: ['ACTIVE', 'SCHEDULED'],
+        },
+        payoutSent: false,
+      },
+      include: {
+        advertiser: {
+          select: {
+            companyName: true,
+          },
+        },
+        campaign: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: { endDate: 'desc' },
     })
 
     // Calculate totals
-    const completedContracts = contracts.filter((c) => c.status === 'COMPLETED' && c.payoutSent)
     const totalEarned = completedContracts.reduce(
       (sum, contract) => sum + Number(contract.creatorPayout),
       0
     )
 
-    const pendingContracts = contracts.filter(
-      (c) => c.status === 'ACTIVE' && !c.payoutSent
-    )
     const pendingPayout = pendingContracts.reduce(
       (sum, contract) => sum + Number(contract.creatorPayout),
       0
@@ -70,6 +80,7 @@ export async function GET(request: NextRequest) {
     const thisMonthContracts = completedContracts.filter(
       (contract) => contract.payoutDate && new Date(contract.payoutDate) >= startOfMonth
     )
+
     const thisMonth = thisMonthContracts.reduce(
       (sum, contract) => sum + Number(contract.creatorPayout),
       0
@@ -77,31 +88,32 @@ export async function GET(request: NextRequest) {
 
     // This year's earnings
     const startOfYear = new Date()
-    startOfYear.setMonth(0)
-    startOfYear.setDate(1)
+    startOfYear.setMonth(0, 1)
     startOfYear.setHours(0, 0, 0, 0)
 
     const thisYearContracts = completedContracts.filter(
       (contract) => contract.payoutDate && new Date(contract.payoutDate) >= startOfYear
     )
+
     const thisYear = thisYearContracts.reduce(
       (sum, contract) => sum + Number(contract.creatorPayout),
       0
     )
 
-    // Monthly breakdown (last 12 months)
+    // Monthly breakdown for last 12 months
     const monthlyBreakdown: Record<string, number> = {}
     const now = new Date()
+    
     for (let i = 0; i < 12; i++) {
       const month = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const monthKey = month.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+      const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`
       monthlyBreakdown[monthKey] = 0
     }
 
     completedContracts.forEach((contract) => {
       if (contract.payoutDate) {
         const payoutDate = new Date(contract.payoutDate)
-        const monthKey = payoutDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
+        const monthKey = `${payoutDate.getFullYear()}-${String(payoutDate.getMonth() + 1).padStart(2, '0')}`
         if (monthlyBreakdown[monthKey] !== undefined) {
           monthlyBreakdown[monthKey] += Number(contract.creatorPayout)
         }
@@ -110,23 +122,29 @@ export async function GET(request: NextRequest) {
 
     const monthlyBreakdownArray = Object.entries(monthlyBreakdown)
       .reverse()
-      .map(([month, earnings]) => ({ month, earnings }))
+      .map(([month, earnings]) => ({
+        month,
+        earnings,
+      }))
+
+    // Format contracts for response
+    const allContracts = [...completedContracts, ...pendingContracts].map((contract) => ({
+      id: contract.id,
+      status: contract.status,
+      creatorPayout: Number(contract.creatorPayout),
+      totalAmount: Number(contract.totalAmount),
+      payoutDate: contract.payoutDate?.toISOString() || null,
+      completedAt: contract.completedAt?.toISOString() || null,
+      advertiser: contract.advertiser,
+      campaign: contract.campaign,
+    }))
 
     return NextResponse.json({
       totalEarned,
       pendingPayout,
       thisMonth,
       thisYear,
-      contracts: contracts.map((contract) => ({
-        id: contract.id,
-        status: contract.status,
-        creatorPayout: contract.creatorPayout,
-        totalAmount: contract.totalAmount,
-        payoutDate: contract.payoutDate,
-        completedAt: contract.completedAt,
-        advertiser: contract.advertiser,
-        campaign: contract.campaign,
-      })),
+      contracts: allContracts,
       monthlyBreakdown: monthlyBreakdownArray,
     })
   } catch (error: any) {
@@ -137,4 +155,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-

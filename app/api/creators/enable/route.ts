@@ -1,40 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
-import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
-import { isEligibleForCreator, getCreatorStatus } from '@/lib/ads/helpers'
-import { isCreatorMarketplaceEnabled } from '@/lib/ads/config'
+import { getCreatorTierFromELO } from '@/lib/ads/creator-tier'
 
-// POST /api/creators/enable - Enable creator mode
+// POST /api/creators/enable - Enable creator mode for a user (no eligibility requirements)
 export async function POST(request: NextRequest) {
   try {
-    const session = await verifySession()
+    const session = await verifySessionWithDb()
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = getUserIdFromSession(session)
+    const userId = session.userId
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if creator marketplace is enabled
-    const marketplaceEnabled = await isCreatorMarketplaceEnabled()
-    if (!marketplaceEnabled) {
-      return NextResponse.json(
-        { error: 'Creator Marketplace is currently disabled' },
-        { status: 403 }
-      )
-    }
-
-    // Get user
+    // Get user data
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        id: true,
         eloRating: true,
-        totalDebates: true,
-        createdAt: true,
         isCreator: true,
+        creatorStatus: true,
+        profileBannerPrice: true,
+        postDebatePrice: true,
+        debateWidgetPrice: true,
       },
     })
 
@@ -42,48 +34,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
+    // Check if already a creator
     if (user.isCreator) {
-      return NextResponse.json(
-        { error: 'Creator mode already enabled' },
-        { status: 400 }
-      )
+      return NextResponse.json({
+        success: true,
+        message: 'Creator mode already enabled',
+        isCreator: true,
+      })
     }
 
-    // Check eligibility
-    const eligibility = await isEligibleForCreator(
-      user.eloRating,
-      user.createdAt,
-      user.totalDebates
-    )
-
-    if (!eligibility.eligible) {
-      return NextResponse.json(
-        {
-          error: 'Not eligible for creator mode',
-          reasons: eligibility.reasons,
-        },
-        { status: 400 }
-      )
-    }
-
-    // Determine creator status based on ELO
-    const creatorStatus = getCreatorStatus(user.eloRating)
+    // Determine creator tier based on ELO
+    const creatorTier = getCreatorTierFromELO(user.eloRating)
 
     // Enable creator mode
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         isCreator: true,
-        creatorStatus,
+        creatorStatus: creatorTier,
         creatorSince: new Date(),
-        // Set default prices
-        profileBannerPrice: 300,
-        postDebatePrice: 150,
-        debateWidgetPrice: 200,
+        // Set default prices if not set
+        profileBannerPrice: user.profileBannerPrice ?? 300,
+        postDebatePrice: user.postDebatePrice ?? 150,
+        debateWidgetPrice: user.debateWidgetPrice ?? 200,
+      },
+      select: {
+        id: true,
+        isCreator: true,
+        creatorStatus: true,
+        creatorSince: true,
       },
     })
 
-    return NextResponse.json({ success: true })
+    // Initialize CreatorTaxInfo if it doesn't exist
+    await prisma.creatorTaxInfo.upsert({
+      where: { creatorId: userId },
+      update: {},
+      create: {
+        creatorId: userId,
+        stripeAccountId: `temp_${userId}`, // Placeholder
+        yearlyEarnings: {},
+      },
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Creator mode enabled successfully',
+      user: updatedUser,
+    })
   } catch (error: any) {
     console.error('Failed to enable creator mode:', error)
     return NextResponse.json(
@@ -92,4 +90,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

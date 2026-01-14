@@ -136,6 +136,12 @@ export async function PublicHomepageServer({ sections }: PublicHomepageServerPro
                   Leaderboard
                 </Link>
                 <Link
+                  href="/advertise"
+                  className="px-3 py-2 md:px-4 md:py-2 text-sm md:text-base text-text-primary hover:text-electric-blue transition-colors font-medium"
+                >
+                  Advertiser
+                </Link>
+                <Link
                   href="/login"
                   className="px-3 py-2 md:px-4 md:py-2 text-sm md:text-base text-text-primary hover:text-electric-blue transition-colors"
                 >

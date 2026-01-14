@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
       where.priority = priority.toUpperCase()
     }
 
+    console.log('[API /admin/support/tickets GET] Fetching tickets with filters:', where)
+
     const tickets = await prisma.supportTicket.findMany({
       where,
       include: {
@@ -64,6 +66,32 @@ export async function GET(request: NextRequest) {
         createdAt: 'desc',
       },
     })
+
+    console.log('[API /admin/support/tickets GET] Found tickets:', tickets.length)
+    if (tickets.length > 0) {
+      // Log detailed info for all tickets including reply counts
+      tickets.forEach((ticket, index) => {
+        console.log(`[API /admin/support/tickets GET] Ticket ${index + 1}:`, {
+          id: ticket.id,
+          subject: ticket.subject,
+          userId: ticket.userId,
+          userEmail: ticket.user?.email,
+          status: ticket.status,
+          createdAt: ticket.createdAt,
+          replyCount: ticket.replies?.length || 0,
+          replies: ticket.replies?.map(r => ({
+            id: r.id,
+            author: r.author?.username,
+            isInternal: r.isInternal,
+            createdAt: r.createdAt,
+          })) || [],
+        })
+      })
+    } else {
+      // Check if there are any tickets at all in the database
+      const totalTicketCount = await prisma.supportTicket.count()
+      console.log('[API /admin/support/tickets GET] No tickets found with filters. Total tickets in DB:', totalTicketCount)
+    }
 
     // Get admin users for assignment dropdown
     const admins = await prisma.user.findMany({

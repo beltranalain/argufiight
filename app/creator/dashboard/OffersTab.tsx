@@ -38,11 +38,16 @@ export function OffersTab() {
   const fetchOffers = async () => {
     try {
       setIsLoading(true)
-      const status = filter === 'ALL' ? '' : filter
-      const response = await fetch(`/api/creator/offers${status ? `?status=${status}` : ''}`)
+      // When filter is ALL, don't pass status parameter to get all offers
+      const url = filter === 'ALL' ? '/api/creator/offers' : `/api/creator/offers?status=${filter}`
+      const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
+        console.log('[OffersTab] Fetched offers:', data.offers?.length || 0)
+        console.log('[OffersTab] Offer statuses:', data.offers?.map((o: Offer) => o.status))
         setOffers(data.offers || [])
+      } else {
+        console.error('[OffersTab] Failed to fetch offers:', response.status)
       }
     } catch (error) {
       console.error('Failed to fetch offers:', error)
@@ -186,7 +191,7 @@ export function OffersTab() {
                     <div>
                       <span className="text-text-secondary">Amount:</span>
                       <div className="text-lg font-bold text-cyber-green">
-                        ${Number(offer.amount).toLocaleString()}
+                        ${Number(offer.amount ?? 0).toLocaleString()}
                       </div>
                     </div>
                     <div>

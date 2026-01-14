@@ -13,13 +13,13 @@ import { useToast } from '@/components/ui/Toast'
 interface Creator {
   id: string
   username: string
-  eloRating: number
+  eloRating: number | null
   creatorStatus: string | null
-  totalDebates: number
-  debatesWon: number
-  avgMonthlyViews: number
-  avgDebateViews: number
-  followerCount: number
+  totalDebates: number | null
+  debatesWon: number | null
+  avgMonthlyViews: number | null
+  avgDebateViews: number | null
+  followerCount: number | null
   profileBannerPrice: number | null
   postDebatePrice: number | null
   debateWidgetPrice: number | null
@@ -73,11 +73,11 @@ export default function CreatorDiscoveryPage() {
       const response = await fetch('/api/advertiser/campaigns')
       if (response.ok) {
         const data = await response.json()
-        // Only show approved campaigns
-        const approvedCampaigns = (data.campaigns || []).filter(
-          (c: Campaign) => c.status === 'APPROVED'
-        )
-        setCampaigns(approvedCampaigns)
+        console.log('Campaigns API response:', data)
+        console.log('All campaigns:', data.campaigns)
+        console.log('Campaign statuses:', data.campaigns?.map((c: Campaign) => c.status))
+        setCampaigns(data.campaigns || [])
+        console.log('Set campaigns:', data.campaigns || [])
       }
     } catch (error) {
       console.error('Failed to fetch campaigns:', error)
@@ -380,9 +380,9 @@ export default function CreatorDiscoveryPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-4 text-sm text-text-secondary">
-                    <span>ELO: {creator.eloRating}</span>
+                    <span>ELO: {creator.eloRating ?? 0}</span>
                     <span>•</span>
-                    <span>{creator.totalDebates} debates</span>
+                    <span>{creator.totalDebates ?? 0} debates</span>
                   </div>
                 </CardHeader>
                 <CardBody>
@@ -391,13 +391,13 @@ export default function CreatorDiscoveryPage() {
                       <div>
                         <span className="text-text-secondary">Monthly Views:</span>
                         <span className="ml-2 text-text-primary font-semibold">
-                          {creator.avgMonthlyViews.toLocaleString()}
+                          {(creator.avgMonthlyViews ?? 0).toLocaleString()}
                         </span>
                       </div>
                       <div>
                         <span className="text-text-secondary">Followers:</span>
                         <span className="ml-2 text-text-primary font-semibold">
-                          {creator.followerCount.toLocaleString()}
+                          {(creator.followerCount ?? 0).toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -498,7 +498,7 @@ export default function CreatorDiscoveryPage() {
                 </div>
               ) : campaigns.length === 0 ? (
                 <div className="p-4 bg-bg-tertiary rounded-lg text-text-secondary text-sm">
-                  No approved campaigns found. Please create and get a campaign approved first.
+                  No campaigns found. Please create a campaign first.
                 </div>
               ) : (
                 <select

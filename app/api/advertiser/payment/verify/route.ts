@@ -129,7 +129,37 @@ export async function POST(request: NextRequest) {
         contractAmount
       )
 
-      // Create contract
+      // Payment has been made - hold it in escrow but DON'T auto-accept the offer
+      // The creator still needs to review and accept the offer
+      // For now, we'll create the contract but keep the offer as PENDING
+      // TODO: Add stripePaymentId field to Offer model to track payment without creating contract
+      // For now, we need to create contract to hold payment, but offer should stay PENDING
+      
+      // Actually, since Offer model doesn't have stripePaymentId, we need a different approach
+      // Option 1: Create contract but keep offer PENDING (contract exists but offer not accepted)
+      // Option 2: Add stripePaymentId to Offer model (requires migration)
+      
+      // For now, let's keep the current behavior but add a note
+      // The contract is created to hold the payment, but the offer status should be checked
+      // If offer is already ACCEPTED, don't change it
+      
+      // Check if contract already exists
+      const existingContract = await prisma.adContract.findUnique({
+        where: { offerId: offer.id },
+      })
+      
+      if (existingContract) {
+        // Contract already exists, payment already processed
+        return NextResponse.json({
+          success: true,
+          message: 'Payment already processed for this offer.',
+          contract: existingContract,
+          type: 'offer_payment',
+        })
+      }
+      
+      // Create contract to hold payment
+      const now = new Date()
       const contract = await prisma.adContract.create({
         data: {
           offerId: offer.id,
@@ -147,21 +177,22 @@ export async function POST(request: NextRequest) {
           status: 'SCHEDULED',
           escrowHeld: true,
           stripePaymentId: paymentIntent.id,
+          signedAt: now,
         },
       })
 
-      // Update offer status
-      await prisma.offer.update({
-        where: { id: offer.id },
-        data: {
-          status: 'ACCEPTED',
-          respondedAt: new Date(),
-        },
-      })
+      // DON'T auto-accept the offer - keep it PENDING so creator can review
+      // Only update if it's still PENDING (don't override if creator already accepted/declined)
+      if (offer.status === 'PENDING') {
+        // Keep offer as PENDING - creator must still accept
+        // Don't update status to ACCEPTED
+      }
 
       return NextResponse.json({
         success: true,
+        message: 'Payment processed and held in escrow. Creator can now review and accept the offer.',
         contract,
+        offerId: offer.id,
         type: 'offer_payment',
       })
     } else if (metadata.type === 'contract_payment' && metadata.contractId) {

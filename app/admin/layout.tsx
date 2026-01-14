@@ -3,6 +3,7 @@ import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { AdminNav } from '@/components/admin/AdminNav'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { NotificationTicker } from '@/components/notifications/NotificationTicker'
 
 export default async function AdminLayout({
   children,
@@ -46,6 +47,7 @@ export default async function AdminLayout({
     <div className="flex h-screen bg-black">
       <AdminNav />
       <main className="flex-1 overflow-y-auto p-8">
+        <NotificationTicker />
         {children}
       </main>
     </div>

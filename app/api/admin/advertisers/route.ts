@@ -18,18 +18,86 @@ export async function GET(request: NextRequest) {
       where.status = status
     }
 
-    const advertisers = await prisma.advertiser.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    })
+    // Query with all fields - if new fields don't exist, Prisma will error
+    // We'll catch and retry with basic fields only
+    let advertisers
+    try {
+      advertisers = await prisma.advertiser.findMany({
+        where,
+        select: {
+          id: true,
+          companyName: true,
+          industry: true,
+          contactEmail: true,
+          contactName: true,
+          website: true,
+          businessEIN: true,
+          status: true,
+          createdAt: true,
+          approvedAt: true,
+          rejectionReason: true,
+          suspendedAt: true,
+          suspensionReason: true,
+          contactPhone: true,
+          companySize: true,
+          monthlyAdBudget: true,
+          marketingGoals: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+    } catch (error: any) {
+      // If error is about missing columns, retry with basic fields only
+      const errorMessage = error?.message || ''
+      if (
+        errorMessage.includes('contact_phone') ||
+        errorMessage.includes('company_size') ||
+        errorMessage.includes('monthly_ad_budget') ||
+        errorMessage.includes('marketing_goals') ||
+        errorMessage.includes('does not exist')
+      ) {
+        // Retry with basic fields only
+        advertisers = await prisma.advertiser.findMany({
+          where,
+          select: {
+            id: true,
+            companyName: true,
+            industry: true,
+            contactEmail: true,
+            contactName: true,
+            website: true,
+            businessEIN: true,
+            status: true,
+            createdAt: true,
+            approvedAt: true,
+            rejectionReason: true,
+            suspendedAt: true,
+            suspensionReason: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        })
+        // Add null values for new fields
+        advertisers = advertisers.map((adv) => ({
+          ...adv,
+          contactPhone: null,
+          companySize: null,
+          monthlyAdBudget: null,
+          marketingGoals: null,
+        }))
+      } else {
+        // Different error - rethrow
+        throw error
+      }
+    }
 
-    return NextResponse.json({ advertisers })
+    return NextResponse.json({ advertisers: advertisers || [] })
   } catch (error: any) {
-    console.error('Failed to fetch advertisers:', error)
+    console.error('[API /admin/advertisers] Error:', error.message)
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch advertisers' },
+      {
+        error: error.message || 'Failed to fetch advertisers',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      },
       { status: 500 }
     )
   }
 }
-

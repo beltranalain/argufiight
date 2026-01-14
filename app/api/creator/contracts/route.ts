@@ -1,32 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
-import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 // GET /api/creator/contracts?status=ACTIVE
 export async function GET(request: NextRequest) {
   try {
-    const session = await verifySession()
+    const session = await verifySessionWithDb()
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = getUserIdFromSession(session)
+    const userId = session.userId
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Verify user is a creator
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { isCreator: true },
-    })
-
-    if (!user || !user.isCreator) {
-      return NextResponse.json(
-        { error: 'Creator mode not enabled' },
-        { status: 403 }
-      )
     }
 
     const { searchParams } = new URL(request.url)
@@ -53,7 +42,13 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: { signedAt: 'desc' },
+      // Order by startDate (most recent first)
+      orderBy: { startDate: 'desc' },
+    })
+
+    console.log(`[API /creator/contracts] Found ${contracts.length} contracts for user ${userId}`)
+    contracts.forEach((c, i) => {
+      console.log(`[API /creator/contracts] Contract ${i + 1}: ID=${c.id}, Status=${c.status}, SignedAt=${c.signedAt}`)
     })
 
     return NextResponse.json({ contracts })

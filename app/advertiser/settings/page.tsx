@@ -50,7 +50,7 @@ export default function AdvertiserSettingsPage() {
     try {
       setIsLoading(true)
       const [advertiserRes, twoFARes] = await Promise.all([
-        fetch('/api/advertiser/me'),
+        fetch('/api/advertiser/settings'),
         fetch('/api/auth/2fa/status'),
       ])
 
@@ -164,13 +164,39 @@ export default function AdvertiserSettingsPage() {
   }
 
   const handleStripeConnectSuccess = async () => {
-    showToast({
-      type: 'success',
-      title: 'Stripe Account Connected',
-      description: 'Your Stripe account has been successfully set up.',
-    })
+    // Verify Stripe account status after onboarding
+    try {
+      console.log('[Settings] Verifying Stripe account after onboarding...')
+      const verifyResponse = await fetch('/api/advertiser/stripe-verify', {
+        method: 'POST',
+      })
+
+      if (verifyResponse.ok) {
+        const verifyData = await verifyResponse.json()
+        console.log('[Settings] Stripe verification result:', verifyData)
+        
+        if (verifyData.paymentReady) {
+          showToast({
+            type: 'success',
+            title: 'Payment Account Connected!',
+            description: 'Your payment account has been successfully connected and verified.',
+          })
+        } else {
+          showToast({
+            type: 'warning',
+            title: 'Setup Incomplete',
+            description: verifyData.message || 'Please complete all required steps in the Stripe form.',
+          })
+        }
+      } else {
+        console.error('[Settings] Failed to verify Stripe account')
+      }
+    } catch (error) {
+      console.error('[Settings] Error verifying Stripe account:', error)
+    }
+
     // Refresh advertiser data
-    fetchData()
+    await fetchData()
   }
 
   const handleFinancialConnectionsSuccess = async () => {
@@ -307,22 +333,37 @@ export default function AdvertiserSettingsPage() {
             </CardHeader>
             <CardBody>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg">
-                  <div>
-                    <h3 className="font-semibold text-text-primary mb-1">Stripe Account</h3>
-                    <p className="text-sm text-text-secondary">
-                      {advertiser.paymentReady
-                        ? 'Connected and ready to receive payments'
-                        : 'Connect your Stripe account to receive payments'}
-                    </p>
+                  <div className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-text-primary mb-1">Payment Account</h3>
+                      <p className="text-sm text-text-secondary mb-2">
+                        {advertiser.paymentReady
+                          ? 'Account connected. Stripe is processing your account. Payments will be enabled shortly.'
+                          : 'Connect your payment account to receive payments'}
+                      </p>
+                      {advertiser.paymentReady && advertiser.stripeAccountId && (
+                        <div className="mt-2">
+                          <p className="text-xs text-text-secondary">
+                            Stripe Account: <code className="bg-bg-tertiary px-1.5 py-0.5 rounded text-electric-blue">{advertiser.stripeAccountId}</code>
+                          </p>
+                          <a
+                            href={`https://dashboard.stripe.com/test/connect/accounts/overview/${advertiser.stripeAccountId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-electric-blue hover:underline mt-1 inline-block"
+                          >
+                            View in Stripe Dashboard →
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      variant={advertiser.paymentReady ? 'secondary' : 'primary'}
+                      onClick={handleConnectStripe}
+                    >
+                      {advertiser.paymentReady ? 'Manage Account' : 'Connect Account'}
+                    </Button>
                   </div>
-                  <Button
-                    variant={advertiser.paymentReady ? 'secondary' : 'primary'}
-                    onClick={handleConnectStripe}
-                  >
-                    {advertiser.paymentReady ? 'Manage Stripe' : 'Connect Stripe'}
-                  </Button>
-                </div>
               </div>
             </CardBody>
           </Card>

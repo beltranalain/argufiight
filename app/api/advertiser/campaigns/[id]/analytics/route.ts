@@ -87,11 +87,20 @@ export async function GET(
     const clicks = campaign.clicks.length
     const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0
 
-    // Calculate spent (sum of contract amounts)
-    const spent = campaign.contracts.reduce(
-      (sum, contract) => sum + Number(contract.totalAmount),
-      0
-    )
+    // Calculate spent
+    // For PLATFORM_ADS: spent is the budget (already paid upfront)
+    // For CREATOR_SPONSORSHIP/TOURNAMENT_SPONSORSHIP: spent is sum of contract amounts
+    let spent = 0
+    if (campaign.type === 'PLATFORM_ADS') {
+      // Platform Ads are paid upfront, so spent = budget if payment is complete
+      spent = campaign.paymentStatus === 'PAID' ? Number(campaign.budget) : 0
+    } else {
+      // Creator/Tournament Sponsorship: sum of contract amounts
+      spent = campaign.contracts.reduce(
+        (sum, contract) => sum + Number(contract.totalAmount),
+        0
+      )
+    }
 
     const remaining = Number(campaign.budget) - spent
 
@@ -146,6 +155,7 @@ export async function GET(
       spent,
       remaining,
       chartData,
+      type: campaign.type, // Include campaign type for frontend filtering
       contracts: campaign.contracts.map((contract) => ({
         id: contract.id,
         creator: contract.creator,

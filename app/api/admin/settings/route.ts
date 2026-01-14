@@ -36,6 +36,13 @@ export async function GET(request: NextRequest) {
       return acc
     }, {} as Record<string, string>)
 
+    // Log the marketplace setting specifically for debugging
+    if (settingsObj.ADS_CREATOR_MARKETPLACE_ENABLED !== undefined) {
+      console.log('[API Settings GET] ADS_CREATOR_MARKETPLACE_ENABLED:', settingsObj.ADS_CREATOR_MARKETPLACE_ENABLED)
+    } else {
+      console.log('[API Settings GET] ADS_CREATOR_MARKETPLACE_ENABLED: NOT FOUND (will default to false)')
+    }
+
     return NextResponse.json(settingsObj)
   } catch (error) {
     console.error('Failed to fetch settings:', error)
@@ -71,21 +78,52 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    console.log('[API Settings] Updating settings:', Object.keys(body))
 
     // Update each setting
     for (const [key, value] of Object.entries(body)) {
-      await prisma.adminSetting.upsert({
-        where: { key },
-        update: {
-          value: value as string,
-          updatedBy: userId,
-        },
-        create: {
-          key,
-          value: value as string,
-          encrypted: key.includes('KEY') || key.includes('SECRET'),
-          updatedBy: userId,
-        },
+      try {
+        const result = await prisma.adminSetting.upsert({
+          where: { key },
+          update: {
+            value: value as string,
+            updatedBy: userId,
+            updatedAt: new Date(),
+          },
+          create: {
+            key,
+            value: value as string,
+            encrypted: key.includes('KEY') || key.includes('SECRET'),
+            updatedBy: userId,
+            category: key.startsWith('ADS_') ? 'advertising' : 'general',
+            description: key === 'ADS_CREATOR_MARKETPLACE_ENABLED' ? 'Enable Creator Marketplace' : undefined,
+          },
+        })
+        console.log(`[API Settings] Updated ${key}:`, result.value, 'at', result.updatedAt)
+      } catch (error: any) {
+        console.error(`[API Settings] Failed to update ${key}:`, error.message)
+        throw error
+      }
+    }
+
+    // Verify the update by fetching the setting immediately
+    const verifySetting = await prisma.adminSetting.findMany({
+      where: { key: { in: Object.keys(body) } },
+    })
+    console.log('[API Settings] Verified settings after update:')
+    verifySetting.forEach(s => {
+      console.log(`  ${s.key}: ${s.value} (updated: ${s.updatedAt})`)
+    })
+    
+    // Double-check the marketplace setting specifically
+    if (body.ADS_CREATOR_MARKETPLACE_ENABLED !== undefined) {
+      const marketplaceCheck = await prisma.adminSetting.findUnique({
+        where: { key: 'ADS_CREATOR_MARKETPLACE_ENABLED' },
+      })
+      console.log('[API Settings] Marketplace setting verification:', {
+        exists: !!marketplaceCheck,
+        value: marketplaceCheck?.value,
+        updatedAt: marketplaceCheck?.updatedAt,
       })
     }
 

@@ -80,10 +80,12 @@ export default function ContentManagerPage() {
     fetchSocialLinks()
   }, [])
 
-  const fetchSections = async () => {
+  const fetchSections = async (showLoading = true) => {
     try {
-      setIsLoading(true)
-      const response = await fetch('/api/admin/content/sections')
+      if (showLoading) setIsLoading(true)
+      const response = await fetch('/api/admin/content/sections', {
+        cache: 'no-store', // Prevent stale data
+      })
       if (response.ok) {
         const data = await response.json()
         // Ensure sections is always an array
@@ -98,7 +100,7 @@ export default function ContentManagerPage() {
       console.error('Failed to fetch sections:', error)
       setSections([])
     } finally {
-      setIsLoading(false)
+      if (showLoading) setIsLoading(false)
     }
   }
 
@@ -266,30 +268,19 @@ export default function ContentManagerPage() {
 
       const result = await response.json()
       
-      // Refresh sections list
-      await fetchSections()
-      
-      // Update selected section with fresh data from response (includes images and buttons)
+      // Update selected section immediately with response data (optimistic update)
       if (result.section) {
-        setSelectedSection({
+        const updatedSection = {
           ...result.section,
           images: result.section.images || [],
           buttons: result.section.buttons || [],
-        })
-      } else {
-        // Fallback: fetch updated section if not in response
-        const updatedSections = await fetch('/api/admin/content/sections').then(r => r.json())
-        const updatedSection = (updatedSections.sections || updatedSections || []).find(
-          (s: HomepageSection) => s.id === selectedSection.id
-        )
-        
-        if (updatedSection) {
-          setSelectedSection({
-            ...updatedSection,
-            images: updatedSection.images || [],
-            buttons: updatedSection.buttons || [],
-          })
         }
+        setSelectedSection(updatedSection)
+        
+        // Update sections list optimistically (update the section in the list)
+        setSections(prevSections => 
+          prevSections.map(s => s.id === updatedSection.id ? updatedSection : s)
+        )
       }
       
       showToast({
@@ -298,6 +289,9 @@ export default function ContentManagerPage() {
         description: 'Homepage section updated successfully',
       })
       // Keep modal open - don't close it
+      
+      // Refresh sections list in background (non-blocking)
+      fetchSections().catch(err => console.error('Background refresh failed:', err))
     } catch (error: any) {
       console.error('[Content Manager] Save error:', error)
       console.error('[Content Manager] Error details:', {
@@ -1062,26 +1056,31 @@ function EditSectionModal({
           mediaLibrary={mediaLibrary}
           onUpdate={async () => {
             await onMediaUpload()
-            // Refresh the section data
+            // Refresh section data optimistically - fetch only this section
             try {
-              const response = await fetch('/api/admin/content/sections')
+              const response = await fetch(`/api/admin/content/sections/${section.id}`, {
+                cache: 'no-store',
+              })
               if (response.ok) {
                 const data = await response.json()
-                const sections = Array.isArray(data.sections) ? data.sections : []
-                const updatedSection = sections.find((s: HomepageSection) => s.id === section.id)
-                if (updatedSection) {
-                  setSection({
-                    ...updatedSection,
-                    images: updatedSection.images || [],
-                    buttons: updatedSection.buttons || [],
-                  })
+                if (data.section) {
+                  const updatedSection = {
+                    ...data.section,
+                    images: data.section.images || [],
+                    buttons: data.section.buttons || [],
+                  }
+                  setSection(updatedSection)
+                  // Update selectedSection if it matches
+                  if (selectedSection && selectedSection.id === section.id) {
+                    setSelectedSection(updatedSection)
+                  }
                 }
               }
             } catch (error) {
               console.error('Failed to refresh section:', error)
             }
-            // This will refresh both the sections list AND the selectedSection
-            await onSectionsUpdate()
+            // Refresh sections list in background (non-blocking)
+            onSectionsUpdate().catch(err => console.error('Background refresh failed:', err))
           }}
         />
 

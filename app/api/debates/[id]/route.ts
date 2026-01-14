@@ -615,6 +615,9 @@ export async function GET(
       }
     }
 
+    // Check if debate has no statements (for frontend to show appropriate message)
+    const hasNoStatements = !debate.statements || debate.statements.length === 0
+    
     return NextResponse.json({
       ...debate,
       viewCount,
@@ -626,6 +629,8 @@ export async function GET(
       hasBeltAtStake: (debate as any).hasBeltAtStake,
       beltStakeType: (debate as any).beltStakeType,
       stakedBelt: (debate as any).stakedBelt,
+      // Helper flag for frontend to know if debate has no statements
+      hasNoStatements,
     })
   } catch (error: any) {
     console.error('Failed to fetch debate:', error)

@@ -28,6 +28,7 @@
     "process-appeals": "tsx scripts/process-appeals.ts",
     "process-appeals-direct": "tsx scripts/process-appeals-direct.ts",
     "process-expired": "tsx scripts/process-expired-rounds.ts",
+    "clear-ads": "node scripts/clear-advertisement-data.js",
     "migrate-plans": "node scripts/run-plans-migration.js"
   },
   "keywords": [
@@ -59,6 +60,7 @@
     "@tiptap/react": "^3.11.1",
     "@tiptap/starter-kit": "^3.11.1",
     "@types/node": "^24.10.1",
+    "@types/pdfkit": "^0.17.4",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vercel/blob": "^0.25.0",
@@ -73,6 +75,8 @@
     "next": "^15.2.4",
     "node-cache": "^5.1.2",
     "openai": "^6.9.1",
+    "pdf-lib": "^1.17.1",
+    "pdfkit": "^0.17.2",
     "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

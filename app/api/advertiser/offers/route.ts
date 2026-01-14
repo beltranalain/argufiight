@@ -179,11 +179,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Campaign does not belong to this advertiser' }, { status: 403 })
     }
 
-    // Verify campaign is approved
-    if (campaign.status !== 'APPROVED') {
-      console.error('Campaign not approved:', campaign.id, campaign.status)
+    // Verify campaign is approved, pending review, or active
+    if (campaign.status !== 'APPROVED' && campaign.status !== 'PENDING_REVIEW' && campaign.status !== 'ACTIVE') {
+      console.error('Campaign not available for offers:', campaign.id, campaign.status)
       return NextResponse.json(
-        { error: `Campaign must be approved to make offers. Current status: ${campaign.status}` },
+        { error: `Campaign must be approved, pending review, or active to make offers. Current status: ${campaign.status}` },
         { status: 400 }
       )
     }

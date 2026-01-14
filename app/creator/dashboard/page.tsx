@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { OffersTab } from './OffersTab'
 import { EarningsTab } from './EarningsTab'
 import { SettingsTab } from './SettingsTab'
+import { TaxDocumentsTab } from '@/components/creator/TaxDocumentsTab'
 
 interface Contract {
   id: string
@@ -45,8 +46,8 @@ interface Offer {
 
 function CreatorDashboardContent() {
   const searchParams = useSearchParams()
-  const tabFromUrl = searchParams.get('tab') as 'overview' | 'offers' | 'earnings' | 'settings' | 'how-it-works' | null
-  const [activeTab, setActiveTab] = useState<'overview' | 'offers' | 'earnings' | 'settings' | 'how-it-works'>(
+  const tabFromUrl = searchParams.get('tab') as 'overview' | 'offers' | 'earnings' | 'settings' | 'tax-documents' | 'how-it-works' | null
+  const [activeTab, setActiveTab] = useState<'overview' | 'offers' | 'earnings' | 'settings' | 'tax-documents' | 'how-it-works'>(
     tabFromUrl || 'overview'
   )
   const [isLoading, setIsLoading] = useState(true)
@@ -71,7 +72,7 @@ function CreatorDashboardContent() {
   } | null>(null)
 
   useEffect(() => {
-    if (tabFromUrl && ['overview', 'offers', 'earnings', 'settings', 'how-it-works'].includes(tabFromUrl)) {
+    if (tabFromUrl && ['overview', 'offers', 'earnings', 'settings', 'tax-documents', 'how-it-works'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl)
     }
   }, [tabFromUrl])
@@ -84,7 +85,8 @@ function CreatorDashboardContent() {
     try {
       setIsLoading(true)
       const [contractsRes, offersRes, earningsRes, profileRes, eligibilityRes, feesRes] = await Promise.all([
-        fetch('/api/creator/contracts?status=ACTIVE'),
+        // Fetch all contracts and filter for ACTIVE and SCHEDULED on frontend
+        fetch('/api/creator/contracts'),
         fetch('/api/creator/offers?status=PENDING'),
         fetch('/api/creator/earnings'),
         fetch('/api/creator/profile'),
@@ -94,7 +96,19 @@ function CreatorDashboardContent() {
 
       if (contractsRes.ok) {
         const data = await contractsRes.json()
-        setActiveContracts(data.contracts || [])
+        console.log('[Creator Dashboard] Contracts API response:', data)
+        console.log('[Creator Dashboard] All contracts:', data.contracts)
+        console.log('[Creator Dashboard] Contract statuses:', data.contracts?.map((c: Contract) => c.status))
+        // Filter to show ACTIVE and SCHEDULED contracts (exclude CANCELLED and COMPLETED)
+        const activeAndScheduled = (data.contracts || []).filter(
+          (c: Contract) => c.status === 'ACTIVE' || c.status === 'SCHEDULED'
+        )
+        console.log('[Creator Dashboard] Filtered contracts:', activeAndScheduled)
+        setActiveContracts(activeAndScheduled)
+      } else {
+        console.error('[Creator Dashboard] Contracts API failed:', contractsRes.status, contractsRes.statusText)
+        const errorData = await contractsRes.json().catch(() => ({}))
+        console.error('[Creator Dashboard] Error data:', errorData)
       }
 
       if (offersRes.ok) {
@@ -147,7 +161,7 @@ function CreatorDashboardContent() {
         <Card>
           <CardBody>
             <div className="text-2xl font-bold text-cyber-green">
-              ${earnings.totalEarned.toLocaleString()}
+              ${(earnings.totalEarned ?? 0).toLocaleString()}
             </div>
             <div className="text-text-secondary">Total Earned</div>
           </CardBody>
@@ -155,7 +169,7 @@ function CreatorDashboardContent() {
         <Card>
           <CardBody>
             <div className="text-2xl font-bold text-electric-blue">
-              ${earnings.pendingPayout.toLocaleString()}
+              ${(earnings.pendingPayout ?? 0).toLocaleString()}
             </div>
             <div className="text-text-secondary">Pending Payout</div>
           </CardBody>
@@ -163,7 +177,7 @@ function CreatorDashboardContent() {
         <Card>
           <CardBody>
             <div className="text-2xl font-bold text-neon-orange">
-              ${earnings.thisMonth.toLocaleString()}
+              ${(earnings.thisMonth ?? 0).toLocaleString()}
             </div>
             <div className="text-text-secondary">This Month</div>
           </CardBody>
@@ -197,7 +211,7 @@ function CreatorDashboardContent() {
                     <div className="text-sm text-text-secondary space-y-1 mt-1">
                       <p>Campaign: {offer.campaign.name}</p>
                       <p>
-                        ${Number(offer.amount).toLocaleString()} for {offer.duration} days •{' '}
+                        ${Number(offer.amount ?? 0).toLocaleString()} for {offer.duration} days •{' '}
                         {offer.placement}
                       </p>
                       <p>Expires: {new Date(offer.expiresAt).toLocaleDateString()}</p>
@@ -241,7 +255,7 @@ function CreatorDashboardContent() {
                     <div className="text-sm text-text-secondary space-y-1 mt-1">
                       <p>Campaign: {contract.campaign.name}</p>
                       <p>
-                        Payout: ${Number(contract.creatorPayout).toLocaleString()} • Ends:{' '}
+                        Payout: ${Number(contract.creatorPayout ?? 0).toLocaleString()} • Ends:{' '}
                         {new Date(contract.endDate).toLocaleDateString()}
                       </p>
                     </div>
@@ -264,25 +278,25 @@ function CreatorDashboardContent() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <div className="text-2xl font-bold text-text-primary">
-                  {creatorInfo.avgMonthlyViews.toLocaleString()}
+                  {creatorInfo.avgMonthlyViews?.toLocaleString() ?? "0"}
                 </div>
                 <div className="text-sm text-text-secondary">Avg Monthly Views</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-text-primary">
-                  {creatorInfo.followerCount.toLocaleString()}
+                  {creatorInfo.followerCount?.toLocaleString() ?? "0"}
                 </div>
                 <div className="text-sm text-text-secondary">Followers</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-text-primary">
-                  {creatorInfo.totalDebates}
+                  {creatorInfo.totalDebates ?? 0}
                 </div>
                 <div className="text-sm text-text-secondary">Total Debates</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-text-primary">
-                  {creatorInfo.eloRating}
+                  {creatorInfo.eloRating ?? 0}
                 </div>
                 <div className="text-sm text-text-secondary">ELO Rating</div>
               </div>
@@ -485,6 +499,7 @@ function CreatorDashboardContent() {
                 { id: 'overview', label: 'Overview', content: <OverviewTab /> },
                 { id: 'offers', label: 'Offers', content: <OffersTab /> },
                 { id: 'earnings', label: 'Earnings', content: <EarningsTab /> },
+                { id: 'tax-documents', label: 'Tax Documents', content: <TaxDocumentsTab /> },
                 { id: 'settings', label: 'Settings', content: <SettingsTab /> },
                 { id: 'how-it-works', label: 'How It Works', content: <HowItWorksTab /> },
               ]}

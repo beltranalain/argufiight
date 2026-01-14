@@ -8,6 +8,7 @@ import { ChallengeProvider } from '@/lib/contexts/ChallengeContext'
 import { ChallengeModal } from '@/components/challenge/ChallengeModal'
 import { NotificationTicker } from '@/components/notifications/NotificationTicker'
 import { PushNotificationManager } from '@/components/notifications/PushNotificationManager'
+import { DailyLoginReward } from '@/components/DailyLoginReward'
 import { prisma } from '@/lib/db/prisma'
 
 export const metadata: Metadata = {
@@ -90,6 +91,7 @@ export default async function RootLayout({
           <ChallengeProvider>
             <ErrorBoundary>
               <ToastProvider>
+                <DailyLoginReward />
                 {children}
                 <ChallengeModal />
                 <NotificationTicker />

@@ -32,19 +32,45 @@ export function TopNav({ currentPanel }: TopNavProps) {
     setIsMounted(true)
   }, [])
 
+  const handleLogoClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (currentPanel === 'ADVERTISER') {
+      // Always go to advertiser dashboard, even if already there (refresh)
+      router.push('/advertiser/dashboard')
+      router.refresh()
+    } else if (currentPanel === 'ADMIN') {
+      router.push('/admin')
+    } else if (currentPanel === 'CREATOR') {
+      router.push('/creator/dashboard')
+    } else {
+      router.push('/')
+    }
+  }
+
   useEffect(() => {
     if (user && isMounted) {
-      fetchUnreadCount()
+      console.log('[TopNav] useEffect running, currentPanel:', currentPanel, 'user:', user.email)
+      
+      // On advertiser dashboard - explicitly set count to 0 and don't fetch
+      if (currentPanel === 'ADVERTISER') {
+        console.log('[TopNav] On advertiser dashboard - setting notification count to 0, skipping fetch')
+        setUnreadCount(0)
+      } else {
+        // Only fetch notifications if not on advertiser dashboard
+        console.log('[TopNav] Not on advertiser dashboard - fetching notifications')
+        fetchUnreadCount()
+        // Poll for new notifications every 30 seconds
+        const interval = setInterval(fetchUnreadCount, 30000)
+        return () => clearInterval(interval)
+      }
       fetchUserTier()
       checkIfAdvertiser()
       fetchAccountCount()
       fetchBeltCount()
       fetchCoinBalance()
-      // Poll for new notifications every 30 seconds
-      const interval = setInterval(fetchUnreadCount, 30000)
-      return () => clearInterval(interval)
     }
-  }, [user, isMounted])
+  }, [user, isMounted, currentPanel])
 
   const fetchAccountCount = async () => {
     try {
@@ -145,6 +171,13 @@ export function TopNav({ currentPanel }: TopNavProps) {
   }
 
   const fetchUnreadCount = async () => {
+    // Don't fetch notifications on advertiser dashboard
+    if (currentPanel === 'ADVERTISER') {
+      console.log('[TopNav] Skipping notification fetch - on advertiser dashboard')
+      setUnreadCount(0)
+      return
+    }
+    
     try {
       // Use cache-busting to prevent stale data
       const response = await fetch(`/api/notifications?unreadOnly=true&t=${Date.now()}`, {
@@ -277,11 +310,15 @@ export function TopNav({ currentPanel }: TopNavProps) {
       <div className="h-full px-4 md:px-8 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center">
-          <Link href="/" className="flex items-center">
-            <span className="text-lg md:text-xl font-bold text-electric-blue">
+          <button
+            onClick={handleLogoClick}
+            className="flex items-center cursor-pointer bg-transparent border-none p-0"
+            type="button"
+          >
+            <span className="text-lg md:text-xl font-bold text-electric-blue hover:text-electric-blue/80 transition-colors">
               ARGU FIGHT
             </span>
-          </Link>
+          </button>
         </div>
 
         {/* Panel Title */}
@@ -305,8 +342,8 @@ export function TopNav({ currentPanel }: TopNavProps) {
             </Link>
           )}
 
-          {/* Notifications */}
-          {user && (
+          {/* Notifications - Hidden on Advertiser Dashboard */}
+          {user && currentPanel !== 'ADVERTISER' && (
             <button 
               onClick={() => setIsNotificationsOpen(true)}
               className="relative p-1.5 md:p-2 hover:bg-bg-tertiary rounded-lg transition-colors touch-manipulation"
@@ -367,8 +404,8 @@ export function TopNav({ currentPanel }: TopNavProps) {
         </div>
       </div>
       
-      {/* Notifications Modal */}
-      {user && (
+      {/* Notifications Modal - Hidden on Advertiser Dashboard */}
+      {user && currentPanel !== 'ADVERTISER' && (
         <NotificationsModal
           isOpen={isNotificationsOpen}
           onClose={() => {

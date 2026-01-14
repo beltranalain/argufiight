@@ -89,6 +89,17 @@ export async function GET(request: NextRequest) {
         aiPaused: true,
         googleId: true,
         createdAt: true,
+        coins: true,
+        consecutiveLoginDays: true,
+        longestLoginStreak: true,
+        totalLoginDays: true,
+        lastLoginDate: true,
+        isCreator: true,
+        creatorStatus: true,
+        creatorSince: true,
+        isCreator: true,
+        creatorStatus: true,
+        creatorSince: true,
         subscription: {
           select: {
             tier: true,

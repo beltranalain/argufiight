@@ -44,7 +44,10 @@ export default function MyCoinsPage() {
 
       if (profileRes.ok) {
         const profileData = await profileRes.json()
-        setCoinBalance(profileData.coins || 0)
+        // API returns { user: {...} }, so access coins from user object
+        setCoinBalance(profileData.user?.coins ?? profileData.coins ?? 0)
+        console.log('[MyCoinsPage] Profile data:', profileData)
+        console.log('[MyCoinsPage] Coins:', profileData.user?.coins ?? profileData.coins ?? 0)
       }
 
       if (transactionsRes.ok) {
@@ -82,6 +85,10 @@ export default function MyCoinsPage() {
         return 'bg-red-500 text-white'
       case 'REFUND':
         return 'bg-orange-500 text-white'
+      case 'DAILY_LOGIN_REWARD':
+        return 'bg-cyan-500 text-white'
+      case 'STREAK_BONUS':
+        return 'bg-pink-500 text-white'
       default:
         return 'bg-gray-500 text-white'
     }

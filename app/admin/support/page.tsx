@@ -79,11 +79,40 @@ export default function AdminSupportPage() {
       if (filters.assignedToId !== 'all') params.append('assignedToId', filters.assignedToId)
       if (filters.priority !== 'all') params.append('priority', filters.priority)
 
-      const response = await fetch(`/api/admin/support/tickets?${params.toString()}`)
+      const response = await fetch(`/api/admin/support/tickets?${params.toString()}`, {
+        cache: 'no-store',
+      })
       if (response.ok) {
         const data = await response.json()
+        console.log('[Admin Support Page] Fetched tickets from API:', {
+          ticketCount: data.tickets?.length || 0,
+          adminsCount: data.admins?.length || 0,
+        })
+        // Log reply counts for each ticket
+        if (data.tickets && data.tickets.length > 0) {
+          data.tickets.forEach((ticket: any) => {
+            console.log('[Admin Support Page] Ticket reply count:', {
+              ticketId: ticket.id,
+              subject: ticket.subject,
+              replyCount: ticket.replies?.length || 0,
+              replies: ticket.replies?.map((r: any) => ({ id: r.id, author: r.author?.username })) || [],
+            })
+          })
+        }
         setTickets(data.tickets || [])
         setAdmins(data.admins || [])
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('[Admin Support Page] Failed to fetch tickets:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        })
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: errorData.error || `Failed to load support tickets (${response.status})`,
+        })
       }
     } catch (error) {
       console.error('Failed to fetch tickets:', error)
@@ -99,9 +128,16 @@ export default function AdminSupportPage() {
 
   const handleViewTicket = async (ticketId: string) => {
     try {
-      const response = await fetch(`/api/support/tickets/${ticketId}`)
+      // Add cache-busting to ensure fresh data
+      const response = await fetch(`/api/support/tickets/${ticketId}?t=${Date.now()}`, {
+        cache: 'no-store',
+      })
       if (response.ok) {
         const data = await response.json()
+        console.log('[Admin Support] Fetched ticket with replies:', {
+          ticketId: data.ticket?.id,
+          replyCount: data.ticket?.replies?.length || 0,
+        })
         setSelectedTicket(data.ticket)
       }
     } catch (error) {
@@ -166,8 +202,9 @@ export default function AdminSupportPage() {
         })
         setReplyContent('')
         setIsInternal(false)
-        handleViewTicket(selectedTicket.id)
-        fetchTickets()
+        // Refresh both the ticket detail and the ticket list
+        await handleViewTicket(selectedTicket.id)
+        await fetchTickets() // Refresh the list to update reply counts
       } else {
         const error = await response.json()
         throw new Error(error.error || 'Failed to send reply')
@@ -186,31 +223,39 @@ export default function AdminSupportPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'OPEN':
-        return 'bg-electric-blue'
+        return 'bg-electric-blue/20 backdrop-blur-sm border border-electric-blue/50 text-electric-blue font-semibold'
       case 'IN_PROGRESS':
-        return 'bg-yellow-500'
+        return 'bg-yellow-500/20 backdrop-blur-sm border border-yellow-500/50 text-yellow-400 font-semibold'
       case 'RESOLVED':
-        return 'bg-cyber-green'
+        return 'bg-cyber-green/20 backdrop-blur-sm border border-cyber-green/50 text-cyber-green font-semibold'
       case 'CLOSED':
-        return 'bg-text-secondary'
+        return 'bg-text-secondary/20 backdrop-blur-sm border border-text-secondary/50 text-text-secondary font-semibold'
       default:
-        return 'bg-bg-tertiary'
+        return 'bg-bg-tertiary/20 backdrop-blur-sm border border-bg-tertiary/50 text-text-secondary font-semibold'
     }
   }
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'URGENT':
-        return 'bg-red-500'
+        return 'bg-red-500/20 backdrop-blur-sm border border-red-500/50 text-red-400 font-semibold'
       case 'HIGH':
-        return 'bg-neon-orange'
+        return 'bg-neon-orange/20 backdrop-blur-sm border border-neon-orange/50 text-neon-orange font-semibold'
       case 'MEDIUM':
-        return 'bg-yellow-500'
+        return 'bg-yellow-500/20 backdrop-blur-sm border border-yellow-500/50 text-yellow-400 font-semibold'
       case 'LOW':
-        return 'bg-cyber-green'
+        return 'bg-cyber-green/20 backdrop-blur-sm border border-cyber-green/50 text-cyber-green font-semibold'
       default:
-        return 'bg-bg-tertiary'
+        return 'bg-bg-tertiary/20 backdrop-blur-sm border border-bg-tertiary/50 text-text-secondary font-semibold'
     }
+  }
+
+  const getCategoryColor = (category: string) => {
+    return 'bg-bg-tertiary/20 backdrop-blur-sm border border-bg-tertiary/50 text-text-primary font-semibold'
+  }
+
+  const getUnassignedColor = () => {
+    return 'bg-text-secondary/20 backdrop-blur-sm border border-text-secondary/50 text-text-secondary font-semibold'
   }
 
   return (
@@ -319,16 +364,16 @@ export default function AdminSupportPage() {
                           {ticket.priority}
                         </Badge>
                         {ticket.category && (
-                          <Badge variant="default" size="sm">
+                          <Badge variant="default" size="sm" className={getCategoryColor(ticket.category)}>
                             {ticket.category}
                           </Badge>
                         )}
                         {ticket.assignedTo ? (
-                          <Badge variant="default" size="sm">
+                          <Badge variant="default" size="sm" className="bg-electric-blue/20 backdrop-blur-sm border border-electric-blue/50 text-electric-blue font-semibold">
                             Assigned to {ticket.assignedTo.username}
                           </Badge>
                         ) : (
-                          <Badge variant="default" size="sm" className="bg-text-secondary">
+                          <Badge variant="default" size="sm" className={getUnassignedColor()}>
                             Unassigned
                           </Badge>
                         )}
@@ -369,7 +414,7 @@ export default function AdminSupportPage() {
                 {selectedTicket.priority}
               </Badge>
               {selectedTicket.category && (
-                <Badge variant="default" size="sm">
+                <Badge variant="default" size="sm" className={getCategoryColor(selectedTicket.category)}>
                   {selectedTicket.category}
                 </Badge>
               )}
@@ -482,7 +527,7 @@ export default function AdminSupportPage() {
                 onChange={(e) => setReplyContent(e.target.value)}
                 placeholder="Type your reply..."
                 rows={4}
-                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent mb-2"
+                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:border-bg-tertiary mb-2"
               />
               <div className="flex items-center gap-2 mb-2">
                 <input

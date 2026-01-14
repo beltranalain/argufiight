@@ -22,7 +22,11 @@ export default function AdvertisePage() {
     industry: '',
     contactName: '',
     contactEmail: '',
+    contactPhone: '',
     businessEIN: '',
+    companySize: '',
+    monthlyAdBudget: '',
+    marketingGoals: '',
   })
 
   useEffect(() => {
@@ -73,6 +77,26 @@ export default function AdvertisePage() {
     setFormData((prev) => ({ ...prev, businessEIN: value }))
   }, [])
 
+  const handleContactPhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setFormData((prev) => ({ ...prev, contactPhone: value }))
+  }, [])
+
+  const handleCompanySizeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value
+    setFormData((prev) => ({ ...prev, companySize: value }))
+  }, [])
+
+  const handleMonthlyAdBudgetChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value
+    setFormData((prev) => ({ ...prev, monthlyAdBudget: value }))
+  }, [])
+
+  const handleMarketingGoalsChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value
+    setFormData((prev) => ({ ...prev, marketingGoals: value }))
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -88,8 +112,16 @@ export default function AdvertisePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
+          companyName: formData.companyName,
           website: normalizedWebsite,
+          industry: formData.industry,
+          contactName: formData.contactName,
+          contactEmail: formData.contactEmail,
+          contactPhone: formData.contactPhone,
+          businessEIN: formData.businessEIN,
+          companySize: formData.companySize,
+          monthlyAdBudget: formData.monthlyAdBudget,
+          marketingGoals: formData.marketingGoals,
         }),
       })
 
@@ -130,25 +162,25 @@ export default function AdvertisePage() {
         <h3 className="text-xl font-bold text-white mb-3">Program Benefits</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="rounded-xl border border-white/20 bg-purple-800/30 backdrop-blur-sm p-4">
-            <h4 className="font-bold text-white mb-2">🎯 Targeted Audience</h4>
+            <h4 className="font-bold text-white mb-2">Targeted Audience</h4>
             <p className="text-sm text-white/80">
               Reach users by ELO rating, debate category, engagement level, and more
             </p>
           </div>
           <div className="rounded-xl border border-white/20 bg-purple-800/30 backdrop-blur-sm p-4">
-            <h4 className="font-bold text-white mb-2">💰 Flexible Pricing</h4>
+            <h4 className="font-bold text-white mb-2">Flexible Pricing</h4>
             <p className="text-sm text-white/80">
               Choose from flat rate, pay-per-click (CPC), pay-per-impression (CPM), or performance-based models
             </p>
           </div>
           <div className="rounded-xl border border-white/20 bg-purple-800/30 backdrop-blur-sm p-4">
-            <h4 className="font-bold text-white mb-2">📊 Real-Time Analytics</h4>
+            <h4 className="font-bold text-white mb-2">Real-Time Analytics</h4>
             <p className="text-sm text-white/80">
               Track impressions, clicks, conversions, and ROI in real-time through your dashboard
             </p>
           </div>
           <div className="rounded-xl border border-white/20 bg-purple-800/30 backdrop-blur-sm p-4">
-            <h4 className="font-bold text-white mb-2">🤝 Creator Partnerships</h4>
+            <h4 className="font-bold text-white mb-2">Creator Partnerships</h4>
             <p className="text-sm text-white/80">
               Connect directly with top creators and negotiate custom sponsorship deals
             </p>
@@ -461,6 +493,76 @@ export default function AdvertisePage() {
 
           <div>
             <label className="block text-sm font-medium text-white/90 mb-2">
+              Contact Phone *
+            </label>
+            <input
+              type="tel"
+              required
+              value={formData.contactPhone}
+              onChange={handleContactPhoneChange}
+              placeholder="+1 (555) 123-4567"
+              className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
+            />
+            <p className="text-xs text-white/70 mt-1">
+              We'll use this to contact you about your application.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white/90 mb-2">
+              Company Size
+            </label>
+            <select
+              value={formData.companySize}
+              onChange={handleCompanySizeChange}
+              className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
+            >
+              <option value="">Select Company Size</option>
+              <option value="SOLO">Solo / Freelancer</option>
+              <option value="SMALL">1-10 employees</option>
+              <option value="MEDIUM">11-50 employees</option>
+              <option value="LARGE">51-200 employees</option>
+              <option value="ENTERPRISE">200+ employees</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white/90 mb-2">
+              Monthly Ad Budget Range
+            </label>
+            <select
+              value={formData.monthlyAdBudget}
+              onChange={handleMonthlyAdBudgetChange}
+              className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
+            >
+              <option value="">Select Budget Range</option>
+              <option value="UNDER_500">Under $500</option>
+              <option value="500_1000">$500 - $1,000</option>
+              <option value="1000_5000">$1,000 - $5,000</option>
+              <option value="5000_10000">$5,000 - $10,000</option>
+              <option value="10000_50000">$10,000 - $50,000</option>
+              <option value="OVER_50000">$50,000+</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white/90 mb-2">
+              Marketing Goals (Optional)
+            </label>
+            <textarea
+              value={formData.marketingGoals}
+              onChange={handleMarketingGoalsChange}
+              placeholder="Tell us about your marketing goals and what you hope to achieve with advertising on Argufight..."
+              rows={4}
+              className="w-full px-4 py-2 bg-purple-900/50 border border-white/20 rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue resize-none"
+            />
+            <p className="text-xs text-white/70 mt-1">
+              Help us understand your advertising objectives.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white/90 mb-2">
               Business EIN (Optional)
             </label>
             <input
@@ -485,7 +587,7 @@ export default function AdvertisePage() {
         </form>
       </div>
     </div>
-  ), [user, formData, isSubmitting, handleCompanyNameChange, handleWebsiteChange, handleIndustryChange, handleContactNameChange, handleContactEmailChange, handleBusinessEINChange, handleSubmit, router])
+  ), [user, formData, isSubmitting, handleCompanyNameChange, handleWebsiteChange, handleIndustryChange, handleContactNameChange, handleContactEmailChange, handleContactPhoneChange, handleCompanySizeChange, handleMonthlyAdBudgetChange, handleMarketingGoalsChange, handleBusinessEINChange, handleSubmit, router])
 
   if (authLoading) {
     return (

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
+import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { getPlatformFee } from '@/lib/ads/config'
 
 // GET /api/creator/platform-fees - Get platform fees for all tiers
 export async function GET(request: NextRequest) {
   try {
-    const session = await verifySession()
+    const session = await verifySessionWithDb()
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

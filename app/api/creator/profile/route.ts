@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
-import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
 
 // GET /api/creator/profile - Get creator profile info
 export async function GET(request: NextRequest) {
   try {
-    const session = await verifySession()
+    const session = await verifySessionWithDb()
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = getUserIdFromSession(session)
+    const userId = session.userId
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -35,13 +34,6 @@ export async function GET(request: NextRequest) {
         isCreator: true,
       },
     })
-
-    if (!user || !user.isCreator) {
-      return NextResponse.json(
-        { error: 'Creator mode not enabled' },
-        { status: 403 }
-      )
-    }
 
     return NextResponse.json({ user })
   } catch (error: any) {

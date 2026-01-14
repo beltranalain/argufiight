@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -12,9 +12,11 @@ import { Tabs } from '@/components/ui/Tabs'
 import { Modal } from '@/components/ui/Modal'
 import { EmailTemplateEditor } from '@/components/admin/EmailTemplateEditor'
 import { CreatorsTab } from './CreatorsTab'
+import { calculateStripeFees } from '@/lib/stripe/fee-calculator'
 
 // ============================================
-// BASIC ADS TAB (Legacy System)
+// DIRECT ADS TAB
+// Admin-created ads for direct clients and internal promotions
 // ============================================
 interface Advertisement {
   id: string
@@ -31,7 +33,7 @@ interface Advertisement {
   createdAt: string
 }
 
-function BasicAdsTab() {
+function DirectAdsTab() {
   const { showToast } = useToast()
   const [ads, setAds] = useState<Advertisement[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -39,6 +41,7 @@ function BasicAdsTab() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingAd, setEditingAd] = useState<Advertisement | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState({
     title: '',
@@ -55,10 +58,12 @@ function BasicAdsTab() {
     fetchAds()
   }, [])
 
-  const fetchAds = async () => {
+  const fetchAds = async (showLoading = true) => {
     try {
-      setIsLoading(true)
-      const response = await fetch('/api/admin/advertisements')
+      if (showLoading) setIsLoading(true)
+      const response = await fetch('/api/admin/advertisements', {
+        cache: 'no-store', // Prevent stale data
+      })
       if (response.ok) {
         const data = await response.json()
         setAds(data.ads || [])
@@ -66,7 +71,7 @@ function BasicAdsTab() {
     } catch (error) {
       console.error('Failed to fetch ads:', error)
     } finally {
-      setIsLoading(false)
+      if (showLoading) setIsLoading(false)
     }
   }
 
@@ -83,6 +88,10 @@ function BasicAdsTab() {
       category: '',
       creativeUrl: '',
     })
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
     setShowCreateModal(true)
   }
 
@@ -99,6 +108,10 @@ function BasicAdsTab() {
       category: ad.category || '',
       creativeUrl: ad.creativeUrl,
     })
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
     setShowCreateModal(true)
   }
 
@@ -123,6 +136,8 @@ function BasicAdsTab() {
 
     try {
       setIsSaving(true)
+      console.log('[DirectAdsTab] Saving advertisement...', { editingAd: editingAd?.id, formData })
+      
       const url = editingAd
         ? `/api/admin/advertisements/${editingAd.id}`
         : '/api/admin/advertisements'
@@ -136,19 +151,54 @@ function BasicAdsTab() {
       if (formData.startDate) submitFormData.append('startDate', formData.startDate)
       if (formData.endDate) submitFormData.append('endDate', formData.endDate)
       if (formData.category) submitFormData.append('category', formData.category)
-      if (formData.creativeUrl && !selectedFile) {
+      // Handle creativeUrl: always send if editing (to preserve existing) or if provided for new ads
+      if (editingAd && !selectedFile) {
+        // When editing: always send creativeUrl to preserve or update it
+        // Use formData.creativeUrl if set, otherwise use existing ad's creativeUrl
+        const urlToSend = formData.creativeUrl || editingAd.creativeUrl || ''
+        if (urlToSend) {
+          submitFormData.append('creativeUrl', urlToSend)
+          console.log('[DirectAdsTab] Sending creativeUrl for update:', urlToSend)
+        }
+      } else if (!editingAd && formData.creativeUrl && !selectedFile) {
+        // For new ads, only send if no file
         submitFormData.append('creativeUrl', formData.creativeUrl)
       }
-      if (selectedFile) submitFormData.append('file', selectedFile)
+      if (selectedFile) {
+        submitFormData.append('file', selectedFile)
+        console.log('[DirectAdsTab] Sending new file:', selectedFile.name)
+      }
 
+      console.log('[DirectAdsTab] Calling API:', method, url)
       const response = await fetch(url, {
         method,
         body: submitFormData,
+        cache: 'no-store',
       })
 
+      console.log('[DirectAdsTab] Response status:', response.status)
+      
       if (!response.ok) {
-        const error = await response.json()
+        const errorText = await response.text()
+        let error
+        try {
+          error = JSON.parse(errorText)
+        } catch {
+          error = { error: errorText || 'Failed to save advertisement' }
+        }
+        console.error('[DirectAdsTab] Save error:', error)
         throw new Error(error.error || 'Failed to save advertisement')
+      }
+
+      const result = await response.json()
+      console.log('[DirectAdsTab] Save successful:', result)
+      const savedAd = result.ad
+
+      // Optimistic update - add/update ad in list immediately
+      if (editingAd) {
+        setAds(prevAds => prevAds.map(ad => ad.id === editingAd.id ? savedAd : ad))
+      } else {
+        setAds(prevAds => [savedAd, ...prevAds])
       }
 
       showToast({
@@ -158,8 +208,27 @@ function BasicAdsTab() {
       })
 
       setShowCreateModal(false)
-      fetchAds()
+      
+      // Reset form
+      setSelectedFile(null)
+      setFormData({
+        title: '',
+        type: 'BANNER',
+        targetUrl: '',
+        status: 'DRAFT',
+        startDate: '',
+        endDate: '',
+        category: '',
+        creativeUrl: '',
+      })
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      
+      // Force refresh to ensure consistency
+      await fetchAds(false)
     } catch (error: any) {
+      console.error('[DirectAdsTab] Save failed:', error)
       showToast({
         type: 'error',
         title: 'Error',
@@ -210,6 +279,10 @@ function BasicAdsTab() {
     }
   }
 
+  const formatTypeLabel = (type: string) => {
+    return type.replace(/_/g, ' ')
+  }
+
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'BANNER':
@@ -235,22 +308,13 @@ function BasicAdsTab() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text-primary">Basic Advertisements</h2>
-          <p className="text-text-secondary mt-1">Legacy ad system - for configuration only</p>
+          <h2 className="text-2xl font-bold text-text-primary">Direct Ads</h2>
+          <p className="text-text-secondary mt-1">Admin-created ads that display immediately when active</p>
         </div>
         <Button variant="primary" onClick={handleCreate}>
-          Create Advertisement
+          Create Direct Ad
         </Button>
       </div>
-
-      <Card>
-        <CardBody>
-          <p className="text-text-secondary mb-4">
-            Manage advertisements for your platform. This is a foundation for future ad revenue.
-            Ads are not displayed on the site yet - this is for configuration only.
-          </p>
-        </CardBody>
-      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {ads.map((ad) => (
@@ -258,9 +322,9 @@ function BasicAdsTab() {
             <CardHeader>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-lg font-bold text-text-primary">{ad.title}</h3>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Badge className={getStatusColor(ad.status)}>{ad.status}</Badge>
-                  <Badge className={getTypeColor(ad.type)}>{ad.type}</Badge>
+                  <Badge className={getTypeColor(ad.type)}>{formatTypeLabel(ad.type)}</Badge>
                 </div>
               </div>
             </CardHeader>
@@ -295,10 +359,10 @@ function BasicAdsTab() {
                 )}
                 <div className="flex items-center gap-4 text-sm text-text-secondary">
                   <span>
-                    <span className="font-semibold">Impressions:</span> {ad.impressions.toLocaleString()}
+                    <span className="font-semibold">Impressions:</span> {(ad.impressions ?? 0).toLocaleString()}
                   </span>
                   <span>
-                    <span className="font-semibold">Clicks:</span> {ad.clicks.toLocaleString()}
+                    <span className="font-semibold">Clicks:</span> {(ad.clicks ?? 0).toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -404,30 +468,99 @@ function BasicAdsTab() {
                   <label className="block text-sm font-medium text-text-secondary mb-2">
                     Creative Image *
                   </label>
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0]
-                      setSelectedFile(file || null)
-                    }}
-                    className="w-full"
-                  />
+                  
+                  {/* File Input */}
+                  <div className="mb-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          setSelectedFile(file)
+                          // Clear URL input when file is selected
+                          setFormData({ ...formData, creativeUrl: '' })
+                        }
+                      }}
+                      className="block w-full text-sm text-text-secondary
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-lg file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-electric-blue file:text-white
+                        file:cursor-pointer file:hover:bg-[#00B8E6]
+                        hover:file:bg-[#00B8E6]
+                        file:transition-colors
+                        bg-bg-secondary border border-bg-tertiary rounded-lg
+                        cursor-pointer"
+                      id="creative-image-upload"
+                    />
+                    {selectedFile && (
+                      <div className="mt-2 p-2 bg-bg-secondary rounded-lg border border-bg-tertiary">
+                        <p className="text-sm text-text-primary">
+                          <strong>Selected:</strong> {selectedFile.name}
+                        </p>
+                        <p className="text-xs text-text-secondary mt-1">
+                          Size: {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                        {selectedFile.type.startsWith('image/') && (
+                          <div className="mt-2">
+                            <img
+                              src={URL.createObjectURL(selectedFile)}
+                              alt="Preview"
+                              className="w-full h-32 object-cover rounded-lg"
+                            />
+                          </div>
+                        )}
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedFile(null)
+                            if (fileInputRef.current) {
+                              fileInputRef.current.value = ''
+                            }
+                          }}
+                          className="mt-2"
+                        >
+                          Remove File
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* URL Input (only show if no file selected) */}
                   {!selectedFile && (
-                    <div className="mt-2">
+                    <div>
                       <Input
                         value={formData.creativeUrl}
                         onChange={(e) => setFormData({ ...formData, creativeUrl: e.target.value })}
-                        placeholder="Or enter image URL"
+                        placeholder="Or enter image URL (e.g., https://example.com/image.jpg)"
                       />
+                      {formData.creativeUrl && (
+                        <div className="mt-2">
+                          <img
+                            src={formData.creativeUrl}
+                            alt="URL Preview"
+                            className="w-full h-32 object-cover rounded-lg"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
-                  {editingAd && editingAd.creativeUrl && !selectedFile && (
+
+                  {/* Show current image when editing (if no new file selected) */}
+                  {editingAd && editingAd.creativeUrl && !selectedFile && !formData.creativeUrl && (
                     <div className="mt-2">
+                      <p className="text-sm text-text-secondary mb-2">Current Image:</p>
                       <img
                         src={editingAd.creativeUrl}
                         alt="Current creative"
-                        className="w-full h-32 object-cover rounded-lg"
+                        className="w-full h-32 object-cover rounded-lg border border-bg-tertiary"
                       />
                     </div>
                   )}
@@ -505,6 +638,7 @@ interface Campaign {
   startDate: string
   endDate: string
   createdAt: string
+  rejectionReason?: string
   advertiser?: {
     companyName: string
   }
@@ -523,22 +657,43 @@ function PlatformAdsTab() {
   const fetchData = async () => {
     try {
       setIsLoading(true)
+      console.log('[AdvertiserCampaigns] Fetching fresh campaign data...')
       const [campaignsRes, settingsRes] = await Promise.all([
-        fetch('/api/admin/campaigns?type=PLATFORM_ADS'),
-        fetch('/api/admin/settings'),
+        fetch('/api/admin/campaigns?type=PLATFORM_ADS', {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+          },
+        }),
+        fetch('/api/admin/settings', {
+          cache: 'no-store',
+        }),
       ])
 
       if (campaignsRes.ok) {
         const data = await campaignsRes.json()
+        console.log('[AdvertiserCampaigns] Fetched campaigns:', data.campaigns?.length || 0)
+        console.log('[AdvertiserCampaigns] Campaign statuses:', data.campaigns?.map((c: Campaign) => ({ id: c.id, name: c.name, status: c.status })))
         setCampaigns(data.campaigns || [])
+      } else {
+        const errorText = await campaignsRes.text().catch(() => 'Unable to read error')
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { error: errorText || `HTTP ${campaignsRes.status}` }
+        }
+        console.error('[AdvertiserCampaigns] Failed to fetch campaigns:', campaignsRes.status, errorData)
       }
 
       if (settingsRes.ok) {
         const settings = await settingsRes.json()
         setPlatformAdsEnabled(settings.ADS_PLATFORM_ENABLED === 'true')
+      } else {
+        console.error('[AdvertiserCampaigns] Failed to fetch settings:', settingsRes.status)
       }
     } catch (error) {
-      console.error('Failed to fetch data:', error)
+      console.error('[AdvertiserCampaigns] Failed to fetch data:', error)
     } finally {
       setIsLoading(false)
     }
@@ -571,14 +726,272 @@ function PlatformAdsTab() {
     }
   }
 
+  const handleApproveCampaign = async (id: string) => {
+    try {
+      console.log(`[ApproveCampaign] Approving campaign ${id}...`)
+      const response = await fetch(`/api/admin/campaigns/${id}/approve`, {
+        method: 'POST',
+      })
+
+      console.log(`[ApproveCampaign] Response status: ${response.status}`)
+      console.log(`[ApproveCampaign] Response headers:`, Object.fromEntries(response.headers.entries()))
+
+      if (response.ok) {
+        const data = await response.json()
+        const isActivated = data.campaign?.status === 'ACTIVE'
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: isActivated 
+            ? 'Campaign approved and activated (start date reached)' 
+            : 'Campaign approved (will activate when start date is reached)',
+        })
+        fetchData()
+      } else {
+        // Capture raw response text before parsing
+        const contentType = response.headers.get('content-type') || ''
+        const isJson = contentType.includes('application/json')
+        
+        let errorMessage = `Failed to approve campaign (${response.status})`
+        
+        try {
+          const rawResponseText = await response.text()
+          console.error(`[ApproveCampaign] Raw response text:`, rawResponseText)
+          console.error(`[ApproveCampaign] Response Content-Type:`, contentType)
+          
+          if (rawResponseText) {
+            if (isJson) {
+              try {
+                const parsed = JSON.parse(rawResponseText)
+                console.error('[ApproveCampaign] Parsed JSON:', parsed)
+                errorMessage = parsed.error || parsed.message || parsed.detail || rawResponseText
+              } catch (parseError) {
+                console.error('[ApproveCampaign] JSON parse error:', parseError)
+                errorMessage = rawResponseText
+              }
+            } else {
+              errorMessage = rawResponseText
+            }
+          }
+        } catch (textError) {
+          console.error('[ApproveCampaign] Error reading response text:', textError)
+        }
+        
+        console.error('[ApproveCampaign] Final error message:', errorMessage)
+        
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: errorMessage,
+        })
+        
+        // Refresh data even on error to sync UI with actual database state
+        console.log('[ApproveCampaign] Refreshing campaign data after error...')
+        await fetchData()
+        console.log('[ApproveCampaign] Campaign data refreshed')
+      }
+    } catch (error: any) {
+      console.error('[ApproveCampaign] Exception:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to approve campaign',
+      })
+    }
+  }
+
+  const handleActivateCampaign = async (id: string) => {
+    try {
+      console.log(`[ActivateCampaign] Activating campaign ${id}...`)
+      const response = await fetch(`/api/admin/campaigns/${id}/activate`, {
+        method: 'POST',
+      })
+
+      console.log(`[ActivateCampaign] Response status: ${response.status}`)
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: 'Campaign activated',
+        })
+        fetchData()
+      } else {
+        // Capture raw response text before parsing
+        const contentType = response.headers.get('content-type') || ''
+        const isJson = contentType.includes('application/json')
+        
+        let rawResponseText = ''
+        let errorData: any = {}
+        
+        try {
+          rawResponseText = await response.text()
+          console.error(`[ActivateCampaign] Raw response text:`, rawResponseText)
+          
+          if (rawResponseText) {
+            if (isJson) {
+              try {
+                errorData = JSON.parse(rawResponseText)
+              } catch (parseError) {
+                console.error('[ActivateCampaign] JSON parse error:', parseError)
+                errorData = { error: rawResponseText || `Failed to activate campaign (${response.status})` }
+              }
+            } else {
+              errorData = { error: rawResponseText || `Failed to activate campaign (${response.status})` }
+            }
+          } else {
+            errorData = { error: `Failed to activate campaign (${response.status})` }
+          }
+        } catch (textError) {
+          console.error('[ActivateCampaign] Error reading response text:', textError)
+          errorData = { error: `Failed to activate campaign (${response.status})` }
+        }
+        
+        const errorMessage = errorData.error || 
+                            errorData.message || 
+                            errorData.detail ||
+                            (rawResponseText && !isJson ? rawResponseText : null) ||
+                            `Failed to activate campaign (${response.status})`
+        
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: errorMessage,
+        })
+      }
+    } catch (error: any) {
+      console.error('[ActivateCampaign] Exception:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to activate campaign',
+      })
+    }
+  }
+
+  const handleRejectCampaign = async (id: string) => {
+    const reason = prompt('Please provide a reason for rejecting this campaign:')
+    if (!reason || reason.trim() === '') {
+      return // User cancelled or entered empty reason
+    }
+
+    try {
+      console.log(`[RejectCampaign] Rejecting campaign ${id}...`)
+      const response = await fetch(`/api/admin/campaigns/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason.trim() }),
+      })
+
+      console.log(`[RejectCampaign] Response status: ${response.status}`)
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: 'Campaign rejected',
+        })
+        fetchData()
+      } else {
+        // Capture raw response text before parsing
+        const contentType = response.headers.get('content-type') || ''
+        const isJson = contentType.includes('application/json')
+        
+        let rawResponseText = ''
+        let errorData: any = {}
+        
+        try {
+          rawResponseText = await response.text()
+          console.error(`[RejectCampaign] Raw response text:`, rawResponseText)
+          
+          if (rawResponseText) {
+            if (isJson) {
+              try {
+                errorData = JSON.parse(rawResponseText)
+              } catch (parseError) {
+                console.error('[RejectCampaign] JSON parse error:', parseError)
+                errorData = { error: rawResponseText || `Failed to reject campaign (${response.status})` }
+              }
+            } else {
+              errorData = { error: rawResponseText || `Failed to reject campaign (${response.status})` }
+            }
+          } else {
+            errorData = { error: `Failed to reject campaign (${response.status})` }
+          }
+        } catch (textError) {
+          console.error('[RejectCampaign] Error reading response text:', textError)
+          errorData = { error: `Failed to reject campaign (${response.status})` }
+        }
+        
+        const errorMessage = errorData.error || 
+                            errorData.message || 
+                            errorData.detail ||
+                            (rawResponseText && !isJson ? rawResponseText : null) ||
+                            `Failed to reject campaign (${response.status})`
+        
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: errorMessage,
+        })
+      }
+    } catch (error: any) {
+      console.error('[RejectCampaign] Exception:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to reject campaign',
+      })
+    }
+  }
+
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null)
+  const [showCampaignModal, setShowCampaignModal] = useState(false)
+  const [campaignDetails, setCampaignDetails] = useState<any>(null)
+  const [isLoadingCampaignDetails, setIsLoadingCampaignDetails] = useState(false)
+
+  const handleViewCampaign = async (id: string) => {
+    try {
+      setIsLoadingCampaignDetails(true)
+      const response = await fetch(`/api/admin/campaigns/${id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setCampaignDetails(data.campaign)
+        setSelectedCampaign(campaigns.find(c => c.id === id) || null)
+        setShowCampaignModal(true)
+      } else {
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: 'Failed to load campaign details',
+        })
+      }
+    } catch (error) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to load campaign details',
+      })
+    } finally {
+      setIsLoadingCampaignDetails(false)
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ACTIVE':
+        return 'bg-cyber-green/20 text-cyber-green'
+      case 'APPROVED':
         return 'bg-cyber-green/20 text-cyber-green'
       case 'SCHEDULED':
         return 'bg-electric-blue/20 text-electric-blue'
       case 'PAUSED':
         return 'bg-neon-orange/20 text-neon-orange'
+      case 'PENDING_REVIEW':
+      case 'PENDING REVIEW':
+        return 'bg-neon-orange/20 text-neon-orange'
+      case 'REJECTED':
+        return 'bg-red-500/20 text-red-500'
       default:
         return 'bg-gray-500/20 text-gray-400'
     }
@@ -596,8 +1009,8 @@ function PlatformAdsTab() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text-primary">Platform Ads</h2>
-          <p className="text-text-secondary mt-1">Manage platform-wide advertising campaigns</p>
+          <h2 className="text-2xl font-bold text-text-primary">Advertiser Campaigns</h2>
+          <p className="text-text-secondary mt-1">Review and manage campaigns from external advertisers</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -618,7 +1031,6 @@ function PlatformAdsTab() {
               {platformAdsEnabled ? 'Enabled' : 'Disabled'}
             </span>
           </div>
-          <Button variant="primary">Create Campaign</Button>
         </div>
       </div>
 
@@ -652,7 +1064,7 @@ function PlatformAdsTab() {
             <Card>
               <CardBody>
                 <div className="text-2xl font-bold text-electric-blue">
-                  ${campaigns.reduce((sum, c) => sum + Number(c.budget), 0).toLocaleString()}
+                  ${campaigns.reduce((sum, c) => sum + Number(c.budget ?? 0), 0).toLocaleString()}
                 </div>
                 <div className="text-text-secondary">Total Budget</div>
               </CardBody>
@@ -675,27 +1087,83 @@ function PlatformAdsTab() {
                       key={campaign.id}
                       className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
                     >
-                      <div>
+                      <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <h4 className="text-lg font-bold text-text-primary">{campaign.name}</h4>
-                          <Badge className={getStatusColor(campaign.status)}>{campaign.status}</Badge>
+                          <Badge className={getStatusColor(campaign.status)}>
+                            {campaign.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ')}
+                          </Badge>
+                          {campaign.advertiser && (
+                            <span className="text-sm text-text-secondary">
+                              by {campaign.advertiser.companyName}
+                            </span>
+                          )}
                         </div>
                         <div className="text-sm text-text-secondary space-y-1">
-                          <p>Budget: ${Number(campaign.budget).toLocaleString()}</p>
+                          <p>Budget: ${Number(campaign.budget ?? 0).toLocaleString()}</p>
                           <p>
                             Duration:{' '}
                             {new Date(campaign.startDate).toLocaleDateString()} -{' '}
                             {new Date(campaign.endDate).toLocaleDateString()}
                           </p>
+                          {campaign.status === 'REJECTED' && campaign.rejectionReason && (
+                            <p className="text-red-400 text-xs mt-1">
+                              Reason: {campaign.rejectionReason}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="secondary" size="sm">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleViewCampaign(campaign.id)}
+                        >
                           View
                         </Button>
-                        <Button variant="secondary" size="sm">
-                          Edit
-                        </Button>
+                        {(campaign.status === 'PENDING_REVIEW' || campaign.status === 'PENDING REVIEW') && (
+                          <>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleApproveCampaign(campaign.id)}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleRejectCampaign(campaign.id)}
+                              className="bg-red-500/20 text-red-500 hover:bg-red-500/30"
+                            >
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                        {campaign.status === 'APPROVED' && (
+                          <>
+                            <Badge className="bg-cyber-green/20 text-cyber-green">
+                              Approved - Waiting for start date
+                            </Badge>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleActivateCampaign(campaign.id)}
+                            >
+                              Activate Now
+                            </Button>
+                          </>
+                        )}
+                        {campaign.status === 'ACTIVE' && (
+                          <Badge className="bg-electric-blue/20 text-electric-blue">
+                            Active
+                          </Badge>
+                        )}
+                        {campaign.status === 'REJECTED' && (
+                          <Badge className="bg-red-500/20 text-red-500">
+                            Rejected
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -703,6 +1171,219 @@ function PlatformAdsTab() {
               )}
             </CardBody>
           </Card>
+
+          {/* Campaign Details Modal */}
+          {showCampaignModal && campaignDetails && (
+            <Modal
+              isOpen={showCampaignModal}
+              onClose={() => {
+                setShowCampaignModal(false)
+                setCampaignDetails(null)
+                setSelectedCampaign(null)
+              }}
+              title={`Campaign Details: ${campaignDetails.name}`}
+              className="max-w-4xl"
+            >
+              {isLoadingCampaignDetails ? (
+                <div className="flex justify-center items-center h-48">
+                  <LoadingSpinner size="lg" />
+                </div>
+              ) : campaignDetails ? (
+                <div className="space-y-6 text-text-primary">
+                  {/* Advertiser Info */}
+                  <Card>
+                    <CardHeader>
+                      <h4 className="text-lg font-bold">Advertiser Information</h4>
+                    </CardHeader>
+                    <CardBody className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm text-text-secondary">Company Name</label>
+                        <p className="font-medium">{campaignDetails.advertiser?.companyName || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm text-text-secondary">Contact Email</label>
+                        <p className="font-medium">{campaignDetails.advertiser?.contactEmail || 'N/A'}</p>
+                      </div>
+                      {campaignDetails.advertiser?.contactName && (
+                        <div>
+                          <label className="text-sm text-text-secondary">Contact Name</label>
+                          <p className="font-medium">{campaignDetails.advertiser.contactName}</p>
+                        </div>
+                      )}
+                      {campaignDetails.advertiser?.contactPhone && (
+                        <div>
+                          <label className="text-sm text-text-secondary">Phone Number</label>
+                          <p className="font-medium">{campaignDetails.advertiser.contactPhone}</p>
+                        </div>
+                      )}
+                    </CardBody>
+                  </Card>
+
+                  {/* Campaign Info */}
+                  <Card>
+                    <CardHeader>
+                      <h4 className="text-lg font-bold">Campaign Information</h4>
+                    </CardHeader>
+                    <CardBody className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm text-text-secondary">Campaign Name</label>
+                        <p className="font-medium">{campaignDetails.name}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm text-text-secondary">Type</label>
+                        <p className="font-medium">{campaignDetails.type}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm text-text-secondary">Category</label>
+                        <p className="font-medium">{campaignDetails.category || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm text-text-secondary">Status</label>
+                        <div className="mt-1">
+                          <Badge className={
+                            campaignDetails.status === 'PENDING_REVIEW' ? 'bg-neon-orange/20 text-neon-orange' :
+                            campaignDetails.status === 'APPROVED' ? 'bg-cyber-green/20 text-cyber-green' :
+                            campaignDetails.status === 'ACTIVE' ? 'bg-electric-blue/20 text-electric-blue' :
+                            campaignDetails.status === 'REJECTED' ? 'bg-red-500/20 text-red-500' :
+                            'bg-gray-500/20 text-gray-400'
+                          }>
+                            {campaignDetails.status === 'PENDING_REVIEW' ? 'PENDING REVIEW' : campaignDetails.status}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm text-text-secondary">Start Date</label>
+                        <p className="font-medium">{new Date(campaignDetails.startDate).toLocaleDateString()}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm text-text-secondary">End Date</label>
+                        <p className="font-medium">{new Date(campaignDetails.endDate).toLocaleDateString()}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm text-text-secondary">Created At</label>
+                        <p className="font-medium">{new Date(campaignDetails.createdAt).toLocaleString()}</p>
+                      </div>
+                      {campaignDetails.approvedAt && (
+                        <div>
+                          <label className="text-sm text-text-secondary">Approved At</label>
+                          <p className="font-medium">{new Date(campaignDetails.approvedAt).toLocaleString()}</p>
+                        </div>
+                      )}
+                    </CardBody>
+                  </Card>
+
+                  {/* Payment Info */}
+                  {campaignDetails.paymentStatus === 'PAID' && (
+                    <Card>
+                      <CardHeader>
+                        <h4 className="text-lg font-bold">Payment Information</h4>
+                      </CardHeader>
+                      <CardBody className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm text-text-secondary">Campaign Budget (Base)</label>
+                          <p className="font-medium text-lg">${Number(campaignDetails.budget).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-text-secondary">Stripe Processing Fee</label>
+                          <p className="font-medium text-lg text-neon-orange">
+                            ${calculateStripeFees(Number(campaignDetails.budget)).fee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-text-secondary">Total Amount Paid</label>
+                          <p className="font-bold text-xl text-cyber-green">
+                            ${calculateStripeFees(Number(campaignDetails.budget)).total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-sm text-text-secondary">Payment Status</label>
+                          <div className="mt-1">
+                            <Badge className={campaignDetails.paymentStatus === 'PAID' ? 'bg-cyber-green/20 text-cyber-green' : 'bg-neon-orange/20 text-neon-orange'}>
+                              {campaignDetails.paymentStatus || 'PENDING'}
+                            </Badge>
+                          </div>
+                        </div>
+                        {campaignDetails.paidAt && (
+                          <div>
+                            <label className="text-sm text-text-secondary">Paid At</label>
+                            <p className="font-medium">{new Date(campaignDetails.paidAt).toLocaleString()}</p>
+                          </div>
+                        )}
+                        {campaignDetails.stripePaymentId && (
+                          <div>
+                            <label className="text-sm text-text-secondary">Stripe Payment ID</label>
+                            <p className="font-medium break-all">{campaignDetails.stripePaymentId}</p>
+                          </div>
+                        )}
+                      </CardBody>
+                    </Card>
+                  )}
+
+                  {/* Creative Assets */}
+                  <Card>
+                    <CardHeader>
+                      <h4 className="text-lg font-bold">Creative Assets</h4>
+                    </CardHeader>
+                    <CardBody className="space-y-4">
+                      {campaignDetails.bannerUrl && (
+                        <div>
+                          <label className="text-sm text-text-secondary">Banner Image</label>
+                          <img src={campaignDetails.bannerUrl} alt="Campaign Banner" className="mt-2 max-w-full h-auto rounded-lg border border-bg-tertiary" />
+                        </div>
+                      )}
+                      {campaignDetails.videoUrl && (
+                        <div>
+                          <label className="text-sm text-text-secondary">Video Preview</label>
+                          <video src={campaignDetails.videoUrl} controls className="mt-2 max-w-full h-auto rounded-lg border border-bg-tertiary" />
+                        </div>
+                      )}
+                      {!campaignDetails.bannerUrl && !campaignDetails.videoUrl && (
+                        <p className="text-text-secondary">No creative assets provided.</p>
+                      )}
+                    </CardBody>
+                  </Card>
+
+                  {/* Campaign Settings */}
+                  <Card>
+                    <CardHeader>
+                      <h4 className="text-lg font-bold">Campaign Settings</h4>
+                    </CardHeader>
+                    <CardBody className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm text-text-secondary">Destination URL</label>
+                        <a href={campaignDetails.destinationUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-electric-blue hover:underline break-all">
+                          {campaignDetails.destinationUrl}
+                        </a>
+                      </div>
+                      <div>
+                        <label className="text-sm text-text-secondary">CTA Text</label>
+                        <p className="font-medium">{campaignDetails.ctaText}</p>
+                      </div>
+                      {campaignDetails.rejectionReason && (
+                        <div className="col-span-2">
+                          <label className="text-sm text-text-secondary">Rejection Reason</label>
+                          <p className="text-text-primary font-medium bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                            {campaignDetails.rejectionReason}
+                          </p>
+                        </div>
+                      )}
+                    </CardBody>
+                  </Card>
+                </div>
+              ) : (
+                <p className="text-text-secondary text-center py-8">Failed to load campaign details.</p>
+              )}
+              <div className="mt-6 flex justify-end">
+                <Button variant="secondary" onClick={() => {
+                  setShowCampaignModal(false)
+                  setCampaignDetails(null)
+                  setSelectedCampaign(null)
+                }}>
+                  Close
+                </Button>
+              </div>
+            </Modal>
+          )}
         </>
       )}
     </div>
@@ -717,22 +1398,19 @@ interface Advertiser {
   companyName: string
   industry: string
   contactEmail: string
+  contactName?: string | null
+  contactPhone?: string | null
+  website?: string | null
+  businessEIN?: string | null
+  companySize?: string | null
+  monthlyAdBudget?: string | null
+  marketingGoals?: string | null
   status: string
   createdAt: string
   approvedAt?: string | null
   rejectionReason?: string | null
   suspendedAt?: string | null
   suspensionReason?: string | null
-}
-
-interface MarketplaceCampaign {
-  id: string
-  name: string
-  status: string
-  advertiser: {
-    companyName: string
-  }
-  createdAt: string
 }
 
 interface Contract {
@@ -764,20 +1442,23 @@ interface Contract {
 
 function CreatorMarketplaceTab() {
   const { showToast } = useToast()
-  const [pendingAdvertisers, setPendingAdvertisers] = useState<Advertiser[]>([])
-  const [approvedAdvertisers, setApprovedAdvertisers] = useState<Advertiser[]>([])
-  const [rejectedAdvertisers, setRejectedAdvertisers] = useState<Advertiser[]>([])
-  const [pendingCampaigns, setPendingCampaigns] = useState<MarketplaceCampaign[]>([])
   const [activeContracts, setActiveContracts] = useState<Contract[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [marketplaceEnabled, setMarketplaceEnabled] = useState(false)
-  const [advertiserSubTab, setAdvertiserSubTab] = useState('pending')
   const [stats, setStats] = useState({
     pendingAdvertisers: 0,
     activeContracts: 0,
     monthlyRevenue: 0,
     totalCreators: 0,
   })
+  const [platformFees, setPlatformFees] = useState({
+    BRONZE: 25,
+    SILVER: 20,
+    GOLD: 15,
+    PLATINUM: 10,
+  })
+  const [isEditingFees, setIsEditingFees] = useState(false)
+  const [feeInputs, setFeeInputs] = useState(platformFees)
 
   useEffect(() => {
     fetchData()
@@ -786,49 +1467,50 @@ function CreatorMarketplaceTab() {
   const fetchData = async () => {
     try {
       setIsLoading(true)
-      const [pendingRes, approvedRes, rejectedRes, campaignsRes, contractsRes, statsRes, settingsRes] = await Promise.all([
-        fetch('/api/admin/advertisers?status=PENDING'),
-        fetch('/api/admin/advertisers?status=APPROVED'),
-        fetch('/api/admin/advertisers?status=REJECTED'),
-        fetch('/api/admin/campaigns?status=PENDING_REVIEW'),
-        fetch('/api/admin/contracts?status=ACTIVE'),
-        fetch('/api/admin/marketplace/stats'),
-        fetch('/api/admin/settings'),
+      const timestamp = Date.now()
+      const [contractsRes, statsRes, settingsRes] = await Promise.all([
+        // Fetch both ACTIVE and SCHEDULED contracts (paid contracts that are ready or active)
+        fetch(`/api/admin/contracts?t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/admin/marketplace/stats?t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/admin/settings?t=${timestamp}`, { cache: 'no-store' }),
       ])
-
-      if (pendingRes.ok) {
-        const data = await pendingRes.json()
-        setPendingAdvertisers(data.advertisers || [])
-      }
-
-      if (approvedRes.ok) {
-        const data = await approvedRes.json()
-        setApprovedAdvertisers(data.advertisers || [])
-      }
-
-      if (rejectedRes.ok) {
-        const data = await rejectedRes.json()
-        setRejectedAdvertisers(data.advertisers || [])
-      }
-
-      if (campaignsRes.ok) {
-        const data = await campaignsRes.json()
-        setPendingCampaigns(data.campaigns || [])
-      }
 
       if (contractsRes.ok) {
         const data = await contractsRes.json()
-        setActiveContracts(data.contracts || [])
+        // Filter to show ACTIVE and SCHEDULED contracts (exclude CANCELLED and COMPLETED)
+        const activeAndScheduled = (data.contracts || []).filter(
+          (c: any) => c.status === 'ACTIVE' || c.status === 'SCHEDULED'
+        )
+        setActiveContracts(activeAndScheduled)
       }
 
       if (statsRes.ok) {
         const data = await statsRes.json()
-        setStats(data)
+        // Stats API should return pendingAdvertisers count, but if not, set to 0
+        setStats({
+          ...data,
+          pendingAdvertisers: data.pendingAdvertisers || 0
+        })
       }
 
       if (settingsRes.ok) {
         const settings = await settingsRes.json()
-        setMarketplaceEnabled(settings.ADS_CREATOR_MARKETPLACE_ENABLED === 'true')
+        const marketplaceValue = settings.ADS_CREATOR_MARKETPLACE_ENABLED
+        const marketplaceEnabled = marketplaceValue === 'true'
+        console.log('[CreatorMarketplace] Fetched ADS_CREATOR_MARKETPLACE_ENABLED:', marketplaceValue, '→ enabled:', marketplaceEnabled)
+        setMarketplaceEnabled(marketplaceEnabled)
+        
+        // Fetch platform fees
+        const fees = {
+          BRONZE: parseInt(settings.CREATOR_FEE_BRONZE || '25', 10),
+          SILVER: parseInt(settings.CREATOR_FEE_SILVER || '20', 10),
+          GOLD: parseInt(settings.CREATOR_FEE_GOLD || '15', 10),
+          PLATINUM: parseInt(settings.CREATOR_FEE_PLATINUM || '10', 10),
+        }
+        setPlatformFees(fees)
+        setFeeInputs(fees)
+      } else {
+        console.error('[CreatorMarketplace] Failed to fetch settings:', settingsRes.status)
       }
     } catch (error) {
       console.error('Failed to fetch data:', error)
@@ -838,24 +1520,44 @@ function CreatorMarketplaceTab() {
   }
 
   const toggleMarketplace = async () => {
+    const newValue = !marketplaceEnabled
+    console.log('[CreatorMarketplace] Toggling to:', newValue)
+    // Optimistically update UI
+    setMarketplaceEnabled(newValue)
+    
     try {
       const response = await fetch('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ADS_CREATOR_MARKETPLACE_ENABLED: (!marketplaceEnabled).toString(),
+          ADS_CREATOR_MARKETPLACE_ENABLED: newValue.toString(),
         }),
       })
 
+      const result = await response.json()
+      console.log('[CreatorMarketplace] Save response:', response.status, result)
+
       if (response.ok) {
-        setMarketplaceEnabled(!marketplaceEnabled)
         showToast({
           type: 'success',
           title: 'Success',
-          description: `Creator Marketplace ${!marketplaceEnabled ? 'enabled' : 'disabled'}`,
+          description: `Creator Marketplace ${newValue ? 'enabled' : 'disabled'}`,
+        })
+        // Refresh data after toggle to ensure state is synced
+        await fetchData()
+      } else {
+        // Revert on error
+        setMarketplaceEnabled(!newValue)
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: result.error || 'Failed to update setting',
         })
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[CreatorMarketplace] Error saving toggle:', error)
+      // Revert on error
+      setMarketplaceEnabled(!newValue)
       showToast({
         type: 'error',
         title: 'Error',
@@ -864,117 +1566,43 @@ function CreatorMarketplaceTab() {
     }
   }
 
-  const handleApproveAdvertiser = async (id: string) => {
-    try {
-      const response = await fetch(`/api/admin/advertisers/${id}/approve`, {
-        method: 'POST',
-      })
 
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Advertiser approved',
-        })
-        fetchData()
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to approve advertiser',
-      })
-    }
-  }
 
-  const handleRejectAdvertiser = async (id: string, reason: string) => {
+  const handleSaveFees = async () => {
     try {
-      const response = await fetch(`/api/admin/advertisers/${id}/reject`, {
+      const response = await fetch('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({
+          CREATOR_FEE_BRONZE: feeInputs.BRONZE.toString(),
+          CREATOR_FEE_SILVER: feeInputs.SILVER.toString(),
+          CREATOR_FEE_GOLD: feeInputs.GOLD.toString(),
+          CREATOR_FEE_PLATINUM: feeInputs.PLATINUM.toString(),
+        }),
       })
 
       if (response.ok) {
+        setPlatformFees(feeInputs)
+        setIsEditingFees(false)
         showToast({
           type: 'success',
-          title: 'Success',
-          description: 'Advertiser rejected',
+          title: 'Platform Fees Updated',
+          description: 'Platform fees have been updated. Changes will apply to new contracts.',
         })
-        fetchData()
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to reject advertiser',
-      })
-    }
-  }
-
-  const handleApproveCampaign = async (id: string) => {
-    try {
-      const response = await fetch(`/api/admin/campaigns/${id}/approve`, {
-        method: 'POST',
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Campaign approved',
-        })
-        fetchData()
       } else {
-        const errorData = await response.json()
+        const error = await response.json()
         showToast({
           type: 'error',
           title: 'Error',
-          description: errorData.error || 'Failed to approve campaign',
+          description: error.error || 'Failed to update platform fees',
         })
       }
     } catch (error) {
+      console.error('Failed to save platform fees:', error)
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Failed to approve campaign',
-      })
-    }
-  }
-
-  const handleRejectCampaign = async (id: string) => {
-    const reason = prompt('Please provide a reason for rejecting this campaign:')
-    if (!reason) {
-      return // User cancelled
-    }
-
-    try {
-      const response = await fetch(`/api/admin/campaigns/${id}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Campaign rejected',
-        })
-        fetchData()
-      } else {
-        const errorData = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: errorData.error || 'Failed to reject campaign',
-        })
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to reject campaign',
+        description: 'Failed to update platform fees',
       })
     }
   }
@@ -1084,7 +1712,7 @@ function CreatorMarketplaceTab() {
             <Card>
               <CardBody>
                 <div className="text-2xl font-bold text-electric-blue">
-                  ${stats.monthlyRevenue.toLocaleString()}
+                  ${(stats.monthlyRevenue ?? 0).toLocaleString()}
                 </div>
                 <div className="text-text-secondary">Monthly Revenue</div>
               </CardBody>
@@ -1097,195 +1725,86 @@ function CreatorMarketplaceTab() {
             </Card>
           </div>
 
-          {/* Advertiser Applications with Sub-tabs */}
+          {/* Platform Fees Section */}
           <Card>
             <CardHeader>
-              <h3 className="text-xl font-bold text-text-primary">Advertiser Applications</h3>
-            </CardHeader>
-            <CardBody>
-              <div className="border-b border-bg-tertiary mb-4">
-                <div className="flex gap-1">
-                  {[
-                    { id: 'pending', label: 'Pending', count: pendingAdvertisers.length },
-                    { id: 'approved', label: 'Approved', count: approvedAdvertisers.length },
-                    { id: 'rejected', label: 'Rejected', count: rejectedAdvertisers.length },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setAdvertiserSubTab(tab.id)}
-                      className={`px-4 py-2 font-medium transition-colors relative ${
-                        advertiserSubTab === tab.id
-                          ? 'text-electric-blue'
-                          : 'text-text-secondary hover:text-text-primary'
-                      }`}
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-text-primary">Platform Fees</h3>
+                {!isEditingFees ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setIsEditingFees(true)}
+                  >
+                    Edit Fees
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleSaveFees}
                     >
-                      {tab.label}
-                      {tab.count > 0 && (
-                        <Badge className={`ml-2 ${tab.id === 'pending' ? 'bg-neon-orange/20 text-neon-orange' : tab.id === 'approved' ? 'bg-cyber-green/20 text-cyber-green' : 'bg-red-500/20 text-red-500'}`}>
-                          {tab.count}
-                        </Badge>
-                      )}
-                      {advertiserSubTab === tab.id && (
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-electric-blue" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Pending Tab */}
-              {advertiserSubTab === 'pending' && (
-                <div>
-                  {pendingAdvertisers.length === 0 ? (
-                    <p className="text-text-secondary">No pending applications</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {pendingAdvertisers.map((advertiser) => (
-                        <div
-                          key={advertiser.id}
-                          className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
-                        >
-                          <div>
-                            <h4 className="text-lg font-bold text-text-primary">{advertiser.companyName}</h4>
-                            <div className="text-sm text-text-secondary space-y-1 mt-2">
-                              <p>Industry: {advertiser.industry}</p>
-                              <p>Contact: {advertiser.contactEmail}</p>
-                              <p>Applied: {new Date(advertiser.createdAt).toLocaleDateString()}</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={() => handleApproveAdvertiser(advertiser.id)}
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => {
-                                const reason = prompt('Rejection reason:')
-                                if (reason) handleRejectAdvertiser(advertiser.id, reason)
-                              }}
-                            >
-                              Reject
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Approved Tab */}
-              {advertiserSubTab === 'approved' && (
-                <div>
-                  {approvedAdvertisers.length === 0 ? (
-                    <p className="text-text-secondary">No approved advertisers</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {approvedAdvertisers.map((advertiser) => (
-                        <div
-                          key={advertiser.id}
-                          className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
-                        >
-                          <div>
-                            <h4 className="text-lg font-bold text-text-primary">{advertiser.companyName}</h4>
-                            <div className="text-sm text-text-secondary space-y-1 mt-2">
-                              <p>Industry: {advertiser.industry}</p>
-                              <p>Contact: {advertiser.contactEmail}</p>
-                              <p>Approved: {advertiser.approvedAt ? new Date(advertiser.approvedAt).toLocaleDateString() : 'N/A'}</p>
-                            </div>
-                          </div>
-                          <Badge className="bg-cyber-green/20 text-cyber-green">APPROVED</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Rejected Tab */}
-              {advertiserSubTab === 'rejected' && (
-                <div>
-                  {rejectedAdvertisers.length === 0 ? (
-                    <p className="text-text-secondary">No rejected advertisers</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {rejectedAdvertisers.map((advertiser) => (
-                        <div
-                          key={advertiser.id}
-                          className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
-                        >
-                          <div>
-                            <h4 className="text-lg font-bold text-text-primary">{advertiser.companyName}</h4>
-                            <div className="text-sm text-text-secondary space-y-1 mt-2">
-                              <p>Industry: {advertiser.industry}</p>
-                              <p>Contact: {advertiser.contactEmail}</p>
-                              <p>Rejected: {new Date(advertiser.createdAt).toLocaleDateString()}</p>
-                              {advertiser.rejectionReason && (
-                                <p className="text-neon-orange">Reason: {advertiser.rejectionReason}</p>
-                              )}
-                            </div>
-                          </div>
-                          <Badge className="bg-red-500/20 text-red-500">REJECTED</Badge>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardBody>
-          </Card>
-
-          {/* Pending Campaign Reviews */}
-          <Card>
-            <CardHeader>
-              <h3 className="text-xl font-bold text-text-primary">
-                Pending Campaign Reviews
-                {pendingCampaigns.length > 0 && (
-                  <Badge className="ml-3 bg-neon-orange/20 text-neon-orange">
-                    {pendingCampaigns.length}
-                  </Badge>
+                      Save
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditingFees(false)
+                        setFeeInputs(platformFees) // Reset to current values
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 )}
-              </h3>
+              </div>
             </CardHeader>
             <CardBody>
-              {pendingCampaigns.length === 0 ? (
-                <p className="text-text-secondary">No pending campaigns</p>
-              ) : (
-                <div className="space-y-4">
-                  {pendingCampaigns.map((campaign) => (
-                    <div
-                      key={campaign.id}
-                      className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
-                    >
-                      <div>
-                        <h4 className="text-lg font-bold text-text-primary">{campaign.name}</h4>
-                        <p className="text-sm text-text-secondary">
-                          Advertiser: {campaign.advertiser.companyName}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="primary" 
-                          size="sm"
-                          onClick={() => handleApproveCampaign(campaign.id)}
-                        >
-                          Approve
-                        </Button>
-                        <Button 
-                          variant="danger" 
-                          size="sm"
-                          onClick={() => handleRejectCampaign(campaign.id)}
-                        >
-                          Reject
-                        </Button>
-                      </div>
+              <p className="text-sm text-text-secondary mb-4">
+                Platform fees are deducted from each contract. Higher-tier creators pay lower fees.
+              </p>
+              <div className="grid grid-cols-4 gap-4">
+                {(['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'] as const).map((tier) => (
+                  <div key={tier} className="p-4 bg-bg-secondary rounded-lg border border-bg-tertiary">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-text-primary">{tier}</span>
+                      {isEditingFees ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={feeInputs[tier]}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0
+                              setFeeInputs({ ...feeInputs, [tier]: Math.min(100, Math.max(0, value)) })
+                            }}
+                            className="w-20 px-2 py-1 text-sm"
+                          />
+                          <span className="text-text-secondary">%</span>
+                        </div>
+                      ) : (
+                        <span className="text-lg font-bold text-electric-blue">
+                          {platformFees[tier]}%
+                        </span>
+                      )}
                     </div>
-                  ))}
+                    <div className="text-xs text-text-secondary">
+                      {tier === 'BRONZE' && 'ELO 0-1499'}
+                      {tier === 'SILVER' && 'ELO 1500-1999'}
+                      {tier === 'GOLD' && 'ELO 2000-2499'}
+                      {tier === 'PLATINUM' && 'ELO 2500+'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {isEditingFees && (
+                <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <p className="text-sm text-yellow-400">
+                    ⚠️ Changes will apply to new contracts only. Existing contracts use the fees that were set when they were created.
+                  </p>
                 </div>
               )}
             </CardBody>
@@ -1322,7 +1841,10 @@ function CreatorMarketplaceTab() {
                             <div className="text-sm text-text-secondary space-y-1 mt-2">
                               <p>Campaign: {contract.campaign?.name || 'N/A'}</p>
                               <p>Total Amount: ${Number(contract.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                              <p>Platform Fee: ${Number(contract.platformFee).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                              <p>
+                                Platform Fee: ${Number(contract.platformFee).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
+                                ({((Number(contract.platformFee) / Number(contract.totalAmount)) * 100).toFixed(1)}%)
+                              </p>
                               <p>Creator Payout: ${Number(contract.creatorPayout).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                               <p>Ends: {new Date(contract.endDate).toLocaleDateString()}</p>
                               {contract.payoutSent && contract.payoutDate && (
@@ -1367,6 +1889,7 @@ function CreatorMarketplaceTab() {
           </Card>
         </>
       )}
+
     </div>
   )
 }
@@ -1377,12 +1900,20 @@ function CreatorMarketplaceTab() {
 function AdvertisersManagementTab() {
   const { showToast } = useToast()
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([])
+  const [pendingAdvertisers, setPendingAdvertisers] = useState<Advertiser[]>([])
+  const [approvedAdvertisers, setApprovedAdvertisers] = useState<Advertiser[]>([])
+  const [rejectedAdvertisers, setRejectedAdvertisers] = useState<Advertiser[]>([])
+  const [suspendedAdvertisers, setSuspendedAdvertisers] = useState<Advertiser[]>([])
+  const [advertiserSubTab, setAdvertiserSubTab] = useState('pending')
   const [isLoading, setIsLoading] = useState(true)
   const [selectedAdvertiser, setSelectedAdvertiser] = useState<Advertiser | null>(null)
   const [advertiserStats, setAdvertiserStats] = useState<any>(null)
   const [showStatsModal, setShowStatsModal] = useState(false)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showSuspendModal, setShowSuspendModal] = useState(false)
+  const [showRejectModal, setShowRejectModal] = useState(false)
   const [suspendReason, setSuspendReason] = useState('')
+  const [rejectionReason, setRejectionReason] = useState('')
 
   useEffect(() => {
     fetchAdvertisers()
@@ -1391,16 +1922,49 @@ function AdvertisersManagementTab() {
   const fetchAdvertisers = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/admin/advertisers')
-      if (response.ok) {
-        const data = await response.json()
-        setAdvertisers(data.advertisers || [])
+      const timestamp = Date.now()
+      const [pendingRes, approvedRes, rejectedRes, suspendedRes] = await Promise.all([
+        fetch(`/api/admin/advertisers?status=PENDING&t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/admin/advertisers?status=APPROVED&t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/admin/advertisers?status=REJECTED&t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/admin/advertisers?status=SUSPENDED&t=${timestamp}`, { cache: 'no-store' }),
+      ])
+      
+      if (pendingRes.ok) {
+        const data = await pendingRes.json()
+        setPendingAdvertisers(data.advertisers || [])
+      }
+      
+      if (approvedRes.ok) {
+        const data = await approvedRes.json()
+        setApprovedAdvertisers(data.advertisers || [])
+      }
+      
+      if (rejectedRes.ok) {
+        const data = await rejectedRes.json()
+        setRejectedAdvertisers(data.advertisers || [])
+      }
+      
+      if (suspendedRes.ok) {
+        const data = await suspendedRes.json()
+        setSuspendedAdvertisers(data.advertisers || [])
       }
     } catch (error) {
       console.error('Failed to fetch advertisers:', error)
     } finally {
       setIsLoading(false)
     }
+  }
+  
+  const handleViewDetails = (advertiser: Advertiser) => {
+    setSelectedAdvertiser(advertiser)
+    setShowDetailsModal(true)
+  }
+  
+  const handleRejectClick = (advertiser: Advertiser) => {
+    setSelectedAdvertiser(advertiser)
+    setRejectionReason('')
+    setShowRejectModal(true)
   }
 
   const handleViewStats = async (advertiser: Advertiser) => {
@@ -1473,6 +2037,85 @@ function AdvertisersManagementTab() {
     }
   }
 
+  const handleApproveAdvertiser = async (id: string) => {
+    try {
+      console.log('[AdvertisersManagement] Approving advertiser:', id)
+      const response = await fetch(`/api/admin/advertisers/${id}/approve`, {
+        method: 'POST',
+      })
+
+      const data = await response.json().catch(() => ({}))
+      console.log('[AdvertisersManagement] Approval response:', response.status, data)
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: 'Advertiser approved',
+        })
+        await fetchAdvertisers()
+        console.log('[AdvertisersManagement] Data refreshed after approval')
+      } else {
+        const errorMsg = data.error || `HTTP ${response.status}`
+        console.error('[AdvertisersManagement] Approval failed:', errorMsg)
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: errorMsg,
+        })
+      }
+    } catch (error: any) {
+      console.error('[AdvertisersManagement] Approval error:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to approve advertiser',
+      })
+    }
+  }
+
+  const handleRejectAdvertiser = async (id: string, reason: string) => {
+    try {
+      console.log('[AdvertisersManagement] Rejecting advertiser:', id, 'Reason:', reason)
+      const response = await fetch(`/api/admin/advertisers/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      console.log('[AdvertisersManagement] Rejection response:', response.status, data)
+
+      if (response.ok) {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: 'Advertiser rejected',
+        })
+        setShowRejectModal(false)
+        setRejectionReason('')
+        setSelectedAdvertiser(null)
+        await fetchAdvertisers()
+        console.log('[AdvertisersManagement] Data refreshed after rejection')
+      } else {
+        const errorMsg = data.error || `HTTP ${response.status}`
+        console.error('[AdvertisersManagement] Rejection failed:', errorMsg)
+        showToast({
+          type: 'error',
+          title: 'Error',
+          description: errorMsg,
+        })
+      }
+    } catch (error: any) {
+      console.error('[AdvertisersManagement] Rejection error:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to reject advertiser',
+      })
+    }
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'APPROVED':
@@ -1507,70 +2150,222 @@ function AdvertisersManagementTab() {
         </p>
       </div>
 
+      {/* Advertiser Applications with Sub-tabs */}
       <Card>
         <CardHeader>
-          <h3 className="text-xl font-bold text-text-primary">
-            All Advertisers ({advertisers.length})
-          </h3>
+          <h3 className="text-xl font-bold text-text-primary">Advertiser Applications</h3>
         </CardHeader>
         <CardBody>
-          {advertisers.length === 0 ? (
-            <p className="text-text-secondary">No advertisers found</p>
-          ) : (
-            <div className="space-y-4">
-              {advertisers.map((advertiser) => (
-                <div
-                  key={advertiser.id}
-                  className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
+          <div className="border-b border-bg-tertiary mb-4">
+            <div className="flex gap-1">
+              {[
+                { id: 'pending', label: 'Pending', count: pendingAdvertisers.length },
+                { id: 'approved', label: 'Approved', count: approvedAdvertisers.length },
+                { id: 'rejected', label: 'Rejected', count: rejectedAdvertisers.length },
+                { id: 'suspended', label: 'Suspended', count: suspendedAdvertisers.length },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setAdvertiserSubTab(tab.id)}
+                  className={`px-4 py-2 font-medium transition-colors relative ${
+                    advertiserSubTab === tab.id
+                      ? 'text-electric-blue'
+                      : 'text-text-secondary hover:text-text-primary'
+                  }`}
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h4 className="text-lg font-bold text-text-primary">{advertiser.companyName}</h4>
-                      {getStatusBadge(advertiser.status)}
-                    </div>
-                    <div className="text-sm text-text-secondary space-y-1">
-                      <p>Industry: {advertiser.industry}</p>
-                      <p>Contact: {advertiser.contactEmail}</p>
-                      <p>Joined: {new Date(advertiser.createdAt).toLocaleDateString()}</p>
-                      {advertiser.suspendedAt && (
-                        <p className="text-yellow-500">
-                          Suspended: {new Date(advertiser.suspendedAt).toLocaleDateString()}
-                          {advertiser.suspensionReason && ` - ${advertiser.suspensionReason}`}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleViewStats(advertiser)}
-                    >
-                      View Stats
-                    </Button>
-                    {advertiser.status === 'SUSPENDED' ? (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => handleUnsuspend(advertiser.id)}
-                      >
-                        Unsuspend
-                      </Button>
-                    ) : advertiser.status === 'APPROVED' ? (
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedAdvertiser(advertiser)
-                          setShowSuspendModal(true)
-                        }}
-                      >
-                        Suspend
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <Badge className={`ml-2 ${
+                      tab.id === 'pending' ? 'bg-neon-orange/20 text-neon-orange' : 
+                      tab.id === 'approved' ? 'bg-cyber-green/20 text-cyber-green' : 
+                      tab.id === 'rejected' ? 'bg-red-500/20 text-red-500' :
+                      'bg-yellow-500/20 text-yellow-500'
+                    }`}>
+                      {tab.count}
+                    </Badge>
+                  )}
+                  {advertiserSubTab === tab.id && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-electric-blue" />
+                  )}
+                </button>
               ))}
+            </div>
+          </div>
+
+          {/* Pending Tab */}
+          {advertiserSubTab === 'pending' && (
+            <div>
+              {pendingAdvertisers.length === 0 ? (
+                <p className="text-text-secondary">No pending applications</p>
+              ) : (
+                <div className="space-y-4">
+                  {pendingAdvertisers.map((advertiser) => (
+                    <div
+                      key={advertiser.id}
+                      className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
+                    >
+                      <div>
+                        <h4 className="text-lg font-bold text-text-primary">{advertiser.companyName}</h4>
+                        <div className="text-sm text-text-secondary space-y-1 mt-2">
+                          <p>Industry: {advertiser.industry}</p>
+                          <p>Contact: {advertiser.contactEmail}</p>
+                          <p>Applied: {new Date(advertiser.createdAt).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleViewDetails(advertiser)}
+                        >
+                          View Details
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleApproveAdvertiser(advertiser.id)}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleRejectClick(advertiser)}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Approved Tab */}
+          {advertiserSubTab === 'approved' && (
+            <div>
+              {approvedAdvertisers.length === 0 ? (
+                <p className="text-text-secondary">No approved advertisers</p>
+              ) : (
+                <div className="space-y-4">
+                  {approvedAdvertisers.map((advertiser) => (
+                    <div
+                      key={advertiser.id}
+                      className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
+                    >
+                      <div>
+                        <h4 className="text-lg font-bold text-text-primary">{advertiser.companyName}</h4>
+                        <div className="text-sm text-text-secondary space-y-1 mt-2">
+                          <p>Industry: {advertiser.industry}</p>
+                          <p>Contact: {advertiser.contactEmail}</p>
+                          <p>Approved: {advertiser.approvedAt ? new Date(advertiser.approvedAt).toLocaleDateString() : 'N/A'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-cyber-green/20 text-cyber-green">APPROVED</Badge>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleViewStats(advertiser)}
+                        >
+                          View Stats
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedAdvertiser(advertiser)
+                            setShowSuspendModal(true)
+                          }}
+                        >
+                          Suspend
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Rejected Tab */}
+          {advertiserSubTab === 'rejected' && (
+            <div>
+              {rejectedAdvertisers.length === 0 ? (
+                <p className="text-text-secondary">No rejected advertisers</p>
+              ) : (
+                <div className="space-y-4">
+                  {rejectedAdvertisers.map((advertiser) => (
+                    <div
+                      key={advertiser.id}
+                      className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
+                    >
+                      <div>
+                        <h4 className="text-lg font-bold text-text-primary">{advertiser.companyName}</h4>
+                        <div className="text-sm text-text-secondary space-y-1 mt-2">
+                          <p>Industry: {advertiser.industry}</p>
+                          <p>Contact: {advertiser.contactEmail}</p>
+                          <p>Rejected: {new Date(advertiser.createdAt).toLocaleDateString()}</p>
+                          {advertiser.rejectionReason && (
+                            <p className="text-neon-orange">Reason: {advertiser.rejectionReason}</p>
+                          )}
+                        </div>
+                      </div>
+                      <Badge className="bg-red-500/20 text-red-500">REJECTED</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Suspended Tab */}
+          {advertiserSubTab === 'suspended' && (
+            <div>
+              {suspendedAdvertisers.length === 0 ? (
+                <p className="text-text-secondary">No suspended advertisers</p>
+              ) : (
+                <div className="space-y-4">
+                  {suspendedAdvertisers.map((advertiser) => (
+                    <div
+                      key={advertiser.id}
+                      className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary"
+                    >
+                      <div>
+                        <h4 className="text-lg font-bold text-text-primary">{advertiser.companyName}</h4>
+                        <div className="text-sm text-text-secondary space-y-1 mt-2">
+                          <p>Industry: {advertiser.industry}</p>
+                          <p>Contact: {advertiser.contactEmail}</p>
+                          {advertiser.suspendedAt && (
+                            <p className="text-yellow-500">
+                              Suspended: {new Date(advertiser.suspendedAt).toLocaleDateString()}
+                              {advertiser.suspensionReason && ` - ${advertiser.suspensionReason}`}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-yellow-500/20 text-yellow-500">SUSPENDED</Badge>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleViewStats(advertiser)}
+                        >
+                          View Stats
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleUnsuspend(advertiser.id)}
+                        >
+                          Unsuspend
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </CardBody>
@@ -1610,37 +2405,37 @@ function AdvertisersManagementTab() {
                 </div>
                 <div className="bg-bg-secondary p-4 rounded-lg">
                   <div className="text-2xl font-bold text-electric-blue">
-                    ${advertiserStats.stats.totalSpent.toLocaleString()}
+                    ${(advertiserStats.stats.totalSpent ?? 0).toLocaleString()}
                   </div>
                   <div className="text-sm text-text-secondary">Total Spent</div>
                 </div>
                 <div className="bg-bg-secondary p-4 rounded-lg">
                   <div className="text-2xl font-bold text-text-primary">
-                    {advertiserStats.stats.totalImpressions.toLocaleString()}
+                    {(advertiserStats.stats.totalImpressions ?? 0).toLocaleString()}
                   </div>
                   <div className="text-sm text-text-secondary">Impressions</div>
                 </div>
                 <div className="bg-bg-secondary p-4 rounded-lg">
                   <div className="text-2xl font-bold text-text-primary">
-                    {advertiserStats.stats.totalClicks.toLocaleString()}
+                    {(advertiserStats.stats.totalClicks ?? 0).toLocaleString()}
                   </div>
                   <div className="text-sm text-text-secondary">Clicks</div>
                 </div>
                 <div className="bg-bg-secondary p-4 rounded-lg">
                   <div className="text-2xl font-bold text-cyber-green">
-                    {advertiserStats.stats.clickThroughRate}%
+                    {advertiserStats.stats.clickThroughRate ?? 0}%
                   </div>
                   <div className="text-sm text-text-secondary">CTR</div>
                 </div>
                 <div className="bg-bg-secondary p-4 rounded-lg">
                   <div className="text-2xl font-bold text-purple-400">
-                    {advertiserStats.stats.activeContracts}
+                    {advertiserStats.stats.activeContracts ?? 0}
                   </div>
                   <div className="text-sm text-text-secondary">Active Contracts</div>
                 </div>
                 <div className="bg-bg-secondary p-4 rounded-lg">
                   <div className="text-2xl font-bold text-electric-blue">
-                    ${advertiserStats.stats.totalContractValue.toLocaleString()}
+                    ${(advertiserStats.stats.totalContractValue ?? 0).toLocaleString()}
                   </div>
                   <div className="text-sm text-text-secondary">Contract Value</div>
                 </div>
@@ -1691,6 +2486,232 @@ function AdvertisersManagementTab() {
                   <Button variant="danger" onClick={handleSuspend}>
                     Suspend
                   </Button>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      )}
+
+      {/* Rejection Modal */}
+      {showRejectModal && selectedAdvertiser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="max-w-md w-full mx-4">
+            <CardHeader>
+              <h3 className="text-xl font-bold text-text-primary">
+                Reject Advertiser: {selectedAdvertiser.companyName}
+              </h3>
+            </CardHeader>
+            <CardBody>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    Rejection Reason *
+                  </label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Please provide a reason for rejecting this application..."
+                    rows={4}
+                    className="w-full px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-electric-blue"
+                    required
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setShowRejectModal(false)
+                      setRejectionReason('')
+                      setSelectedAdvertiser(null)
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      if (rejectionReason.trim()) {
+                        handleRejectAdvertiser(selectedAdvertiser.id, rejectionReason.trim())
+                      } else {
+                        showToast({
+                          type: 'error',
+                          title: 'Error',
+                          description: 'Please provide a rejection reason',
+                        })
+                      }
+                    }}
+                    disabled={!rejectionReason.trim()}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      )}
+
+      {/* Details Modal */}
+      {showDetailsModal && selectedAdvertiser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-text-primary">
+                  Application Details: {selectedAdvertiser.companyName}
+                </h3>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setShowDetailsModal(false)
+                    setSelectedAdvertiser(null)
+                  }}
+                >
+                  Close
+                </Button>
+              </div>
+            </CardHeader>
+            <CardBody>
+              <div className="space-y-6">
+                {/* Company Information */}
+                <div>
+                  <h4 className="text-lg font-semibold text-text-primary mb-3">Company Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-text-secondary">Company Name</label>
+                      <p className="text-text-primary font-medium">{selectedAdvertiser.companyName}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-text-secondary">Industry</label>
+                      <p className="text-text-primary font-medium">{selectedAdvertiser.industry}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-text-secondary">Website</label>
+                      <p className="text-text-primary font-medium">
+                        {selectedAdvertiser.website ? (
+                          <a href={selectedAdvertiser.website} target="_blank" rel="noopener noreferrer" className="text-electric-blue hover:underline">
+                            {selectedAdvertiser.website}
+                          </a>
+                        ) : (
+                          <span className="text-text-secondary">Not provided</span>
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-text-secondary">Business EIN</label>
+                      <p className="text-text-primary font-medium">
+                        {selectedAdvertiser.businessEIN || <span className="text-text-secondary">Not provided</span>}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-text-secondary">Company Size</label>
+                      <p className="text-text-primary font-medium">
+                        {selectedAdvertiser.companySize ? (
+                          selectedAdvertiser.companySize.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+                        ) : (
+                          <span className="text-text-secondary">Not provided</span>
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-text-secondary">Monthly Ad Budget</label>
+                      <p className="text-text-primary font-medium">
+                        {selectedAdvertiser.monthlyAdBudget ? (
+                          selectedAdvertiser.monthlyAdBudget.replace('_', ' - ').replace('UNDER ', '< $').replace('OVER ', '> $').replace(/\b\w/g, l => l.toUpperCase())
+                        ) : (
+                          <span className="text-text-secondary">Not provided</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Information */}
+                <div>
+                  <h4 className="text-lg font-semibold text-text-primary mb-3">Contact Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-text-secondary">Contact Name</label>
+                      <p className="text-text-primary font-medium">
+                        {selectedAdvertiser.contactName || <span className="text-text-secondary">Not provided</span>}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-text-secondary">Contact Email</label>
+                      <p className="text-text-primary font-medium">
+                        <a href={`mailto:${selectedAdvertiser.contactEmail}`} className="text-electric-blue hover:underline">
+                          {selectedAdvertiser.contactEmail}
+                        </a>
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-text-secondary">Contact Phone</label>
+                      <p className="text-text-primary font-medium">
+                        {selectedAdvertiser.contactPhone ? (
+                          <a href={`tel:${selectedAdvertiser.contactPhone}`} className="text-electric-blue hover:underline">
+                            {selectedAdvertiser.contactPhone}
+                          </a>
+                        ) : (
+                          <span className="text-text-secondary">Not provided</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Marketing Goals */}
+                {selectedAdvertiser.marketingGoals && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-text-primary mb-3">Marketing Goals</h4>
+                    <p className="text-text-primary bg-bg-secondary p-4 rounded-lg">
+                      {selectedAdvertiser.marketingGoals}
+                    </p>
+                  </div>
+                )}
+
+                {/* Application Status */}
+                <div>
+                  <h4 className="text-lg font-semibold text-text-primary mb-3">Application Status</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-text-secondary">Status</label>
+                      <div className="mt-1">
+                        {getStatusBadge(selectedAdvertiser.status)}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-text-secondary">Applied Date</label>
+                      <p className="text-text-primary font-medium">
+                        {new Date(selectedAdvertiser.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    {selectedAdvertiser.approvedAt && (
+                      <div>
+                        <label className="text-sm text-text-secondary">Approved Date</label>
+                        <p className="text-text-primary font-medium">
+                          {new Date(selectedAdvertiser.approvedAt).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+                    {selectedAdvertiser.rejectionReason && (
+                      <div className="col-span-2">
+                        <label className="text-sm text-text-secondary">Rejection Reason</label>
+                        <p className="text-text-primary font-medium bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                          {selectedAdvertiser.rejectionReason}
+                        </p>
+                      </div>
+                    )}
+                    {selectedAdvertiser.suspensionReason && (
+                      <div className="col-span-2">
+                        <label className="text-sm text-text-secondary">Suspension Reason</label>
+                        <p className="text-text-primary font-medium bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/20">
+                          {selectedAdvertiser.suspensionReason}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardBody>
@@ -2034,9 +3055,43 @@ export default function AdvertisementsPage() {
   }, [])
 
   const tabs = [
-    { id: 'basic', label: 'Basic Ads', content: <BasicAdsTab /> },
-    { id: 'platform', label: 'Platform Ads', content: <PlatformAdsTab /> },
-    { id: 'marketplace', label: 'Creator Marketplace', content: <CreatorMarketplaceTab /> },
+    { 
+      id: 'basic', 
+      label: 'Direct Ads', 
+      content: (
+        <div>
+          <div className="mb-4 p-4 bg-bg-secondary rounded-lg border border-bg-tertiary">
+            <h3 className="text-lg font-semibold text-text-primary mb-2">Direct Ads</h3>
+            <p className="text-text-secondary text-sm">
+              Create and manage ads directly. These are admin-created ads for direct clients, internal promotions, 
+              or quick campaigns. No advertiser account needed. Ads display immediately when set to Active.
+            </p>
+          </div>
+          <DirectAdsTab />
+        </div>
+      )
+    },
+    { 
+      id: 'platform', 
+      label: 'Advertiser Campaigns', 
+      content: (
+        <div>
+          <div className="mb-4 p-4 bg-bg-secondary rounded-lg border border-bg-tertiary">
+            <h3 className="text-lg font-semibold text-text-primary mb-2">Advertiser Campaigns</h3>
+            <p className="text-text-secondary text-sm">
+              Manage campaigns created by external advertisers. Advertisers apply, get approved, then create campaigns. 
+              You review and approve campaigns before they go live. These are managed advertising relationships.
+            </p>
+          </div>
+          <PlatformAdsTab />
+        </div>
+      )
+    },
+    { 
+      id: 'marketplace', 
+      label: 'Creator Marketplace', 
+      content: <CreatorMarketplaceTab />
+    },
     { id: 'creators', label: 'Creators', content: <CreatorsTab /> },
     { id: 'advertisers', label: 'Advertisers', content: <AdvertisersManagementTab /> },
     { id: 'email', label: 'Email', content: <EmailTemplatesTab /> },

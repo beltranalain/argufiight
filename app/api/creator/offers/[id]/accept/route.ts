@@ -1,33 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
-import { getUserIdFromSession } from '@/lib/auth/session-utils'
+import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
-import { calculatePlatformFee } from '@/lib/ads/helpers'
-import { holdPaymentInEscrow, getOrCreateCustomer } from '@/lib/stripe/stripe-client'
+import { calculateCreatorPayout } from '@/lib/ads/creator-tier'
 
+// POST /api/creator/offers/[id]/accept - Accept an offer and create a contract
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const session = await verifySession()
+    const session = await verifySessionWithDb()
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const userId = getUserIdFromSession(session)
+    const userId = session.userId
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id } = await params
+    const offerId = params.id
 
-    // Get offer
+    // Get the offer
     const offer = await prisma.offer.findUnique({
-      where: { id },
+      where: { id: offerId },
       include: {
         advertiser: true,
-        creator: true,
         campaign: true,
       },
     })
@@ -36,110 +34,86 @@ export async function POST(
       return NextResponse.json({ error: 'Offer not found' }, { status: 404 })
     }
 
+    // Verify the offer belongs to this creator
     if (offer.creatorId !== userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
+    // Check if offer is still pending
     if (offer.status !== 'PENDING') {
       return NextResponse.json(
-        { error: 'Offer is not pending' },
+        { error: `Offer is already ${offer.status.toLowerCase()}` },
         { status: 400 }
       )
     }
 
-    if (new Date(offer.expiresAt) < new Date()) {
+    // Check if offer has expired
+    if (offer.expiresAt && new Date(offer.expiresAt) < new Date()) {
+      // Update offer status to expired
+      await prisma.offer.update({
+        where: { id: offerId },
+        data: { status: 'EXPIRED' },
+      })
+      return NextResponse.json({ error: 'Offer has expired' }, { status: 400 })
+    }
+
+    // Verify advertiser is approved
+    if (offer.advertiser.status !== 'APPROVED') {
       return NextResponse.json(
-        { error: 'Offer has expired' },
+        { error: 'Advertiser is not approved' },
         { status: 400 }
       )
     }
 
-    // Calculate fees
-    const { platformFee, creatorPayout } = await calculatePlatformFee(
-      offer.creator.creatorStatus,
-      Number(offer.amount)
+    // Check if payment has been made (stripePaymentId indicates payment is held in escrow)
+    if (!offer.stripePaymentId) {
+      return NextResponse.json(
+        { error: 'Payment has not been processed yet. The advertiser needs to complete payment before you can accept this offer.' },
+        { status: 402 } // Payment Required
+      )
+    }
+
+    // Calculate platform fee based on creator tier
+    const totalAmount = Number(offer.amount)
+    const { platformFeePercent, platformFee, creatorPayout } = await calculateCreatorPayout(
+      userId,
+      totalAmount
     )
 
-    // Check if payment is already held (contract might exist from checkout)
-    const existingContract = await prisma.adContract.findUnique({
-      where: { offerId: offer.id },
+    // Create the contract (payment already held in escrow from payment verification)
+    const now = new Date()
+    const contract = await prisma.adContract.create({
+      data: {
+        creatorId: userId,
+        advertiserId: offer.advertiserId,
+        campaignId: offer.campaignId,
+        offerId: offerId,
+        placement: offer.placement,
+        startDate: offer.campaign.startDate,
+        endDate: new Date(
+          new Date(offer.campaign.startDate).getTime() + offer.duration * 24 * 60 * 60 * 1000
+        ),
+        totalAmount: offer.amount,
+        platformFee: platformFee,
+        creatorPayout: creatorPayout,
+        status: 'SCHEDULED', // Contract starts as SCHEDULED
+        escrowHeld: true, // Payment already held in escrow
+        stripePaymentId: offer.stripePaymentId, // Use the payment ID from the offer
+        signedAt: now,
+      },
     })
 
-    if (existingContract && existingContract.escrowHeld) {
-      // Contract already exists with payment held (from checkout)
-      // Update offer status
-      await prisma.offer.update({
-        where: { id: offer.id },
-        data: {
-          status: 'ACCEPTED',
-          respondedAt: new Date(),
-        },
-      })
+    // Update offer status to ACCEPTED
+    await prisma.offer.update({
+      where: { id: offerId },
+      data: { status: 'ACCEPTED' },
+    })
 
-      return NextResponse.json({
-        success: true,
-        contract: existingContract,
-        message: 'Contract already exists with payment held',
-      })
-    }
-
-    // Try to hold payment in escrow directly
-    // If this fails (no payment method), advertiser will need to use checkout
-    try {
-      // Get or create Stripe customer for advertiser
-      const customerId = await getOrCreateCustomer(
-        offer.advertiser.id,
-        offer.advertiser.contactEmail
-      )
-
-      // Hold payment in escrow
-      const paymentIntent = await holdPaymentInEscrow(
-        Number(offer.amount),
-        customerId,
-        `Campaign: ${offer.campaign.name}`
-      )
-
-      // Create contract
-      const contract = await prisma.adContract.create({
-        data: {
-          offerId: offer.id,
-          advertiserId: offer.advertiserId,
-          creatorId: offer.creatorId,
-          campaignId: offer.campaignId,
-          placement: offer.placement,
-          totalAmount: offer.amount,
-          platformFee,
-          creatorPayout,
-          startDate: offer.campaign.startDate,
-          endDate: new Date(
-            new Date(offer.campaign.startDate).getTime() + offer.duration * 24 * 60 * 60 * 1000
-          ),
-          status: 'SCHEDULED',
-          escrowHeld: true,
-          stripePaymentId: paymentIntent.id,
-        },
-      })
-
-      // Update offer status
-      await prisma.offer.update({
-        where: { id: offer.id },
-        data: {
-          status: 'ACCEPTED',
-          respondedAt: new Date(),
-        },
-      })
-
-      return NextResponse.json({ success: true, contract })
-    } catch (paymentError: any) {
-      // Payment failed - advertiser needs to use checkout
-      console.error('Failed to process payment directly:', paymentError)
-      return NextResponse.json({
-        success: false,
-        requiresPayment: true,
-        message: 'Advertiser payment required. Please use the checkout portal.',
-        checkoutUrl: `/advertiser/checkout?offerId=${offer.id}`,
-      }, { status: 402 }) // 402 Payment Required
-    }
+    return NextResponse.json({
+      success: true,
+      contract,
+      message: 'Offer accepted. Contract created.',
+    })
   } catch (error: any) {
     console.error('Failed to accept offer:', error)
     return NextResponse.json(
@@ -148,4 +122,3 @@ export async function POST(
     )
   }
 }
-

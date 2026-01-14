@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 
 interface AdDisplayProps {
   placement: 'PROFILE_BANNER' | 'POST_DEBATE' | 'DEBATE_WIDGET' | 'IN_FEED' | 'LEADERBOARD_SPONSORED'
@@ -15,8 +16,9 @@ interface Ad {
   bannerUrl: string
   destinationUrl: string
   ctaText: string
-  contractId: string
-  campaignId: string
+  contractId?: string
+  campaignId?: string
+  adId?: string // For Basic Ads tracking
 }
 
 export function AdDisplay({ placement, userId, debateId, context }: AdDisplayProps) {
@@ -36,13 +38,38 @@ export function AdDisplay({ placement, userId, debateId, context }: AdDisplayPro
       if (debateId) params.append('debateId', debateId)
       if (context) params.append('context', context)
 
-      const response = await fetch(`/api/ads/select?${params.toString()}`)
+      // Try new simple banner API first for PROFILE_BANNER
+      const apiUrl = placement === 'PROFILE_BANNER' 
+        ? '/api/ads/banner' 
+        : `/api/ads/select?${params.toString()}`
+      
+      console.log(`[AdDisplay] Fetching from: ${apiUrl}`)
+      const response = await fetch(apiUrl, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      })
       if (response.ok) {
         const data = await response.json()
+        if (placement === 'PROFILE_BANNER') {
+          console.log('[AdDisplay] API response for PROFILE_BANNER:', JSON.stringify(data, null, 2))
+          console.log('[AdDisplay] API response ad:', data.ad)
+          console.log('[AdDisplay] API response ad is null?', data.ad === null)
+          console.log('[AdDisplay] API response ad is undefined?', data.ad === undefined)
+        }
         setAd(data.ad)
+      } else {
+        if (placement === 'PROFILE_BANNER') {
+          const errorText = await response.text()
+          console.error('[AdDisplay] API error for PROFILE_BANNER:', response.status, errorText)
+        }
       }
     } catch (error) {
       console.error('Failed to fetch ad:', error)
+      if (placement === 'PROFILE_BANNER') {
+        console.error('[AdDisplay] Fetch error for PROFILE_BANNER:', error)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -53,14 +80,23 @@ export function AdDisplay({ placement, userId, debateId, context }: AdDisplayPro
 
     // Track click
     try {
+      const trackData: any = {
+        type: 'CLICK',
+      }
+      
+      // For Basic Ads, use adId; for others use contractId/campaignId
+      if (ad.contractId || ad.campaignId) {
+        if (ad.contractId) trackData.contractId = ad.contractId
+        if (ad.campaignId) trackData.campaignId = ad.campaignId
+      } else {
+        // Basic Ad - use the ad ID
+        trackData.adId = ad.id
+      }
+
       await fetch('/api/ads/track', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contractId: ad.contractId,
-          campaignId: ad.campaignId,
-          type: 'CLICK',
-        }),
+        body: JSON.stringify(trackData),
       })
     } catch (error) {
       console.error('Failed to track click:', error)
@@ -75,14 +111,23 @@ export function AdDisplay({ placement, userId, debateId, context }: AdDisplayPro
 
     // Track impression (only once per view)
     try {
+      const trackData: any = {
+        type: 'IMPRESSION',
+      }
+      
+      // For Basic Ads, use adId; for others use contractId/campaignId
+      if (ad.contractId || ad.campaignId) {
+        if (ad.contractId) trackData.contractId = ad.contractId
+        if (ad.campaignId) trackData.campaignId = ad.campaignId
+      } else {
+        // Basic Ad - use the ad ID
+        trackData.adId = ad.id
+      }
+
       await fetch('/api/ads/track', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contractId: ad.contractId,
-          campaignId: ad.campaignId,
-          type: 'IMPRESSION',
-        }),
+        body: JSON.stringify(trackData),
       })
     } catch (error) {
       console.error('Failed to track impression:', error)
@@ -95,6 +140,33 @@ export function AdDisplay({ placement, userId, debateId, context }: AdDisplayPro
       handleImpression()
     }
   }, [ad])
+
+  // Debug logging for PROFILE_BANNER
+  useEffect(() => {
+    if (placement === 'PROFILE_BANNER') {
+      console.log('[AdDisplay] PROFILE_BANNER state:', {
+        isLoading,
+        hasAd: !!ad,
+        adId: ad?.id,
+        bannerUrl: ad?.bannerUrl,
+        userId,
+        placement,
+      })
+    }
+  }, [placement, isLoading, ad, userId])
+
+  // For PROFILE_BANNER, show loading state or ad, but don't hide completely
+  if (placement === 'PROFILE_BANNER') {
+    if (isLoading) {
+      console.log('[AdDisplay] PROFILE_BANNER is loading...')
+      return null // Still return null while loading
+    }
+    if (!ad) {
+      console.log('[AdDisplay] PROFILE_BANNER has no ad - API returned null')
+      return null
+    }
+    console.log('[AdDisplay] PROFILE_BANNER rendering ad:', ad.id)
+  }
 
   if (isLoading || !ad) {
     return null // Don't show anything if no ad
@@ -115,7 +187,8 @@ export function AdDisplay({ placement, userId, debateId, context }: AdDisplayPro
             <img
               src={ad.bannerUrl}
               alt="Advertisement"
-              className="w-full h-auto object-contain"
+              className="w-full h-auto object-cover max-h-[200px]"
+              style={{ minHeight: '100px' }}
               onLoad={handleImpression}
             />
           </a>
@@ -136,14 +209,9 @@ export function AdDisplay({ placement, userId, debateId, context }: AdDisplayPro
               <img
                 src={ad.bannerUrl}
                 alt="Advertisement"
-                className="w-full h-auto rounded-lg"
+                className="w-full h-auto rounded-lg object-contain max-h-[300px]"
                 onLoad={handleImpression}
               />
-              <div className="mt-3 text-center">
-                <button className="px-6 py-2 bg-electric-blue text-white rounded-lg hover:bg-[#00B8E6] transition-colors">
-                  {ad.ctaText}
-                </button>
-              </div>
             </a>
           </div>
         </Card>
@@ -164,12 +232,9 @@ export function AdDisplay({ placement, userId, debateId, context }: AdDisplayPro
               <img
                 src={ad.bannerUrl}
                 alt="Advertisement"
-                className="w-full h-auto rounded-lg mb-3"
+                className="w-full h-auto rounded-lg object-contain"
                 onLoad={handleImpression}
               />
-              <button className="w-full px-4 py-2 bg-electric-blue text-white rounded-lg hover:bg-[#00B8E6] transition-colors text-sm">
-                {ad.ctaText}
-              </button>
             </a>
           </div>
         </Card>
@@ -188,7 +253,7 @@ export function AdDisplay({ placement, userId, debateId, context }: AdDisplayPro
             <img
               src={ad.bannerUrl}
               alt="Advertisement"
-              className="w-full h-auto"
+              className="w-full h-auto object-contain max-h-[300px]"
               onLoad={handleImpression}
             />
           </a>

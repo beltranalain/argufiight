@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/Badge'
 import { Tabs } from '@/components/ui/Tabs'
+import { AdDisplay } from '@/components/ads/AdDisplay'
 
 interface Debate {
   id: string
@@ -183,11 +184,27 @@ export default function DebatesHistoryPage() {
       return <div className="py-12">{emptyState}</div>
     }
 
+    const items: React.ReactElement[] = []
+    
+    debates.forEach((debate, index) => {
+      // Add debate card
+      items.push(
+        <DebateCard key={debate.id} debate={debate} />
+      )
+      
+      // Add IN_FEED ad every 7th debate (after the 7th, 14th, 21st, etc.)
+      if ((index + 1) % 7 === 0) {
+        items.push(
+          <div key={`ad-${index}`} className="col-span-1 md:col-span-2 lg:col-span-3 my-6">
+            <AdDisplay placement="IN_FEED" context="debates-history" />
+          </div>
+        )
+      }
+    })
+
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {debates.map((debate) => (
-          <DebateCard key={debate.id} debate={debate} />
-        ))}
+        {items}
       </div>
     )
   }

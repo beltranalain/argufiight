@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/hooks/useAuth'
 
@@ -17,12 +17,15 @@ interface Notification {
 
 interface TickerUpdate {
   id: string
-  type: 'BIG_BATTLE' | 'HIGH_VIEWS' | 'MAJOR_UPSET' | 'NEW_VERDICT' | 'STREAK' | 'MILESTONE'
+  type: 'BIG_BATTLE' | 'HIGH_VIEWS' | 'MAJOR_UPSET' | 'NEW_VERDICT' | 'STREAK' | 'MILESTONE' | 'SPONSORED' | 'ADVERTISER'
   title: string
   message: string
   debateId: string | null
   priority: 'high' | 'medium' | 'low'
   createdAt: string
+  destinationUrl?: string
+  adId?: string
+  imageUrl?: string
 }
 
 export function NotificationTicker() {
@@ -30,241 +33,236 @@ export function NotificationTicker() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [tickerUpdates, setTickerUpdates] = useState<TickerUpdate[]>([])
   const [yourTurnUpdate, setYourTurnUpdate] = useState<TickerUpdate | null>(null)
-  const [allItems, setAllItems] = useState<(Notification | TickerUpdate)[]>([])
   const [isPaused, setIsPaused] = useState(false)
-  const tickerRef = useRef<HTMLDivElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
+  const [itemsToShow, setItemsToShow] = useState<(Notification | TickerUpdate)[]>([])
 
-  useEffect(() => {
-    fetchTickerUpdates()
-    const tickerInterval = setInterval(() => {
-      fetchTickerUpdates()
-    }, 60000) // Update ticker every minute
-
-    if (user) {
-      fetchNotifications()
-      checkYourTurn()
-      const notificationInterval = setInterval(() => {
-        fetchNotifications()
-      }, 30000) // Update notifications every 30 seconds
-      const yourTurnInterval = setInterval(() => {
-        checkYourTurn()
-      }, 30000) // Check turn status every 30 seconds
-
-      // Listen for statement submissions to update turn status immediately
-      const handleStatementSubmitted = () => {
-        checkYourTurn()
-      }
-      window.addEventListener('statement-submitted', handleStatementSubmitted)
-
-      return () => {
-        clearInterval(tickerInterval)
-        clearInterval(notificationInterval)
-        clearInterval(yourTurnInterval)
-        window.removeEventListener('statement-submitted', handleStatementSubmitted)
-      }
-    } else {
-      setYourTurnUpdate(null)
-    }
-
-    return () => clearInterval(tickerInterval)
-  }, [user])
-
-  useEffect(() => {
-    // Merge notifications and ticker updates, prioritizing unread notifications
-    const merged: (Notification | TickerUpdate)[] = []
-    
-    // Add "Your Turn" update first (highest priority)
-    if (yourTurnUpdate) {
-      merged.push(yourTurnUpdate)
-    }
-    
-    // Add unread notifications first
-    const unreadNotifications = notifications.filter(n => !n.read)
-    merged.push(...unreadNotifications)
-    
-    // Add ticker updates
-    merged.push(...tickerUpdates)
-    
-    // Add read notifications (less priority)
-    const readNotifications = notifications.filter(n => n.read)
-    merged.push(...readNotifications)
-    
-    // Sort by priority and recency
-    merged.sort((a, b) => {
-      const priorityOrder = { high: 3, medium: 2, low: 1 }
-      const aPriority = 'priority' in a ? (a.priority || 'low') : 'low'
-      const bPriority = 'priority' in b ? (b.priority || 'low') : 'low'
-      const priorityDiff = priorityOrder[bPriority] - priorityOrder[aPriority]
-      if (priorityDiff !== 0) return priorityDiff
-      
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    })
-    
-    setAllItems(merged)
-  }, [notifications, tickerUpdates, yourTurnUpdate])
-
-  useEffect(() => {
-    if (!contentRef.current || allItems.length === 0) return
-
-    // Filter items to show (recent items within last 24 hours)
-    const visibleItems = allItems.filter(
-      item => {
-        const itemDate = new Date(item.createdAt)
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-        return itemDate > oneDayAgo || ('read' in item && !item.read)
-      }
-    ).slice(0, 15)
-
-    if (visibleItems.length === 0) return
-
-    const content = contentRef.current
-    let animationId: number
-    let position = 0
-    const speed = 0.3 // pixels per frame - slower, smoother scroll
-
-    const animate = () => {
-      if (!isPaused && content) {
-        position += speed
-        
-        // Calculate width of one set of items
-        const gap = 16 // gap-4 = 16px
-        let singleSetWidth = 0
-        for (let i = 0; i < visibleItems.length; i++) {
-          const child = content.children[i] as HTMLElement
-          if (child) {
-            singleSetWidth += child.getBoundingClientRect().width + gap
-          }
-        }
-        
-        // Reset when we've scrolled one full set
-        if (position >= singleSetWidth) {
-          position = 0
-        }
-        
-        content.style.transform = `translateX(-${position}px)`
-      }
-      
-      animationId = requestAnimationFrame(animate)
-    }
-
-    animationId = requestAnimationFrame(animate)
-
-    return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId)
-      }
-    }
-  }, [allItems, isPaused])
-
-  const fetchNotifications = async () => {
-    if (!user) return
-
-    try {
-      const response = await fetch('/api/notifications?limit=20')
-      if (response.ok) {
-        const data = await response.json()
-        const fetchedNotifications = Array.isArray(data) ? data : (data.notifications || [])
-        setNotifications(fetchedNotifications)
-      }
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error)
-    }
-  }
-
+  // Fetch ticker updates from API
   const fetchTickerUpdates = async () => {
     try {
-      const response = await fetch('/api/ticker')
+      const response = await fetch(`/api/ticker?t=${Date.now()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+        headers: { 'Cache-Control': 'no-cache' },
+      })
       if (response.ok) {
         const data = await response.json()
-        setTickerUpdates(data.updates || [])
+        const updates = data.updates || []
+        const sponsoredCount = updates.filter((u: any) => u.type === 'SPONSORED').length
+        const advertiserCount = updates.filter((u: any) => u.type === 'ADVERTISER').length
+        console.log('[Ticker] Fetched', updates.length, 'updates -', sponsoredCount, 'sponsored,', advertiserCount, 'advertiser/admin')
+        if (advertiserCount > 0) {
+          console.log('[Ticker] Advertiser/Admin updates:', updates.filter((u: any) => u.type === 'ADVERTISER').map((u: any) => ({ title: u.title, message: u.message })))
+        }
+        setTickerUpdates(updates as TickerUpdate[])
+      } else {
+        console.error('[Ticker] Failed to fetch - status:', response.status)
       }
     } catch (error) {
-      console.error('Failed to fetch ticker updates:', error)
+      console.error('[Ticker] Failed to fetch updates:', error)
     }
   }
 
-  const checkYourTurn = async () => {
-    if (!user) {
-      setYourTurnUpdate(null)
-      return
-    }
+  // Fetch user notifications (include for admin, skip for advertiser)
+  const fetchNotifications = async () => {
+    if (!user) return
+    const path = typeof window !== 'undefined' ? window.location.pathname : ''
+    // Skip notifications for advertiser dashboard, but include for admin
+    if (path.startsWith('/advertiser')) return
 
     try {
-      const response = await fetch(`/api/debates?userId=${user.id}&status=ACTIVE`)
+      const response = await fetch(`/api/notifications?unreadOnly=true&t=${Date.now()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      })
       if (response.ok) {
         const data = await response.json()
-        const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
-        const activeDebate = debates.find((d: any) => d.status === 'ACTIVE')
-        
-        if (activeDebate) {
-          // Fetch full debate details to check statements
-          const detailResponse = await fetch(`/api/debates/${activeDebate.id}`)
-          if (detailResponse.ok) {
-            const fullDebate = await detailResponse.json()
-            
-            // Check if it's user's turn
-            const currentRoundStatements = (fullDebate.statements || []).filter(
-              (s: any) => s.round === fullDebate.currentRound
-            )
-            const challengerSubmitted = currentRoundStatements.some(
-              (s: any) => s.author.id === fullDebate.challenger.id
-            )
-            const opponentSubmitted = fullDebate.opponent && currentRoundStatements.some(
-              (s: any) => s.author.id === fullDebate.opponent.id
-            )
-            const userSubmitted = currentRoundStatements.some(
-              (s: any) => s.author.id === user.id
-            )
-            const isChallenger = user.id === fullDebate.challenger.id
-            const isOpponent = fullDebate.opponent && user.id === fullDebate.opponent.id
-            
-            // Determine if it's user's turn
-            let turnStatus = false
-            if (currentRoundStatements.length === 0 && isChallenger) {
-              turnStatus = true
-            } else if (isChallenger && opponentSubmitted && !challengerSubmitted) {
-              turnStatus = true
-            } else if (isOpponent && challengerSubmitted && !opponentSubmitted) {
-              turnStatus = true
-            }
-            
-            // Only show "Your Turn" if it's their turn AND they haven't submitted
-            if (turnStatus && !userSubmitted) {
-              setYourTurnUpdate({
-                id: `your-turn-${activeDebate.id}-${fullDebate.currentRound}`,
-                type: 'BIG_BATTLE', // Use existing type for orange color
-                title: 'YOUR TURN',
-                message: `Round ${fullDebate.currentRound}/${fullDebate.totalRounds} • ${fullDebate.topic.substring(0, 60)}${fullDebate.topic.length > 60 ? '...' : ''}`,
-                debateId: activeDebate.id,
-                priority: 'high',
-                createdAt: new Date().toISOString(),
-              })
-            } else {
-              setYourTurnUpdate(null)
-            }
-          }
+        setNotifications(Array.isArray(data) ? data : [])
+      }
+    } catch (error) {
+      console.error('[Ticker] Failed to fetch notifications:', error)
+    }
+  }
+
+  // Check if it's user's turn (skip for advertiser/admin)
+  const checkYourTurn = async () => {
+    if (!user) return
+    const path = typeof window !== 'undefined' ? window.location.pathname : ''
+    if (path.startsWith('/advertiser') || path.startsWith('/admin')) return
+
+    try {
+      const response = await fetch('/api/debates/your-turn', {
+        cache: 'no-store',
+        credentials: 'include',
+      })
+      if (response.ok) {
+        const data = await response.json()
+        if (data.hasTurn) {
+          setYourTurnUpdate({
+            id: `your-turn-${data.debateId}`,
+            type: 'BIG_BATTLE',
+            title: 'YOUR TURN',
+            message: `It's your turn in "${data.debateTitle}"`,
+            debateId: data.debateId,
+            priority: 'high',
+            createdAt: new Date().toISOString(),
+          })
         } else {
           setYourTurnUpdate(null)
         }
       }
     } catch (error) {
-      console.error('Failed to check turn status:', error)
-      setYourTurnUpdate(null)
+      console.error('[Ticker] Failed to check your turn:', error)
     }
   }
 
+  // Check if on advertiser dashboard for faster ticker
+  const [isAdvertiserPage, setIsAdvertiserPage] = useState(false)
+
+  useEffect(() => {
+    const path = typeof window !== 'undefined' ? window.location.pathname : ''
+    setIsAdvertiserPage(path.startsWith('/advertiser'))
+  }, [])
+
+  // Combine and filter items
+  useEffect(() => {
+    const path = typeof window !== 'undefined' ? window.location.pathname : ''
+    const isAdvertiser = path.startsWith('/advertiser')
+    const isAdmin = path.startsWith('/admin')
+    
+    console.log('[Ticker] Combining items - path:', path, 'isAdvertiser:', isAdvertiser, 'isAdmin:', isAdmin)
+
+    const combined: (Notification | TickerUpdate)[] = []
+
+    if (isAdvertiser) {
+      // Advertiser dashboard: ONLY advertiser-specific updates and sponsored ads
+      // DO NOT show user notifications, "your turn", or debate updates
+      console.log('[Ticker] Advertiser mode - filtering ticker updates')
+      const advertiserUpdates = tickerUpdates.filter(t => t.type === 'ADVERTISER')
+      const sponsoredAds = tickerUpdates.filter(t => t.type === 'SPONSORED')
+      combined.push(...advertiserUpdates)
+      combined.push(...sponsoredAds)
+      console.log('[Ticker] Advertiser - Added', advertiserUpdates.length, 'advertiser updates and', sponsoredAds.length, 'sponsored ads')
+    } else if (isAdmin) {
+      // Admin dashboard: admin notifications (ADVERTISER type) + sponsored ads + user notifications
+      const adminUpdates = tickerUpdates.filter(t => t.type === 'ADVERTISER')
+      const sponsoredAds = tickerUpdates.filter(t => t.type === 'SPONSORED')
+      // Include unread notifications for admin
+      const unreadNotifications = notifications.filter(n => !n.read)
+      combined.push(...adminUpdates)
+      combined.push(...sponsoredAds)
+      combined.push(...unreadNotifications)
+      console.log('[Ticker] Admin - Added', adminUpdates.length, 'admin updates,', sponsoredAds.length, 'sponsored ads, and', unreadNotifications.length, 'unread notifications')
+    } else {
+      // Regular users: all updates (your turn, notifications, debate updates, sponsored ads)
+      if (yourTurnUpdate) combined.push(yourTurnUpdate)
+      combined.push(...notifications.filter(n => !n.read))
+      combined.push(...tickerUpdates.filter(t => t.type !== 'ADVERTISER'))
+      combined.push(...notifications.filter(n => n.read))
+      console.log('[Ticker] User mode - Added', combined.length, 'items')
+    }
+
+    // Filter: always show sponsored ads and advertiser updates, others must be recent
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    const filtered = combined.filter(item => {
+      if ('type' in item && (item.type === 'SPONSORED' || item.type === 'ADVERTISER')) {
+        return true // Always show ads
+      }
+      const itemDate = new Date(item.createdAt)
+      return itemDate > oneDayAgo || ('read' in item && !item.read)
+    })
+
+    console.log('[Ticker] Final filtered items:', filtered.length)
+    setItemsToShow(filtered.slice(0, 20))
+  }, [notifications, tickerUpdates, yourTurnUpdate])
+
+  // Fetch data on mount
+  useEffect(() => {
+    const path = typeof window !== 'undefined' ? window.location.pathname : ''
+    const isAdvertiserPage = path.startsWith('/advertiser')
+    const isAdminPage = path.startsWith('/admin')
+
+    fetchTickerUpdates()
+    const tickerInterval = setInterval(fetchTickerUpdates, 30000)
+
+    if (user) {
+      if (isAdminPage) {
+        // For admin pages: fetch notifications but not "your turn"
+        fetchNotifications()
+        const notificationInterval = setInterval(fetchNotifications, 30000)
+        return () => {
+          clearInterval(tickerInterval)
+          clearInterval(notificationInterval)
+        }
+      } else if (!isAdvertiserPage) {
+        // For regular user pages: fetch notifications and "your turn"
+        fetchNotifications()
+        checkYourTurn()
+        const notificationInterval = setInterval(fetchNotifications, 30000)
+        const yourTurnInterval = setInterval(checkYourTurn, 30000)
+        return () => {
+          clearInterval(tickerInterval)
+          clearInterval(notificationInterval)
+          clearInterval(yourTurnInterval)
+        }
+      }
+    }
+
+    return () => clearInterval(tickerInterval)
+  }, [user])
+
+  // Track ad clicks
+  const handleAdClick = async (item: TickerUpdate) => {
+    if (item.adId && item.destinationUrl) {
+      try {
+        await fetch('/api/ads/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'CLICK', adId: item.adId }),
+        })
+        window.open(item.destinationUrl, '_blank', 'noopener,noreferrer')
+      } catch (error) {
+        console.error('Failed to track ad click:', error)
+      }
+    }
+  }
+
+  // Track impressions
+  useEffect(() => {
+    const sponsoredItems = itemsToShow.filter(
+      (item): item is TickerUpdate => 'type' in item && item.type === 'SPONSORED' && !!(item as TickerUpdate).adId
+    )
+    
+    if (sponsoredItems.length > 0) {
+      const uniqueAdIds = new Set(sponsoredItems.map(item => item.adId).filter(Boolean))
+      uniqueAdIds.forEach(async (adId) => {
+        try {
+          await fetch('/api/ads/track', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'IMPRESSION', adId }),
+          })
+        } catch (error) {
+          console.error('Failed to track ad impression:', error)
+        }
+      })
+    }
+  }, [itemsToShow])
+
+  // Get item URL
+  const getItemUrl = (item: Notification | TickerUpdate): string => {
+    if ('debateId' in item && item.debateId) {
+      return `/debate/${item.debateId}`
+    }
+    return '/'
+  }
+
+  // Get item color
   const getItemColor = (item: Notification | TickerUpdate): string => {
-    // Handle ticker updates
     if ('priority' in item && !('read' in item)) {
       const tickerUpdate = item as TickerUpdate
       switch (tickerUpdate.type) {
         case 'BIG_BATTLE':
-          // Check if this is a "Your Turn" update
-          if (tickerUpdate.title === 'YOUR TURN') {
-            return 'text-neon-orange font-bold'
-          }
-          return 'text-neon-orange'
+          return tickerUpdate.title === 'YOUR TURN' ? 'text-neon-orange font-bold' : 'text-neon-orange'
         case 'HIGH_VIEWS':
           return 'text-electric-blue'
         case 'MAJOR_UPSET':
@@ -275,67 +273,24 @@ export function NotificationTicker() {
           return 'text-yellow-400'
         case 'MILESTONE':
           return 'text-purple-400'
+        case 'SPONSORED':
+          return 'text-yellow-400 font-semibold'
+        case 'ADVERTISER':
+          return 'text-electric-blue font-semibold'
         default:
           return 'text-electric-blue'
       }
     }
     
-    // Handle notifications
-    const notification = item as Notification
-    const isWin = notification.title.toLowerCase().includes('won') || 
-                  notification.message.toLowerCase().includes('won')
-    const isLoss = notification.title.toLowerCase().includes('lost') || 
-                   notification.message.toLowerCase().includes('lost')
+    if ('read' in item) {
+      return (item as Notification).read ? 'text-text-secondary' : 'text-electric-blue'
+    }
     
-    if (!notification.read) {
-      if (isWin) {
-        return 'text-cyber-green'
-      }
-      if (isLoss) {
-        return 'text-red-400'
-      }
-      
-      switch (notification.type) {
-        case 'YOUR_TURN':
-        case 'DEBATE_TURN':
-        case 'BELT_CHALLENGE':
-          return 'text-neon-orange'
-        case 'VERDICT_READY':
-        case 'DEBATE_COMPLETE':
-          return 'text-cyber-green'
-        case 'APPEAL_SUBMITTED':
-        case 'APPEAL_RESOLVED':
-          return 'text-yellow-400'
-        case 'REMATCH_REQUESTED':
-          return 'text-purple-400'
-        case 'DEBATE_ACCEPTED':
-        case 'NEW_CHALLENGE':
-          return 'text-electric-blue'
-        default:
-          return 'text-electric-blue'
-      }
-    } else {
-      return 'text-text-secondary'
-    }
+    return 'text-text-primary'
   }
 
-  const getItemUrl = (item: Notification | TickerUpdate): string => {
-    if (item.debateId) {
-      return `/debate/${item.debateId}`
-    }
-    return '/dashboard'
-  }
-
-  // Show ticker if there are any items (notifications or ticker updates)
-  const visibleItems = allItems.filter(
-    item => {
-      const itemDate = new Date(item.createdAt)
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-      return itemDate > oneDayAgo || ('read' in item && !item.read)
-    }
-  ).slice(0, 15)
-
-  if (visibleItems.length === 0) {
+  // Don't render if no items
+  if (itemsToShow.length === 0) {
     return null
   }
 
@@ -354,78 +309,84 @@ export function NotificationTicker() {
           </div>
         </div>
 
-        {/* Scrolling notifications */}
-        <div
-          ref={tickerRef}
-          className="flex-1 overflow-hidden ml-14"
-        >
+        {/* Scrolling container */}
+        <div className="flex-1 overflow-hidden ml-14 relative">
           <div
-            ref={contentRef}
-            className="ticker-content flex items-center gap-4 h-full"
-            style={{ width: 'max-content' }}
+            className={`ticker-wrapper flex items-center gap-4 h-full ticker-scroll ${isAdvertiserPage ? 'fast' : ''} ${isPaused ? 'paused' : ''}`}
           >
-            {/* Original items */}
-            {visibleItems.map((item) => (
+            {/* Render items twice for seamless loop */}
+            {[...itemsToShow, ...itemsToShow].map((item, index) => (
               <Link
-                key={item.id}
+                key={`${item.id}-${index}`}
                 href={getItemUrl(item)}
-                className={`flex items-center gap-2 px-3 py-1 transition-colors hover:opacity-80 whitespace-nowrap ${getItemColor(item)} ${('priority' in item && item.priority === 'high' && item.title === 'YOUR TURN') ? 'animate-pulse' : ''}`}
-                onClick={async () => {
+                className={`flex items-center gap-2 px-3 py-1 transition-colors hover:opacity-80 whitespace-nowrap ${getItemColor(item)} ${('priority' in item && item.priority === 'high' && item.title === 'YOUR TURN') ? 'animate-pulse' : ''} ${('type' in item && item.type === 'SPONSORED') ? 'cursor-pointer' : ''}`}
+                onClick={async (e) => {
+                  if ('type' in item && item.type === 'SPONSORED') {
+                    e.preventDefault()
+                    handleAdClick(item as TickerUpdate)
+                    return
+                  }
+                  
                   if ('read' in item && !item.read && user) {
                     try {
-                      await fetch(`/api/notifications/${item.id}/read`, {
-                        method: 'POST',
-                      })
+                      await fetch(`/api/notifications/${item.id}/read`, { method: 'POST' })
                       fetchNotifications()
                     } catch (error) {
                       console.error('Failed to mark notification as read:', error)
                     }
                   }
-                  // Refresh turn status when clicked
                   if ('priority' in item && item.title === 'YOUR TURN') {
                     checkYourTurn()
                   }
                 }}
               >
-                <span className="text-xs font-semibold">
-                  {item.title}
-                </span>
-                <span className="text-[10px] opacity-70">
-                  {item.message}
-                </span>
-                {('priority' in item && item.priority === 'high' && item.title === 'YOUR TURN') && (
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 bg-neon-orange" />
-                )}
-                {'read' in item && !item.read && !('priority' in item && item.title === 'YOUR TURN') && (
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 bg-current" />
-                )}
-              </Link>
-            ))}
-            
-            {/* Duplicate for seamless loop */}
-            {visibleItems.map((item) => (
-              <Link
-                key={`${item.id}-duplicate`}
-                href={getItemUrl(item)}
-                className={`flex items-center gap-2 px-3 py-1 transition-colors hover:opacity-80 whitespace-nowrap ${getItemColor(item)} ${('priority' in item && item.priority === 'high' && item.title === 'YOUR TURN') ? 'animate-pulse' : ''}`}
-              >
-                <span className="text-xs font-semibold">
-                  {item.title}
-                </span>
-                <span className="text-[10px] opacity-70">
-                  {item.message}
-                </span>
-                {('priority' in item && item.priority === 'high' && item.title === 'YOUR TURN') && (
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 bg-neon-orange" />
-                )}
-                {'read' in item && !item.read && !('priority' in item && item.title === 'YOUR TURN') && (
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 bg-current" />
-                )}
+                {/* Render content */}
+                {(() => {
+                  const itemAny = item as any
+                  
+                  // Sponsored ad with image
+                  if (itemAny.type === 'SPONSORED' && itemAny.imageUrl) {
+                    return (
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={itemAny.imageUrl}
+                          alt={itemAny.message || 'Sponsored Advertisement'}
+                          className="h-7 w-auto object-contain max-w-[200px]"
+                        />
+                        {itemAny.destinationUrl && (
+                          <span className="text-[10px] text-text-secondary opacity-70 whitespace-nowrap">
+                            {itemAny.destinationUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  }
+                  
+                  // Regular text content
+                  return (
+                    <>
+                      <span className="text-xs font-semibold">{item.title}</span>
+                      <span className="text-[10px] opacity-70">{item.message}</span>
+                      {('priority' in item && item.priority === 'high' && item.title === 'YOUR TURN') && (
+                        <span className="w-2 h-2 bg-neon-orange rounded-full animate-pulse" />
+                      )}
+                    </>
+                  )
+                })()}
               </Link>
             ))}
           </div>
         </div>
       </div>
+
     </div>
   )
 }
+
+
+
+
+
+
+
+

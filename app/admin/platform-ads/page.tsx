@@ -199,7 +199,7 @@ export default function PlatformAdsPage() {
                               <Badge className={getStatusColor(campaign.status)}>{campaign.status}</Badge>
                             </div>
                             <div className="text-sm text-text-secondary space-y-1">
-                              <p>Budget: ${Number(campaign.budget).toLocaleString()}</p>
+                              <p>Budget: ${Number(campaign.budget ?? 0).toLocaleString()}</p>
                               <p>
                                 Duration:{' '}
                                 {new Date(campaign.startDate).toLocaleDateString()} -{' '}

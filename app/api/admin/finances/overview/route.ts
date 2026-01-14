@@ -302,6 +302,7 @@ export async function GET(request: NextRequest) {
     }
 
     // ===== ADVERTISEMENT REVENUE =====
+    // Get creator marketplace contracts
     const contracts = await prisma.adContract.findMany({
       where: {
         signedAt: { gte: startDate },
@@ -319,11 +320,52 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    // Get Platform Ads campaign payments
+    // Include campaigns that have been paid (paidAt exists and is within date range)
+    const platformAdsCampaigns = await prisma.campaign.findMany({
+      where: {
+        type: 'PLATFORM_ADS',
+        paymentStatus: 'PAID',
+        paidAt: {
+          not: null,
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      include: {
+        advertiser: {
+          select: { companyName: true, contactEmail: true },
+        },
+      },
+    })
+    
+    console.log(`[Finances] Query params: startDate=${startDate.toISOString()}, endDate=${endDate.toISOString()}`)
+    console.log(`[Finances] Found ${platformAdsCampaigns.length} Platform Ads campaigns with paidAt in date range`)
+    
+    // Debug: Check all PAID campaigns to see why some might not be included
+    const allPaidCampaigns = await prisma.campaign.findMany({
+      where: {
+        type: 'PLATFORM_ADS',
+        paymentStatus: 'PAID',
+      },
+      select: {
+        id: true,
+        name: true,
+        paidAt: true,
+        budget: true,
+      },
+    })
+    console.log(`[Finances] Total PAID Platform Ads campaigns: ${allPaidCampaigns.length}`)
+    allPaidCampaigns.forEach(c => {
+      console.log(`[Finances] Campaign ${c.name}: paidAt=${c.paidAt ? c.paidAt.toISOString() : 'NULL'}, budget=$${Number(c.budget)}`)
+    })
+
     let adRevenue = 0
     let platformFees = 0
     let creatorPayouts = 0
     const adTransactions: any[] = []
 
+    // Process creator marketplace contracts
     for (const contract of contracts) {
       const totalAmount = Number(contract.totalAmount)
       const platformFee = Number(contract.platformFee)
@@ -346,6 +388,42 @@ export async function GET(request: NextRequest) {
         status: contract.status,
         payoutSent: contract.payoutSent,
       })
+    }
+
+    // Process Platform Ads campaign payments
+    for (const campaign of platformAdsCampaigns) {
+      const budget = Number(campaign.budget)
+      
+      // Only count campaigns with paidAt in the date range
+      if (campaign.paidAt && campaign.paidAt >= startDate && campaign.paidAt <= endDate) {
+        // For Platform Ads, the entire budget is revenue (no creator payout)
+        // Stripe fees are already included in what advertiser paid
+        adRevenue += budget
+        // Platform keeps 100% of Platform Ads revenue (no creator payout)
+        
+        // Calculate Stripe fee that was paid (for reference)
+        const stripeFee = budget * 0.029 + 0.30
+        const totalPaid = budget + stripeFee
+
+        adTransactions.push({
+          id: campaign.id,
+          type: 'platform_ad',
+          amount: budget,
+          platformFee: 0, // Platform keeps all revenue
+          creatorPayout: 0, // No creator involved
+          stripeFee: stripeFee,
+          totalPaid: totalPaid,
+          date: campaign.paidAt,
+          advertiser: campaign.advertiser,
+          creator: null,
+          campaign: { name: campaign.name },
+          status: campaign.status,
+          payoutSent: false,
+          stripePaymentId: campaign.stripePaymentId,
+        })
+      } else {
+        console.log(`[Finances] Skipping campaign ${campaign.id} - paidAt: ${campaign.paidAt}, startDate: ${startDate}, endDate: ${endDate}`)
+      }
     }
 
     // ===== STRIPE BALANCE =====
@@ -392,7 +470,7 @@ export async function GET(request: NextRequest) {
         },
         advertisements: {
           total: adRevenue,
-          count: contracts.length,
+          count: contracts.length + platformAdsCampaigns.length, // Include both creator contracts and Platform Ads
           transactions: adTransactions,
         },
         total: totalRevenue,

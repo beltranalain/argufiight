@@ -35,14 +35,24 @@ export async function POST(
 
     // Send rejection email
     try {
-      await sendAdvertiserRejectionEmail(
+      console.log(`[Reject Advertiser] Attempting to send rejection email to: ${advertiser.contactEmail}`)
+      const emailSent = await sendAdvertiserRejectionEmail(
         advertiser.contactEmail,
         advertiser.contactName,
         advertiser.companyName,
         reason
       )
-    } catch (emailError) {
-      console.error('Failed to send rejection email (non-blocking):', emailError)
+      if (emailSent) {
+        console.log(`[Reject Advertiser] ✅ Rejection email sent successfully to: ${advertiser.contactEmail}`)
+      } else {
+        console.warn(`[Reject Advertiser] ⚠️  Rejection email failed to send to: ${advertiser.contactEmail}`)
+      }
+    } catch (emailError: any) {
+      console.error('[Reject Advertiser] ❌ Failed to send rejection email:', {
+        error: emailError.message,
+        stack: emailError.stack,
+        to: advertiser.contactEmail,
+      })
       // Don't fail the rejection if email fails
     }
 

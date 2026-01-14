@@ -34,25 +34,37 @@ export function NotificationsModal({ isOpen, onClose }: NotificationsModalProps)
   useEffect(() => {
     if (isOpen) {
       fetchNotifications()
+      // Also refresh after a short delay to catch any new notifications
+      const refreshTimer = setTimeout(() => {
+        fetchNotifications()
+      }, 500)
+      return () => clearTimeout(refreshTimer)
     }
   }, [isOpen])
 
   const fetchNotifications = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch('/api/notifications')
+      const response = await fetch(`/api/notifications?t=${Date.now()}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      })
       if (response.ok) {
         const data = await response.json()
         // Ensure data is an array before using array methods
         const notifications = Array.isArray(data) ? data : []
+        console.log('[NotificationsModal] Fetched notifications:', notifications.length)
         setNotifications(notifications)
         setUnreadCount(notifications.filter((n: Notification) => !n.read).length)
       } else {
+        console.error('[NotificationsModal] Failed to fetch - status:', response.status)
+        const errorData = await response.json().catch(() => ({}))
+        console.error('[NotificationsModal] Error data:', errorData)
         setNotifications([])
         setUnreadCount(0)
       }
     } catch (error) {
-      console.error('Failed to fetch notifications:', error)
+      console.error('[NotificationsModal] Failed to fetch notifications:', error)
       setNotifications([])
       setUnreadCount(0)
     } finally {

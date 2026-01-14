@@ -7,6 +7,7 @@ import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { Badge } from '@/components/ui/Badge'
+import { useToast } from '@/components/ui/Toast'
 import Link from 'next/link'
 
 interface Campaign {
@@ -15,6 +16,7 @@ interface Campaign {
   type: string
   category: string
   status: string
+  paymentStatus?: string | null
   budget: number
   startDate: string
   endDate: string
@@ -36,6 +38,13 @@ const formatStatus = (status: string) => {
     .join(' ')
 }
 
+const formatCampaignType = (type: string) => {
+  return type
+    .split('_')
+    .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'ACTIVE':
@@ -43,6 +52,8 @@ const getStatusColor = (status: string) => {
     case 'SCHEDULED':
       return 'bg-electric-blue/20 text-electric-blue'
     case 'PAUSED':
+      return 'bg-neon-orange/20 text-neon-orange'
+    case 'PENDING_PAYMENT':
       return 'bg-neon-orange/20 text-neon-orange'
     case 'PENDING_REVIEW':
       return 'bg-yellow-500/20 text-yellow-500'
@@ -62,9 +73,12 @@ const getStatusColor = (status: string) => {
 export default function CampaignDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { showToast } = useToast()
   const campaignId = params.id as string
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
 
   useEffect(() => {
     fetchCampaign()
@@ -138,9 +152,183 @@ export default function CampaignDetailPage() {
               </div>
             </div>
             <div className="flex gap-3">
+              {(campaign.status === 'PENDING_PAYMENT' || campaign.paymentStatus === 'PENDING') && (
+                <Button
+                  variant="primary"
+                  onClick={async () => {
+                    try {
+                      setIsProcessingPayment(true)
+                      const response = await fetch(`/api/advertiser/campaigns/payment`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ campaignId: campaign.id }),
+                      })
+                      if (response.ok) {
+                        const data = await response.json()
+                        if (data.checkoutUrl) {
+                          window.location.href = data.checkoutUrl
+                        }
+                      } else {
+                        const error = await response.json()
+                        showToast({
+                          type: 'error',
+                          title: 'Payment Error',
+                          description: error.error || 'Failed to initiate payment',
+                        })
+                      }
+                    } catch (error: any) {
+                      showToast({
+                        type: 'error',
+                        title: 'Error',
+                        description: error.message || 'Failed to process payment',
+                      })
+                    } finally {
+                      setIsProcessingPayment(false)
+                    }
+                  }}
+                  isLoading={isProcessingPayment}
+                >
+                  Pay Now
+                </Button>
+              )}
+              {campaign.paymentStatus === 'PAID' && (campaign as any).paidAt && (
+                <Button
+                  variant="secondary"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(`/api/advertiser/campaigns/${campaign.id}/receipt`)
+                      if (response.ok) {
+                        const data = await response.json()
+                        const receipt = data.receipt
+                        
+                        // Create receipt HTML
+                        const receiptHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Receipt - ${receipt.receiptNumber}</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
+    .header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+    .receipt-number { font-size: 24px; font-weight: bold; }
+    .section { margin: 20px 0; }
+    .section-title { font-weight: bold; font-size: 18px; margin-bottom: 10px; }
+    .row { display: flex; justify-content: space-between; margin: 8px 0; }
+    .label { color: #666; }
+    .value { font-weight: bold; }
+    .total { border-top: 2px solid #333; padding-top: 10px; margin-top: 20px; font-size: 20px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>ARGU FIGHT</h1>
+    <div class="receipt-number">Receipt: ${receipt.receiptNumber}</div>
+    <div>Date: ${new Date(receipt.date).toLocaleString()}</div>
+  </div>
+  
+  <div class="section">
+    <div class="section-title">Advertiser Information</div>
+    <div class="row"><span class="label">Company:</span><span class="value">${receipt.advertiser.companyName}</span></div>
+    <div class="row"><span class="label">Contact:</span><span class="value">${receipt.advertiser.contactName || receipt.advertiser.contactEmail}</span></div>
+    <div class="row"><span class="label">Email:</span><span class="value">${receipt.advertiser.contactEmail}</span></div>
+  </div>
+  
+  <div class="section">
+    <div class="section-title">Campaign Details</div>
+    <div class="row"><span class="label">Campaign:</span><span class="value">${receipt.campaign.name}</span></div>
+    <div class="row"><span class="label">Type:</span><span class="value">${receipt.campaign.type}</span></div>
+    <div class="row"><span class="label">Category:</span><span class="value">${receipt.campaign.category}</span></div>
+    <div class="row"><span class="label">Duration:</span><span class="value">${new Date(receipt.campaign.startDate).toLocaleDateString()} - ${new Date(receipt.campaign.endDate).toLocaleDateString()}</span></div>
+  </div>
+  
+  <div class="section">
+    <div class="section-title">Payment Details</div>
+    <div class="row"><span class="label">Campaign Budget:</span><span class="value">$${receipt.payment.budget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+    <div class="row"><span class="label">Stripe Processing Fee:</span><span class="value">$${receipt.payment.stripeFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+    <div class="row total"><span>Total Paid:</span><span>$${receipt.payment.totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+    <div class="row"><span class="label">Payment ID:</span><span class="value">${receipt.payment.stripePaymentId}</span></div>
+    <div class="row"><span class="label">Paid At:</span><span class="value">${new Date(receipt.payment.paidAt).toLocaleString()}</span></div>
+  </div>
+</body>
+</html>
+                        `
+                        
+                        // Open receipt in new window for printing
+                        const printWindow = window.open('', '_blank')
+                        if (printWindow) {
+                          printWindow.document.write(receiptHTML)
+                          printWindow.document.close()
+                          printWindow.focus()
+                          // Auto-print after a short delay
+                          setTimeout(() => {
+                            printWindow.print()
+                          }, 250)
+                        }
+                      } else {
+                        const error = await response.json()
+                        showToast({
+                          type: 'error',
+                          title: 'Error',
+                          description: error.error || 'Failed to load receipt',
+                        })
+                      }
+                    } catch (error: any) {
+                      showToast({
+                        type: 'error',
+                        title: 'Error',
+                        description: error.message || 'Failed to load receipt',
+                      })
+                    }
+                  }}
+                >
+                  View Receipt
+                </Button>
+              )}
               <Link href={`/advertiser/campaigns/${campaign.id}/analytics`}>
                 <Button variant="secondary">Analytics</Button>
               </Link>
+              {(campaign.status !== 'ACTIVE' && campaign.status !== 'COMPLETED' && campaign.paymentStatus !== 'PAID') && (
+                <Button
+                  variant="secondary"
+                  onClick={async () => {
+                    if (!confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) {
+                      return
+                    }
+                    try {
+                      setIsDeleting(true)
+                      const response = await fetch(`/api/advertiser/campaigns/${campaign.id}`, {
+                        method: 'DELETE',
+                      })
+                      if (response.ok) {
+                        showToast({
+                          type: 'success',
+                          title: 'Campaign Deleted',
+                          description: 'The campaign has been deleted successfully.',
+                        })
+                        router.push('/advertiser/dashboard')
+                      } else {
+                        const error = await response.json()
+                        showToast({
+                          type: 'error',
+                          title: 'Delete Failed',
+                          description: error.error || 'Failed to delete campaign',
+                        })
+                      }
+                    } catch (error: any) {
+                      showToast({
+                        type: 'error',
+                        title: 'Error',
+                        description: error.message || 'Failed to delete campaign',
+                      })
+                    } finally {
+                      setIsDeleting(false)
+                    }
+                  }}
+                  isLoading={isDeleting}
+                >
+                  Delete
+                </Button>
+              )}
               <Button variant="secondary" onClick={() => router.push('/advertiser/dashboard')}>
                 Back to Dashboard
               </Button>
@@ -157,7 +345,7 @@ export default function CampaignDetailPage() {
                 <div>
                   <label className="text-sm font-medium text-text-secondary">Campaign Type</label>
                   <p className="text-text-primary font-semibold mt-1">
-                    {campaign.type.replace(/_/g, ' ')}
+                    {formatCampaignType(campaign.type)}
                   </p>
                 </div>
                 <div>
@@ -167,7 +355,7 @@ export default function CampaignDetailPage() {
                 <div>
                   <label className="text-sm font-medium text-text-secondary">Budget</label>
                   <p className="text-text-primary font-semibold mt-1">
-                    ${Number(campaign.budget).toLocaleString()}
+                    ${Number(campaign.budget ?? 0).toLocaleString()}
                   </p>
                 </div>
                 <div>
@@ -234,7 +422,7 @@ export default function CampaignDetailPage() {
                           Max Budget Per Creator
                         </label>
                         <p className="text-text-primary font-semibold mt-1">
-                          ${Number(campaign.maxBudgetPerCreator).toLocaleString()}
+                          ${Number(campaign.maxBudgetPerCreator ?? 0).toLocaleString()}
                         </p>
                       </div>
                     )}
