@@ -404,9 +404,9 @@ function DirectAdsTab() {
               </div>
             </CardBody>
           </Card>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Create/Edit Modal */}
       {showCreateModal && (
