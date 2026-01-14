@@ -7,7 +7,7 @@ export const revalidate = 0
 // POST /api/debates/[id]/advance-round - Manually advance a debate round
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Optional: Add admin/moderator check if only privileged users should advance rounds
@@ -16,7 +16,7 @@ export async function POST(
     //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     // }
 
-    const debateId = params.id
+    const { id: debateId } = await params
     const result = await advanceDebateRound(debateId)
 
     if (result.skipped) {
