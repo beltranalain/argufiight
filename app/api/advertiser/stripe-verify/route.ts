@@ -34,16 +34,26 @@ export async function POST(request: NextRequest) {
       select: { id: true, stripeAccountId: true },
     })
 
+    console.log('[Stripe Verify] Advertiser lookup:', {
+      email: user.email,
+      advertiserId: advertiser?.id,
+      stripeAccountId: advertiser?.stripeAccountId,
+    })
+
     if (!advertiser) {
+      console.log('[Stripe Verify] Advertiser not found for email:', user.email)
       return NextResponse.json({ error: 'Advertiser account not found' }, { status: 404 })
     }
 
     if (!advertiser.stripeAccountId) {
+      console.log('[Stripe Verify] No stripeAccountId found for advertiser:', advertiser.id)
       return NextResponse.json({
         paymentReady: false,
         message: 'No Stripe account connected',
       })
     }
+
+    console.log('[Stripe Verify] Found stripeAccountId:', advertiser.stripeAccountId)
 
     // Check Stripe account status
     const stripe = await createStripeClient()

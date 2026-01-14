@@ -41,6 +41,14 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    console.log('[API /advertiser/settings] GET - Advertiser data:', {
+      id: advertiser?.id,
+      email: advertiser?.contactEmail,
+      stripeAccountId: advertiser?.stripeAccountId,
+      paymentReady: advertiser?.paymentReady,
+      status: advertiser?.status,
+    })
+
     if (!advertiser) {
       return NextResponse.json({ error: 'Advertiser account not found' }, { status: 404 })
     }

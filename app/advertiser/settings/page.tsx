@@ -164,16 +164,24 @@ export default function AdvertiserSettingsPage() {
   }
 
   const handleStripeConnectSuccess = async () => {
+    // Wait a moment for Stripe to process the account
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    
     // Verify Stripe account status after onboarding
     try {
       console.log('[Settings] Verifying Stripe account after onboarding...')
       const verifyResponse = await fetch('/api/advertiser/stripe-verify', {
         method: 'POST',
+        cache: 'no-store',
       })
+
+      console.log('[Settings] Verify response status:', verifyResponse.status)
 
       if (verifyResponse.ok) {
         const verifyData = await verifyResponse.json()
         console.log('[Settings] Stripe verification result:', verifyData)
+        console.log('[Settings] paymentReady:', verifyData.paymentReady)
+        console.log('[Settings] stripeAccountId:', verifyData.account?.id)
         
         if (verifyData.paymentReady) {
           showToast({
@@ -189,14 +197,27 @@ export default function AdvertiserSettingsPage() {
           })
         }
       } else {
-        console.error('[Settings] Failed to verify Stripe account')
+        const errorData = await verifyResponse.json().catch(() => ({}))
+        console.error('[Settings] Failed to verify Stripe account:', errorData)
+        showToast({
+          type: 'error',
+          title: 'Verification Failed',
+          description: errorData.error || 'Failed to verify Stripe account. Please refresh the page.',
+        })
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Settings] Error verifying Stripe account:', error)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'An error occurred while verifying your account.',
+      })
     }
 
-    // Refresh advertiser data
+    // Refresh advertiser data to get latest stripeAccountId and paymentReady
+    console.log('[Settings] Refreshing advertiser data...')
     await fetchData()
+    console.log('[Settings] Advertiser data refreshed. paymentReady:', advertiser?.paymentReady, 'stripeAccountId:', advertiser?.stripeAccountId)
   }
 
   const handleFinancialConnectionsSuccess = async () => {
