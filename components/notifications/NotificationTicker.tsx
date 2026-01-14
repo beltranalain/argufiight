@@ -156,9 +156,13 @@ export function NotificationTicker() {
       // Regular users: all updates (your turn, notifications, debate updates, sponsored ads)
       if (yourTurnUpdate) combined.push(yourTurnUpdate)
       combined.push(...notifications.filter(n => !n.read))
-      combined.push(...tickerUpdates.filter(t => t.type !== 'ADVERTISER'))
+      // Include all ticker updates EXCEPT ADVERTISER type (but include SPONSORED)
+      const userTickerUpdates = tickerUpdates.filter(t => t.type !== 'ADVERTISER')
+      combined.push(...userTickerUpdates)
+      const sponsoredCount = userTickerUpdates.filter(t => t.type === 'SPONSORED').length
+      console.log('[Ticker] User mode - Added', userTickerUpdates.length, 'ticker updates (', sponsoredCount, 'sponsored ads)')
       combined.push(...notifications.filter(n => n.read))
-      console.log('[Ticker] User mode - Added', combined.length, 'items')
+      console.log('[Ticker] User mode - Total items:', combined.length)
     }
 
     // Filter: always show sponsored ads and advertiser updates, others must be recent

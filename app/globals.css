@@ -276,12 +276,12 @@ span.inline-flex.items-center.bg-gray-600 {
 }
 
 .ticker-scroll {
-  animation: ticker-scroll 120s linear infinite !important;
+  animation: ticker-scroll 180s linear infinite !important;
   will-change: transform;
 }
 
 .ticker-scroll.fast {
-  animation: ticker-scroll 60s linear infinite !important;
+  animation: ticker-scroll 90s linear infinite !important;
 }
 
 .ticker-scroll.paused {
