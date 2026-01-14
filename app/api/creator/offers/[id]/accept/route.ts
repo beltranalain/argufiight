@@ -66,7 +66,7 @@ export async function POST(
     }
 
     // Check if payment has been made (stripePaymentId indicates payment is held in escrow)
-    if (!offer.stripePaymentId) {
+    if (!offer.campaign.stripePaymentId) {
       return NextResponse.json(
         { error: 'Payment has not been processed yet. The advertiser needs to complete payment before you can accept this offer.' },
         { status: 402 } // Payment Required
@@ -98,7 +98,7 @@ export async function POST(
         creatorPayout: creatorPayout,
         status: 'SCHEDULED', // Contract starts as SCHEDULED
         escrowHeld: true, // Payment already held in escrow
-        stripePaymentId: offer.stripePaymentId, // Use the payment ID from the offer
+        stripePaymentId: offer.campaign.stripePaymentId, // Use the payment ID from the campaign
         signedAt: now,
       },
     })

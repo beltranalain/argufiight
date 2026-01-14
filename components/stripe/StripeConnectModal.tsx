@@ -115,15 +115,6 @@ export function StripeConnectModal({
         const instance = await loadConnectAndInitialize({
           publishableKey,
           fetchClientSecret,
-          onLoadError: (error) => {
-            console.error('[StripeConnectModal] Connect.js load error:', error)
-            if (error.type === 'invalid_request_error' && error.message?.includes('account session')) {
-              setError('Failed to initialize payment connection. Please try again. If the problem persists, the account session may have expired.')
-            } else {
-              setError(error.message || 'Failed to initialize payment system')
-            }
-            setIsLoading(false)
-          },
         })
 
         connectInstanceRef.current = instance

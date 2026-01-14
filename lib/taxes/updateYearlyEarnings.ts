@@ -30,7 +30,7 @@ export async function updateCreatorYearlyEarnings(creatorId: string) {
       },
       select: {
         creatorPayout: true,
-        createdAt: true,
+        signedAt: true,
         payoutDate: true,
       },
     })
@@ -39,8 +39,8 @@ export async function updateCreatorYearlyEarnings(creatorId: string) {
     const yearlyEarnings: Record<string, number> = {}
 
     contracts.forEach((contract) => {
-      // Use payoutDate if available, otherwise use createdAt
-      const dateToUse = contract.payoutDate ? new Date(contract.payoutDate) : new Date(contract.createdAt)
+      // Use payoutDate if available, otherwise use signedAt
+      const dateToUse = contract.payoutDate ? new Date(contract.payoutDate) : new Date(contract.signedAt)
       const year = dateToUse.getFullYear()
       const payout = Number(contract.creatorPayout || 0)
       

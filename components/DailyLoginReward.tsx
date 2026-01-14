@@ -20,7 +20,6 @@ export function DailyLoginReward() {
         type: 'success',
         title: 'Daily Login Reward!',
         description: `You earned ${rewardAmount} coins! ${status.streak > 1 ? `(${status.streak} day streak)` : ''}`,
-        duration: 5000,
       })
     } else if (status && !claimed) {
       console.log('[DailyLoginReward Component] Already rewarded today or no reward')

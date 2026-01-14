@@ -14,6 +14,7 @@ interface TickerUpdate {
   destinationUrl?: string
   adId?: string
   imageUrl?: string
+  campaignId?: string
 }
 
 export async function GET(request: NextRequest) {
@@ -207,7 +208,7 @@ export async function GET(request: NextRequest) {
           debateId: null,
           priority: 'medium',
           createdAt: ad.createdAt.toISOString(),
-          destinationUrl: ad.targetUrl || null,
+          destinationUrl: ad.targetUrl || undefined,
           adId: ad.id,
           imageUrl: ad.creativeUrl!,
         })
@@ -305,7 +306,7 @@ export async function GET(request: NextRequest) {
       try {
         // Get the user ID for this advertiser
         const advertiserUser = await prisma.user.findUnique({
-          where: { email: userEmail },
+          where: { email: userEmail || undefined },
           select: { id: true },
         })
 
@@ -432,7 +433,7 @@ export async function GET(request: NextRequest) {
           debateId: null,
           priority: 'medium',
           createdAt: ad.createdAt.toISOString(),
-          destinationUrl: ad.targetUrl || null,
+          destinationUrl: ad.targetUrl || undefined,
           adId: ad.id,
           imageUrl: ad.creativeUrl!,
         })
@@ -841,7 +842,7 @@ export async function GET(request: NextRequest) {
         debateId: null,
         priority: 'medium',
         createdAt: sponsoredAd.createdAt.toISOString(),
-        destinationUrl: sponsoredAd.targetUrl || null,
+        destinationUrl: sponsoredAd.targetUrl || undefined,
         adId: sponsoredAd.id,
         imageUrl: sponsoredAd.creativeUrl!,
       })
@@ -889,7 +890,7 @@ export async function GET(request: NextRequest) {
             debateId: null,
             priority: 'medium',
             createdAt: campaign.createdAt.toISOString(),
-            destinationUrl: campaign.destinationUrl || null,
+            destinationUrl: campaign.destinationUrl || undefined,
             adId: campaign.id,
             campaignId: campaign.id,
             imageUrl: campaign.bannerUrl,

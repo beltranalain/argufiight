@@ -63,7 +63,7 @@ export async function POST(
     }
 
     // Validate counter offer
-    const counterAmount = body.amount ?? originalOffer.amount
+    const counterAmount = body.amount ?? Number(originalOffer.amount)
     const counterDuration = body.duration ?? originalOffer.duration
 
     if (counterAmount <= 0) {

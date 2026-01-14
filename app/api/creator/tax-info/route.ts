@@ -70,7 +70,15 @@ export async function GET(request: NextRequest) {
     console.log('[Tax Info API] Yearly earnings:', yearlyEarnings)
 
     // Always fetch tax forms directly from database
-    let taxForms1099 = []
+    let taxForms1099: Array<{
+      id: any
+      taxYear: any
+      totalCompensation: number
+      status: any
+      pdfUrl: any
+      generatedAt: any
+      sentToCreator: any
+    }> = []
     try {
       console.log('[Tax Info API] Fetching forms for taxInfo.id:', taxInfo.id)
       const forms = await prisma.taxForm1099.findMany({

@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import { updateCreatorYearlyEarnings } from '@/lib/taxes/updateYearlyEarnings'
+import { ContractStatus, Prisma } from '@prisma/client'
 
 /**
  * Update an ad contract and automatically update creator yearly earnings if needed
@@ -11,12 +12,7 @@ import { updateCreatorYearlyEarnings } from '@/lib/taxes/updateYearlyEarnings'
  */
 export async function updateAdContract(
   contractId: string,
-  data: {
-    status?: string
-    payoutSent?: boolean
-    payoutDate?: Date | null
-    [key: string]: any
-  }
+  data: Prisma.AdContractUpdateInput
 ) {
   // Get the contract first to check if we need to update earnings
   const contract = await prisma.adContract.findUnique({
@@ -41,7 +37,7 @@ export async function updateAdContract(
   // Check if we need to update yearly earnings
   const shouldUpdateEarnings =
     // Contract just completed
-    (data.status === 'COMPLETED' && contract.status !== 'COMPLETED') ||
+    ((data.status as any) === 'COMPLETED' && contract.status !== 'COMPLETED') ||
     // Payout just sent
     (data.payoutSent === true && contract.payoutSent !== true) ||
     // Payout date just set
@@ -67,12 +63,7 @@ export async function updateAdContract(
 export async function updateAdContracts(
   updates: Array<{
     contractId: string
-    data: {
-      status?: string
-      payoutSent?: boolean
-      payoutDate?: Date | null
-      [key: string]: any
-    }
+    data: Prisma.AdContractUpdateInput
   }>
 ) {
   const results = []
@@ -95,14 +86,14 @@ export async function updateAdContracts(
 
     const updatedContract = await prisma.adContract.update({
       where: { id: update.contractId },
-      data: update.data,
+      data: update.data as Prisma.AdContractUpdateInput,
     })
 
     results.push(updatedContract)
 
     // Check if we need to update yearly earnings
     const shouldUpdateEarnings =
-      (update.data.status === 'COMPLETED' && contract.status !== 'COMPLETED') ||
+      ((update.data.status as any) === 'COMPLETED' && contract.status !== 'COMPLETED') ||
       (update.data.payoutSent === true && contract.payoutSent !== true) ||
       (update.data.payoutDate && !contract.payoutSent)
 
