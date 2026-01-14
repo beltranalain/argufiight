@@ -8,7 +8,7 @@ import { put } from '@vercel/blob'
 // POST /api/admin/creator-taxes/[creatorId]/1099/[taxYear]/generate - Generate 1099 form
 export async function POST(
   request: NextRequest,
-  { params }: { params: { creatorId: string; taxYear: string } }
+  { params }: { params: Promise<{ creatorId: string; taxYear: string }> }
 ) {
   try {
     const session = await verifySession()
@@ -31,8 +31,8 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const creatorId = params.creatorId
-    const taxYear = parseInt(params.taxYear)
+    const { creatorId, taxYear: taxYearStr } = await params
+    const taxYear = parseInt(taxYearStr)
 
     if (isNaN(taxYear)) {
       return NextResponse.json({ error: 'Invalid tax year' }, { status: 400 })

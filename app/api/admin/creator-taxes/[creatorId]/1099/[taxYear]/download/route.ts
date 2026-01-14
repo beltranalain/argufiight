@@ -7,7 +7,7 @@ import { generate1099PDF } from '@/lib/taxes/generate1099'
 // GET /api/admin/creator-taxes/[creatorId]/1099/[taxYear]/download - Download 1099 PDF
 export async function GET(
   request: NextRequest,
-  { params }: { params: { creatorId: string; taxYear: string } }
+  { params }: { params: Promise<{ creatorId: string; taxYear: string }> }
 ) {
   try {
     const session = await verifySession()
@@ -30,8 +30,8 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const creatorId = params.creatorId
-    const taxYear = parseInt(params.taxYear)
+    const { creatorId, taxYear: taxYearStr } = await params
+    const taxYear = parseInt(taxYearStr)
 
     // Get tax info
     const taxInfo = await prisma.creatorTaxInfo.findUnique({

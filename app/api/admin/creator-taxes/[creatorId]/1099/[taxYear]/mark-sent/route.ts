@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db/prisma'
 // POST /api/admin/creator-taxes/[creatorId]/1099/[taxYear]/mark-sent - Mark 1099 as sent
 export async function POST(
   request: NextRequest,
-  { params }: { params: { creatorId: string; taxYear: string } }
+  { params }: { params: Promise<{ creatorId: string; taxYear: string }> }
 ) {
   try {
     const session = await verifySession()
@@ -29,8 +29,8 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const creatorId = params.creatorId
-    const taxYear = parseInt(params.taxYear)
+    const { creatorId, taxYear: taxYearStr } = await params
+    const taxYear = parseInt(taxYearStr)
 
     // Get tax info
     const taxInfo = await prisma.creatorTaxInfo.findUnique({

@@ -6,7 +6,7 @@ import { generate1099PDF } from '@/lib/taxes/generate1099'
 // GET /api/creator/tax-info/1099/[taxYear]/download - Download 1099 PDF
 export async function GET(
   request: NextRequest,
-  { params }: { params: { taxYear: string } }
+  { params }: { params: Promise<{ taxYear: string }> }
 ) {
   try {
     const session = await verifySessionWithDb()
@@ -19,7 +19,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const taxYear = parseInt(params.taxYear)
+    const { taxYear: taxYearStr } = await params
+    const taxYear = parseInt(taxYearStr)
     if (isNaN(taxYear)) {
       return NextResponse.json({ error: 'Invalid tax year' }, { status: 400 })
     }
