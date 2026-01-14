@@ -70,7 +70,19 @@ function DirectAdsTab() {
         const data = await response.json()
         console.log('[DirectAdsTab] Received data:', data)
         console.log('[DirectAdsTab] Number of ads:', data.ads?.length || 0)
+        console.log('[DirectAdsTab] Ads array:', JSON.stringify(data.ads, null, 2))
+        if (data.ads && data.ads.length > 0) {
+          console.log('[DirectAdsTab] First ad:', {
+            id: data.ads[0].id,
+            title: data.ads[0].title,
+            type: data.ads[0].type,
+            status: data.ads[0].status,
+            creativeUrl: data.ads[0].creativeUrl,
+            targetUrl: data.ads[0].targetUrl,
+          })
+        }
         setAds(data.ads || [])
+        console.log('[DirectAdsTab] State updated, ads.length:', data.ads?.length || 0)
       } else {
         const errorText = await response.text()
         console.error('[DirectAdsTab] API error:', response.status, errorText)
