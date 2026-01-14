@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 // GET /api/creator/contracts/[id] - Get a specific contract
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionWithDb()
@@ -18,7 +18,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const contractId = params.id
+    const { id: contractId } = await params
 
     // Get the contract
     const contract = await prisma.adContract.findUnique({

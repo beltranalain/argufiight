@@ -6,7 +6,7 @@ import { updateAdContract } from '@/lib/ads/contract-helpers'
 // POST /api/creator/contracts/[id]/cancel - Cancel a contract
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionWithDb()
@@ -19,7 +19,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const contractId = params.id
+    const { id: contractId } = await params
     const body = await request.json().catch(() => ({}))
     const cancellationReason = body.reason || 'Cancelled by creator'
 

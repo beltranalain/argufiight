@@ -6,7 +6,7 @@ import { updateAdContract } from '@/lib/ads/contract-helpers'
 // POST /api/creator/contracts/[id]/complete - Mark contract as completed
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionWithDb()
@@ -19,7 +19,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const contractId = params.id
+    const { id: contractId } = await params
 
     // Get the contract
     const contract = await prisma.adContract.findUnique({
