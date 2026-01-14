@@ -323,8 +323,18 @@ function DirectAdsTab() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {ads.map((ad) => (
+      {ads.length === 0 ? (
+        <Card>
+          <CardBody>
+            <div className="text-center py-12">
+              <p className="text-text-secondary text-lg mb-2">No advertisements yet.</p>
+              <p className="text-text-secondary">Create your first ad campaign to get started.</p>
+            </div>
+          </CardBody>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {ads.map((ad) => (
           <Card key={ad.id}>
             <CardHeader>
               <div className="flex items-center justify-between mb-2">
@@ -394,18 +404,9 @@ function DirectAdsTab() {
               </div>
             </CardBody>
           </Card>
-        ))}
+          ))
+        )}
       </div>
-
-      {ads.length === 0 && (
-        <Card>
-          <CardBody>
-            <p className="text-text-secondary text-center py-8">
-              No advertisements yet. Create your first ad campaign to get started.
-            </p>
-          </CardBody>
-        </Card>
-      )}
 
       {/* Create/Edit Modal */}
       {showCreateModal && (
