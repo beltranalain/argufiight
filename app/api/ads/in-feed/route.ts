@@ -11,11 +11,10 @@ export async function GET(request: NextRequest) {
     
     console.log('[API /ads/in-feed] Fetching IN_FEED ads, current time:', now.toISOString())
     
-    const ads = await prisma.advertisement.findMany({
+    const allAds = await prisma.advertisement.findMany({
       where: {
         status: 'ACTIVE',
         type: 'IN_FEED',
-        creativeUrl: { not: null }, // Must have an image
         OR: [
           { startDate: null, endDate: null },
           { startDate: { lte: now }, endDate: { gte: now } },
@@ -24,10 +23,13 @@ export async function GET(request: NextRequest) {
         ],
       },
       orderBy: { createdAt: 'desc' },
-      take: 5,
+      take: 10,
     })
 
-    console.log('[API /ads/in-feed] Found', ads.length, 'active IN_FEED ads')
+    // Filter for ads with images (creativeUrl)
+    const ads = allAds.filter(ad => ad.creativeUrl && ad.creativeUrl.trim() !== '')
+
+    console.log('[API /ads/in-feed] Found', allAds.length, 'active IN_FEED ads,', ads.length, 'with images')
     ads.forEach(ad => {
       console.log('[API /ads/in-feed] Ad:', {
         id: ad.id,
