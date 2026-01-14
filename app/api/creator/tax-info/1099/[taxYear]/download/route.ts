@@ -63,7 +63,7 @@ export async function GET(
       totalCompensation: Number(form1099.totalCompensation),
     })
 
-    return new NextResponse(pdfBuffer.buffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="1099-NEC-${taxYear}.pdf"`,
