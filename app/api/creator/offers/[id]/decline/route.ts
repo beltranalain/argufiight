@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 // POST /api/creator/offers/[id]/decline - Decline an offer
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionWithDb()
@@ -18,7 +18,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const offerId = params.id
+    const { id: offerId } = await params
 
     // Get the offer
     const offer = await prisma.offer.findUnique({

@@ -11,7 +11,7 @@ interface CounterOfferRequest {
 // POST /api/creator/offers/[id]/counter - Counter an offer with new terms
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await verifySessionWithDb()
@@ -24,7 +24,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const offerId = params.id
+    const { id: offerId } = await params
     const body: CounterOfferRequest = await request.json()
 
     // Get the original offer
