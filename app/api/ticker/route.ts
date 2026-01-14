@@ -813,6 +813,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 7. SPONSORED ADS - IN_FEED ads from advertisements table (admin-created)
+    console.log('[Ticker API] Fetching IN_FEED ads, current time:', now.toISOString())
     const inFeedAds = await prisma.advertisement.findMany({
       where: {
         status: 'ACTIVE',
@@ -826,6 +827,19 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { createdAt: 'desc' },
       take: 5,
+    })
+
+    console.log('[Ticker API] Found', inFeedAds.length, 'IN_FEED ads matching criteria')
+    inFeedAds.forEach(ad => {
+      console.log('[Ticker API] IN_FEED ad:', {
+        id: ad.id,
+        title: ad.title,
+        status: ad.status,
+        type: ad.type,
+        startDate: ad.startDate?.toISOString() || 'null',
+        endDate: ad.endDate?.toISOString() || 'null',
+        creativeUrl: ad.creativeUrl ? 'present' : 'missing',
+      })
     })
 
     // Filter for ads with images (creativeUrl)
