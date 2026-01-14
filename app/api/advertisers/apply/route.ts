@@ -162,7 +162,6 @@ export async function POST(request: NextRequest) {
           provider: 'resend',
           endpoint: 'emails.send',
           success: true,
-          cost: 0,
           metadata: { 
             type: 'advertiser_application_confirmation', 
             to: contactEmail,
