@@ -358,31 +358,38 @@ export default function AdvertiserSettingsPage() {
                     <div className="flex-1">
                       <h3 className="font-semibold text-text-primary mb-1">Payment Account</h3>
                       <p className="text-sm text-text-secondary mb-2">
-                        {advertiser.paymentReady
-                          ? 'Account connected. Stripe is processing your account. Payments will be enabled shortly.'
+                        {advertiser.stripeAccountId
+                          ? advertiser.paymentReady
+                            ? 'Account connected. Stripe is processing your account. Payments will be enabled shortly.'
+                            : 'Account connected. Please complete the verification process in Stripe.'
                           : 'Connect your payment account to receive payments'}
                       </p>
-                      {advertiser.paymentReady && advertiser.stripeAccountId && (
+                      {advertiser.stripeAccountId && (
                         <div className="mt-2">
                           <p className="text-xs text-text-secondary">
                             Stripe Account: <code className="bg-bg-tertiary px-1.5 py-0.5 rounded text-electric-blue">{advertiser.stripeAccountId}</code>
                           </p>
                           <a
-                            href={`https://dashboard.stripe.com/test/connect/accounts/overview/${advertiser.stripeAccountId}`}
+                            href={`https://dashboard.stripe.com/${process.env.NEXT_PUBLIC_STRIPE_MODE === 'live' ? '' : 'test/'}connect/accounts/overview/${advertiser.stripeAccountId}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs text-electric-blue hover:underline mt-1 inline-block"
                           >
                             View in Stripe Dashboard →
                           </a>
+                          {!advertiser.paymentReady && (
+                            <p className="text-xs text-neon-orange mt-1">
+                              ⚠️ Account setup incomplete. Click "Manage Account" to complete verification.
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
                     <Button
-                      variant={advertiser.paymentReady ? 'secondary' : 'primary'}
+                      variant={advertiser.stripeAccountId ? 'secondary' : 'primary'}
                       onClick={handleConnectStripe}
                     >
-                      {advertiser.paymentReady ? 'Manage Account' : 'Connect Account'}
+                      {advertiser.stripeAccountId ? 'Manage Account' : 'Connect Account'}
                     </Button>
                   </div>
               </div>
