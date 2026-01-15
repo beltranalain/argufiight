@@ -45,16 +45,23 @@ export async function GET(
     // Check if current user is admin
     let isAdmin = false
     if (currentUserId) {
-      const user = await prisma.user.findUnique({
-        where: { id: currentUserId },
-        select: { isAdmin: true },
-      })
-      isAdmin = user?.isAdmin || false
-      console.log('[API /debates/[id]] Admin check:', {
-        currentUserId,
-        isAdmin,
-        userEmail: user ? 'found' : 'not found',
-      })
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: currentUserId },
+          select: { isAdmin: true, email: true, username: true },
+        })
+        isAdmin = user?.isAdmin || false
+        console.log('[API /debates/[id]] Admin check:', {
+          currentUserId,
+          isAdmin,
+          userEmail: user?.email || 'not found',
+          username: user?.username || 'not found',
+          userFound: !!user,
+        })
+      } catch (adminCheckError) {
+        console.error('[API /debates/[id]] Error checking admin status:', adminCheckError)
+        isAdmin = false
+      }
     } else {
       console.log('[API /debates/[id]] No currentUserId, cannot check admin status')
     }
