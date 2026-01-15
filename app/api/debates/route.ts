@@ -55,6 +55,16 @@ export async function GET(request: NextRequest) {
     // Get current user session for access control
     const session = await verifySession()
     const currentUserId = session ? getUserIdFromSession(session) : null
+    
+    // Check if current user is admin
+    let isAdmin = false
+    if (currentUserId) {
+      const user = await prisma.user.findUnique({
+        where: { id: currentUserId },
+        select: { isAdmin: true },
+      })
+      isAdmin = user?.isAdmin || false
+    }
 
     const where: any = {}
 
@@ -100,10 +110,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Privacy filtering: Exclude private debates unless:
-    // 1. User is a participant (challenger or opponent)
-    // 2. shareToken matches
-    // 3. User is querying their own debates (userId matches currentUserId)
-    if (!shareToken && (!userId || userId !== currentUserId)) {
+    // 1. User is an admin (admins can see all debates)
+    // 2. User is a participant (challenger or opponent)
+    // 3. shareToken matches
+    // 4. User is querying their own debates (userId matches currentUserId)
+    if (isAdmin) {
+      // Admins can see all debates (public and private) - no filter needed
+    } else if (!shareToken && (!userId || userId !== currentUserId)) {
       where.isPrivate = false // Only show public debates in general listings
     } else if (shareToken) {
       // If shareToken is provided, only return debates with matching token
