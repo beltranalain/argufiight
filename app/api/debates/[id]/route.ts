@@ -50,6 +50,13 @@ export async function GET(
         select: { isAdmin: true },
       })
       isAdmin = user?.isAdmin || false
+      console.log('[API /debates/[id]] Admin check:', {
+        currentUserId,
+        isAdmin,
+        userEmail: user ? 'found' : 'not found',
+      })
+    } else {
+      console.log('[API /debates/[id]] No currentUserId, cannot check admin status')
     }
     
     // Try to fetch debate with participants, but handle errors gracefully
@@ -424,12 +431,26 @@ export async function GET(
       )
       const hasValidToken = shareToken && debate.shareToken === shareToken
       
+      console.log('[API /debates/[id]] Private debate access check:', {
+        debateId: id,
+        isPrivate: debate.isPrivate,
+        isAdmin,
+        currentUserId,
+        isParticipant,
+        hasValidToken,
+        challengerId: debate.challengerId,
+        opponentId: debate.opponentId,
+      })
+      
       if (!isParticipant && !hasValidToken) {
+        console.log('[API /debates/[id]] Access denied for private debate')
         return NextResponse.json(
           { error: 'This debate is private. A share token is required to access it.' },
           { status: 403 }
         )
       }
+    } else if (debate.isPrivate && isAdmin) {
+      console.log('[API /debates/[id]] Admin accessing private debate:', id)
     }
 
     // Fetch viewCount separately (Prisma client may not have this field yet)
