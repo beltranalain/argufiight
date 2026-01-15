@@ -429,6 +429,14 @@ export async function GET(
 
     // Check access for private debates
     // Admins can always access private debates
+    console.log('[API /debates/[id]] Privacy check:', {
+      debateId: id,
+      isPrivate: debate.isPrivate,
+      isAdmin,
+      currentUserId,
+      willCheckAccess: debate.isPrivate && !isAdmin,
+    })
+    
     if (debate.isPrivate && !isAdmin) {
       const participants = (debate as any).participants || []
       const isParticipant = currentUserId && (
@@ -450,14 +458,16 @@ export async function GET(
       })
       
       if (!isParticipant && !hasValidToken) {
-        console.log('[API /debates/[id]] Access denied for private debate')
+        console.log('[API /debates/[id]] Access denied for private debate - not admin, not participant, no token')
         return NextResponse.json(
           { error: 'This debate is private. A share token is required to access it.' },
           { status: 403 }
         )
       }
     } else if (debate.isPrivate && isAdmin) {
-      console.log('[API /debates/[id]] Admin accessing private debate:', id)
+      console.log('[API /debates/[id]] ✅ Admin accessing private debate:', id)
+    } else if (!debate.isPrivate) {
+      console.log('[API /debates/[id]] Public debate, access allowed')
     }
 
     // Fetch viewCount separately (Prisma client may not have this field yet)
