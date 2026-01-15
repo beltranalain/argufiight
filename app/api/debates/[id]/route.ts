@@ -42,6 +42,16 @@ export async function GET(
     const session = await verifySession()
     const currentUserId = session ? getUserIdFromSession(session) : null
     
+    // Check if current user is admin
+    let isAdmin = false
+    if (currentUserId) {
+      const user = await prisma.user.findUnique({
+        where: { id: currentUserId },
+        select: { isAdmin: true },
+      })
+      isAdmin = user?.isAdmin || false
+    }
+    
     // Try to fetch debate with participants, but handle errors gracefully
     let debate
     try {
@@ -404,7 +414,8 @@ export async function GET(
 
 
     // Check access for private debates
-    if (debate.isPrivate) {
+    // Admins can always access private debates
+    if (debate.isPrivate && !isAdmin) {
       const participants = (debate as any).participants || []
       const isParticipant = currentUserId && (
         debate.challengerId === currentUserId || 
