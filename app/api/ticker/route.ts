@@ -895,7 +895,7 @@ export async function GET(request: NextRequest) {
             debateId: null,
             priority: 'medium',
             createdAt: campaign.createdAt.toISOString(),
-            destinationUrl: campaign.destinationUrl || null,
+            destinationUrl: campaign.destinationUrl || undefined,
             adId: campaign.id,
             campaignId: campaign.id,
             imageUrl: campaign.bannerUrl,
