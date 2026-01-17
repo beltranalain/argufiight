@@ -71,36 +71,13 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    const { prisma } = await import('@/lib/db/prisma')
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: {
-        lastDailyRewardDate: true,
-        consecutiveLoginDays: true,
-        longestLoginStreak: true,
-        totalLoginDays: true,
-      },
-    })
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
-    }
-
-    const today = new Date()
-    today.setUTCHours(0, 0, 0, 0)
-
-    const rewardedToday = user.lastDailyRewardDate
-      ? new Date(user.lastDailyRewardDate).setUTCHours(0, 0, 0, 0) === today.getTime()
-      : false
-
+    // Since we don't have the reward tracking fields in the database,
+    // we'll return default values for now
     return NextResponse.json({
-      rewardedToday,
-      streak: user.consecutiveLoginDays || 0,
-      longestStreak: user.longestLoginStreak || 0,
-      totalLoginDays: user.totalLoginDays || 0,
+      rewardedToday: false,
+      streak: 0,
+      longestStreak: 0,
+      totalLoginDays: 0,
     })
   } catch (error) {
     console.error('[DailyLoginReward API] Error:', error)
