@@ -41,6 +41,7 @@ export function LiveChat({ debateId }: LiveChatProps) {
   const pollIntervalRef = useRef<number | null>(null)
   const typingPollIntervalRef = useRef<number | null>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const lastSendTimeRef = useRef<number>(0)
 
   useEffect(() => {
     fetchMessages()
@@ -70,11 +71,36 @@ export function LiveChat({ debateId }: LiveChatProps) {
   }, [messages])
 
   const fetchMessages = async () => {
+    // Skip polling for 5 seconds after sending a message to avoid race conditions
+    const timeSinceLastSend = Date.now() - lastSendTimeRef.current
+    if (timeSinceLastSend < 5000) {
+      return
+    }
+
     try {
       const response = await fetch(`/api/debates/${debateId}/chat`)
       if (response.ok) {
         const data = await response.json()
-        setMessages(data)
+
+        // Only update messages if the server response is newer/more complete
+        // This prevents overwriting locally added messages during race conditions
+        setMessages(prevMessages => {
+          // If server has more messages, use server data
+          if (data.length > prevMessages.length) {
+            return data
+          }
+          // If server has same number of messages, check if the latest message matches
+          if (data.length === prevMessages.length && data.length > 0) {
+            const latestServerMessage = data[data.length - 1]
+            const latestLocalMessage = prevMessages[prevMessages.length - 1]
+            // If they match by ID or the server message is newer, update
+            if (latestServerMessage.id === latestLocalMessage.id ||
+                new Date(latestServerMessage.createdAt) > new Date(latestLocalMessage.createdAt)) {
+              return data
+            }
+          }
+          return prevMessages
+        })
       } else if (response.status === 403) {
         // User is not a participant - silently stop polling
         if (pollIntervalRef.current) {
@@ -179,12 +205,15 @@ export function LiveChat({ debateId }: LiveChatProps) {
       const newMessage = await response.json()
       setMessages(prev => [...prev, newMessage])
       setMessage('')
-      
+
+      // Track when message was sent to prevent race conditions with polling
+      lastSendTimeRef.current = Date.now()
+
       // Clear typing timeout when message is sent
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current)
       }
-      
+
       scrollToBottom()
     } catch (error: any) {
       showToast({
