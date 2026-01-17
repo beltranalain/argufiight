@@ -2197,6 +2197,7 @@ enum CoinTransactionType {
   PLATFORM_FEE
   COIN_PURCHASE
   COIN_PURCHASE_REFUND
+  DAILY_LOGIN_REWARD
 }
 
 enum CoinTransactionStatus {

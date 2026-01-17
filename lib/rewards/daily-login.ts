@@ -38,16 +38,6 @@ async function getRewardSettings(): Promise<DailyLoginRewardSettings> {
   }
 }
 
-/**
- * Calculate daily login reward based on streak
- */
-function calculateReward(streak: number, settings: DailyLoginRewardSettings): number {
-  const monthlyMultiplier = Math.min(
-    1 + (streak / 30) * settings.streakMultiplier,
-    settings.monthlyMultiplierCap
-  )
-  return Math.floor(settings.baseReward * monthlyMultiplier)
-}
 
 /**
  * Check and reward daily login for a user
@@ -55,41 +45,27 @@ function calculateReward(streak: number, settings: DailyLoginRewardSettings): nu
  */
 export async function checkAndRewardDailyLogin(userId: string): Promise<number | null> {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        coins: true,
-      },
-    })
-
-    if (!user) {
-      console.error(`[DailyLoginReward] User not found: ${userId}`)
-      return null
-    }
-
-    // Get current date normalized to start of day (UTC)
-    const today = new Date()
-    today.setUTCHours(0, 0, 0, 0)
-
-    // Check if already rewarded today
-    if (user.lastDailyRewardDate) {
-      const lastRewardDate = new Date(user.lastDailyRewardDate)
-      lastRewardDate.setUTCHours(0, 0, 0, 0)
-
-      if (lastRewardDate.getTime() === today.getTime()) {
-        // Already rewarded today
-        return 0
-      }
-    }
-
     // Simple daily reward without streak tracking for now
     const settings = await getRewardSettings()
     const dailyReward = settings.baseReward
 
     // Update user in a transaction
     const updatedUser = await prisma.$transaction(async (tx) => {
-      // Update user
+      // Get current user to check if they exist and get current coins
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          coins: true,
+        },
+      })
+
+      if (!user) {
+        console.error(`[DailyLoginReward] User not found: ${userId}`)
+        return null
+      }
+
+      // Update user's coins
       const updated = await tx.user.update({
         where: { id: userId },
         data: {
@@ -111,19 +87,23 @@ export async function checkAndRewardDailyLogin(userId: string): Promise<number |
           description: 'Daily login reward',
           metadata: {
             baseReward: settings.baseReward,
-            date: today.toISOString(),
+            date: new Date().toISOString(),
           },
         },
       })
 
-      return updated
+      return { coins: updated.coins }
     })
 
+    if (!updatedUser) {
+      return null
+    }
+
     console.log(`[DailyLoginReward] User ${userId} rewarded ${dailyReward} coins`)
-
-    // Check for milestone bonuses (optional - can be implemented later)
-    // await awardMilestoneBonus(userId, streak)
-
+    
+    // Streak functionality is disabled for now
+    // await awardMilestoneBonus(userId, 1)
+    
     return dailyReward
   } catch (error) {
     console.error(`[DailyLoginReward] Error rewarding user ${userId}:`, error)
@@ -131,63 +111,60 @@ export async function checkAndRewardDailyLogin(userId: string): Promise<number |
   }
 }
 
-/**
- * Award milestone bonus for reaching streak milestones
- * Optional feature - can be enabled later
- */
-async function awardMilestoneBonus(userId: string, streak: number): Promise<void> {
-  const milestones = [7, 30, 60, 100, 365]
-  if (!milestones.includes(streak)) {
-    return
-  }
+// /**
+//  * Award milestone bonus for reaching streak milestones
+//  * Optional feature - can be enabled later
+//  */
+// async function awardMilestoneBonus(userId: string, streak: number): Promise<void> {
+//   if (!userId || streak <= 0) return
 
-  const milestoneRewards: Record<number, number> = {
-    7: 50,
-    30: 200,
-    60: 500,
-    100: 1000,
-    365: 5000,
-  }
+//   const milestoneRewards: Record<number, number> = {
+//     7: 50,
+//     30: 200,
+//     60: 500,
+//     100: 1000,
+//     365: 5000,
+//   }
 
-  const bonusAmount = milestoneRewards[streak]
-  if (!bonusAmount) {
-    return
-  }
+//   const bonusAmount = milestoneRewards[streak]
+//   if (!bonusAmount) {
+//     return
+//   }
 
-  try {
-    await prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: { coins: true },
-      })
+//   try {
+//     await prisma.$transaction(async (tx) => {
+//       const user = await tx.user.findUnique({
+//         where: { id: userId },
+//         select: { coins: true },
+//       })
 
-      if (!user) return
+//       if (!user) return
 
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          coins: { increment: bonusAmount },
-        },
-      })
+//       await tx.user.update({
+//         where: { id: userId },
+//         data: {
+//           coins: { increment: bonusAmount },
+//         },
+//       })
 
-      await tx.coinTransaction.create({
-        data: {
-          userId,
-          type: 'STREAK_BONUS',
-          status: 'COMPLETED',
-          amount: bonusAmount,
-          balanceAfter: user.coins + bonusAmount,
-          description: `${streak}-day streak milestone bonus`,
-          metadata: {
-            streak,
-            milestone: streak,
-          },
-        },
-      })
-    })
+//       await tx.coinTransaction.create({
+//         data: {
+//           userId,
+//           type: 'ADMIN_GRANT', // Using ADMIN_GRANT as a fallback for now
+//           status: 'COMPLETED',
+//           amount: bonusAmount,
+//           balanceAfter: user.coins + bonusAmount,
+//           description: `${streak}-day streak milestone bonus`,
+//           metadata: {
+//             streak,
+//             milestone: streak,
+//           },
+//         },
+//       })
 
-    console.log(`[DailyLoginReward] Milestone bonus awarded: ${bonusAmount} coins for ${streak}-day streak`)
-  } catch (error) {
-    console.error(`[DailyLoginReward] Error awarding milestone bonus:`, error)
-  }
-}
+//       console.log(`[DailyLoginReward] Awarded ${bonusAmount} coins to ${userId} for ${streak}-day streak`)
+//     })
+//   } catch (error) {
+//     console.error(`[DailyLoginReward] Error awarding milestone bonus to ${userId}:`, error)
+//   }
+// }
