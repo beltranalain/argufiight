@@ -31,9 +31,9 @@ export async function POST(req: NextRequest) {
     const updatedUser = await prisma.user.findUnique({
       where: { id: session.userId },
       select: {
-        consecutiveLoginDays: true,
-        longestLoginStreak: true,
-        totalLoginDays: true,
+        id: true,
+        email: true,
+        username: true,
       },
     })
 

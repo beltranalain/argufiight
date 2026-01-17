@@ -60,11 +60,6 @@ export async function checkAndRewardDailyLogin(userId: string): Promise<number |
       select: {
         id: true,
         coins: true,
-        lastLoginDate: true,
-        consecutiveLoginDays: true,
-        longestLoginStreak: true,
-        totalLoginDays: true,
-        lastDailyRewardDate: true,
       },
     })
 
@@ -88,38 +83,9 @@ export async function checkAndRewardDailyLogin(userId: string): Promise<number |
       }
     }
 
-    // Calculate streak
-    let streak = user.consecutiveLoginDays || 0
-    const lastLogin = user.lastLoginDate
-
-    if (!lastLogin) {
-      // First login ever
-      streak = 1
-    } else {
-      const lastLoginDate = new Date(lastLogin)
-      lastLoginDate.setUTCHours(0, 0, 0, 0)
-
-      const daysSinceLastLogin = Math.floor(
-        (today.getTime() - lastLoginDate.getTime()) / (1000 * 60 * 60 * 24)
-      )
-
-      if (daysSinceLastLogin === 0) {
-        // Same day, multiple logins - already processed
-        return 0
-      } else if (daysSinceLastLogin === 1) {
-        // Consecutive day - increment streak
-        streak += 1
-      } else {
-        // Streak broken - reset to 1
-        streak = 1
-      }
-    }
-
-    // Get reward settings
+    // Simple daily reward without streak tracking for now
     const settings = await getRewardSettings()
-
-    // Calculate reward
-    const dailyReward = calculateReward(streak, settings)
+    const dailyReward = settings.baseReward
 
     // Update user in a transaction
     const updatedUser = await prisma.$transaction(async (tx) => {
@@ -128,11 +94,6 @@ export async function checkAndRewardDailyLogin(userId: string): Promise<number |
         where: { id: userId },
         data: {
           coins: { increment: dailyReward },
-          consecutiveLoginDays: streak,
-          longestLoginStreak: Math.max(user.longestLoginStreak || 0, streak),
-          totalLoginDays: { increment: 1 },
-          lastLoginDate: new Date(),
-          lastDailyRewardDate: today,
         },
         select: {
           coins: true,
@@ -147,10 +108,8 @@ export async function checkAndRewardDailyLogin(userId: string): Promise<number |
           status: 'COMPLETED',
           amount: dailyReward,
           balanceAfter: updated.coins,
-          description: `Daily login reward (${streak} day streak)`,
+          description: 'Daily login reward',
           metadata: {
-            streak,
-            multiplier: Math.min(1 + (streak / 30) * settings.streakMultiplier, settings.monthlyMultiplierCap),
             baseReward: settings.baseReward,
             date: today.toISOString(),
           },
@@ -160,7 +119,7 @@ export async function checkAndRewardDailyLogin(userId: string): Promise<number |
       return updated
     })
 
-    console.log(`[DailyLoginReward] User ${userId} rewarded ${dailyReward} coins (streak: ${streak} days)`)
+    console.log(`[DailyLoginReward] User ${userId} rewarded ${dailyReward} coins`)
 
     // Check for milestone bonuses (optional - can be implemented later)
     // await awardMilestoneBonus(userId, streak)
