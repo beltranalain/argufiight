@@ -451,8 +451,25 @@ model CreatorTaxInfo {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
   creator         User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  taxForms1099     TaxForm1099[]
 
   @@map("creator_tax_info")
+}
+
+model TaxForm1099 {
+  id                 String   @id @default(uuid())
+  creatorTaxInfoId  String   @map("creator_tax_info_id")
+  taxYear           Int      @map("tax_year")
+  totalCompensation Decimal  @map("total_compensation")
+  sentToCreator     Boolean  @default(false) @map("sent_to_creator")
+  filedWithIRS      Boolean  @default(false) @map("filed_with_irs")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  creatorTaxInfo    CreatorTaxInfo @relation(fields: [creatorTaxInfoId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorTaxInfoId, taxYear])
+  @@map("tax_form_1099")
 }
 
 model SocialMediaPost {
