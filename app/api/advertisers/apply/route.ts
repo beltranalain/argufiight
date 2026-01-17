@@ -162,9 +162,8 @@ export async function POST(request: NextRequest) {
           provider: 'resend',
           endpoint: 'emails.send',
           success: true,
-          cost: 0,
-          metadata: { 
-            type: 'advertiser_application_confirmation', 
+          metadata: {
+            type: 'advertiser_application_confirmation',
             to: contactEmail,
             contactName: contactName,
             company: companyName,
@@ -245,7 +244,6 @@ export async function POST(request: NextRequest) {
               provider: 'resend',
               endpoint: 'emails.send',
               success: true,
-              cost: 0,
               metadata: { type: 'advertiser_application_notification', to: adminEmails.join(',') },
             })
             console.log('[Advertiser Apply] Notification email sent to admins')

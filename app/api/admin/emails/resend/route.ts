@@ -187,10 +187,9 @@ export async function POST(request: NextRequest) {
           provider: 'resend',
           endpoint: 'emails.send',
           success: true,
-          cost: 0,
-          metadata: { 
-            type: 'advertiser_application_confirmation_resend', 
-            to, 
+          metadata: {
+            type: 'advertiser_application_confirmation_resend',
+            to,
             contactName: contactName || metadata?.contactName,
             company: companyName || metadata?.company || metadata?.companyName,
             originalRecordId: recordId 
