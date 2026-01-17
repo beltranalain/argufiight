@@ -69,24 +69,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Update tax info with W-9 data
+    const updateData: any = {
+      legalName,
+      businessName: businessName || null,
+      taxIdType,
+      w9Submitted: true,
+      w9SubmittedAt: new Date(),
+      taxFormComplete: true,
+    };
+
+    // Only include address fields if they exist in the request
+    if (addressLine1) updateData.addressLine1 = addressLine1;
+    if (addressLine2) updateData.addressLine2 = addressLine2;
+    if (city) updateData.city = city;
+    if (state) updateData.state = state.toUpperCase();
+    if (zipCode) updateData.zipCode = zipCode;
+    if (country) updateData.country = country;
+
     const updated = await prisma.creatorTaxInfo.update({
       where: { id: taxInfo.id },
-      data: {
-        legalName,
-        businessName: businessName || null,
-        taxIdType,
-        taxIdNumber: cleanTaxId, // Store without formatting
-        businessType,
-        addressLine1,
-        addressLine2: addressLine2 || null,
-        city,
-        state: state.toUpperCase(),
-        zipCode,
-        country: country || 'US',
-        w9Submitted: true,
-        w9SubmittedAt: new Date(),
-        taxFormComplete: true,
-      },
+      data: updateData,
     })
 
     return NextResponse.json({
