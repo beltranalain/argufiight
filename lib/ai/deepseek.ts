@@ -164,6 +164,27 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include any text outside the JSO
       verdict.challengerScore = Math.max(0, Math.min(100, verdict.challengerScore || 50))
       verdict.opponentScore = Math.max(0, Math.min(100, verdict.opponentScore || 50))
       
+      // Ensure winner matches the higher score
+      if ((verdict.winner === 'CHALLENGER' && verdict.challengerScore <= verdict.opponentScore) ||
+          (verdict.winner === 'OPPONENT' && verdict.opponentScore <= verdict.challengerScore) ||
+          (verdict.winner === 'TIE' && verdict.challengerScore !== verdict.opponentScore)) {
+        
+        console.warn(`AI verdict inconsistency detected: Winner (${verdict.winner}) doesn't match scores ` +
+                    `(Challenger: ${verdict.challengerScore}, Opponent: ${verdict.opponentScore}). ` +
+                    'Adjusting scores to match declared winner.')
+        
+        // Adjust scores to match the declared winner
+        if (verdict.winner === 'CHALLENGER') {
+          verdict.challengerScore = Math.min(100, (verdict.opponentScore || 0) + 1);
+        } else if (verdict.winner === 'OPPONENT') {
+          verdict.opponentScore = Math.min(100, (verdict.challengerScore || 0) + 1);
+        } else { // TIE
+          const avgScore = Math.round((verdict.challengerScore + verdict.opponentScore) / 2);
+          verdict.challengerScore = avgScore;
+          verdict.opponentScore = avgScore;
+        }
+      }
+      
       return verdict
     } catch (error) {
       console.error('Failed to parse verdict JSON:', error)
