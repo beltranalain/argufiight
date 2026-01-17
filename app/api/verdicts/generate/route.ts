@@ -171,45 +171,19 @@ export async function POST(request: NextRequest) {
             opponentScore: verdict.opponentScore
           })
 
-          // CRITICAL FIX: Derive winner from scores to ensure consistency
-          // The AI might give inconsistent winner decisions vs scores, especially for expired debates
-          // We derive the decision from scores (the primary data) to ensure they always match
-          const scoreDifference = Math.abs(verdict.challengerScore - verdict.opponentScore)
-          const tieThreshold = 1 // Consider it a tie if scores are within 1 point
-          
-          let derivedWinner: 'CHALLENGER' | 'OPPONENT' | 'TIE'
-          if (scoreDifference < tieThreshold) {
-            derivedWinner = 'TIE'
-          } else if (verdict.challengerScore > verdict.opponentScore) {
-            derivedWinner = 'CHALLENGER'
-          } else {
-            derivedWinner = 'OPPONENT'
-          }
-
-          // Log if AI's winner doesn't match derived winner (for debugging)
-          if (verdict.winner !== derivedWinner) {
-            console.warn(`[Verdict Generation] ⚠️ AI winner mismatch for ${judge.name}:`, {
-              aiWinner: verdict.winner,
-              derivedWinner,
-              challengerScore: verdict.challengerScore,
-              opponentScore: verdict.opponentScore,
-              debateId
-            })
-          }
-
-          // Map derived winner to user ID
+          // Map AI winner to user ID
           let winnerId: string | null = null
-          if (derivedWinner === 'CHALLENGER') {
+          if (verdict.winner === 'CHALLENGER') {
             winnerId = debate.challengerId
-          } else if (derivedWinner === 'OPPONENT') {
+          } else if (verdict.winner === 'OPPONENT') {
             winnerId = debate.opponentId
           }
 
-          // Determine decision enum from derived winner
+          // Determine decision enum from AI winner
           let decision: 'CHALLENGER_WINS' | 'OPPONENT_WINS' | 'TIE'
-          if (derivedWinner === 'CHALLENGER') {
+          if (verdict.winner === 'CHALLENGER') {
             decision = 'CHALLENGER_WINS'
-          } else if (derivedWinner === 'OPPONENT') {
+          } else if (verdict.winner === 'OPPONENT') {
             decision = 'OPPONENT_WINS'
           } else {
             decision = 'TIE'
