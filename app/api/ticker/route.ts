@@ -207,7 +207,7 @@ export async function GET(request: NextRequest) {
           debateId: null,
           priority: 'medium',
           createdAt: ad.createdAt.toISOString(),
-          destinationUrl: ad.targetUrl || null,
+          destinationUrl: ad.targetUrl || undefined,
           adId: ad.id,
           imageUrl: ad.creativeUrl!,
         })
@@ -432,7 +432,7 @@ export async function GET(request: NextRequest) {
           debateId: null,
           priority: 'medium',
           createdAt: ad.createdAt.toISOString(),
-          destinationUrl: ad.targetUrl || null,
+          destinationUrl: ad.targetUrl || undefined,
           adId: ad.id,
           imageUrl: ad.creativeUrl!,
         })
