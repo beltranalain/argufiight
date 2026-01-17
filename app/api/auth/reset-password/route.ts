@@ -92,7 +92,6 @@ export async function GET(request: NextRequest) {
     const tokenData = await getTokenData(token)
     if (!tokenData) {
       console.log('[RESET-PASSWORD GET] Token not found in storage or expired')
-      console.log('[RESET-PASSWORD GET] Token exists in map?', resetTokens.has(token))
       return NextResponse.json(
         { valid: false, error: 'Invalid or expired token' },
         { status: 200 }
