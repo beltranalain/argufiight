@@ -897,7 +897,6 @@ export async function GET(request: NextRequest) {
             createdAt: campaign.createdAt.toISOString(),
             destinationUrl: campaign.destinationUrl || undefined,
             adId: campaign.id,
-            campaignId: campaign.id,
             imageUrl: campaign.bannerUrl,
           })
           console.log('[Ticker API] Added Platform Ads campaign to updates:', {

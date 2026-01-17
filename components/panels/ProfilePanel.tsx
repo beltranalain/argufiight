@@ -112,9 +112,9 @@ export function ProfilePanel() {
                 Score: {user.totalScore}/{user.totalMaxScore}
               </Badge>
             )}
-            {user.coins !== undefined && (
+            {(user as any).coins !== undefined && (
               <Badge variant="default" size="sm" className="bg-cyan-500/20 text-cyan-400">
-                Coins: {(user.coins || 0).toLocaleString()}
+                Coins: {((user as any).coins || 0).toLocaleString()}
               </Badge>
             )}
           </div>

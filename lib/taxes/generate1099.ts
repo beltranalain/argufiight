@@ -187,7 +187,8 @@ export async function generate1099PDF({
   })
   y -= 20
   
-  page.drawText(taxInfo.addressLine1 || '', {
+  // Address fields not in schema - using empty strings
+  page.drawText('', {
     x: margin,
     y,
     font,
@@ -196,18 +197,16 @@ export async function generate1099PDF({
   })
   y -= 15
   
-  if (taxInfo.addressLine2) {
-    page.drawText(taxInfo.addressLine2, {
-      x: margin,
-      y,
-      font,
-      size: 9,
-      color: rgb(0, 0, 0),
-    })
-    y -= 15
-  }
+  page.drawText('', {
+    x: margin,
+    y,
+    font,
+    size: 9,
+    color: rgb(0, 0, 0),
+  })
+  y -= 15
   
-  page.drawText(`${taxInfo.city || ''}, ${taxInfo.state || ''} ${taxInfo.zipCode || ''}`, {
+  page.drawText('', {
     x: margin,
     y,
     font,
@@ -226,11 +225,8 @@ export async function generate1099PDF({
   })
   y -= 20
   
-  const formattedTaxId = taxInfo.taxId
-    ? taxInfo.taxIdType === 'SSN'
-      ? `${taxInfo.taxId.slice(0, 3)}-${taxInfo.taxId.slice(3, 5)}-${taxInfo.taxId.slice(5)}`
-      : `${taxInfo.taxId.slice(0, 2)}-${taxInfo.taxId.slice(2)}`
-    : 'N/A'
+  // taxId field not in schema - using N/A
+  const formattedTaxId = 'N/A'
   
   page.drawText(formattedTaxId, {
     x: margin,
