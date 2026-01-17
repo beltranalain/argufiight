@@ -303,6 +303,12 @@ export async function GET(request: NextRequest) {
 
       // 2. Support ticket reply notifications
       try {
+        // Skip if no user email is available
+        if (!userEmail) {
+          console.log('[Ticker API] No user email available for support ticket check')
+          return []
+        }
+
         // Get the user ID for this advertiser
         const advertiserUser = await prisma.user.findUnique({
           where: { email: userEmail },
