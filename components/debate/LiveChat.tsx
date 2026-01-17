@@ -161,14 +161,18 @@ export function LiveChat({ debateId }: LiveChatProps) {
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!message.trim() || isSending) return
+    const messageToSend = message.trim()
+    if (!messageToSend || isSending) return
 
+    // Clear the input immediately for better UX
+    setMessage('')
     setIsSending(true)
+    
     try {
       const response = await fetch(`/api/debates/${debateId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: message.trim() }),
+        body: JSON.stringify({ content: messageToSend }),
       })
 
       if (!response.ok) {
@@ -177,8 +181,9 @@ export function LiveChat({ debateId }: LiveChatProps) {
       }
 
       const newMessage = await response.json()
+      
+      // Only update messages if the response is successful
       setMessages(prev => [...prev, newMessage])
-      setMessage('')
       
       // Clear typing timeout when message is sent
       if (typingTimeoutRef.current) {
