@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         legalName,
         businessName: businessName || null,
         taxIdType,
-        taxId: cleanTaxId, // Store without formatting
+        taxIdNumber: cleanTaxId, // Store without formatting
         businessType,
         addressLine1,
         addressLine2: addressLine2 || null,
