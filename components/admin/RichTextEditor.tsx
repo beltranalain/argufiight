@@ -8,15 +8,16 @@ import Image from '@tiptap/extension-image'
 import OrderedList from '@tiptap/extension-ordered-list'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
-import { useEffect } from 'react'
+import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
 
 interface RichTextEditorProps {
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  onImageSelect?: () => void
 }
 
-export function RichTextEditor({ value, onChange, placeholder = 'Enter content...' }: RichTextEditorProps) {
+export const RichTextEditor = forwardRef<any, RichTextEditorProps>(({ value, onChange, placeholder = 'Enter content...', onImageSelect }, ref) => {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -77,6 +78,9 @@ export function RichTextEditor({ value, onChange, placeholder = 'Enter content..
       onChange(editor.getHTML())
     },
   })
+
+  // Expose editor instance via ref
+  useImperativeHandle(ref, () => editor, [editor])
 
   // Update editor content when value prop changes
   useEffect(() => {
@@ -242,6 +246,26 @@ export function RichTextEditor({ value, onChange, placeholder = 'Enter content..
           </button>
         )}
 
+        <div className="w-px h-6 bg-bg-tertiary mx-1" />
+
+        {/* Image */}
+        <button
+          onClick={() => {
+            if (onImageSelect) {
+              onImageSelect()
+            } else {
+              const url = window.prompt('Enter image URL:')
+              if (url) {
+                editor.chain().focus().setImage({ src: url }).run()
+              }
+            }
+          }}
+          className="px-3 py-1.5 rounded text-sm font-semibold bg-bg-tertiary text-white hover:bg-bg-tertiary/80 transition-colors"
+          title="Insert Image"
+        >
+          🖼️
+        </button>
+
         <div className="flex-1" />
 
         {/* Clear Formatting */}
@@ -350,5 +374,7 @@ export function RichTextEditor({ value, onChange, placeholder = 'Enter content..
       `}</style>
     </div>
   )
-}
+})
+
+RichTextEditor.displayName = 'RichTextEditor'
 

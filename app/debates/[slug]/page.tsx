@@ -7,6 +7,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
 import { RelatedDebates } from '@/components/debate/RelatedDebates'
+import { LiveChat } from '@/components/debate/LiveChat'
 
 export async function generateMetadata({
   params,
@@ -459,6 +460,16 @@ export default async function PublicDebatePage({
                     <p className="text-text-primary whitespace-pre-wrap">{statement.content}</p>
                   </div>
                 ))}
+              </div>
+            </section>
+          )}
+
+          {/* Live Chat */}
+          {(debate.status === 'ACTIVE' || debate.status === 'COMPLETED' || debate.status === 'VERDICT_READY') && (
+            <section className="mb-12">
+              <h2 className="text-2xl font-bold text-white mb-6">Live Chat</h2>
+              <div className="max-w-2xl">
+                <LiveChat debateId={debate.id} />
               </div>
             </section>
           )}

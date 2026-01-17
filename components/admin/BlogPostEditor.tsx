@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { RichTextEditor } from '@/components/admin/RichTextEditor'
@@ -58,9 +58,11 @@ export function BlogPostEditor({
   onClose: () => void
   onSave: () => void
 }) {
+  const [showImageSelector, setShowImageSelector] = useState(false)
   const { showToast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const editorRef = useRef<any>(null)
 
   // Form fields
   const [title, setTitle] = useState('')
@@ -292,6 +294,17 @@ export function BlogPostEditor({
 
   const selectedFeaturedImage = mediaLibrary.find(m => m.id === featuredImageId)
 
+  const handleImageSelect = () => {
+    setShowImageSelector(true)
+  }
+
+  const handleImageInsert = (imageUrl: string, alt: string) => {
+    if (editorRef.current) {
+      editorRef.current.chain().focus().setImage({ src: imageUrl, alt }).run()
+    }
+    setShowImageSelector(false)
+  }
+
   return (
     <Modal
       isOpen={true}
@@ -332,11 +345,13 @@ export function BlogPostEditor({
             Content <span className="text-red-400">*</span>
           </label>
           <div className="bg-bg-tertiary rounded-lg p-4">
-            <RichTextEditor
-              value={content}
-              onChange={setContent}
-              placeholder="Write your blog post content..."
-            />
+              <RichTextEditor
+                ref={editorRef}
+                value={content}
+                onChange={setContent}
+                onImageSelect={handleImageSelect}
+                placeholder="Write your blog post content..."
+              />
           </div>
         </div>
 
@@ -627,6 +642,82 @@ export function BlogPostEditor({
                 Cancel
               </Button>
               <Button onClick={handleCreateCategory}>Create</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Image Selector Modal */}
+      {showImageSelector && (
+        <Modal isOpen={true} onClose={() => setShowImageSelector(false)} title="Insert Image" size="lg">
+          <div className="space-y-4">
+            <div className="border-2 border-dashed border-bg-tertiary rounded-lg p-8 text-center">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    // Upload the file and insert it
+                    const formData = new FormData()
+                    formData.append('file', file)
+
+                    fetch('/api/admin/content/media', {
+                      method: 'POST',
+                      body: formData,
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                      if (data.media) {
+                        handleImageInsert(data.media.url, data.media.alt || '')
+                        fetchMediaLibrary() // Refresh media library
+                      }
+                    })
+                    .catch(error => {
+                      console.error('Upload failed:', error)
+                      showToast({
+                        type: 'error',
+                        title: 'Upload Failed',
+                        description: 'Failed to upload image',
+                      })
+                    })
+                  }
+                  e.target.value = '' // Reset input
+                }}
+                className="hidden"
+                id="content-image-upload"
+              />
+              <label
+                htmlFor="content-image-upload"
+                className="cursor-pointer text-electric-blue hover:text-[#00B8E6]"
+              >
+                + Upload New Image
+              </label>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+              {mediaLibrary.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => handleImageInsert(item.url, item.alt || '')}
+                  className="relative aspect-square rounded-lg overflow-hidden border-2 border-bg-tertiary hover:border-electric-blue cursor-pointer transition-all"
+                >
+                  {item.url.startsWith('data:') || item.url.includes('blob.vercel-storage.com') ? (
+                    <img
+                      src={item.url}
+                      alt={item.alt || ''}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={item.url}
+                      alt={item.alt || ''}
+                      fill
+                      className="object-cover"
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </Modal>
