@@ -847,7 +847,7 @@ export async function GET(request: NextRequest) {
         debateId: null,
         priority: 'medium',
         createdAt: sponsoredAd.createdAt.toISOString(),
-        destinationUrl: sponsoredAd.targetUrl || null,
+        destinationUrl: sponsoredAd.targetUrl || undefined,
         adId: sponsoredAd.id,
         imageUrl: sponsoredAd.creativeUrl!,
       })
