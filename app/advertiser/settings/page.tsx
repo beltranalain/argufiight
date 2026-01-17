@@ -164,24 +164,16 @@ export default function AdvertiserSettingsPage() {
   }
 
   const handleStripeConnectSuccess = async () => {
-    // Wait a moment for Stripe to process the account
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
     // Verify Stripe account status after onboarding
     try {
       console.log('[Settings] Verifying Stripe account after onboarding...')
       const verifyResponse = await fetch('/api/advertiser/stripe-verify', {
         method: 'POST',
-        cache: 'no-store',
       })
-
-      console.log('[Settings] Verify response status:', verifyResponse.status)
 
       if (verifyResponse.ok) {
         const verifyData = await verifyResponse.json()
         console.log('[Settings] Stripe verification result:', verifyData)
-        console.log('[Settings] paymentReady:', verifyData.paymentReady)
-        console.log('[Settings] stripeAccountId:', verifyData.account?.id)
         
         if (verifyData.paymentReady) {
           showToast({
@@ -197,27 +189,14 @@ export default function AdvertiserSettingsPage() {
           })
         }
       } else {
-        const errorData = await verifyResponse.json().catch(() => ({}))
-        console.error('[Settings] Failed to verify Stripe account:', errorData)
-        showToast({
-          type: 'error',
-          title: 'Verification Failed',
-          description: errorData.error || 'Failed to verify Stripe account. Please refresh the page.',
-        })
+        console.error('[Settings] Failed to verify Stripe account')
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('[Settings] Error verifying Stripe account:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'An error occurred while verifying your account.',
-      })
     }
 
-    // Refresh advertiser data to get latest stripeAccountId and paymentReady
-    console.log('[Settings] Refreshing advertiser data...')
+    // Refresh advertiser data
     await fetchData()
-    console.log('[Settings] Advertiser data refreshed. paymentReady:', advertiser?.paymentReady, 'stripeAccountId:', advertiser?.stripeAccountId)
   }
 
   const handleFinancialConnectionsSuccess = async () => {
@@ -358,38 +337,31 @@ export default function AdvertiserSettingsPage() {
                     <div className="flex-1">
                       <h3 className="font-semibold text-text-primary mb-1">Payment Account</h3>
                       <p className="text-sm text-text-secondary mb-2">
-                        {advertiser.stripeAccountId
-                          ? advertiser.paymentReady
-                            ? 'Account connected. Stripe is processing your account. Payments will be enabled shortly.'
-                            : 'Account connected. Please complete the verification process in Stripe.'
+                        {advertiser.paymentReady
+                          ? 'Account connected. Stripe is processing your account. Payments will be enabled shortly.'
                           : 'Connect your payment account to receive payments'}
                       </p>
-                      {advertiser.stripeAccountId && (
+                      {advertiser.paymentReady && advertiser.stripeAccountId && (
                         <div className="mt-2">
                           <p className="text-xs text-text-secondary">
                             Stripe Account: <code className="bg-bg-tertiary px-1.5 py-0.5 rounded text-electric-blue">{advertiser.stripeAccountId}</code>
                           </p>
                           <a
-                            href={`https://dashboard.stripe.com/${process.env.NEXT_PUBLIC_STRIPE_MODE === 'live' ? '' : 'test/'}connect/accounts/overview/${advertiser.stripeAccountId}`}
+                            href={`https://dashboard.stripe.com/test/connect/accounts/overview/${advertiser.stripeAccountId}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs text-electric-blue hover:underline mt-1 inline-block"
                           >
                             View in Stripe Dashboard →
                           </a>
-                          {!advertiser.paymentReady && (
-                            <p className="text-xs text-neon-orange mt-1">
-                              ⚠️ Account setup incomplete. Click "Manage Account" to complete verification.
-                            </p>
-                          )}
                         </div>
                       )}
                     </div>
                     <Button
-                      variant={advertiser.stripeAccountId ? 'secondary' : 'primary'}
+                      variant={advertiser.paymentReady ? 'secondary' : 'primary'}
                       onClick={handleConnectStripe}
                     >
-                      {advertiser.stripeAccountId ? 'Manage Account' : 'Connect Account'}
+                      {advertiser.paymentReady ? 'Manage Account' : 'Connect Account'}
                     </Button>
                   </div>
               </div>

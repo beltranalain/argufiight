@@ -61,34 +61,15 @@ function DirectAdsTab() {
   const fetchAds = async (showLoading = true) => {
     try {
       if (showLoading) setIsLoading(true)
-      console.log('[DirectAdsTab] Fetching ads from /api/admin/advertisements')
       const response = await fetch('/api/admin/advertisements', {
         cache: 'no-store', // Prevent stale data
       })
-      console.log('[DirectAdsTab] Response status:', response.status)
       if (response.ok) {
         const data = await response.json()
-        console.log('[DirectAdsTab] Received data:', data)
-        console.log('[DirectAdsTab] Number of ads:', data.ads?.length || 0)
-        console.log('[DirectAdsTab] Ads array:', JSON.stringify(data.ads, null, 2))
-        if (data.ads && data.ads.length > 0) {
-          console.log('[DirectAdsTab] First ad:', {
-            id: data.ads[0].id,
-            title: data.ads[0].title,
-            type: data.ads[0].type,
-            status: data.ads[0].status,
-            creativeUrl: data.ads[0].creativeUrl,
-            targetUrl: data.ads[0].targetUrl,
-          })
-        }
         setAds(data.ads || [])
-        console.log('[DirectAdsTab] State updated, ads.length:', data.ads?.length || 0)
-      } else {
-        const errorText = await response.text()
-        console.error('[DirectAdsTab] API error:', response.status, errorText)
       }
     } catch (error) {
-      console.error('[DirectAdsTab] Failed to fetch ads:', error)
+      console.error('Failed to fetch ads:', error)
     } finally {
       if (showLoading) setIsLoading(false)
     }
@@ -212,31 +193,12 @@ function DirectAdsTab() {
       const result = await response.json()
       console.log('[DirectAdsTab] Save successful:', result)
       const savedAd = result.ad
-      console.log('[DirectAdsTab] Saved ad object:', {
-        id: savedAd?.id,
-        title: savedAd?.title,
-        type: savedAd?.type,
-        status: savedAd?.status,
-        creativeUrl: savedAd?.creativeUrl,
-        targetUrl: savedAd?.targetUrl,
-        fullObject: savedAd,
-      })
 
       // Optimistic update - add/update ad in list immediately
       if (editingAd) {
-        console.log('[DirectAdsTab] Updating existing ad:', editingAd.id)
-        setAds(prevAds => {
-          const updated = prevAds.map(ad => ad.id === editingAd.id ? savedAd : ad)
-          console.log('[DirectAdsTab] Updated ads array length:', updated.length)
-          return updated
-        })
+        setAds(prevAds => prevAds.map(ad => ad.id === editingAd.id ? savedAd : ad))
       } else {
-        console.log('[DirectAdsTab] Adding new ad to list')
-        setAds(prevAds => {
-          const updated = [savedAd, ...prevAds]
-          console.log('[DirectAdsTab] New ads array length:', updated.length)
-          return updated
-        })
+        setAds(prevAds => [savedAd, ...prevAds])
       }
 
       showToast({
@@ -317,10 +279,6 @@ function DirectAdsTab() {
     }
   }
 
-  const formatTypeLabel = (type: string) => {
-    return type.replace(/_/g, ' ')
-  }
-
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'BANNER':
@@ -354,25 +312,15 @@ function DirectAdsTab() {
         </Button>
       </div>
 
-      {ads.length === 0 ? (
-        <Card>
-          <CardBody>
-            <div className="text-center py-12">
-              <p className="text-text-secondary text-lg mb-2">No advertisements yet.</p>
-              <p className="text-text-secondary">Create your first ad campaign to get started.</p>
-            </div>
-          </CardBody>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {ads.map((ad) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {ads.map((ad) => (
           <Card key={ad.id}>
             <CardHeader>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-lg font-bold text-text-primary">{ad.title}</h3>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
                   <Badge className={getStatusColor(ad.status)}>{ad.status}</Badge>
-                  <Badge className={getTypeColor(ad.type)}>{formatTypeLabel(ad.type)}</Badge>
+                  <Badge className={getTypeColor(ad.type)}>{ad.type}</Badge>
                 </div>
               </div>
             </CardHeader>
@@ -407,10 +355,10 @@ function DirectAdsTab() {
                 )}
                 <div className="flex items-center gap-4 text-sm text-text-secondary">
                   <span>
-                    <span className="font-semibold">Impressions:</span> {(ad.impressions ?? 0).toLocaleString()}
+                    <span className="font-semibold">Impressions:</span> {ad.impressions.toLocaleString()}
                   </span>
                   <span>
-                    <span className="font-semibold">Clicks:</span> {(ad.clicks ?? 0).toLocaleString()}
+                    <span className="font-semibold">Clicks:</span> {ad.clicks.toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -435,8 +383,17 @@ function DirectAdsTab() {
               </div>
             </CardBody>
           </Card>
-          ))}
-        </div>
+        ))}
+      </div>
+
+      {ads.length === 0 && (
+        <Card>
+          <CardBody>
+            <p className="text-text-secondary text-center py-8">
+              No advertisements yet. Create your first ad campaign to get started.
+            </p>
+          </CardBody>
+        </Card>
       )}
 
       {/* Create/Edit Modal */}
@@ -696,23 +653,13 @@ function PlatformAdsTab() {
   const fetchData = async () => {
     try {
       setIsLoading(true)
-      console.log('[AdvertiserCampaigns] Fetching fresh campaign data...')
       const [campaignsRes, settingsRes] = await Promise.all([
-        fetch('/api/admin/campaigns?type=PLATFORM_ADS', {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-          },
-        }),
-        fetch('/api/admin/settings', {
-          cache: 'no-store',
-        }),
+        fetch('/api/admin/campaigns?type=PLATFORM_ADS'),
+        fetch('/api/admin/settings'),
       ])
 
       if (campaignsRes.ok) {
         const data = await campaignsRes.json()
-        console.log('[AdvertiserCampaigns] Fetched campaigns:', data.campaigns?.length || 0)
-        console.log('[AdvertiserCampaigns] Campaign statuses:', data.campaigns?.map((c: Campaign) => ({ id: c.id, name: c.name, status: c.status })))
         setCampaigns(data.campaigns || [])
       } else {
         const errorText = await campaignsRes.text().catch(() => 'Unable to read error')
@@ -767,13 +714,9 @@ function PlatformAdsTab() {
 
   const handleApproveCampaign = async (id: string) => {
     try {
-      console.log(`[ApproveCampaign] Approving campaign ${id}...`)
       const response = await fetch(`/api/admin/campaigns/${id}/approve`, {
         method: 'POST',
       })
-
-      console.log(`[ApproveCampaign] Response status: ${response.status}`)
-      console.log(`[ApproveCampaign] Response headers:`, Object.fromEntries(response.headers.entries()))
 
       if (response.ok) {
         const data = await response.json()
@@ -787,66 +730,27 @@ function PlatformAdsTab() {
         })
         fetchData()
       } else {
-        // Capture raw response text before parsing
-        const contentType = response.headers.get('content-type') || ''
-        const isJson = contentType.includes('application/json')
-        
-        let errorMessage = `Failed to approve campaign (${response.status})`
-        
-        try {
-          const rawResponseText = await response.text()
-          console.error(`[ApproveCampaign] Raw response text:`, rawResponseText)
-          console.error(`[ApproveCampaign] Response Content-Type:`, contentType)
-          
-          if (rawResponseText) {
-            if (isJson) {
-              try {
-                const parsed = JSON.parse(rawResponseText)
-                console.error('[ApproveCampaign] Parsed JSON:', parsed)
-                errorMessage = parsed.error || parsed.message || parsed.detail || rawResponseText
-              } catch (parseError) {
-                console.error('[ApproveCampaign] JSON parse error:', parseError)
-                errorMessage = rawResponseText
-              }
-            } else {
-              errorMessage = rawResponseText
-            }
-          }
-        } catch (textError) {
-          console.error('[ApproveCampaign] Error reading response text:', textError)
-        }
-        
-        console.error('[ApproveCampaign] Final error message:', errorMessage)
-        
+        const errorData = await response.json()
         showToast({
           type: 'error',
           title: 'Error',
-          description: errorMessage,
+          description: errorData.error || 'Failed to approve campaign',
         })
-        
-        // Refresh data even on error to sync UI with actual database state
-        console.log('[ApproveCampaign] Refreshing campaign data after error...')
-        await fetchData()
-        console.log('[ApproveCampaign] Campaign data refreshed')
       }
-    } catch (error: any) {
-      console.error('[ApproveCampaign] Exception:', error)
+    } catch (error) {
       showToast({
         type: 'error',
         title: 'Error',
-        description: error.message || 'Failed to approve campaign',
+        description: 'Failed to approve campaign',
       })
     }
   }
 
   const handleActivateCampaign = async (id: string) => {
     try {
-      console.log(`[ActivateCampaign] Activating campaign ${id}...`)
       const response = await fetch(`/api/admin/campaigns/${id}/activate`, {
         method: 'POST',
       })
-
-      console.log(`[ActivateCampaign] Response status: ${response.status}`)
 
       if (response.ok) {
         showToast({
@@ -856,54 +760,18 @@ function PlatformAdsTab() {
         })
         fetchData()
       } else {
-        // Capture raw response text before parsing
-        const contentType = response.headers.get('content-type') || ''
-        const isJson = contentType.includes('application/json')
-        
-        let rawResponseText = ''
-        let errorData: any = {}
-        
-        try {
-          rawResponseText = await response.text()
-          console.error(`[ActivateCampaign] Raw response text:`, rawResponseText)
-          
-          if (rawResponseText) {
-            if (isJson) {
-              try {
-                errorData = JSON.parse(rawResponseText)
-              } catch (parseError) {
-                console.error('[ActivateCampaign] JSON parse error:', parseError)
-                errorData = { error: rawResponseText || `Failed to activate campaign (${response.status})` }
-              }
-            } else {
-              errorData = { error: rawResponseText || `Failed to activate campaign (${response.status})` }
-            }
-          } else {
-            errorData = { error: `Failed to activate campaign (${response.status})` }
-          }
-        } catch (textError) {
-          console.error('[ActivateCampaign] Error reading response text:', textError)
-          errorData = { error: `Failed to activate campaign (${response.status})` }
-        }
-        
-        const errorMessage = errorData.error || 
-                            errorData.message || 
-                            errorData.detail ||
-                            (rawResponseText && !isJson ? rawResponseText : null) ||
-                            `Failed to activate campaign (${response.status})`
-        
+        const errorData = await response.json()
         showToast({
           type: 'error',
           title: 'Error',
-          description: errorMessage,
+          description: errorData.error || 'Failed to activate campaign',
         })
       }
-    } catch (error: any) {
-      console.error('[ActivateCampaign] Exception:', error)
+    } catch (error) {
       showToast({
         type: 'error',
         title: 'Error',
-        description: error.message || 'Failed to activate campaign',
+        description: 'Failed to activate campaign',
       })
     }
   }
@@ -915,14 +783,11 @@ function PlatformAdsTab() {
     }
 
     try {
-      console.log(`[RejectCampaign] Rejecting campaign ${id}...`)
       const response = await fetch(`/api/admin/campaigns/${id}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: reason.trim() }),
       })
-
-      console.log(`[RejectCampaign] Response status: ${response.status}`)
 
       if (response.ok) {
         showToast({
@@ -932,54 +797,18 @@ function PlatformAdsTab() {
         })
         fetchData()
       } else {
-        // Capture raw response text before parsing
-        const contentType = response.headers.get('content-type') || ''
-        const isJson = contentType.includes('application/json')
-        
-        let rawResponseText = ''
-        let errorData: any = {}
-        
-        try {
-          rawResponseText = await response.text()
-          console.error(`[RejectCampaign] Raw response text:`, rawResponseText)
-          
-          if (rawResponseText) {
-            if (isJson) {
-              try {
-                errorData = JSON.parse(rawResponseText)
-              } catch (parseError) {
-                console.error('[RejectCampaign] JSON parse error:', parseError)
-                errorData = { error: rawResponseText || `Failed to reject campaign (${response.status})` }
-              }
-            } else {
-              errorData = { error: rawResponseText || `Failed to reject campaign (${response.status})` }
-            }
-          } else {
-            errorData = { error: `Failed to reject campaign (${response.status})` }
-          }
-        } catch (textError) {
-          console.error('[RejectCampaign] Error reading response text:', textError)
-          errorData = { error: `Failed to reject campaign (${response.status})` }
-        }
-        
-        const errorMessage = errorData.error || 
-                            errorData.message || 
-                            errorData.detail ||
-                            (rawResponseText && !isJson ? rawResponseText : null) ||
-                            `Failed to reject campaign (${response.status})`
-        
+        const errorData = await response.json()
         showToast({
           type: 'error',
           title: 'Error',
-          description: errorMessage,
+          description: errorData.error || 'Failed to reject campaign',
         })
       }
-    } catch (error: any) {
-      console.error('[RejectCampaign] Exception:', error)
+    } catch (error) {
       showToast({
         type: 'error',
         title: 'Error',
-        description: error.message || 'Failed to reject campaign',
+        description: 'Failed to reject campaign',
       })
     }
   }
@@ -1103,7 +932,7 @@ function PlatformAdsTab() {
             <Card>
               <CardBody>
                 <div className="text-2xl font-bold text-electric-blue">
-                  ${campaigns.reduce((sum, c) => sum + Number(c.budget ?? 0), 0).toLocaleString()}
+                  ${campaigns.reduce((sum, c) => sum + Number(c.budget), 0).toLocaleString()}
                 </div>
                 <div className="text-text-secondary">Total Budget</div>
               </CardBody>
@@ -1139,7 +968,7 @@ function PlatformAdsTab() {
                           )}
                         </div>
                         <div className="text-sm text-text-secondary space-y-1">
-                          <p>Budget: ${Number(campaign.budget ?? 0).toLocaleString()}</p>
+                          <p>Budget: ${Number(campaign.budget).toLocaleString()}</p>
                           <p>
                             Duration:{' '}
                             {new Date(campaign.startDate).toLocaleDateString()} -{' '}
@@ -1221,7 +1050,7 @@ function PlatformAdsTab() {
                 setSelectedCampaign(null)
               }}
               title={`Campaign Details: ${campaignDetails.name}`}
-              size="xl"
+              className="max-w-4xl"
             >
               {isLoadingCampaignDetails ? (
                 <div className="flex justify-center items-center h-48">
@@ -1490,14 +1319,6 @@ function CreatorMarketplaceTab() {
     monthlyRevenue: 0,
     totalCreators: 0,
   })
-  const [platformFees, setPlatformFees] = useState({
-    BRONZE: 25,
-    SILVER: 20,
-    GOLD: 15,
-    PLATINUM: 10,
-  })
-  const [isEditingFees, setIsEditingFees] = useState(false)
-  const [feeInputs, setFeeInputs] = useState(platformFees)
 
   useEffect(() => {
     fetchData()
@@ -1508,19 +1329,14 @@ function CreatorMarketplaceTab() {
       setIsLoading(true)
       const timestamp = Date.now()
       const [contractsRes, statsRes, settingsRes] = await Promise.all([
-        // Fetch both ACTIVE and SCHEDULED contracts (paid contracts that are ready or active)
-        fetch(`/api/admin/contracts?t=${timestamp}`, { cache: 'no-store' }),
+        fetch(`/api/admin/contracts?status=ACTIVE&t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/admin/marketplace/stats?t=${timestamp}`, { cache: 'no-store' }),
         fetch(`/api/admin/settings?t=${timestamp}`, { cache: 'no-store' }),
       ])
 
       if (contractsRes.ok) {
         const data = await contractsRes.json()
-        // Filter to show ACTIVE and SCHEDULED contracts (exclude CANCELLED and COMPLETED)
-        const activeAndScheduled = (data.contracts || []).filter(
-          (c: any) => c.status === 'ACTIVE' || c.status === 'SCHEDULED'
-        )
-        setActiveContracts(activeAndScheduled)
+        setActiveContracts(data.contracts || [])
       }
 
       if (statsRes.ok) {
@@ -1538,16 +1354,6 @@ function CreatorMarketplaceTab() {
         const marketplaceEnabled = marketplaceValue === 'true'
         console.log('[CreatorMarketplace] Fetched ADS_CREATOR_MARKETPLACE_ENABLED:', marketplaceValue, '→ enabled:', marketplaceEnabled)
         setMarketplaceEnabled(marketplaceEnabled)
-        
-        // Fetch platform fees
-        const fees = {
-          BRONZE: parseInt(settings.CREATOR_FEE_BRONZE || '25', 10),
-          SILVER: parseInt(settings.CREATOR_FEE_SILVER || '20', 10),
-          GOLD: parseInt(settings.CREATOR_FEE_GOLD || '15', 10),
-          PLATINUM: parseInt(settings.CREATOR_FEE_PLATINUM || '10', 10),
-        }
-        setPlatformFees(fees)
-        setFeeInputs(fees)
       } else {
         console.error('[CreatorMarketplace] Failed to fetch settings:', settingsRes.status)
       }
@@ -1606,45 +1412,6 @@ function CreatorMarketplaceTab() {
   }
 
 
-
-  const handleSaveFees = async () => {
-    try {
-      const response = await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          CREATOR_FEE_BRONZE: feeInputs.BRONZE.toString(),
-          CREATOR_FEE_SILVER: feeInputs.SILVER.toString(),
-          CREATOR_FEE_GOLD: feeInputs.GOLD.toString(),
-          CREATOR_FEE_PLATINUM: feeInputs.PLATINUM.toString(),
-        }),
-      })
-
-      if (response.ok) {
-        setPlatformFees(feeInputs)
-        setIsEditingFees(false)
-        showToast({
-          type: 'success',
-          title: 'Platform Fees Updated',
-          description: 'Platform fees have been updated. Changes will apply to new contracts.',
-        })
-      } else {
-        const error = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: error.error || 'Failed to update platform fees',
-        })
-      }
-    } catch (error) {
-      console.error('Failed to save platform fees:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to update platform fees',
-      })
-    }
-  }
 
   const handlePayout = async (contractId: string) => {
     if (!confirm('Are you sure you want to process the payout for this contract? This will transfer funds to the creator.')) {
@@ -1751,7 +1518,7 @@ function CreatorMarketplaceTab() {
             <Card>
               <CardBody>
                 <div className="text-2xl font-bold text-electric-blue">
-                  ${(stats.monthlyRevenue ?? 0).toLocaleString()}
+                  ${stats.monthlyRevenue.toLocaleString()}
                 </div>
                 <div className="text-text-secondary">Monthly Revenue</div>
               </CardBody>
@@ -1763,91 +1530,6 @@ function CreatorMarketplaceTab() {
               </CardBody>
             </Card>
           </div>
-
-          {/* Platform Fees Section */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-text-primary">Platform Fees</h3>
-                {!isEditingFees ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setIsEditingFees(true)}
-                  >
-                    Edit Fees
-                  </Button>
-                ) : (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={handleSaveFees}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        setIsEditingFees(false)
-                        setFeeInputs(platformFees) // Reset to current values
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardBody>
-              <p className="text-sm text-text-secondary mb-4">
-                Platform fees are deducted from each contract. Higher-tier creators pay lower fees.
-              </p>
-              <div className="grid grid-cols-4 gap-4">
-                {(['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'] as const).map((tier) => (
-                  <div key={tier} className="p-4 bg-bg-secondary rounded-lg border border-bg-tertiary">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-text-primary">{tier}</span>
-                      {isEditingFees ? (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={feeInputs[tier]}
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value) || 0
-                              setFeeInputs({ ...feeInputs, [tier]: Math.min(100, Math.max(0, value)) })
-                            }}
-                            className="w-20 px-2 py-1 text-sm"
-                          />
-                          <span className="text-text-secondary">%</span>
-                        </div>
-                      ) : (
-                        <span className="text-lg font-bold text-electric-blue">
-                          {platformFees[tier]}%
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-text-secondary">
-                      {tier === 'BRONZE' && 'ELO 0-1499'}
-                      {tier === 'SILVER' && 'ELO 1500-1999'}
-                      {tier === 'GOLD' && 'ELO 2000-2499'}
-                      {tier === 'PLATINUM' && 'ELO 2500+'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {isEditingFees && (
-                <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                  <p className="text-sm text-yellow-400">
-                    ⚠️ Changes will apply to new contracts only. Existing contracts use the fees that were set when they were created.
-                  </p>
-                </div>
-              )}
-            </CardBody>
-          </Card>
 
           {/* Active Contracts */}
           <Card>
@@ -1880,10 +1562,7 @@ function CreatorMarketplaceTab() {
                             <div className="text-sm text-text-secondary space-y-1 mt-2">
                               <p>Campaign: {contract.campaign?.name || 'N/A'}</p>
                               <p>Total Amount: ${Number(contract.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                              <p>
-                                Platform Fee: ${Number(contract.platformFee).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
-                                ({((Number(contract.platformFee) / Number(contract.totalAmount)) * 100).toFixed(1)}%)
-                              </p>
+                              <p>Platform Fee: ${Number(contract.platformFee).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                               <p>Creator Payout: ${Number(contract.creatorPayout).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                               <p>Ends: {new Date(contract.endDate).toLocaleDateString()}</p>
                               {contract.payoutSent && contract.payoutDate && (
@@ -2444,37 +2123,37 @@ function AdvertisersManagementTab() {
                 </div>
                 <div className="bg-bg-secondary p-4 rounded-lg">
                   <div className="text-2xl font-bold text-electric-blue">
-                    ${(advertiserStats.stats.totalSpent ?? 0).toLocaleString()}
+                    ${advertiserStats.stats.totalSpent.toLocaleString()}
                   </div>
                   <div className="text-sm text-text-secondary">Total Spent</div>
                 </div>
                 <div className="bg-bg-secondary p-4 rounded-lg">
                   <div className="text-2xl font-bold text-text-primary">
-                    {(advertiserStats.stats.totalImpressions ?? 0).toLocaleString()}
+                    {advertiserStats.stats.totalImpressions.toLocaleString()}
                   </div>
                   <div className="text-sm text-text-secondary">Impressions</div>
                 </div>
                 <div className="bg-bg-secondary p-4 rounded-lg">
                   <div className="text-2xl font-bold text-text-primary">
-                    {(advertiserStats.stats.totalClicks ?? 0).toLocaleString()}
+                    {advertiserStats.stats.totalClicks.toLocaleString()}
                   </div>
                   <div className="text-sm text-text-secondary">Clicks</div>
                 </div>
                 <div className="bg-bg-secondary p-4 rounded-lg">
                   <div className="text-2xl font-bold text-cyber-green">
-                    {advertiserStats.stats.clickThroughRate ?? 0}%
+                    {advertiserStats.stats.clickThroughRate}%
                   </div>
                   <div className="text-sm text-text-secondary">CTR</div>
                 </div>
                 <div className="bg-bg-secondary p-4 rounded-lg">
                   <div className="text-2xl font-bold text-purple-400">
-                    {advertiserStats.stats.activeContracts ?? 0}
+                    {advertiserStats.stats.activeContracts}
                   </div>
                   <div className="text-sm text-text-secondary">Active Contracts</div>
                 </div>
                 <div className="bg-bg-secondary p-4 rounded-lg">
                   <div className="text-2xl font-bold text-electric-blue">
-                    ${(advertiserStats.stats.totalContractValue ?? 0).toLocaleString()}
+                    ${advertiserStats.stats.totalContractValue.toLocaleString()}
                   </div>
                   <div className="text-sm text-text-secondary">Contract Value</div>
                 </div>

@@ -28,17 +28,12 @@ export async function POST(
     })
 
     if (!campaign) {
-      console.error(`[Approve Campaign] Campaign ${id} not found`)
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
-    console.log(`[Approve Campaign] Campaign ${id} current status: ${campaign.status}`)
-    
     if (campaign.status !== 'PENDING_REVIEW') {
-      const errorMessage = `Campaign is not pending review. Current status: ${campaign.status}`
-      console.error(`[Approve Campaign] ${errorMessage}`)
       return NextResponse.json(
-        { error: errorMessage },
+        { error: 'Campaign is not pending review' },
         { status: 400 }
       )
     }

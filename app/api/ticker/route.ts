@@ -14,7 +14,6 @@ interface TickerUpdate {
   destinationUrl?: string
   adId?: string
   imageUrl?: string
-  campaignId?: string
 }
 
 export async function GET(request: NextRequest) {
@@ -208,7 +207,7 @@ export async function GET(request: NextRequest) {
           debateId: null,
           priority: 'medium',
           createdAt: ad.createdAt.toISOString(),
-          destinationUrl: ad.targetUrl || undefined,
+          destinationUrl: ad.targetUrl || null,
           adId: ad.id,
           imageUrl: ad.creativeUrl!,
         })
@@ -306,7 +305,7 @@ export async function GET(request: NextRequest) {
       try {
         // Get the user ID for this advertiser
         const advertiserUser = await prisma.user.findUnique({
-          where: { email: userEmail || undefined },
+          where: { email: userEmail },
           select: { id: true },
         })
 
@@ -433,7 +432,7 @@ export async function GET(request: NextRequest) {
           debateId: null,
           priority: 'medium',
           createdAt: ad.createdAt.toISOString(),
-          destinationUrl: ad.targetUrl || undefined,
+          destinationUrl: ad.targetUrl || null,
           adId: ad.id,
           imageUrl: ad.creativeUrl!,
         })
@@ -813,7 +812,6 @@ export async function GET(request: NextRequest) {
     }
 
     // 7. SPONSORED ADS - IN_FEED ads from advertisements table (admin-created)
-    console.log('[Ticker API] Fetching IN_FEED ads, current time:', now.toISOString())
     const inFeedAds = await prisma.advertisement.findMany({
       where: {
         status: 'ACTIVE',
@@ -827,19 +825,6 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { createdAt: 'desc' },
       take: 5,
-    })
-
-    console.log('[Ticker API] Found', inFeedAds.length, 'IN_FEED ads matching criteria')
-    inFeedAds.forEach(ad => {
-      console.log('[Ticker API] IN_FEED ad:', {
-        id: ad.id,
-        title: ad.title,
-        status: ad.status,
-        type: ad.type,
-        startDate: ad.startDate?.toISOString() || 'null',
-        endDate: ad.endDate?.toISOString() || 'null',
-        creativeUrl: ad.creativeUrl ? 'present' : 'missing',
-      })
     })
 
     // Filter for ads with images (creativeUrl)
@@ -856,7 +841,7 @@ export async function GET(request: NextRequest) {
         debateId: null,
         priority: 'medium',
         createdAt: sponsoredAd.createdAt.toISOString(),
-        destinationUrl: sponsoredAd.targetUrl || undefined,
+        destinationUrl: sponsoredAd.targetUrl || null,
         adId: sponsoredAd.id,
         imageUrl: sponsoredAd.creativeUrl!,
       })
@@ -904,7 +889,7 @@ export async function GET(request: NextRequest) {
             debateId: null,
             priority: 'medium',
             createdAt: campaign.createdAt.toISOString(),
-            destinationUrl: campaign.destinationUrl || undefined,
+            destinationUrl: campaign.destinationUrl || null,
             adId: campaign.id,
             campaignId: campaign.id,
             imageUrl: campaign.bannerUrl,

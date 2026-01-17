@@ -1070,6 +1070,10 @@ function EditSectionModal({
                     buttons: data.section.buttons || [],
                   }
                   setSection(updatedSection)
+                  // Update selectedSection if it matches
+                  if (selectedSection && selectedSection.id === section.id) {
+                    setSelectedSection(updatedSection)
+                  }
                 }
               }
             } catch (error) {

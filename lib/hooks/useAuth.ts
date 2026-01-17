@@ -18,7 +18,6 @@ interface User {
   isAdmin: boolean
   isBanned: boolean
   isCreator?: boolean
-  coins?: number
 }
 
 export function useAuth() {
@@ -83,7 +82,6 @@ export function useAuth() {
             totalScore: data.user.totalScore || data.user.total_score || 0,
             totalMaxScore: data.user.totalMaxScore || data.user.total_max_score || 0,
             isCreator: data.user.isCreator || data.user.is_creator || false,
-            coins: data.user.coins !== undefined ? data.user.coins : 0,
           }
           
           // DEBUG: Log what we're setting

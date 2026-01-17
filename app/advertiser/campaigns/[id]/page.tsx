@@ -355,7 +355,7 @@ export default function CampaignDetailPage() {
                 <div>
                   <label className="text-sm font-medium text-text-secondary">Budget</label>
                   <p className="text-text-primary font-semibold mt-1">
-                    ${Number(campaign.budget ?? 0).toLocaleString()}
+                    ${Number(campaign.budget).toLocaleString()}
                   </p>
                 </div>
                 <div>
@@ -422,7 +422,7 @@ export default function CampaignDetailPage() {
                           Max Budget Per Creator
                         </label>
                         <p className="text-text-primary font-semibold mt-1">
-                          ${Number(campaign.maxBudgetPerCreator ?? 0).toLocaleString()}
+                          ${Number(campaign.maxBudgetPerCreator).toLocaleString()}
                         </p>
                       </div>
                     )}

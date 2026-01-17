@@ -50,15 +50,6 @@ export function NotificationTicker() {
         const sponsoredCount = updates.filter((u: any) => u.type === 'SPONSORED').length
         const advertiserCount = updates.filter((u: any) => u.type === 'ADVERTISER').length
         console.log('[Ticker] Fetched', updates.length, 'updates -', sponsoredCount, 'sponsored,', advertiserCount, 'advertiser/admin')
-        if (sponsoredCount > 0) {
-          console.log('[Ticker] SPONSORED ads:', updates.filter((u: any) => u.type === 'SPONSORED').map((u: any) => ({ 
-            id: u.id, 
-            title: u.title, 
-            message: u.message, 
-            adId: u.adId, 
-            imageUrl: u.imageUrl ? 'present' : 'missing' 
-          })))
-        }
         if (advertiserCount > 0) {
           console.log('[Ticker] Advertiser/Admin updates:', updates.filter((u: any) => u.type === 'ADVERTISER').map((u: any) => ({ title: u.title, message: u.message })))
         }
@@ -165,13 +156,9 @@ export function NotificationTicker() {
       // Regular users: all updates (your turn, notifications, debate updates, sponsored ads)
       if (yourTurnUpdate) combined.push(yourTurnUpdate)
       combined.push(...notifications.filter(n => !n.read))
-      // Include all ticker updates EXCEPT ADVERTISER type (but include SPONSORED)
-      const userTickerUpdates = tickerUpdates.filter(t => t.type !== 'ADVERTISER')
-      combined.push(...userTickerUpdates)
-      const sponsoredCount = userTickerUpdates.filter(t => t.type === 'SPONSORED').length
-      console.log('[Ticker] User mode - Added', userTickerUpdates.length, 'ticker updates (', sponsoredCount, 'sponsored ads)')
+      combined.push(...tickerUpdates.filter(t => t.type !== 'ADVERTISER'))
       combined.push(...notifications.filter(n => n.read))
-      console.log('[Ticker] User mode - Total items:', combined.length)
+      console.log('[Ticker] User mode - Added', combined.length, 'items')
     }
 
     // Filter: always show sponsored ads and advertiser updates, others must be recent
@@ -184,8 +171,7 @@ export function NotificationTicker() {
       return itemDate > oneDayAgo || ('read' in item && !item.read)
     })
 
-    const sponsoredInFiltered = filtered.filter(item => 'type' in item && item.type === 'SPONSORED').length
-    console.log('[Ticker] Final filtered items:', filtered.length, '(', sponsoredInFiltered, 'sponsored ads)')
+    console.log('[Ticker] Final filtered items:', filtered.length)
     setItemsToShow(filtered.slice(0, 20))
   }, [notifications, tickerUpdates, yourTurnUpdate])
 

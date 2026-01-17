@@ -89,7 +89,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Check token
-    const tokenData = await getTokenData(token)
+    const tokenData = getTokenData(token)
     if (!tokenData) {
       return NextResponse.json(
         { error: 'Invalid or expired reset token' },
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check token
-    const tokenData = await getTokenData(token)
+    const tokenData = getTokenData(token)
     if (!tokenData) {
       return NextResponse.json(
         { valid: false, error: 'Invalid or expired token' },

@@ -68,11 +68,6 @@ model User {
   coins                       Int                     @default(0)
   freeBeltChallengesAvailable Int                     @default(1) @map("free_belt_challenges_available")
   lastFreeChallengeReset      DateTime?               @map("last_free_challenge_reset")
-  lastLoginDate               DateTime?               @map("last_login_date")
-  consecutiveLoginDays        Int                     @default(0) @map("consecutive_login_days")
-  longestLoginStreak          Int                     @default(0) @map("longest_login_streak")
-  totalLoginDays              Int                     @default(0) @map("total_login_days")
-  lastDailyRewardDate         DateTime?               @map("last_daily_reward_date")
   activeContracts             AdContract[]            @relation("CreatorContracts")
   apiUsage                    ApiUsage[]
   appealLimit                 AppealLimit?
@@ -120,7 +115,6 @@ model User {
   @@index([email])
   @@index([username])
   @@index([eloRating])
-  @@index([lastDailyRewardDate])
   @@map("users")
 }
 
@@ -454,52 +448,11 @@ model CreatorTaxInfo {
   bankVerified    Boolean  @default(false) @map("bank_verified")
   payoutEnabled   Boolean  @default(false) @map("payout_enabled")
   yearlyEarnings  Json     @default("{}") @map("yearly_earnings")
-  // W-9 Tax Information
-  legalName       String?  @map("legal_name")
-  businessName    String?  @map("business_name")
-  taxId           String?  @map("tax_id") // SSN or EIN
-  taxIdType       String?  @map("tax_id_type") // "SSN" or "EIN"
-  businessType    String?  @map("business_type") // "Individual", "LLC", "Corporation", "Partnership", etc.
-  addressLine1    String?  @map("address_line1")
-  addressLine2    String?  @map("address_line2")
-  city            String?
-  state           String?
-  zipCode         String?  @map("zip_code")
-  country         String?  @default("US")
-  w9Submitted     Boolean  @default(false) @map("w9_submitted")
-  w9SubmittedAt   DateTime? @map("w9_submitted_at")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
   creator         User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  taxForms1099    TaxForm1099[]
 
-  @@index([creatorId])
   @@map("creator_tax_info")
-}
-
-model TaxForm1099 {
-  id                String          @id @default(uuid())
-  creatorTaxInfoId  String          @map("creator_tax_info_id")
-  taxYear           Int             @map("tax_year")
-  totalCompensation Decimal         @map("total_compensation") @db.Decimal(10, 2)
-  formType          String          @default("1099-NEC") @map("form_type")
-  status            TaxForm1099Status @default(PENDING) @map("status")
-  pdfUrl            String?         @map("pdf_url")
-  generatedAt       DateTime?       @map("generated_at")
-  sentToCreator     Boolean         @default(false) @map("sent_to_creator")
-  sentAt            DateTime?       @map("sent_at")
-  filedWithIRS      Boolean         @default(false) @map("filed_with_irs")
-  filedAt           DateTime?       @map("filed_at")
-  irsFilingId       String?         @map("irs_filing_id")
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
-  creatorTaxInfo    CreatorTaxInfo  @relation(fields: [creatorTaxInfoId], references: [id], onDelete: Cascade)
-
-  @@unique([creatorTaxInfoId, taxYear])
-  @@index([creatorTaxInfoId])
-  @@index([taxYear])
-  @@index([status])
-  @@map("tax_forms_1099")
 }
 
 model SocialMediaPost {
@@ -640,11 +593,11 @@ model Session {
 }
 
 model PasswordResetToken {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   email     String
-  token     String    @unique
-  expiresAt DateTime  @map("expires_at")
-  createdAt DateTime  @default(now()) @map("created_at")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
   usedAt    DateTime? @map("used_at")
 
   @@index([email])
@@ -2216,8 +2169,6 @@ enum CoinTransactionType {
   PLATFORM_FEE
   COIN_PURCHASE
   COIN_PURCHASE_REFUND
-  DAILY_LOGIN_REWARD
-  STREAK_BONUS
 }
 
 enum CoinTransactionStatus {
@@ -2225,11 +2176,4 @@ enum CoinTransactionStatus {
   COMPLETED
   FAILED
   REFUNDED
-}
-
-enum TaxForm1099Status {
-  PENDING
-  GENERATED
-  SENT
-  FILED
 }

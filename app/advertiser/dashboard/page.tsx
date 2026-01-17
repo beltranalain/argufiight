@@ -12,7 +12,6 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Tabs } from '@/components/ui/Tabs'
 import Link from 'next/link'
-import { formatPlacement } from '@/lib/ads/placement-formatter'
 
 interface Campaign {
   id: string
@@ -105,15 +104,6 @@ export default function AdvertiserDashboardPage() {
   useEffect(() => {
     fetchData()
     
-    // Refresh data when page becomes visible (user switches back to tab)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('[Advertiser Dashboard] Page became visible, refreshing data...')
-        fetchData()
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    
     // Check for payment success/error messages in URL
     const urlParams = new URLSearchParams(window.location.search)
     const success = urlParams.get('success')
@@ -168,10 +158,6 @@ export default function AdvertiserDashboardPage() {
       })
       window.history.replaceState({}, '', '/advertiser/dashboard')
     }
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-    }
   }, [showToast])
 
   useEffect(() => {
@@ -184,16 +170,10 @@ export default function AdvertiserDashboardPage() {
   const fetchData = async () => {
     try {
       setIsLoading(true)
-      console.log('[Advertiser Dashboard] Fetching fresh data...')
       const [advertiserRes, campaignsRes, offersRes] = await Promise.all([
-        fetch('/api/advertiser/me', { cache: 'no-store' }),
-        fetch('/api/advertiser/campaigns', { 
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-          },
-        }),
-        fetch('/api/advertiser/offers', { cache: 'no-store' }),
+        fetch('/api/advertiser/me'),
+        fetch('/api/advertiser/campaigns'),
+        fetch('/api/advertiser/offers'),
       ])
 
       if (advertiserRes.ok) {
@@ -250,13 +230,6 @@ export default function AdvertiserDashboardPage() {
 
       if (campaignsRes.ok) {
         const campaignsData = await campaignsRes.json()
-        console.log('[Advertiser Dashboard] Fetched campaigns:', campaignsData.campaigns?.length || 0)
-        console.log('[Advertiser Dashboard] Campaign statuses:', campaignsData.campaigns?.map((c: Campaign) => ({ 
-          id: c.id, 
-          name: c.name, 
-          status: c.status,
-          paymentStatus: c.paymentStatus 
-        })))
         setCampaigns(campaignsData.campaigns || [])
         
         // Calculate stats
@@ -547,7 +520,7 @@ export default function AdvertiserDashboardPage() {
             <Card>
               <CardBody>
                 <div className="text-2xl font-bold text-electric-blue">
-                  {(stats.totalImpressions ?? 0).toLocaleString()}
+                  {stats.totalImpressions.toLocaleString()}
                 </div>
                 <div className="text-text-secondary">Total Impressions</div>
               </CardBody>
@@ -555,16 +528,16 @@ export default function AdvertiserDashboardPage() {
             <Card>
               <CardBody>
                 <div className="text-2xl font-bold text-cyber-green">
-                  {(stats.totalClicks ?? 0).toLocaleString()}
+                  {stats.totalClicks.toLocaleString()}
                 </div>
                 <div className="text-text-secondary">Total Clicks</div>
               </CardBody>
             </Card>
-            {(stats.pendingPayment ?? 0) > 0 && (
+            {stats.pendingPayment > 0 && (
               <Card className="border-neon-orange/50 bg-neon-orange/10">
                 <CardBody>
                   <div className="text-2xl font-bold text-neon-orange">
-                    ${(stats.pendingPayment ?? 0).toLocaleString()}
+                    ${stats.pendingPayment.toLocaleString()}
                   </div>
                   <div className="text-text-secondary">Pending Payment</div>
                 </CardBody>
@@ -573,7 +546,7 @@ export default function AdvertiserDashboardPage() {
             <Card>
               <CardBody>
                 <div className="text-2xl font-bold text-cyber-green">
-                  ${(stats.totalSpent ?? 0).toLocaleString()}
+                  ${stats.totalSpent.toLocaleString()}
                 </div>
                 <div className="text-text-secondary">Total Spent</div>
               </CardBody>
@@ -638,7 +611,7 @@ export default function AdvertiserDashboardPage() {
                                   <div className="text-sm text-text-secondary space-y-1">
                                     <p>Campaign: {offer.campaign.name}</p>
                                     <p>
-                                      ${Number(offer.amount ?? 0).toLocaleString()} for {offer.duration} days • {formatPlacement(offer.placement)}
+                                      ${Number(offer.amount).toLocaleString()} for {offer.duration} days • {offer.placement}
                                     </p>
                                     <p>Expires: {new Date(offer.expiresAt).toLocaleDateString()}</p>
                                   </div>
@@ -702,7 +675,7 @@ export default function AdvertiserDashboardPage() {
                                     </Badge>
                                   </div>
                                   <div className="text-sm text-text-secondary space-y-1">
-                                    <p>Budget: ${Number(campaign.budget ?? 0).toLocaleString()}</p>
+                                    <p>Budget: ${Number(campaign.budget).toLocaleString()}</p>
                                     <p>
                                       {new Date(campaign.startDate).toLocaleDateString()} -{' '}
                                       {new Date(campaign.endDate).toLocaleDateString()}
@@ -805,9 +778,9 @@ export default function AdvertiserDashboardPage() {
   
   <div class="section">
     <div class="section-title">Payment Details</div>
-    <div class="row"><span class="label">Campaign Budget:</span><span class="value">$${(receipt.payment.budget ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
-    <div class="row"><span class="label">Stripe Processing Fee:</span><span class="value">$${(receipt.payment.stripeFee ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
-    <div class="row total"><span>Total Paid:</span><span>$${(receipt.payment.totalPaid ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+    <div class="row"><span class="label">Campaign Budget:</span><span class="value">$${receipt.payment.budget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+    <div class="row"><span class="label">Stripe Processing Fee:</span><span class="value">$${receipt.payment.stripeFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+    <div class="row total"><span>Total Paid:</span><span>$${receipt.payment.totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
     <div class="row"><span class="label">Payment ID:</span><span class="value">${receipt.payment.stripePaymentId}</span></div>
     <div class="row"><span class="label">Paid At:</span><span class="value">${new Date(receipt.payment.paidAt).toLocaleString()}</span></div>
   </div>

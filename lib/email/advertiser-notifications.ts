@@ -60,36 +60,36 @@ export async function sendAdvertiserApprovalEmail(
             
             <p>Great news! Your advertiser application for <strong>${companyName}</strong> has been approved.</p>
             
-            ${accountJustCreated && passwordResetToken ? `
-              <div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 20px; margin: 20px 0; border-radius: 5px;">
-                <p style="margin: 0 0 10px 0; font-weight: bold; font-size: 16px;">🎉 Account Created!</p>
-                <p style="margin: 5px 0 15px 0; font-size: 14px;">
-                  We've created a user account for you. To access your advertiser dashboard, please set your password first:
+            <p>You can now access your advertiser dashboard to:</p>
+            <ul>
+              <li>Create and manage advertising campaigns</li>
+              <li>Connect your Stripe account for payments</li>
+              <li>Discover and sponsor creators</li>
+              <li>Track your campaign performance</li>
+            </ul>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${dashboardUrl}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                Access Dashboard
+              </a>
+            </div>
+            
+            ${accountJustCreated ? `
+              <div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; font-weight: bold;">Account Created</p>
+                <p style="margin: 5px 0 0 0; font-size: 14px;">
+                  We've created a user account for you. Please set your password using the link below:
                 </p>
-                <div style="text-align: center; margin: 20px 0;">
-                  <a href="${resetPasswordUrl}" style="display: inline-block; background: #2196f3; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
+                <div style="text-align: center; margin: 15px 0;">
+                  <a href="${resetPasswordUrl}" style="display: inline-block; background: #2196f3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 14px;">
                     Set Your Password
                   </a>
                 </div>
                 <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">
-                  This link will expire in 7 days. If you need a new link, use the <a href="${forgotPasswordUrl}" style="color: #2196f3;">Forgot Password</a> feature with your email: <strong>${advertiserEmail}</strong>
+                  Or use the <a href="${forgotPasswordUrl}" style="color: #2196f3;">Forgot Password</a> feature with your email: <strong>${advertiserEmail}</strong>
                 </p>
               </div>
             ` : `
-              <p>You can now access your advertiser dashboard to:</p>
-              <ul>
-                <li>Create and manage advertising campaigns</li>
-                <li>Connect your Stripe account for payments</li>
-                <li>Discover and sponsor creators</li>
-                <li>Track your campaign performance</li>
-              </ul>
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${dashboardUrl}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">
-                  Access Dashboard
-                </a>
-              </div>
-              
               <p style="font-size: 14px; color: #666;">
                 If you haven't already, you'll need to <a href="${loginUrl}" style="color: #667eea;">sign in</a> using the email address you provided: <strong>${advertiserEmail}</strong>
               </p>

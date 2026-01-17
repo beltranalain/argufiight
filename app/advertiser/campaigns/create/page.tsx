@@ -115,9 +115,7 @@ export default function CreateCampaignPage() {
       console.log('[CreateCampaign] Moving to step:', newStep)
       setCurrentStep(newStep)
     } else {
-      // On step 1, navigate back to dashboard
-      console.log('[CreateCampaign] On step 1, navigating to dashboard')
-      router.push('/advertiser/dashboard')
+      console.log('[CreateCampaign] Already at step 1, cannot go back')
     }
   }
 
@@ -193,64 +191,25 @@ export default function CreateCampaignPage() {
       }
 
       console.log('[CreateCampaign] Submitting to API...')
-      console.log('[CreateCampaign] Request URL: /api/advertiser/campaigns')
-      console.log('[CreateCampaign] Request method: POST')
-      
       const response = await fetch('/api/advertiser/campaigns', {
         method: 'POST',
         body: submitFormData,
       })
 
       console.log('[CreateCampaign] Response status:', response.status)
-      console.log('[CreateCampaign] Response headers:', Object.fromEntries(response.headers.entries()))
 
       if (!response.ok) {
-        // Capture raw response text before parsing
-        const contentType = response.headers.get('content-type') || ''
-        const isJson = contentType.includes('application/json')
-        
-        let rawResponseText = ''
-        let errorData: any = {}
-        
+        let errorData
         try {
-          rawResponseText = await response.text()
-          console.error('[CreateCampaign] Raw response text:', rawResponseText)
-          console.error('[CreateCampaign] Response Content-Type:', contentType)
-          
-          if (rawResponseText) {
-            if (isJson) {
-              try {
-                errorData = JSON.parse(rawResponseText)
-              } catch (parseError) {
-                console.error('[CreateCampaign] JSON parse error:', parseError)
-                // If JSON parsing fails, use raw text as error message
-                errorData = { error: rawResponseText || `Failed to create campaign (${response.status})` }
-              }
-            } else {
-              // Non-JSON response - use raw text as error message
-              errorData = { error: rawResponseText || `Failed to create campaign (${response.status})` }
-            }
-          } else {
-            // Empty response body - create status-based error
-            errorData = { error: `Failed to create campaign (${response.status})` }
-          }
-        } catch (textError) {
-          console.error('[CreateCampaign] Error reading response text:', textError)
+          const text = await response.text()
+          errorData = text ? JSON.parse(text) : { error: 'Unknown error' }
+        } catch (parseError) {
           errorData = { error: `Failed to create campaign (${response.status})` }
         }
-        
         console.error('[CreateCampaign] API error:', errorData)
         console.error('[CreateCampaign] Response status:', response.status)
-        console.error('[CreateCampaign] Response URL:', response.url)
-        
-        // Extract error message from various possible formats
-        const errorMessage = errorData.error || 
-                            errorData.message || 
-                            errorData.detail ||
-                            (rawResponseText && !isJson ? rawResponseText : null) ||
-                            `Failed to create campaign (${response.status})`
-        
-        throw new Error(errorMessage)
+        console.error('[CreateCampaign] Response headers:', Object.fromEntries(response.headers.entries()))
+        throw new Error(errorData.error || `Failed to create campaign (${response.status})`)
       }
 
       const data = await response.json()
@@ -772,6 +731,7 @@ export default function CreateCampaignPage() {
                     console.log('[CreateCampaign] Back button clicked, currentStep:', currentStep)
                     handleBack()
                   }}
+                  disabled={currentStep === 1}
                   type="button"
                 >
                   Back

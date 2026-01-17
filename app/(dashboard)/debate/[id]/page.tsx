@@ -110,8 +110,6 @@ interface Debate {
   viewCount: number
   createdAt: Date
   challengeType?: string
-  hasNoStatements?: boolean
-  verdictReached?: boolean
   participants?: Array<{
     id: string
     userId: string
@@ -305,9 +303,6 @@ export default function DebatePage() {
           stakedBelt: data.stakedBelt,
           winnerId: data.winnerId,
           status: data.status,
-          verdictReached: data.verdictReached,
-          hasNoStatements: data.hasNoStatements,
-          statementCount: data.statements?.length || 0,
         }, null, 2))
         console.log('[DebatePage] Belt condition check:', {
           hasBeltAtStake: data.hasBeltAtStake,
@@ -949,35 +944,9 @@ export default function DebatePage() {
           {debate.status === 'COMPLETED' && (
             <Card>
               <CardBody>
-                {(() => {
-                  // Debug logging
-                  console.log('[DebatePage] Status message check:', {
-                    status: debate.status,
-                    hasNoStatements: debate.hasNoStatements,
-                    verdictReached: debate.verdictReached,
-                    statementCount: debate.statements?.length || 0,
-                  })
-                  
-                  if (debate.hasNoStatements) {
-                    return (
-                      <p className="text-text-secondary text-center py-4">
-                        Debate ended - no statements were submitted. No verdict needed.
-                      </p>
-                    )
-                  } else if (debate.verdictReached) {
-                    return (
-                      <p className="text-text-secondary text-center py-4">
-                        Debate completed! Verdicts are ready.
-                      </p>
-                    )
-                  } else {
-                    return (
-                      <p className="text-text-secondary text-center py-4">
-                        Debate completed! AI judges are generating verdicts...
-                      </p>
-                    )
-                  }
-                })()}
+                <p className="text-text-secondary text-center py-4">
+                  Debate completed! AI judges are generating verdicts...
+                </p>
               </CardBody>
             </Card>
           )}
