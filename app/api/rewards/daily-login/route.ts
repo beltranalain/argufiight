@@ -26,26 +26,15 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get updated user info for streak
-    const { prisma } = await import('@/lib/db/prisma')
-    const updatedUser = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: {
-        id: true,
-        email: true,
-        username: true,
-      },
-    })
-
     if (rewardAmount === 0) {
       return NextResponse.json({
         success: true,
         rewarded: false,
         message: 'Already rewarded today',
         rewardAmount: 0,
-        streak: updatedUser?.consecutiveLoginDays || 0,
-        longestStreak: updatedUser?.longestLoginStreak || 0,
-        totalLoginDays: updatedUser?.totalLoginDays || 0,
+        streak: 0,
+        longestStreak: 0,
+        totalLoginDays: 0,
       })
     }
 
@@ -54,9 +43,9 @@ export async function POST(req: NextRequest) {
       rewarded: true,
       message: `You earned ${rewardAmount} coins!`,
       rewardAmount,
-      streak: updatedUser?.consecutiveLoginDays || 0,
-      longestStreak: updatedUser?.longestLoginStreak || 0,
-      totalLoginDays: updatedUser?.totalLoginDays || 0,
+      streak: 0,
+      longestStreak: 0,
+      totalLoginDays: 0,
     })
   } catch (error) {
     console.error('[DailyLoginReward API] Error:', error)
