@@ -306,7 +306,7 @@ export async function GET(request: NextRequest) {
         // Skip if no user email is available
         if (!userEmail) {
           console.log('[Ticker API] No user email available for support ticket check')
-          return []
+          return NextResponse.json({ updates: [] })
         }
 
         // Get the user ID for this advertiser
