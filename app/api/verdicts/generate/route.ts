@@ -171,6 +171,31 @@ export async function POST(request: NextRequest) {
             opponentScore: verdict.opponentScore
           })
 
+          // CRITICAL FIX: Ensure winner gets higher score
+          // If AI declared a winner but gave them lower score, correct it
+          let correctedChallengerScore = verdict.challengerScore
+          let correctedOpponentScore = verdict.opponentScore
+
+          if (verdict.winner === 'CHALLENGER' && verdict.challengerScore <= verdict.opponentScore) {
+            // Challenger should win but has lower/equal score - fix it
+            correctedChallengerScore = Math.max(80, verdict.challengerScore)
+            correctedOpponentScore = Math.min(45, verdict.opponentScore)
+            // Ensure minimum 20 point gap
+            if (correctedChallengerScore - correctedOpponentScore < 20) {
+              correctedChallengerScore = correctedOpponentScore + 20 + Math.floor(Math.random() * 15) // 20-34 point gap
+            }
+            console.log(`[Verdict Generation] ⚠️ Corrected challenger score: ${verdict.challengerScore} → ${correctedChallengerScore}, opponent: ${verdict.opponentScore} → ${correctedOpponentScore}`)
+          } else if (verdict.winner === 'OPPONENT' && verdict.opponentScore <= verdict.challengerScore) {
+            // Opponent should win but has lower/equal score - fix it
+            correctedOpponentScore = Math.max(80, verdict.opponentScore)
+            correctedChallengerScore = Math.min(45, verdict.challengerScore)
+            // Ensure minimum 20 point gap
+            if (correctedOpponentScore - correctedChallengerScore < 20) {
+              correctedOpponentScore = correctedChallengerScore + 20 + Math.floor(Math.random() * 15) // 20-34 point gap
+            }
+            console.log(`[Verdict Generation] ⚠️ Corrected opponent score: ${verdict.opponentScore} → ${correctedOpponentScore}, challenger: ${verdict.challengerScore} → ${correctedChallengerScore}`)
+          }
+
           // Map AI winner to user ID
           let winnerId: string | null = null
           if (verdict.winner === 'CHALLENGER') {
@@ -194,8 +219,8 @@ export async function POST(request: NextRequest) {
             winnerId,
             decision,
             reasoning: verdict.reasoning,
-            challengerScore: verdict.challengerScore,
-            opponentScore: verdict.opponentScore,
+            challengerScore: correctedChallengerScore,
+            opponentScore: correctedOpponentScore,
           }
         } catch (error: any) {
           console.error(`[Verdict Generation] ❌ Failed to generate verdict for judge ${judge.name}:`, {
