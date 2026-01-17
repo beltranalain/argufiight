@@ -1157,8 +1157,8 @@ export default function DebatePage() {
                 context="debate-sidebar"
               />
 
-              {/* Live Chat - Show for all users during active debates */}
-              {debate.status === 'ACTIVE' && (
+              {/* Live Chat - Show for active, completed, and verdict-ready debates (matches API) */}
+              {(debate.status === 'ACTIVE' || debate.status === 'COMPLETED' || debate.status === 'VERDICT_READY') && (
                 <Card>
                   <CardHeader>
                     <h2 className="text-xl font-bold text-text-primary">Live Chat</h2>

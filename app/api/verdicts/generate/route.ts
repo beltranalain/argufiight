@@ -165,62 +165,35 @@ export async function POST(request: NextRequest) {
             debateId,
             userId: debate.challengerId, // Track as challenger's usage
           })
-          console.log(`[Verdict Generation] ✅ Successfully generated verdict from ${judge.name}:`, {
-            winner: verdict.winner,
-            challengerScore: verdict.challengerScore,
-            opponentScore: verdict.opponentScore
-          })
-
-          // CRITICAL FIX: Ensure winner gets higher score
-          // If AI declared a winner but gave them lower score, correct it
-          let correctedChallengerScore = verdict.challengerScore
-          let correctedOpponentScore = verdict.opponentScore
-
-          if (verdict.winner === 'CHALLENGER' && verdict.challengerScore <= verdict.opponentScore) {
-            // Challenger should win but has lower/equal score - fix it
-            correctedChallengerScore = Math.max(80, verdict.challengerScore)
-            correctedOpponentScore = Math.min(45, verdict.opponentScore)
-            // Ensure minimum 20 point gap
-            if (correctedChallengerScore - correctedOpponentScore < 20) {
-              correctedChallengerScore = correctedOpponentScore + 20 + Math.floor(Math.random() * 15) // 20-34 point gap
-            }
-            console.log(`[Verdict Generation] ⚠️ Corrected challenger score: ${verdict.challengerScore} → ${correctedChallengerScore}, opponent: ${verdict.opponentScore} → ${correctedOpponentScore}`)
-          } else if (verdict.winner === 'OPPONENT' && verdict.opponentScore <= verdict.challengerScore) {
-            // Opponent should win but has lower/equal score - fix it
-            correctedOpponentScore = Math.max(80, verdict.opponentScore)
-            correctedChallengerScore = Math.min(45, verdict.challengerScore)
-            // Ensure minimum 20 point gap
-            if (correctedOpponentScore - correctedChallengerScore < 20) {
-              correctedOpponentScore = correctedChallengerScore + 20 + Math.floor(Math.random() * 15) // 20-34 point gap
-            }
-            console.log(`[Verdict Generation] ⚠️ Corrected opponent score: ${verdict.opponentScore} → ${correctedOpponentScore}, challenger: ${verdict.challengerScore} → ${correctedChallengerScore}`)
-          }
-
-          // Map AI winner to user ID
+          // Derive winner from scores so displayed winner always matches scores.
+          // Ignore LLM's winner field to avoid reasoning/score mismatches.
+          const c = verdict.challengerScore
+          const o = verdict.opponentScore
           let winnerId: string | null = null
-          if (verdict.winner === 'CHALLENGER') {
-            winnerId = debate.challengerId
-          } else if (verdict.winner === 'OPPONENT') {
-            winnerId = debate.opponentId
-          }
-
-          // Determine decision enum from AI winner
           let decision: 'CHALLENGER_WINS' | 'OPPONENT_WINS' | 'TIE'
-          if (verdict.winner === 'CHALLENGER') {
+          if (c > o) {
+            winnerId = debate.challengerId
             decision = 'CHALLENGER_WINS'
-          } else if (verdict.winner === 'OPPONENT') {
+          } else if (o > c) {
+            winnerId = debate.opponentId
             decision = 'OPPONENT_WINS'
           } else {
             decision = 'TIE'
           }
+
+          if (verdict.winner !== (decision === 'CHALLENGER_WINS' ? 'CHALLENGER' : decision === 'OPPONENT_WINS' ? 'OPPONENT' : 'TIE')) {
+            console.log(`[Verdict Generation] ⚠️ ${judge.name}: AI winner="${verdict.winner}" overridden to match scores: challenger ${c}, opponent ${o} → decision=${decision}`)
+          }
+
+          console.log(`[Verdict Generation] ✅ ${judge.name}: challenger=${c}, opponent=${o}, decision=${decision}`)
 
           return {
             judgeId: judge.id,
             winnerId,
             decision,
             reasoning: verdict.reasoning,
-            challengerScore: correctedChallengerScore,
-            opponentScore: correctedOpponentScore,
+            challengerScore: verdict.challengerScore,
+            opponentScore: verdict.opponentScore,
           }
         } catch (error: any) {
           console.error(`[Verdict Generation] ❌ Failed to generate verdict for judge ${judge.name}:`, {

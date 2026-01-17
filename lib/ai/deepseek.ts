@@ -120,6 +120,8 @@ Analyze the available arguments and provide your verdict in the following JSON f
   "opponentScore": 0-100
 }
 
+CRITICAL: Your "winner" MUST match your scores. The debater with the higher score must be the winner: if challengerScore > opponentScore then winner must be "CHALLENGER"; if opponentScore > challengerScore then winner must be "OPPONENT"; only use "TIE" when the scores are equal. Inconsistency between scores and winner is not allowed.
+
 IMPORTANT: Respond ONLY with valid JSON. Do not include any text outside the JSON object.`,
         },
       ],

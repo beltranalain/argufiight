@@ -65,7 +65,7 @@ export function CommentsSection({ debateId }: CommentsSectionProps) {
   const fetchComments = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/debates/${debateId}/comments`)
+      const response = await fetch(`/api/debates/${debateId}/comments`, { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
         setComments(data)
@@ -95,6 +95,7 @@ export function CommentsSection({ debateId }: CommentsSectionProps) {
       const response = await fetch(`/api/debates/${debateId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ content: newComment.trim() }),
       })
 
@@ -130,6 +131,7 @@ export function CommentsSection({ debateId }: CommentsSectionProps) {
       const response = await fetch(`/api/debates/${debateId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           content: replyContent.trim(),
           parentId,
@@ -178,7 +180,7 @@ export function CommentsSection({ debateId }: CommentsSectionProps) {
     try {
       const response = await fetch(
         `/api/debates/${debateId}/comments/${commentId}`,
-        { method: 'DELETE' }
+        { method: 'DELETE', credentials: 'include' }
       )
 
       if (!response.ok) {

@@ -78,7 +78,7 @@ export function LiveChat({ debateId }: LiveChatProps) {
     }
 
     try {
-      const response = await fetch(`/api/debates/${debateId}/chat`)
+      const response = await fetch(`/api/debates/${debateId}/chat`, { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
 
@@ -102,22 +102,18 @@ export function LiveChat({ debateId }: LiveChatProps) {
           return prevMessages
         })
       } else if (response.status === 403) {
-        // User is not a participant - silently stop polling
         if (pollIntervalRef.current) {
           clearInterval(pollIntervalRef.current)
           pollIntervalRef.current = null
         }
         setMessages([])
       } else if (response.status === 401) {
-        // Not authenticated - silently stop polling
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current)
-          pollIntervalRef.current = null
-        }
-        setMessages([])
+        // Don't clear on 401: session may not be ready yet (e.g. right after refresh).
+        // Keep retrying; when session is valid, we'll get messages.
+        // Only stop polling if we explicitly want to - we don't, to allow retries.
       }
     } catch (error) {
-      // Silently handle network errors
+      // Silently handle network errors; don't clear messages
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current)
         pollIntervalRef.current = null
@@ -129,7 +125,7 @@ export function LiveChat({ debateId }: LiveChatProps) {
 
   const fetchTypingStatus = async () => {
     try {
-      const response = await fetch(`/api/debates/${debateId}/chat/typing`)
+      const response = await fetch(`/api/debates/${debateId}/chat/typing`, { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
         setTypingUsers(data.typingUsers || [])
@@ -143,6 +139,7 @@ export function LiveChat({ debateId }: LiveChatProps) {
     try {
       await fetch(`/api/debates/${debateId}/chat/typing`, {
         method: 'POST',
+        credentials: 'include',
       })
     } catch (error) {
       // Silently handle errors
@@ -194,6 +191,7 @@ export function LiveChat({ debateId }: LiveChatProps) {
       const response = await fetch(`/api/debates/${debateId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ content: message.trim() }),
       })
 
