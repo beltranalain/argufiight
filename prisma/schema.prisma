@@ -445,6 +445,7 @@ model CreatorTaxInfo {
   creatorId       String   @unique @map("creator_id")
   stripeAccountId String   @unique @map("stripe_account_id")
   taxFormComplete Boolean  @default(false) @map("tax_form_complete")
+  w9Submitted     Boolean  @default(false) @map("w9_submitted")
   bankVerified    Boolean  @default(false) @map("bank_verified")
   payoutEnabled   Boolean  @default(false) @map("payout_enabled")
   yearlyEarnings  Json     @default("{}") @map("yearly_earnings")
