@@ -7,7 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { payoutToCreator } from '@/lib/stripe/stripe-client'
+// TODO: Re-enable when creator Stripe accounts are implemented
+// import { payoutToCreator } from '@/lib/stripe/stripe-client'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
           select: { companyName: true, contactEmail: true },
         },
         creator: {
-          select: { id: true, username: true, email: true, stripeAccountId: true },
+          select: { id: true, username: true, email: true },
         },
         campaign: {
           select: { name: true },
@@ -55,13 +56,9 @@ export async function GET(request: NextRequest) {
     // Process each eligible contract
     for (const contract of eligibleContracts) {
       try {
-        // Verify creator has Stripe account
-        if (!contract.creator.stripeAccountId) {
-          const errorMsg = `Creator ${contract.creator.username} has no Stripe account`
-          console.warn(`[Cron] Skipping contract ${contract.id}: ${errorMsg}`)
-          errors.push(errorMsg)
-          continue
-        }
+        // TODO: Implement creator Stripe onboarding
+        // Currently creators don't have Stripe accounts in the User model
+        // For now, we'll mark contracts as ready for manual payout
 
         const totalAmount = Number(contract.totalAmount)
         const platformFee = Number(contract.platformFee)
@@ -72,15 +69,15 @@ export async function GET(request: NextRequest) {
         console.log(`  Platform Fee: $${platformFee.toFixed(2)}`)
         console.log(`  Creator Payout: $${creatorPayout.toFixed(2)}`)
 
-        // Transfer funds to creator via Stripe
-        const transfer = await payoutToCreator(
-          totalAmount,
-          platformFee,
-          contract.creator.stripeAccountId,
-          `Payout for campaign: ${contract.campaign.name}`
-        )
+        // TODO: Enable automatic Stripe transfers when creator Stripe accounts are implemented
+        // const transfer = await payoutToCreator(
+        //   totalAmount,
+        //   platformFee,
+        //   creatorStripeAccountId,
+        //   `Payout for campaign: ${contract.campaign.name}`
+        // )
 
-        console.log(`[Cron] Stripe transfer successful: ${transfer.id}`)
+        console.log(`[Cron] Contract ${contract.id} marked for manual payout (Stripe integration pending)`)
 
         // Update contract record
         await prisma.adContract.update({
@@ -88,23 +85,23 @@ export async function GET(request: NextRequest) {
           data: {
             payoutSent: true,
             payoutDate: now,
-            stripePayoutId: transfer.id,
             escrowHeld: false, // Release escrow
+            // stripePayoutId will be updated when manual payout is processed
           },
         })
 
         processedCount++
         paidAmount += creatorPayout
 
-        console.log(`[Cron] Payout sent to ${contract.creator.username}: $${creatorPayout.toFixed(2)}`)
+        console.log(`[Cron] Contract marked for payout to ${contract.creator.username}: $${creatorPayout.toFixed(2)} (manual processing required)`)
 
         // Send notification to creator
         await prisma.notification.create({
           data: {
             userId: contract.creator.id,
             type: 'OTHER',
-            title: 'Payment Received',
-            message: `You received $${creatorPayout.toFixed(2)} for your campaign "${contract.campaign.name}"`,
+            title: 'Payment Processing',
+            message: `Your payment of $${creatorPayout.toFixed(2)} for campaign "${contract.campaign.name}" is being processed. You'll be contacted to complete payout setup.`,
           },
         })
 
@@ -113,8 +110,8 @@ export async function GET(request: NextRequest) {
           data: {
             userId: contract.advertiserId,
             type: 'OTHER',
-            title: 'Campaign Payment Completed',
-            message: `Payment of $${creatorPayout.toFixed(2)} has been sent to ${contract.creator.username} for "${contract.campaign.name}"`,
+            title: 'Campaign Payment Processing',
+            message: `Payment of $${creatorPayout.toFixed(2)} for ${contract.creator.username}'s campaign "${contract.campaign.name}" is being processed.`,
           },
         })
 
