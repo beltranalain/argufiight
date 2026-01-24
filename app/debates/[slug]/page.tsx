@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
 import { RelatedDebates } from '@/components/debate/RelatedDebates'
 import { LiveChat } from '@/components/debate/LiveChat'
+import { DebateSchema } from '@/components/seo/StructuredData'
 
 export async function generateMetadata({
   params,
@@ -99,6 +100,15 @@ export async function generateMetadata({
   const title = `${debate.topic} | Argufight Debate`
   const description = debate.description || `Watch ${debate.challenger.username} debate ${debate.opponent?.username || 'an opponent'} on ${debate.topic}`
 
+  // Generate dynamic OG image URL
+  const ogImageUrl = `${baseUrl}/api/og/debate?${new URLSearchParams({
+    topic: debate.topic,
+    challenger: debate.challenger.username,
+    opponent: debate.opponent?.username || 'TBD',
+    status: debate.status.toLowerCase(),
+    category: debate.category,
+  }).toString()}`
+
   return {
     title,
     description,
@@ -107,11 +117,20 @@ export async function generateMetadata({
       description,
       type: 'article',
       url: `${baseUrl}/debates/${debate.slug || debate.id}`,
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${debate.topic} - ${debate.challenger.username} vs ${debate.opponent?.username || 'Opponent'}`,
+        },
+      ],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
+      images: [ogImageUrl],
     },
     alternates: {
       canonical: `${baseUrl}/debates/${debate.slug || debate.id}`,
@@ -321,44 +340,30 @@ export default async function PublicDebatePage({
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
 
-  // Structured data for Article
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    "headline": debate.topic,
-    "description": debate.description || debate.topic,
-    "datePublished": debate.createdAt,
-    "dateModified": debate.updatedAt,
-    "author": [
-      {
-        "@type": "Person",
-        "name": debate.challenger.username,
-      },
-      ...(debate.opponent ? [{
-        "@type": "Person",
-        "name": debate.opponent.username,
-      }] : []),
-    ],
-    "publisher": {
-      "@type": "Organization",
-      "name": "Argufight",
-      "logo": {
-        "@type": "ImageObject",
-        "url": `${baseUrl}/logo.png`,
-      },
-    },
-    "mainEntityOfPage": {
-      "@type": "WebPage",
-      "@id": `${baseUrl}/debates/${debate.slug || debate.id}`,
-    },
-  }
-
   return (
     <>
-      {/* Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      {/* Structured Data for SEO */}
+      <DebateSchema
+        title={debate.topic}
+        description={debate.description || debate.topic}
+        url={`${baseUrl}/debates/${debate.slug || debate.id}`}
+        datePublished={debate.createdAt.toISOString()}
+        dateModified={debate.updatedAt.toISOString()}
+        author={{
+          name: debate.challenger.username,
+          url: `${baseUrl}/profile/${debate.challenger.username}`,
+        }}
+        opponent={
+          debate.opponent
+            ? {
+                name: debate.opponent.username,
+                url: `${baseUrl}/profile/${debate.opponent.username}`,
+              }
+            : undefined
+        }
+        image={debate.challenger.avatarUrl || undefined}
+        status={debate.status}
+        category={debate.category}
       />
 
       <div className="min-h-screen bg-gradient-to-b from-purple-950 via-purple-900 to-indigo-950">

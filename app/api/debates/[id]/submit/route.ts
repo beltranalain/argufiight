@@ -321,6 +321,7 @@ export async function POST(
             : debate.challengerId
 
         if (opponentId) {
+          // Create in-app notification
           await prisma.notification.create({
             data: {
               userId: opponentId,
@@ -329,6 +330,13 @@ export async function POST(
               message: `It's your turn in "${debate.topic}"`,
               debateId: debate.id,
             },
+          })
+
+          // Send push notification (non-blocking)
+          const { sendYourTurnPushNotification } = await import('@/lib/notifications/push-notifications')
+          sendYourTurnPushNotification(opponentId, debate.id, debate.topic).catch((error) => {
+            console.error('[Submit] Failed to send turn push notification:', error)
+            // Don't throw - push notifications are optional
           })
         }
       }

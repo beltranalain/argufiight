@@ -68,7 +68,10 @@ export async function GET(request: NextRequest) {
         while (hasMore && allInvoices.length < 1000) {
           const invoiceList = await stripe.invoices.list({
             limit: 100,
-            created: { gte: Math.floor(startDate.getTime() / 1000) },
+            created: {
+              gte: Math.floor(startDate.getTime() / 1000),
+              lte: Math.floor(endDate.getTime() / 1000),
+            },
             status: 'paid',
             expand: ['data.subscription', 'data.customer'],
             starting_after: startingAfter,
@@ -179,7 +182,10 @@ export async function GET(request: NextRequest) {
         try {
           const checkoutSessions = await stripe.checkout.sessions.list({
             limit: 100,
-            created: { gte: Math.floor(startDate.getTime() / 1000) },
+            created: {
+              gte: Math.floor(startDate.getTime() / 1000),
+              lte: Math.floor(endDate.getTime() / 1000),
+            },
             status: 'complete',
             expand: ['data.customer', 'data.subscription'],
           })
@@ -302,10 +308,13 @@ export async function GET(request: NextRequest) {
     }
 
     // ===== ADVERTISEMENT REVENUE =====
-    // Get creator marketplace contracts
+    // Get creator marketplace contracts (signed within date range)
     const contracts = await prisma.adContract.findMany({
       where: {
-        signedAt: { gte: startDate },
+        signedAt: {
+          gte: startDate,
+          lte: endDate,
+        },
       },
       include: {
         advertiser: {
@@ -340,25 +349,8 @@ export async function GET(request: NextRequest) {
     })
     
     console.log(`[Finances] Query params: startDate=${startDate.toISOString()}, endDate=${endDate.toISOString()}`)
+    console.log(`[Finances] Found ${contracts.length} creator marketplace contracts`)
     console.log(`[Finances] Found ${platformAdsCampaigns.length} Platform Ads campaigns with paidAt in date range`)
-    
-    // Debug: Check all PAID campaigns to see why some might not be included
-    const allPaidCampaigns = await prisma.campaign.findMany({
-      where: {
-        type: 'PLATFORM_ADS',
-        paymentStatus: 'PAID',
-      },
-      select: {
-        id: true,
-        name: true,
-        paidAt: true,
-        budget: true,
-      },
-    })
-    console.log(`[Finances] Total PAID Platform Ads campaigns: ${allPaidCampaigns.length}`)
-    allPaidCampaigns.forEach(c => {
-      console.log(`[Finances] Campaign ${c.name}: paidAt=${c.paidAt ? c.paidAt.toISOString() : 'NULL'}, budget=$${Number(c.budget)}`)
-    })
 
     let adRevenue = 0
     let platformFees = 0
@@ -391,39 +383,35 @@ export async function GET(request: NextRequest) {
     }
 
     // Process Platform Ads campaign payments
+    // Note: campaigns are already filtered by paidAt in date range from query
     for (const campaign of platformAdsCampaigns) {
       const budget = Number(campaign.budget)
-      
-      // Only count campaigns with paidAt in the date range
-      if (campaign.paidAt && campaign.paidAt >= startDate && campaign.paidAt <= endDate) {
-        // For Platform Ads, the entire budget is revenue (no creator payout)
-        // Stripe fees are already included in what advertiser paid
-        adRevenue += budget
-        // Platform keeps 100% of Platform Ads revenue (no creator payout)
-        
-        // Calculate Stripe fee that was paid (for reference)
-        const stripeFee = budget * 0.029 + 0.30
-        const totalPaid = budget + stripeFee
 
-        adTransactions.push({
-          id: campaign.id,
-          type: 'platform_ad',
-          amount: budget,
-          platformFee: 0, // Platform keeps all revenue
-          creatorPayout: 0, // No creator involved
-          stripeFee: stripeFee,
-          totalPaid: totalPaid,
-          date: campaign.paidAt,
-          advertiser: campaign.advertiser,
-          creator: null,
-          campaign: { name: campaign.name },
-          status: campaign.status,
-          payoutSent: false,
-          stripePaymentId: campaign.stripePaymentId,
-        })
-      } else {
-        console.log(`[Finances] Skipping campaign ${campaign.id} - paidAt: ${campaign.paidAt}, startDate: ${startDate}, endDate: ${endDate}`)
-      }
+      // For Platform Ads, the entire budget is revenue (no creator payout)
+      // Stripe fees are already included in what advertiser paid
+      adRevenue += budget
+      // Platform keeps 100% of Platform Ads revenue (no creator payout)
+
+      // Calculate Stripe fee that was paid (for reference)
+      const stripeFee = budget * 0.029 + 0.30
+      const totalPaid = budget + stripeFee
+
+      adTransactions.push({
+        id: campaign.id,
+        type: 'platform_ad',
+        amount: budget,
+        platformFee: 0, // Platform keeps all revenue
+        creatorPayout: 0, // No creator involved
+        stripeFee: stripeFee,
+        totalPaid: totalPaid,
+        date: campaign.paidAt,
+        advertiser: campaign.advertiser,
+        creator: null,
+        campaign: { name: campaign.name },
+        status: campaign.status,
+        payoutSent: false,
+        stripePaymentId: campaign.stripePaymentId,
+      })
     }
 
     // ===== STRIPE BALANCE =====
@@ -448,13 +436,30 @@ export async function GET(request: NextRequest) {
     const totalRevenue = subscriptionRevenue + adRevenue
     const totalFees = platformFees // Platform fees from ads
     const totalPayouts = creatorPayouts
-    const netRevenue = totalRevenue - totalPayouts // Revenue minus payouts (platform keeps fees)
+
+    // Calculate total Stripe fees from all transactions
+    const totalStripeFees = adTransactions
+      .filter(tx => tx.type === 'platform_ad' && tx.stripeFee)
+      .reduce((sum, tx) => sum + tx.stripeFee, 0)
+
+    // Net revenue = Total revenue - Creator payouts - Stripe fees
+    const netRevenue = totalRevenue - totalPayouts - totalStripeFees
 
     // ===== RECENT TRANSACTIONS =====
     const allTransactions = [
       ...subscriptionTransactions,
       ...adTransactions,
     ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 50)
+
+    // ===== VALIDATION LOGGING =====
+    console.log(`[Finances] Summary for ${startDate.toISOString()} to ${endDate.toISOString()}:`)
+    console.log(`  - Subscription Revenue: $${subscriptionRevenue.toFixed(2)} (${subscriptionCount} payments)`)
+    console.log(`  - Advertisement Revenue: $${adRevenue.toFixed(2)} (${adTransactions.length} transactions)`)
+    console.log(`  - Total Revenue: $${totalRevenue.toFixed(2)}`)
+    console.log(`  - Platform Fees: $${totalFees.toFixed(2)}`)
+    console.log(`  - Stripe Fees: $${totalStripeFees.toFixed(2)}`)
+    console.log(`  - Creator Payouts: $${totalPayouts.toFixed(2)}`)
+    console.log(`  - Net Revenue: $${netRevenue.toFixed(2)}`)
 
     return NextResponse.json({
       isTestMode,
@@ -470,18 +475,19 @@ export async function GET(request: NextRequest) {
         },
         advertisements: {
           total: adRevenue,
-          count: contracts.length + platformAdsCampaigns.length, // Include both creator contracts and Platform Ads
+          count: adTransactions.length, // Count actual ad revenue transactions
           transactions: adTransactions,
         },
         total: totalRevenue,
       },
       fees: {
         platform: totalFees,
-        stripe: 0, // Would need to calculate from Stripe fees
+        stripe: totalStripeFees, // Total Stripe fees from all transactions
       },
       payouts: {
         creators: totalPayouts,
-        count: contracts.filter(c => c.payoutSent).length,
+        // Count only payouts that were sent within the selected date range
+        count: contracts.filter(c => c.payoutSent && c.payoutDate && c.payoutDate >= startDate && c.payoutDate <= endDate).length,
       },
       net: {
         revenue: netRevenue,

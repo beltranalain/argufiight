@@ -331,6 +331,12 @@ export async function startTournament(tournamentId: string): Promise<void> {
     },
   })
 
+  // Reseed participants based on tournament's reseed method before creating round 1 matches
+  // This ensures proper bracket seeding based on ELO, tournament wins, or random
+  const { reseedTournamentParticipants } = await import('./reseed')
+  await reseedTournamentParticipants(tournamentId, tournament.reseedMethod)
+  console.log(`[Tournament Start] Reseeded participants using ${tournament.reseedMethod} method`)
+
   // Generate first round matches
   // For King of the Hill, use special round creation function
   if (tournament.format === 'KING_OF_THE_HILL') {

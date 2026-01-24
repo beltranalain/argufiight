@@ -109,6 +109,7 @@ model User {
   tournamentParticipations    TournamentParticipant[] @relation("TournamentParticipant")
   tournamentSubscription      TournamentSubscription?
   createdTournaments          Tournament[]            @relation("TournamentCreator")
+  wonTournaments              Tournament[]            @relation("TournamentWinner")
   usageTracking               UsageTracking[]
   subscription                UserSubscription?
 
@@ -399,6 +400,7 @@ model AdContract {
   @@index([advertiserId])
   @@index([status])
   @@index([endDate])
+  @@index([signedAt, status]) // For finance revenue calculations by date
   @@map("ad_contracts")
 }
 
@@ -713,6 +715,9 @@ model Debate {
   @@index([challengerId])
   @@index([opponentId])
   @@index([slug])
+  @@index([status, visibility]) // List debates by status and visibility
+  @@index([challengerId, status]) // User's debates by status
+  @@index([opponentId, status]) // Opponent's debates by status
   @@map("debates")
 }
 
@@ -831,6 +836,8 @@ model Notification {
 
   @@index([userId])
   @@index([read])
+  @@index([userId, read]) // Get unread notifications for user
+  @@index([createdAt]) // Sort notifications by date
   @@map("notifications")
 }
 
@@ -1345,6 +1352,10 @@ model Tournament {
   beltCreationCost Int?                    @map("belt_creation_cost")
   beltCreatedBy    String?                 @map("belt_created_by")
   beltCreated      Boolean                 @default(false) @map("belt_created")
+  prizePool        Int?                    @map("prize_pool")
+  prizeDistribution String?                @map("prize_distribution")
+  entryFee         Int?                    @map("entry_fee")
+  winnerId         String?                 @map("winner_id")
   beltHistory      BeltHistory[]           @relation("BeltHistoryTournament")
   stakedBelts      Belt[]                  @relation("BeltStakedTournament")
   tournamentBelt   Belt?                   @relation("TournamentBelt")
@@ -1353,9 +1364,11 @@ model Tournament {
   rounds           TournamentRound[]
   creator          User                    @relation("TournamentCreator", fields: [creatorId], references: [id])
   judge            Judge?                  @relation(fields: [judgeId], references: [id])
+  winner           User?                   @relation("TournamentWinner", fields: [winnerId], references: [id])
 
   @@index([creatorId])
   @@index([status])
+  @@index([status, startDate]) // Find upcoming tournaments
   @@map("tournaments")
 }
 
@@ -1873,6 +1886,8 @@ model BeltChallenge {
   @@index([beltHolderId])
   @@index([status])
   @@index([debateId])
+  @@index([expiresAt, status]) // Cron job to find expired challenges
+  @@index([beltId, status]) // Get pending challenges for a belt
   @@map("belt_challenges")
 }
 

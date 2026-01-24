@@ -157,6 +157,55 @@ export async function POST(
       }
     }
 
+    // Check entry fee and deduct coins if required
+    if (tournament.entryFee && tournament.entryFee > 0) {
+      if (user.eloRating < 0 || !user.eloRating) {
+        // Get full user with coins
+        const fullUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { coins: true },
+        })
+
+        if (!fullUser || fullUser.coins < tournament.entryFee) {
+          return NextResponse.json(
+            {
+              error: `Insufficient coins. Entry fee: ${tournament.entryFee}. Your balance: ${fullUser?.coins || 0}`,
+            },
+            { status: 400 }
+          )
+        }
+
+        // Deduct entry fee and add to prize pool (transaction)
+        await prisma.$transaction([
+          prisma.user.update({
+            where: { id: userId },
+            data: { coins: { decrement: tournament.entryFee } },
+          }),
+          prisma.tournament.update({
+            where: { id: tournamentId },
+            data: { prizePool: { increment: tournament.entryFee } },
+          }),
+          prisma.coinTransaction.create({
+            data: {
+              userId,
+              type: 'TOURNAMENT_ENTRY',
+              amount: -tournament.entryFee,
+              balanceAfter: fullUser.coins - tournament.entryFee,
+              description: `Entry fee for tournament: ${tournament.name}`,
+              metadata: {
+                tournamentId,
+                entryFee: tournament.entryFee,
+              },
+            },
+          }),
+        ])
+
+        console.log(
+          `[Join Tournament] Deducted ${tournament.entryFee} coins entry fee from user ${userId}. Prize pool now: ${(tournament.prizePool || 0) + tournament.entryFee}`
+        )
+      }
+    }
+
     // Get current participant count for seeding
     // Note: Creator is always seed 1, so new participants start at seed 2
     const participantCount = tournament.participants.length

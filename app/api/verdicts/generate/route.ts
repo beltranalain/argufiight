@@ -165,27 +165,33 @@ export async function POST(request: NextRequest) {
             debateId,
             userId: debate.challengerId, // Track as challenger's usage
           })
-          // Derive winner from scores so displayed winner always matches scores.
-          // Ignore LLM's winner field to avoid reasoning/score mismatches.
-          const c = verdict.challengerScore
-          const o = verdict.opponentScore
+
+          // Trust the LLM's winner determination - it should align with scores
+          // Map LLM's winner field to database format
           let winnerId: string | null = null
           let decision: 'CHALLENGER_WINS' | 'OPPONENT_WINS' | 'TIE'
-          if (c > o) {
+
+          if (verdict.winner === 'CHALLENGER') {
             winnerId = debate.challengerId
             decision = 'CHALLENGER_WINS'
-          } else if (o > c) {
+          } else if (verdict.winner === 'OPPONENT') {
             winnerId = debate.opponentId
             decision = 'OPPONENT_WINS'
           } else {
+            winnerId = null
             decision = 'TIE'
           }
 
-          if (verdict.winner !== (decision === 'CHALLENGER_WINS' ? 'CHALLENGER' : decision === 'OPPONENT_WINS' ? 'OPPONENT' : 'TIE')) {
-            console.log(`[Verdict Generation] ⚠️ ${judge.name}: AI winner="${verdict.winner}" overridden to match scores: challenger ${c}, opponent ${o} → decision=${decision}`)
+          // Validation: Verify winner matches scores (for quality assurance)
+          const c = verdict.challengerScore
+          const o = verdict.opponentScore
+          const expectedWinner = c > o ? 'CHALLENGER' : o > c ? 'OPPONENT' : 'TIE'
+
+          if (verdict.winner !== expectedWinner) {
+            console.warn(`[Verdict Generation] ⚠️ ${judge.name}: Winner/score mismatch! Winner="${verdict.winner}" but scores suggest "${expectedWinner}" (challenger: ${c}, opponent: ${o}). Using LLM's winner but this indicates prompt needs improvement.`)
           }
 
-          console.log(`[Verdict Generation] ✅ ${judge.name}: challenger=${c}, opponent=${o}, decision=${decision}`)
+          console.log(`[Verdict Generation] ✅ ${judge.name}: winner=${verdict.winner}, challenger=${c}, opponent=${o}`)
 
           return {
             judgeId: judge.id,
@@ -245,11 +251,18 @@ export async function POST(request: NextRequest) {
     const challengerTotalScore = verdicts.reduce((sum, v) => sum + (v.challengerScore ?? 0), 0)
     const opponentTotalScore = verdicts.reduce((sum, v) => sum + (v.opponentScore ?? 0), 0)
 
+    // Get tie threshold from admin settings (default: 5)
+    const tieThresholdSetting = await prisma.adminSetting.findUnique({
+      where: { key: 'VERDICT_TIE_THRESHOLD' },
+    })
+    const tieThreshold = tieThresholdSetting
+      ? parseInt(tieThresholdSetting.value, 10)
+      : 5 // Default: consider it a tie if total scores are within 5 points
+
     // Determine overall winner based on total score (not majority vote)
     // The person with the higher total score wins
     let finalWinnerId: string | null = null
     const scoreDifference = Math.abs(challengerTotalScore - opponentTotalScore)
-    const tieThreshold = 5 // Consider it a tie if scores are within 5 points
 
     if (scoreDifference < tieThreshold) {
       // Scores are too close, it's a tie

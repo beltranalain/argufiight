@@ -4,54 +4,34 @@ import { prisma } from '@/lib/db/prisma'
 let stripeClient: Stripe | null = null
 
 /**
- * Get Stripe keys from database (AdminSetting) or environment variables
+ * Get Stripe keys from environment variables ONLY
+ * SECURITY: Never store Stripe keys in the database
  */
-export async function getStripeKeys(): Promise<{
+export function getStripeKeys(): {
   publishableKey: string | null
   secretKey: string | null
-}> {
-  try {
-    // Try to get from database first
-    const settings = await prisma.adminSetting.findMany({
-      where: {
-        key: {
-          in: ['STRIPE_PUBLISHABLE_KEY', 'STRIPE_SECRET_KEY'],
-        },
-      },
-    })
-
-    const publishableKey =
-      settings.find((s) => s.key === 'STRIPE_PUBLISHABLE_KEY')?.value ||
-      process.env.STRIPE_PUBLISHABLE_KEY ||
-      null
-
-    const secretKey =
-      settings.find((s) => s.key === 'STRIPE_SECRET_KEY')?.value ||
-      process.env.STRIPE_SECRET_KEY ||
-      null
-
-    return { publishableKey, secretKey }
-  } catch (error) {
-    console.error('Failed to get Stripe keys:', error)
-    return {
-      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || null,
-      secretKey: process.env.STRIPE_SECRET_KEY || null,
-    }
+} {
+  return {
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || null,
+    secretKey: process.env.STRIPE_SECRET_KEY || null,
   }
 }
 
 /**
  * Create and return Stripe client instance
+ * SECURITY: Uses environment variables only
  */
-export async function createStripeClient(): Promise<Stripe> {
+export function createStripeClient(): Stripe {
   if (stripeClient) {
     return stripeClient
   }
 
-  const { secretKey } = await getStripeKeys()
+  const { secretKey } = getStripeKeys()
 
   if (!secretKey) {
-    throw new Error('Stripe secret key not configured')
+    throw new Error(
+      'Stripe secret key not configured. Set STRIPE_SECRET_KEY environment variable.'
+    )
   }
 
   stripeClient = new Stripe(secretKey, {
@@ -68,7 +48,7 @@ export async function getOrCreateCustomer(
   userId: string,
   email: string
 ): Promise<string> {
-  const stripe = await createStripeClient()
+  const stripe = createStripeClient()
 
   // Check if user already has a customer ID
   const subscription = await prisma.userSubscription.findUnique({
@@ -119,7 +99,7 @@ export async function updateCustomer(
   customerId: string,
   data: Stripe.CustomerUpdateParams
 ): Promise<Stripe.Customer> {
-  const stripe = await createStripeClient()
+  const stripe = createStripeClient()
   return await stripe.customers.update(customerId, data)
 }
 
@@ -131,7 +111,7 @@ export async function createSubscription(
   priceId: string,
   promoCode?: string
 ): Promise<Stripe.Subscription> {
-  const stripe = await createStripeClient()
+  const stripe = createStripeClient()
 
   const subscriptionData: Stripe.SubscriptionCreateParams = {
     customer: customerId,
@@ -171,7 +151,7 @@ export async function cancelSubscription(
   subscriptionId: string,
   atPeriodEnd: boolean = true
 ): Promise<Stripe.Subscription> {
-  const stripe = await createStripeClient()
+  const stripe = createStripeClient()
 
   if (atPeriodEnd) {
     return await stripe.subscriptions.update(subscriptionId, {
@@ -189,7 +169,7 @@ export async function updateSubscription(
   subscriptionId: string,
   newPriceId: string
 ): Promise<Stripe.Subscription> {
-  const stripe = await createStripeClient()
+  const stripe = createStripeClient()
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
@@ -215,7 +195,7 @@ export async function createCreatorStripeAccount(
   creatorId: string,
   email: string
 ): Promise<string> {
-  const stripe = await createStripeClient()
+  const stripe = createStripeClient()
 
   const account = await stripe.accounts.create({
     type: 'express', // Express accounts for creators
@@ -241,7 +221,7 @@ export async function createAdvertiserStripeAccount(
   email: string,
   companyName: string
 ): Promise<string> {
-  const stripe = await createStripeClient()
+  const stripe = createStripeClient()
 
   try {
     const account = await stripe.accounts.create({
@@ -280,7 +260,7 @@ export async function createAccountOnboardingLink(
   stripeAccountId: string,
   returnUrl: string
 ): Promise<string> {
-  const stripe = await createStripeClient()
+  const stripe = createStripeClient()
 
   const accountLink = await stripe.accountLinks.create({
     account: stripeAccountId,
@@ -300,7 +280,7 @@ export async function holdPaymentInEscrow(
   customerId: string,
   description: string
 ): Promise<Stripe.PaymentIntent> {
-  const stripe = await createStripeClient()
+  const stripe = createStripeClient()
 
   const paymentIntent = await stripe.paymentIntents.create({
     amount: Math.round(amount * 100), // Convert to cents
@@ -322,7 +302,7 @@ export async function payoutToCreator(
   creatorStripeAccountId: string,
   description: string
 ): Promise<Stripe.Transfer> {
-  const stripe = await createStripeClient()
+  const stripe = createStripeClient()
 
   const transfer = await stripe.transfers.create({
     amount: Math.round((amount - platformFee) * 100), // Creator's cut in cents
@@ -338,7 +318,7 @@ export async function payoutToCreator(
  * Get account balance for creator
  */
 export async function getCreatorBalance(stripeAccountId: string): Promise<Stripe.Balance> {
-  const stripe = await createStripeClient()
+  const stripe = createStripeClient()
 
   const balance = await stripe.balance.retrieve({
     stripeAccount: stripeAccountId,
@@ -353,7 +333,7 @@ export async function getCreatorBalance(stripeAccountId: string): Promise<Stripe
 export async function capturePaymentIntent(
   paymentIntentId: string
 ): Promise<Stripe.PaymentIntent> {
-  const stripe = await createStripeClient()
+  const stripe = createStripeClient()
 
   return await stripe.paymentIntents.capture(paymentIntentId)
 }

@@ -7,11 +7,14 @@ import { checkInactiveBelts } from '@/lib/belts/core'
 // Combined AI tasks endpoint - handles both auto-accept and response generation
 // This can be called more frequently via external cron services
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
+  console.log('[AI Tasks] ========== Starting AI tasks cron job ==========')
+
   try {
     // Verify this is a cron request
     const authHeader = request.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET
-    
+
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -35,6 +38,8 @@ export async function GET(request: NextRequest) {
           aiResponseDelay: true,
         },
       })
+
+      console.log(`[AI Tasks] Found ${aiUsers.length} active AI users for auto-accept`)
 
       for (const aiUser of aiUsers) {
         const delayMs = aiUser.aiResponseDelay || 3600000 // Default 1 hour
@@ -91,6 +96,8 @@ export async function GET(request: NextRequest) {
                 debateId: challenge.id,
               },
             })
+
+            console.log(`[AI Tasks] ✅ ${aiUser.username} accepted challenge from ${challenge.challenger.username}: ${challenge.topic.substring(0, 50)}...`)
 
             results.autoAccept.accepted++
           } catch (error: any) {
@@ -235,6 +242,17 @@ export async function GET(request: NextRequest) {
             const wordCount = calculateWordCount(aiResponse)
             await updateUserAnalyticsOnStatement(aiUser.id, wordCount)
 
+            // Determine opponent ID and send notification
+            const opponentId = debate.challengerId === aiUser.id ? debate.opponentId : debate.challengerId
+
+            // Send push notification to opponent (non-blocking)
+            const { sendYourTurnPushNotification } = await import('@/lib/notifications/push-notifications')
+            sendYourTurnPushNotification(opponentId, debate.id, debate.topic).catch((error) => {
+              console.error('[AI Tasks] Failed to send push notification:', error)
+            })
+
+            console.log(`[AI Tasks] ✅ ${aiUser.username} submitted response for debate ${debate.id} round ${debate.currentRound}`)
+
             // Check if both users have submitted for this round
             // Note: challengerStatement and opponentStatement are already fetched above (lines 179-193)
             // We need to refetch to get the latest state after AI submission
@@ -320,9 +338,27 @@ export async function GET(request: NextRequest) {
       console.error('Belt tasks error:', error)
     }
 
+    const duration = Date.now() - startTime
+    console.log('[AI Tasks] ========== Cron job complete ==========')
+    console.log(`[AI Tasks] Duration: ${duration}ms`)
+    console.log(`[AI Tasks] Auto-accepted: ${results.autoAccept.accepted} challenges`)
+    console.log(`[AI Tasks] Generated: ${results.responses.generated} responses`)
+    console.log(`[AI Tasks] Expired: ${results.beltTasks.expiredChallengesCleaned} belt challenges`)
+    console.log(`[AI Tasks] Marked inactive: ${results.beltTasks.inactiveBeltsChecked} belts`)
+    if (results.autoAccept.errors.length > 0) {
+      console.error(`[AI Tasks] Auto-accept errors: ${results.autoAccept.errors.length}`)
+    }
+    if (results.responses.errors.length > 0) {
+      console.error(`[AI Tasks] Response errors: ${results.responses.errors.length}`)
+    }
+    if (results.beltTasks.errors.length > 0) {
+      console.error(`[AI Tasks] Belt task errors: ${results.beltTasks.errors.length}`)
+    }
+
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
+      duration,
       results,
     })
   } catch (error: any) {

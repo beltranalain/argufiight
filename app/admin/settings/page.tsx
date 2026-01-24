@@ -8,17 +8,18 @@ import { useToast } from '@/components/ui/Toast'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import FeaturesTab from './FeaturesTab'
 import ApiUsageTab from './ApiUsageTab'
+import SystemSettingsTab from './SystemSettingsTab'
 
 export default function AdminSettingsPage() {
   const { showToast } = useToast()
   const searchParams = useSearchParams()
-  const tabFromUrl = searchParams.get('tab') as 'general' | 'features' | 'api-usage' | null
-  const [activeTab, setActiveTab] = useState<'general' | 'features' | 'api-usage'>(
+  const tabFromUrl = searchParams.get('tab') as 'general' | 'features' | 'system' | 'api-usage' | null
+  const [activeTab, setActiveTab] = useState<'general' | 'features' | 'system' | 'api-usage'>(
     tabFromUrl || 'general'
   )
 
   useEffect(() => {
-    if (tabFromUrl && ['general', 'features', 'api-usage'].includes(tabFromUrl)) {
+    if (tabFromUrl && ['general', 'features', 'system', 'api-usage'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl)
     }
   }, [tabFromUrl])
@@ -810,6 +811,7 @@ export default function AdminSettingsPage() {
         {[
           { id: 'general', label: 'General', icon: null },
           { id: 'features', label: 'Features', icon: null },
+          { id: 'system', label: 'System', icon: '⚙️' },
           { id: 'api-usage', label: 'API Usage', icon: null },
         ].map((tab) => (
           <button
@@ -1928,6 +1930,9 @@ export default function AdminSettingsPage() {
 
       {/* Features Tab */}
       {activeTab === 'features' && <FeaturesTab />}
+
+      {/* System Settings Tab */}
+      {activeTab === 'system' && <SystemSettingsTab />}
 
       {/* API Usage Tab */}
       {activeTab === 'api-usage' && <ApiUsageTab />}

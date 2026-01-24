@@ -9,6 +9,7 @@ import { ChallengeModal } from '@/components/challenge/ChallengeModal'
 import { NotificationTicker } from '@/components/notifications/NotificationTicker'
 import { PushNotificationManager } from '@/components/notifications/PushNotificationManager'
 import { prisma } from '@/lib/db/prisma'
+import { OrganizationSchema, WebsiteSearchSchema } from '@/components/seo/StructuredData'
 
 export const metadata: Metadata = {
   title: 'Argu Fight - AI-Judged Debate Platform',
@@ -84,6 +85,28 @@ export default async function RootLayout({
             </Script>
           </>
         )}
+
+        {/* Organization Schema for SEO */}
+        <OrganizationSchema
+          name="ArguFight"
+          url="https://www.argufight.com"
+          logo="https://www.argufight.com/logo.png"
+          description="The world's first debate platform with AI judges. Engage in structured debates, get judged by AI personalities, and climb the ELO leaderboard."
+          sameAs={[
+            'https://twitter.com/argufight',
+            'https://github.com/argufight',
+          ]}
+          contactPoint={{
+            email: 'support@argufight.com',
+            contactType: 'customer service',
+          }}
+        />
+
+        {/* Website Search Schema for search box in Google results */}
+        <WebsiteSearchSchema
+          url="https://www.argufight.com"
+          searchUrl="https://www.argufight.com/search"
+        />
       </head>
       <body suppressHydrationWarning>
         <ThemeProvider>

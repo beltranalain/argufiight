@@ -1,12 +1,28 @@
 {
   "crons": [
     {
-      "path": "/api/cron/process-ad-tasks",
+      "path": "/api/cron/expire-offers",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/process-escrow",
       "schedule": "0 2 * * *"
     },
     {
+      "path": "/api/cron/process-ad-tasks",
+      "schedule": "0 3 * * *"
+    },
+    {
       "path": "/api/cron/ai-tasks",
-      "schedule": "0 4 * * *"
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/tournament-auto-start",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/tournament-progression",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

@@ -38,7 +38,7 @@ if (databaseUrl) {
   })
 }
 
-// Create Prisma Client with connection retry logic
+// Create Prisma Client with connection retry logic and graceful shutdown
 const createPrismaClient = () => {
   const client = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
@@ -60,6 +60,23 @@ const createPrismaClient = () => {
       console.error('   Port:', url.port)
     }
   })
+
+  // Graceful shutdown handlers to prevent connection leaks
+  const cleanup = async () => {
+    console.log('[Prisma] Disconnecting from database...')
+    try {
+      await client.$disconnect()
+      console.log('✅ [Prisma] Database disconnected successfully')
+    } catch (error) {
+      console.error('❌ [Prisma] Error disconnecting from database:', error)
+    }
+  }
+
+  // Handle process termination signals
+  process.on('beforeExit', cleanup)
+  process.on('SIGINT', cleanup)
+  process.on('SIGTERM', cleanup)
+  process.on('SIGUSR2', cleanup) // Nodemon restart
 
   return client
 }

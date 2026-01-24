@@ -81,21 +81,23 @@ export async function generateVerdict(
     s.content.includes('Time expired')
   )
   
-  const completionNote = isComplete 
+  const completionNote = isComplete
     ? 'This debate has been completed with all rounds finished. Judge based on the full set of arguments presented.'
     : hasExpiredStatements
-    ? `This debate ended due to time expiration. Some rounds were not completed because participants missed the deadline. 
+    ? `This debate ended due to time expiration. Some rounds were not completed because participants missed the deadline.
 
 IMPORTANT INSTRUCTIONS:
 1. Judge based on whatever arguments were submitted before the time expired.
-2. If a debater missed a round due to time expiration, consider that as a negative factor in your SCORING (lower their score) - they failed to meet the deadline.
-3. However, in your REASONING text, do NOT mention time expiration, deadlines, incomplete rounds, or missing submissions. Focus only on the quality of the arguments that were presented - their logic, evidence, persuasiveness, and argumentation skills.`
-    : `This debate is incomplete (Round ${debateContext.currentRound}/${debateContext.totalRounds}). 
+2. If a debater missed a round due to time expiration, you should consider this in your evaluation and scoring.
+3. In your REASONING, you may mention if a participant failed to meet deadlines as part of your overall assessment. Be transparent about how missed deadlines affected your decision.
+4. Focus primarily on the quality of arguments that were presented - their logic, evidence, persuasiveness, and argumentation skills.`
+    : `This debate is incomplete (Round ${debateContext.currentRound}/${debateContext.totalRounds}).
 
 IMPORTANT INSTRUCTIONS:
 1. Judge based on whatever arguments are available, even if not all rounds were completed.
-2. If a debater missed a round, consider that as a negative factor in your SCORING (lower their score).
-3. However, in your REASONING text, do NOT mention that the debate is incomplete or that rounds were missed. Focus only on the quality of the arguments that were presented - their logic, evidence, persuasiveness, and argumentation skills.`
+2. If a debater missed a round, you should consider this in your evaluation and scoring.
+3. In your REASONING, you may mention if a participant failed to complete rounds as part of your overall assessment. Be transparent about how incomplete participation affected your decision.
+4. Focus primarily on the quality of arguments that were presented - their logic, evidence, persuasiveness, and argumentation skills.`
 
   try {
     const completion = await client.chat.completions.create({
@@ -115,12 +117,18 @@ Analyze the available arguments and provide your verdict in the following JSON f
 
 {
   "winner": "CHALLENGER" | "OPPONENT" | "TIE",
-  "reasoning": "Your detailed explanation of why you reached this decision. Focus on the quality of arguments, evidence, logic, and persuasiveness. Do NOT mention time expiration, deadlines, incomplete rounds, or missing submissions. Judge based solely on the arguments that were presented.",
+  "reasoning": "Your detailed explanation of why you reached this decision. Focus on the quality of arguments, evidence, logic, and persuasiveness. If applicable, you may mention missed deadlines or incomplete participation as factors in your judgment. Be transparent and thorough in explaining your decision.",
   "challengerScore": 0-100,
   "opponentScore": 0-100
 }
 
-CRITICAL: Your "winner" MUST match your scores. The debater with the higher score must be the winner: if challengerScore > opponentScore then winner must be "CHALLENGER"; if opponentScore > challengerScore then winner must be "OPPONENT"; only use "TIE" when the scores are equal. Inconsistency between scores and winner is not allowed.
+CRITICAL REQUIREMENTS:
+1. Your "winner" field MUST match your scores. The debater with the higher score must be the winner.
+   - If challengerScore > opponentScore, then winner MUST be "CHALLENGER"
+   - If opponentScore > challengerScore, then winner MUST be "OPPONENT"
+   - Only use "TIE" when the scores are very close (within a few points)
+2. Your reasoning must explain why the winner deserved their higher score.
+3. Inconsistency between scores and winner is not allowed - they must align perfectly.
 
 IMPORTANT: Respond ONLY with valid JSON. Do not include any text outside the JSON object.`,
         },

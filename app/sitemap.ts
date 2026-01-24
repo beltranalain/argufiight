@@ -105,28 +105,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ]
 
-  // Get public debates (use slug if available, fallback to id)
+  // Get public debates (no limit - include all public debates for SEO)
   let publicDebates: MetadataRoute.Sitemap = []
   try {
     publicDebates = await prisma.debate.findMany({
       where: {
         visibility: 'PUBLIC',
-        status: 'COMPLETED',
+        status: {
+          in: ['COMPLETED', 'ACTIVE'], // Include both completed and active debates
+        },
       },
       select: {
         id: true,
         slug: true,
         updatedAt: true,
+        status: true,
       },
-      take: 1000,
       orderBy: {
         updatedAt: 'desc',
       },
+      // No take limit - include all public debates
     }).then(debates => debates.map(debate => ({
       url: `${baseUrl}/debates/${debate.slug || debate.id}`,
       lastModified: debate.updatedAt,
-      changeFrequency: 'weekly' as const,
-      priority: 0.7,
+      changeFrequency: debate.status === 'ACTIVE' ? ('daily' as const) : ('weekly' as const),
+      priority: debate.status === 'ACTIVE' ? 0.8 : 0.7,
     })))
   } catch (error) {
     console.log('[Sitemap] Error fetching public debates:', error)
@@ -185,7 +188,98 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.log('[Sitemap] Error fetching blog posts:', error)
   }
 
-  return [...staticPages, ...publicDebates, ...blogPosts, ...blogPaginationPages]
+  // Get public user profiles (users with at least one completed debate)
+  let userProfiles: MetadataRoute.Sitemap = []
+  try {
+    userProfiles = await prisma.user.findMany({
+      where: {
+        isAIUser: false, // Exclude AI bots
+        OR: [
+          { challengerDebates: { some: { status: 'COMPLETED', visibility: 'PUBLIC' } } },
+          { opponentDebates: { some: { status: 'COMPLETED', visibility: 'PUBLIC' } } },
+        ],
+      },
+      select: {
+        username: true,
+        updatedAt: true,
+      },
+      take: 1000, // Limit to top 1000 most active users
+      orderBy: {
+        eloRating: 'desc',
+      },
+    }).then(users => users.map(user => ({
+      url: `${baseUrl}/profile/${user.username}`,
+      lastModified: user.updatedAt,
+      changeFrequency: 'weekly' as const,
+      priority: 0.6,
+    })))
+  } catch (error) {
+    console.log('[Sitemap] Error fetching user profiles:', error)
+  }
+
+  // Get public tournaments
+  let tournaments: MetadataRoute.Sitemap = []
+  try {
+    tournaments = await prisma.tournament.findMany({
+      where: {
+        isPrivate: false,
+        status: {
+          in: ['REGISTRATION_OPEN', 'ACTIVE', 'COMPLETED'],
+        },
+      },
+      select: {
+        id: true,
+        updatedAt: true,
+        status: true,
+      },
+      orderBy: {
+        startDate: 'desc',
+      },
+    }).then(tourneys => tourneys.map(tournament => ({
+      url: `${baseUrl}/tournaments/${tournament.id}`,
+      lastModified: tournament.updatedAt,
+      changeFrequency: tournament.status === 'ACTIVE' ? ('daily' as const) : ('weekly' as const),
+      priority: tournament.status === 'ACTIVE' ? 0.8 : 0.6,
+    })))
+  } catch (error) {
+    console.log('[Sitemap] Error fetching tournaments:', error)
+  }
+
+  // Get unique blog categories
+  let blogCategories: MetadataRoute.Sitemap = []
+  try {
+    const categories = await prisma.blogPost.findMany({
+      where: {
+        status: 'PUBLISHED',
+        category: { not: null },
+      },
+      select: {
+        category: true,
+      },
+      distinct: ['category'],
+    })
+
+    blogCategories = categories
+      .filter(c => c.category !== null)
+      .map(c => ({
+        url: `${baseUrl}/blog/category/${c.category!.toLowerCase().replace(/\s+/g, '-')}`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.7,
+      }))
+  } catch (error) {
+    console.log('[Sitemap] Error fetching blog categories:', error)
+  }
+
+  return [
+    ...staticPages,
+    ...publicDebates,
+    ...blogPosts,
+    ...blogPaginationPages,
+    ...userProfiles,
+    ...tournaments,
+    ...blogCategories,
+  ]
 }
 
 
