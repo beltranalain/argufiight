@@ -34,19 +34,6 @@ export async function GET(request: NextRequest) {
       where: {
         status: 'IN_PROGRESS',
       },
-      include: {
-        matches: {
-          where: {
-            round: {
-              // Only get matches for current round
-              equals: prisma.tournament.findUnique({ where: { id: '' } }).then(t => t?.currentRound || 1),
-            },
-          },
-          include: {
-            debate: true,
-          },
-        },
-      },
     })
 
     console.log(`[Tournament Progression] Found ${activeTournaments.length} active tournaments`)
@@ -57,7 +44,9 @@ export async function GET(request: NextRequest) {
         const currentRoundMatches = await prisma.tournamentMatch.findMany({
           where: {
             tournamentId: tournament.id,
-            round: tournament.currentRound,
+            round: {
+              roundNumber: tournament.currentRound,
+            },
           },
           include: {
             debate: true,
@@ -106,8 +95,7 @@ export async function GET(request: NextRequest) {
                 userId: finalMatch.winnerId,
                 type: 'OTHER',
                 title: 'Tournament Victory!',
-                message: `Congratulations! You won the tournament "${tournament.name}"!`,
-                tournamentId: tournament.id,
+                message: `Congratulations! You won the tournament "${tournament.name}"! (Tournament ID: ${tournament.id})`,
               },
             })
 

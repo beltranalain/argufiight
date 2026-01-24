@@ -192,7 +192,7 @@ export async function rateLimitMiddleware(
   const result = await checkRateLimit(ratelimit, id)
 
   // Prepare headers
-  const headers = {
+  const headers: Record<string, string> = {
     'X-RateLimit-Limit': result.limit.toString(),
     'X-RateLimit-Remaining': result.remaining.toString(),
     'X-RateLimit-Reset': result.reset.getTime().toString(),

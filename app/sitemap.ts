@@ -193,7 +193,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     userProfiles = await prisma.user.findMany({
       where: {
-        isAIUser: false, // Exclude AI bots
+        isAI: false, // Exclude AI bots
         OR: [
           { challengerDebates: { some: { status: 'COMPLETED', visibility: 'PUBLIC' } } },
           { opponentDebates: { some: { status: 'COMPLETED', visibility: 'PUBLIC' } } },
@@ -224,7 +224,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       where: {
         isPrivate: false,
         status: {
-          in: ['REGISTRATION_OPEN', 'ACTIVE', 'COMPLETED'],
+          in: ['REGISTRATION_OPEN', 'IN_PROGRESS', 'COMPLETED'],
         },
       },
       select: {
@@ -238,8 +238,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }).then(tourneys => tourneys.map(tournament => ({
       url: `${baseUrl}/tournaments/${tournament.id}`,
       lastModified: tournament.updatedAt,
-      changeFrequency: tournament.status === 'ACTIVE' ? ('daily' as const) : ('weekly' as const),
-      priority: tournament.status === 'ACTIVE' ? 0.8 : 0.6,
+      changeFrequency: tournament.status === 'IN_PROGRESS' ? ('daily' as const) : ('weekly' as const),
+      priority: tournament.status === 'IN_PROGRESS' ? 0.8 : 0.6,
     })))
   } catch (error) {
     console.log('[Sitemap] Error fetching tournaments:', error)
@@ -248,25 +248,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Get unique blog categories
   let blogCategories: MetadataRoute.Sitemap = []
   try {
-    const categories = await prisma.blogPost.findMany({
-      where: {
-        status: 'PUBLISHED',
-        category: { not: null },
-      },
+    const categories = await prisma.blogPostCategory.findMany({
       select: {
-        category: true,
+        slug: true,
+        updatedAt: true,
       },
-      distinct: ['category'],
     })
 
-    blogCategories = categories
-      .filter(c => c.category !== null)
-      .map(c => ({
-        url: `${baseUrl}/blog/category/${c.category!.toLowerCase().replace(/\s+/g, '-')}`,
-        lastModified: new Date(),
-        changeFrequency: 'weekly' as const,
-        priority: 0.7,
-      }))
+    blogCategories = categories.map(c => ({
+      url: `${baseUrl}/blog/category/${c.slug}`,
+      lastModified: c.updatedAt,
+      changeFrequency: 'weekly' as const,
+      priority: 0.7,
+    }))
   } catch (error) {
     console.log('[Sitemap] Error fetching blog categories:', error)
   }

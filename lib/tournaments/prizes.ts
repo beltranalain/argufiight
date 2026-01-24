@@ -97,7 +97,7 @@ export async function distributeTournamentPrizes(tournamentId: string): Promise<
         prisma.coinTransaction.create({
           data: {
             userId: winner.userId,
-            type: 'TOURNAMENT_PRIZE',
+            type: 'BELT_TOURNAMENT_REWARD',
             amount,
             balanceAfter: winner.user.coins + amount,
             description: `1st place prize - Tournament: ${tournament.name}`,
@@ -114,7 +114,6 @@ export async function distributeTournamentPrizes(tournamentId: string): Promise<
             type: 'OTHER',
             title: '🏆 Tournament Victory!',
             message: `Congratulations! You won ${amount} coins for placing 1st in "${tournament.name}"`,
-            tournamentId,
           },
         }),
       ])
@@ -146,7 +145,7 @@ export async function distributeTournamentPrizes(tournamentId: string): Promise<
         prisma.coinTransaction.create({
           data: {
             userId: secondPlace.userId,
-            type: 'TOURNAMENT_PRIZE',
+            type: 'BELT_TOURNAMENT_REWARD',
             amount,
             balanceAfter: secondPlace.user.coins + amount,
             description: `2nd place prize - Tournament: ${tournament.name}`,
@@ -163,7 +162,6 @@ export async function distributeTournamentPrizes(tournamentId: string): Promise<
             type: 'OTHER',
             title: '🥈 2nd Place!',
             message: `Great job! You won ${amount} coins for placing 2nd in "${tournament.name}"`,
-            tournamentId,
           },
         }),
       ])
@@ -195,7 +193,7 @@ export async function distributeTournamentPrizes(tournamentId: string): Promise<
         prisma.coinTransaction.create({
           data: {
             userId: thirdPlace.userId,
-            type: 'TOURNAMENT_PRIZE',
+            type: 'BELT_TOURNAMENT_REWARD',
             amount,
             balanceAfter: thirdPlace.user.coins + amount,
             description: `3rd place prize - Tournament: ${tournament.name}`,
@@ -212,7 +210,6 @@ export async function distributeTournamentPrizes(tournamentId: string): Promise<
             type: 'OTHER',
             title: '🥉 3rd Place!',
             message: `Nice work! You won ${amount} coins for placing 3rd in "${tournament.name}"`,
-            tournamentId,
           },
         }),
       ])

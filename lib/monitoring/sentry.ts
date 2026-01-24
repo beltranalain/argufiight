@@ -37,13 +37,13 @@ export function initSentry() {
       }
 
       // Remove sensitive query params
-      if (event.request?.query_string) {
+      if (event.request?.query_string && typeof event.request.query_string === 'string') {
         const sensitiveParams = ['token', 'password', 'secret', 'apiKey', 'api_key']
         sensitiveParams.forEach(param => {
-          if (event.request?.query_string?.includes(param)) {
+          if (typeof event.request?.query_string === 'string' && event.request.query_string.includes(param)) {
             event.request.query_string = event.request.query_string
               .split('&')
-              .filter(p => !p.startsWith(param))
+              .filter((p: string) => !p.startsWith(param))
               .join('&')
           }
         })

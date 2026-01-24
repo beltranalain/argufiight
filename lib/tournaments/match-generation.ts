@@ -463,7 +463,9 @@ export async function advanceToNextRound(tournamentId: string): Promise<void> {
   const currentRoundMatches = await prisma.tournamentMatch.findMany({
     where: {
       tournamentId,
-      round: currentRound,
+      round: {
+        roundNumber: currentRound,
+      },
     },
     include: {
       participant1: true,
@@ -595,14 +597,12 @@ export async function advanceToNextRound(tournamentId: string): Promise<void> {
           type: 'OTHER',
           title: 'Tournament Round Advanced',
           message: `Round ${nextRound} of "${tournament.name}" has started. Your match against ${participant2.username} is now active.`,
-          tournamentId: tournament.id,
         },
         {
           userId: participant2.id,
           type: 'OTHER',
           title: 'Tournament Round Advanced',
           message: `Round ${nextRound} of "${tournament.name}" has started. Your match against ${participant1.username} is now active.`,
-          tournamentId: tournament.id,
         },
       ],
     })

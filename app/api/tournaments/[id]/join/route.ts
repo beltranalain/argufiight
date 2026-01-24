@@ -188,7 +188,7 @@ export async function POST(
           prisma.coinTransaction.create({
             data: {
               userId,
-              type: 'TOURNAMENT_ENTRY',
+              type: 'BELT_CHALLENGE_ENTRY',
               amount: -tournament.entryFee,
               balanceAfter: fullUser.coins - tournament.entryFee,
               description: `Entry fee for tournament: ${tournament.name}`,
