@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
           await prisma.adContract.update({
             where: { id: contract.id },
             data: {
-              status: 'FAILED',
+              status: 'DISPUTED',
             },
           })
 
