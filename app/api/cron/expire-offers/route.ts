@@ -41,7 +41,6 @@ export async function GET(request: NextRequest) {
     console.log(`[Cron] Found ${expiredOffers.length} expired offers`)
 
     let expiredCount = 0
-    let refundedCount = 0
     const errors: string[] = []
 
     // Process each expired offer
@@ -56,39 +55,8 @@ export async function GET(request: NextRequest) {
         expiredCount++
         console.log(`[Cron] Expired offer ${offer.id} (${offer.advertiser.companyName} → ${offer.creator.username})`)
 
-        // Refund coins if payment was made upfront
-        if (offer.paidUpfront && offer.totalAmount) {
-          const refundAmount = Math.round(Number(offer.totalAmount))
-
-          await prisma.user.update({
-            where: { id: offer.creator.id },
-            data: {
-              coins: {
-                increment: refundAmount,
-              },
-            },
-          })
-
-          // Create coin transaction record
-          await prisma.coinTransaction.create({
-            data: {
-              userId: offer.creator.id,
-              type: 'REFUND',
-              amount: refundAmount,
-              balanceAfter: offer.creator.coins + refundAmount,
-              description: `Refund for expired offer from ${offer.advertiser.companyName}`,
-              metadata: {
-                offerId: offer.id,
-                campaignId: offer.campaignId,
-                advertiserId: offer.advertiserId,
-                reason: 'Offer expired before acceptance',
-              },
-            },
-          })
-
-          refundedCount++
-          console.log(`[Cron] Refunded ${refundAmount} coins to ${offer.creator.username}`)
-        }
+        // Note: No refund needed - offers are not paid until they become contracts
+        // Payment only happens after offer is accepted and converted to AdContract
 
         // Send notification to advertiser
         await prisma.notification.create({
@@ -106,7 +74,7 @@ export async function GET(request: NextRequest) {
             userId: offer.creator.id,
             type: 'OTHER',
             title: 'Offer Expired',
-            message: `An offer from ${offer.advertiser.companyName} has expired${offer.paidUpfront ? ' (coins refunded)' : ''}`,
+            message: `An offer from ${offer.advertiser.companyName} has expired`,
           },
         })
 
@@ -122,7 +90,6 @@ export async function GET(request: NextRequest) {
       timestamp: now.toISOString(),
       found: expiredOffers.length,
       expired: expiredCount,
-      refunded: refundedCount,
       errors: errors.length > 0 ? errors : undefined,
     }
 
