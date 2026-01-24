@@ -2,7 +2,7 @@
  * Cron Job: Tournament Round Progression
  * Runs every 30 minutes to advance tournaments to next round when all matches complete
  *
- * Schedule: */30 * * * * (every 30 minutes)
+ * Schedule: Every 30 minutes (cron: 0,30 * * * *)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
