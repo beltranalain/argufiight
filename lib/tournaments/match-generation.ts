@@ -421,3 +421,195 @@ export async function startTournament(tournamentId: string): Promise<void> {
   console.log(`Tournament ${tournamentId} started with ${round.matches.length} matches`)
 }
 
+/**
+ * Advance tournament to next round
+ * Updates participant statuses, generates new matches, creates debates
+ */
+export async function advanceToNextRound(tournamentId: string): Promise<void> {
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    include: {
+      participants: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              eloRating: true,
+            },
+          },
+        },
+      },
+      judge: true,
+    },
+  })
+
+  if (!tournament) {
+    throw new Error('Tournament not found')
+  }
+
+  if (tournament.status !== 'IN_PROGRESS') {
+    throw new Error('Tournament is not in progress')
+  }
+
+  const currentRound = tournament.currentRound
+  const nextRound = currentRound + 1
+
+  if (nextRound > tournament.totalRounds) {
+    throw new Error('Tournament has already reached final round')
+  }
+
+  // Get current round matches to determine winners/losers
+  const currentRoundMatches = await prisma.tournamentMatch.findMany({
+    where: {
+      tournamentId,
+      round: currentRound,
+    },
+    include: {
+      participant1: true,
+      participant2: true,
+      winner: true,
+    },
+  })
+
+  // Update participant statuses based on match results
+  // Winners stay ACTIVE, losers become ELIMINATED
+  const winnerIds = new Set<string>()
+  const loserIds = new Set<string>()
+
+  for (const match of currentRoundMatches) {
+    if (match.winnerId) {
+      winnerIds.add(match.winnerId)
+
+      // Add loser to eliminated set
+      const loserId = match.participant1Id === match.winnerId
+        ? match.participant2Id
+        : match.participant1Id
+      loserIds.add(loserId)
+    }
+  }
+
+  // Update eliminated participants
+  if (loserIds.size > 0) {
+    await prisma.tournamentParticipant.updateMany({
+      where: {
+        id: { in: Array.from(loserIds) },
+        tournamentId,
+      },
+      data: {
+        status: 'ELIMINATED',
+      },
+    })
+  }
+
+  // Update tournament to next round
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: {
+      currentRound: nextRound,
+    },
+  })
+
+  // Generate matches for next round
+  // For King of the Hill, use special round creation function
+  if (tournament.format === 'KING_OF_THE_HILL') {
+    // King of the Hill advancement is handled separately
+    console.log(`[advanceToNextRound] King of the Hill format - using special advancement logic`)
+    return
+  }
+
+  // For other formats, generate standard matches
+  await generateTournamentMatches(tournamentId, nextRound)
+
+  // Get the newly created round and matches
+  const newRound = await prisma.tournamentRound.findUnique({
+    where: {
+      tournamentId_roundNumber: {
+        tournamentId,
+        roundNumber: nextRound,
+      },
+    },
+    include: {
+      matches: {
+        include: {
+          participant1: {
+            include: {
+              user: true,
+            },
+          },
+          participant2: {
+            include: {
+              user: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!newRound) {
+    throw new Error('Failed to create next tournament round')
+  }
+
+  // Create debates for each new match
+  for (const match of newRound.matches) {
+    const participant1 = match.participant1.user
+    const participant2 = match.participant2.user
+
+    // Create debate topic based on tournament name
+    const debateTopic = `${tournament.name} - Round ${newRound.roundNumber}, Match ${match.id.slice(0, 8)}`
+
+    // Create debate
+    const debate = await prisma.debate.create({
+      data: {
+        topic: debateTopic,
+        description: `Tournament match: ${participant1.username} vs ${participant2.username}`,
+        category: 'SPORTS', // Default category, could be configurable
+        challengerId: participant1.id,
+        challengerPosition: 'FOR',
+        opponentPosition: 'AGAINST',
+        opponentId: participant2.id,
+        totalRounds: 3, // Tournament matches are 3 rounds
+        roundDuration: tournament.roundDuration * 3600000, // Convert hours to milliseconds
+        speedMode: false,
+        allowCopyPaste: true,
+        status: 'ACTIVE',
+        challengeType: 'DIRECT',
+      },
+    })
+
+    // Link debate to match
+    await prisma.tournamentMatch.update({
+      where: { id: match.id },
+      data: {
+        debateId: debate.id,
+        status: 'IN_PROGRESS',
+      },
+    })
+
+    // Send notifications to both participants
+    await prisma.notification.createMany({
+      data: [
+        {
+          userId: participant1.id,
+          type: 'OTHER',
+          title: 'Tournament Round Advanced',
+          message: `Round ${nextRound} of "${tournament.name}" has started. Your match against ${participant2.username} is now active.`,
+          tournamentId: tournament.id,
+        },
+        {
+          userId: participant2.id,
+          type: 'OTHER',
+          title: 'Tournament Round Advanced',
+          message: `Round ${nextRound} of "${tournament.name}" has started. Your match against ${participant1.username} is now active.`,
+          tournamentId: tournament.id,
+        },
+      ],
+    })
+
+    console.log(`Created debate ${debate.id} for round ${nextRound} match ${match.id}`)
+  }
+
+  console.log(`Tournament ${tournamentId} advanced to round ${nextRound} with ${newRound.matches.length} matches`)
+}
+
