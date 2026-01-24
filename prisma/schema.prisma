@@ -2087,6 +2087,7 @@ enum NotificationType {
   BELT_MANDATORY_DEFENSE
   BELT_INACTIVE
   BELT_TRANSFER
+  OTHER
 }
 
 enum ReportStatus {
