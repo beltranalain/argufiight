@@ -763,7 +763,7 @@ export default function SystemSettingsTab() {
         <Button variant="secondary" onClick={handleReset} disabled={isLoading}>
           Reset to Defaults
         </Button>
-        <Button variant="outline" onClick={fetchSettings} disabled={isLoading}>
+        <Button variant="secondary" onClick={fetchSettings} disabled={isLoading}>
           Reload Settings
         </Button>
       </div>
