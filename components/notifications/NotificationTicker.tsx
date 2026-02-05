@@ -39,20 +39,13 @@ export function NotificationTicker() {
   // Fetch ticker updates from API
   const fetchTickerUpdates = async () => {
     try {
-      const response = await fetch(`/api/ticker?t=${Date.now()}`, {
+      const response = await fetch('/api/ticker', {
         cache: 'no-store',
         credentials: 'include',
-        headers: { 'Cache-Control': 'no-cache' },
       })
       if (response.ok) {
         const data = await response.json()
         const updates = data.updates || []
-        const sponsoredCount = updates.filter((u: any) => u.type === 'SPONSORED').length
-        const advertiserCount = updates.filter((u: any) => u.type === 'ADVERTISER').length
-        console.log('[Ticker] Fetched', updates.length, 'updates -', sponsoredCount, 'sponsored,', advertiserCount, 'advertiser/admin')
-        if (advertiserCount > 0) {
-          console.log('[Ticker] Advertiser/Admin updates:', updates.filter((u: any) => u.type === 'ADVERTISER').map((u: any) => ({ title: u.title, message: u.message })))
-        }
         setTickerUpdates(updates as TickerUpdate[])
       } else {
         console.error('[Ticker] Failed to fetch - status:', response.status)
@@ -70,7 +63,7 @@ export function NotificationTicker() {
     if (path.startsWith('/advertiser')) return
 
     try {
-      const response = await fetch(`/api/notifications?unreadOnly=true&t=${Date.now()}`, {
+      const response = await fetch('/api/notifications?unreadOnly=true', {
         cache: 'no-store',
         credentials: 'include',
       })
@@ -128,37 +121,26 @@ export function NotificationTicker() {
     const path = typeof window !== 'undefined' ? window.location.pathname : ''
     const isAdvertiser = path.startsWith('/advertiser')
     const isAdmin = path.startsWith('/admin')
-    
-    console.log('[Ticker] Combining items - path:', path, 'isAdvertiser:', isAdvertiser, 'isAdmin:', isAdmin)
 
     const combined: (Notification | TickerUpdate)[] = []
 
     if (isAdvertiser) {
-      // Advertiser dashboard: ONLY advertiser-specific updates and sponsored ads
-      // DO NOT show user notifications, "your turn", or debate updates
-      console.log('[Ticker] Advertiser mode - filtering ticker updates')
       const advertiserUpdates = tickerUpdates.filter(t => t.type === 'ADVERTISER')
       const sponsoredAds = tickerUpdates.filter(t => t.type === 'SPONSORED')
       combined.push(...advertiserUpdates)
       combined.push(...sponsoredAds)
-      console.log('[Ticker] Advertiser - Added', advertiserUpdates.length, 'advertiser updates and', sponsoredAds.length, 'sponsored ads')
     } else if (isAdmin) {
-      // Admin dashboard: admin notifications (ADVERTISER type) + sponsored ads + user notifications
       const adminUpdates = tickerUpdates.filter(t => t.type === 'ADVERTISER')
       const sponsoredAds = tickerUpdates.filter(t => t.type === 'SPONSORED')
-      // Include unread notifications for admin
       const unreadNotifications = notifications.filter(n => !n.read)
       combined.push(...adminUpdates)
       combined.push(...sponsoredAds)
       combined.push(...unreadNotifications)
-      console.log('[Ticker] Admin - Added', adminUpdates.length, 'admin updates,', sponsoredAds.length, 'sponsored ads, and', unreadNotifications.length, 'unread notifications')
     } else {
-      // Regular users: all updates (your turn, notifications, debate updates, sponsored ads)
       if (yourTurnUpdate) combined.push(yourTurnUpdate)
       combined.push(...notifications.filter(n => !n.read))
       combined.push(...tickerUpdates.filter(t => t.type !== 'ADVERTISER'))
       combined.push(...notifications.filter(n => n.read))
-      console.log('[Ticker] User mode - Added', combined.length, 'items')
     }
 
     // Filter: always show sponsored ads and advertiser updates, others must be recent
@@ -171,43 +153,57 @@ export function NotificationTicker() {
       return itemDate > oneDayAgo || ('read' in item && !item.read)
     })
 
-    console.log('[Ticker] Final filtered items:', filtered.length)
     setItemsToShow(filtered.slice(0, 20))
   }, [notifications, tickerUpdates, yourTurnUpdate])
 
-  // Fetch data on mount
+  // Fetch data on mount with visibility-based polling
   useEffect(() => {
     const path = typeof window !== 'undefined' ? window.location.pathname : ''
     const isAdvertiserPage = path.startsWith('/advertiser')
     const isAdminPage = path.startsWith('/admin')
 
-    fetchTickerUpdates()
-    const tickerInterval = setInterval(fetchTickerUpdates, 30000)
+    let tickerInterval: NodeJS.Timeout
+    let notificationInterval: NodeJS.Timeout | undefined
+    let yourTurnInterval: NodeJS.Timeout | undefined
 
-    if (user) {
-      if (isAdminPage) {
-        // For admin pages: fetch notifications but not "your turn"
-        fetchNotifications()
-        const notificationInterval = setInterval(fetchNotifications, 30000)
-        return () => {
-          clearInterval(tickerInterval)
-          clearInterval(notificationInterval)
-        }
-      } else if (!isAdvertiserPage) {
-        // For regular user pages: fetch notifications and "your turn"
-        fetchNotifications()
-        checkYourTurn()
-        const notificationInterval = setInterval(fetchNotifications, 30000)
-        const yourTurnInterval = setInterval(checkYourTurn, 30000)
-        return () => {
-          clearInterval(tickerInterval)
-          clearInterval(notificationInterval)
-          clearInterval(yourTurnInterval)
+    const startPolling = () => {
+      fetchTickerUpdates()
+      tickerInterval = setInterval(fetchTickerUpdates, 120000) // 2 minutes
+
+      if (user) {
+        if (isAdminPage) {
+          fetchNotifications()
+          notificationInterval = setInterval(fetchNotifications, 120000) // 2 minutes
+        } else if (!isAdvertiserPage) {
+          fetchNotifications()
+          checkYourTurn()
+          notificationInterval = setInterval(fetchNotifications, 120000) // 2 minutes
+          yourTurnInterval = setInterval(checkYourTurn, 60000) // 1 minute
         }
       }
     }
 
-    return () => clearInterval(tickerInterval)
+    const stopPolling = () => {
+      clearInterval(tickerInterval)
+      if (notificationInterval) clearInterval(notificationInterval)
+      if (yourTurnInterval) clearInterval(yourTurnInterval)
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling()
+      } else {
+        startPolling()
+      }
+    }
+
+    startPolling()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      stopPolling()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [user])
 
   // Track ad clicks

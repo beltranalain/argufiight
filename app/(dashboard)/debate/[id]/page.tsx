@@ -231,7 +231,7 @@ export default function DebatePage() {
 
     const interval = setInterval(() => {
       fetchDebate(false) // Don't show loading spinner on auto-refresh
-    }, 3000) // Check every 3 seconds
+    }, 15000) // Check every 15 seconds
 
     return () => clearInterval(interval)
   }, [debate?.status, debate?.id, user])
@@ -242,7 +242,7 @@ export default function DebatePage() {
 
     const interval = setInterval(() => {
       fetchDebate(false) // Don't show loading spinner on auto-refresh
-    }, 5000) // Check every 5 seconds for active debates
+    }, 30000) // Check every 30 seconds for active debates
 
     return () => clearInterval(interval)
   }, [debate?.status, debate?.id, user])

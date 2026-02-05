@@ -30,68 +30,35 @@ export async function GET(request: NextRequest) {
     let userEmail: string | null = null
     let session: any = null
     
+    let isAdmin = false
     try {
       session = await verifySession()
       if (session) {
         userId = getUserIdFromSession(session)
         if (userId) {
+          // Single query for both email and isAdmin
           const user = await prisma.user.findUnique({
             where: { id: userId },
-            select: { email: true },
+            select: { email: true, isAdmin: true },
           })
-          
+
           if (user) {
             userEmail = user.email
+            isAdmin = user.isAdmin || false
             const advertiser = await prisma.advertiser.findUnique({
               where: { contactEmail: user.email },
               select: { id: true, status: true },
             })
-            
+
             if (advertiser && advertiser.status === 'APPROVED') {
               isAdvertiser = true
               advertiserId = advertiser.id
-              console.log('[Ticker API] ✅ Advertiser detected:', { 
-                advertiserId, 
-                email: user.email,
-                status: advertiser.status 
-              })
-            } else {
-              console.log('[Ticker API] User is not an approved advertiser:', { 
-                email: user.email,
-                hasAdvertiser: !!advertiser,
-                status: advertiser?.status 
-              })
             }
           }
         }
-      } else {
-        console.log('[Ticker API] No session found')
       }
     } catch (error) {
       // Not logged in or session error - continue as regular user
-      console.log('[Ticker API] Error checking advertiser status:', error)
-    }
-    
-    console.log('[Ticker API] Advertiser check result:', { 
-      isAdvertiser, 
-      advertiserId, 
-      userId,
-      hasSession: !!session,
-      userEmail 
-    })
-
-    // Check if user is admin
-    let isAdmin = false
-    if (userId) {
-      try {
-        const user = await prisma.user.findUnique({
-          where: { id: userId },
-          select: { isAdmin: true },
-        })
-        isAdmin = user?.isAdmin || false
-      } catch (error) {
-        console.log('[Ticker API] Error checking admin status:', error)
-      }
     }
 
     // If user is an admin, show admin-specific notifications
@@ -227,9 +194,7 @@ export async function GET(request: NextRequest) {
         { updates: updates.slice(0, 10) },
         {
           headers: {
-            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
+            'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
           },
         }
       )
@@ -459,9 +424,7 @@ export async function GET(request: NextRequest) {
         { updates: updates.slice(0, 10) },
         {
           headers: {
-            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
+            'Cache-Control': 'private, max-age=30, stale-while-revalidate=60',
           },
         }
       )

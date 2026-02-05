@@ -69,14 +69,14 @@ export default function MessagesPage() {
   useEffect(() => {
     fetchConversations()
     
-    // Poll for new messages every 5 seconds
+    // Poll for updates every 30 seconds
     const interval = setInterval(() => {
       if (selectedConversation) {
         fetchMessages(selectedConversation.id)
       } else {
         fetchConversations()
       }
-    }, 5000)
+    }, 30000)
     
     return () => clearInterval(interval)
   }, [selectedConversation])
@@ -126,10 +126,10 @@ export default function MessagesPage() {
   useEffect(() => {
     if (selectedConversation) {
       fetchMessages(selectedConversation.id)
-      // Poll for new messages every 3 seconds
+      // Poll for new messages every 15 seconds
       const interval = setInterval(() => {
         fetchMessages(selectedConversation.id, true)
-      }, 3000)
+      }, 15000)
       return () => clearInterval(interval)
     }
   }, [selectedConversation])

@@ -1,6 +1,9 @@
 import { MetadataRoute } from 'next'
 import { prisma } from '@/lib/db/prisma'
 
+// Revalidate sitemap every 6 hours to avoid DB queries on every crawler request
+export const revalidate = 21600
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
   
