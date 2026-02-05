@@ -43,7 +43,7 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   // Google Analytics Tracking ID (from environment variable or use default)
-  const gaTrackingId = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || 'G-41YDQDD6J3'
+  const gaTrackingId = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || 'G-HC5T282D74'
   
   // Get Google Search Console verification from database
   let gscVerification = process.env.GOOGLE_SEARCH_CONSOLE_VERIFICATION || ''
