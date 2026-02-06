@@ -38,10 +38,20 @@ function extractTopicFromUrl(topic: string): string {
   return topic
 }
 
-export function ChallengesPanel() {
+interface ChallengesPanelProps {
+  initialWaitingDebates?: any
+  initialUserWaitingDebates?: any
+  initialBeltChallenges?: any
+}
+
+export function ChallengesPanel({
+  initialWaitingDebates,
+  initialUserWaitingDebates,
+  initialBeltChallenges,
+}: ChallengesPanelProps) {
   const [challenges, setChallenges] = useState<any[]>([])
   const [myChallenges, setMyChallenges] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(!initialWaitingDebates)
   const [declineConfirmId, setDeclineConfirmId] = useState<string | null>(null)
   const [isDeclining, setIsDeclining] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -49,36 +59,107 @@ export function ChallengesPanel() {
   const { user } = useAuth()
   const { showToast } = useToast()
 
+  // Process initial data from consolidated endpoint
   useEffect(() => {
+    if (initialWaitingDebates?.debates && user) {
+      const allData = initialWaitingDebates.debates || []
+      const challengesToMyBelts = initialBeltChallenges?.challengesToMyBelts || []
+
+      // Build belt challenges for display
+      const beltChallenges = challengesToMyBelts
+        .filter((bc: any) => bc.status === 'PENDING')
+        .map((bc: any) => ({
+          id: `belt-${bc.id}`,
+          topic: bc.debateTopic || `Challenge for ${bc.belt.name}`,
+          description: bc.debateDescription,
+          category: bc.belt.category || bc.debateCategory,
+          challengerId: bc.challengerId,
+          challenger: bc.challenger,
+          challengeType: 'BELT',
+          isBeltChallenge: true,
+          beltChallengeId: bc.id,
+          belt: bc.belt,
+          entryFee: bc.entryFee,
+          coinReward: bc.coinReward,
+          createdAt: bc.createdAt,
+          expiresAt: bc.expiresAt,
+          status: bc.status,
+        }))
+
+      const combinedChallenges = [...allData, ...beltChallenges]
+      const filtered = combinedChallenges.filter((d: any) => {
+        if (d.isBeltChallenge) return true
+        if (d.challengeType === 'OPEN' || !d.challengeType) return true
+        if (d.challengeType === 'DIRECT' || d.challengeType === 'GROUP') {
+          if (d.invitedUserIds) {
+            try {
+              const invitedIds = JSON.parse(d.invitedUserIds)
+              return invitedIds.includes(user.id)
+            } catch { return false }
+          }
+          return false
+        }
+        return true
+      })
+      setChallenges(filtered)
+
+      // Process user's waiting debates
+      if (initialUserWaitingDebates?.debates) {
+        let myData = initialUserWaitingDebates.debates.filter((d: any) => d.challengerId === user.id)
+        const acceptedBeltChallenges = challengesToMyBelts
+          .filter((bc: any) => bc.status === 'ACCEPTED')
+          .map((bc: any) => ({
+            id: `belt-accepted-${bc.id}`,
+            topic: bc.debateTopic || `Challenge for ${bc.belt.name}`,
+            description: bc.debateDescription,
+            category: bc.belt.category || bc.debateCategory,
+            challengerId: bc.challengerId,
+            challenger: bc.challenger,
+            challengeType: 'BELT',
+            isBeltChallenge: true,
+            beltChallengeId: bc.id,
+            belt: bc.belt,
+            status: bc.status,
+            debateId: bc.debateId,
+            createdAt: bc.createdAt,
+          }))
+        myData = [...myData, ...acceptedBeltChallenges]
+        setMyChallenges(myData)
+      }
+
+      setIsLoading(false)
+    }
+  }, [initialWaitingDebates, initialUserWaitingDebates, initialBeltChallenges])
+
+  // Fallback: fetch independently when no initial data
+  useEffect(() => {
+    if (initialWaitingDebates) return
     if (user) {
       fetchChallenges()
       fetchPendingRematches()
     }
   }, [user])
 
-  // Listen for custom events to refresh challenges
-  // Only listen if this component is mounted (not during page refresh)
+  // Listen for custom events to refresh challenges (only when self-fetching)
   useEffect(() => {
-    if (!user) return
-    
+    if (!user || initialWaitingDebates) return // Parent handles refresh
+
     let isMounted = true
-    
+
     const handleRefresh = () => {
-      // Only refresh if component is still mounted and page is visible
       if (isMounted && document.visibilityState === 'visible') {
         fetchChallenges()
         fetchPendingRematches()
       }
     }
-    
-    // Small delay to avoid catching events from page refresh
+
     const timeoutId = setTimeout(() => {
       window.addEventListener('debate-created', handleRefresh)
       window.addEventListener('rematch-requested', handleRefresh)
       window.addEventListener('rematch-accepted', handleRefresh)
       window.addEventListener('belt-challenge-accepted', handleRefresh)
     }, 100)
-    
+
     return () => {
       isMounted = false
       clearTimeout(timeoutId)

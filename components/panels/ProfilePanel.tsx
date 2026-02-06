@@ -9,13 +9,27 @@ import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { Button } from '@/components/ui/Button'
 
-export function ProfilePanel() {
+export function ProfilePanel({ initialDebates }: { initialDebates?: any }) {
   const { user, isLoading } = useAuth()
   const [recentDebates, setRecentDebates] = useState<any[]>([])
   const [isLoadingDebates, setIsLoadingDebates] = useState(true)
 
+  // Use initial data from consolidated endpoint when available
   useEffect(() => {
-    if (user) {
+    if (initialDebates?.debates) {
+      const debates = initialDebates.debates
+      const filtered = debates
+        .filter((d: any) => d.status !== 'WAITING')
+        .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+        .slice(0, 3)
+      setRecentDebates(filtered)
+      setIsLoadingDebates(false)
+    }
+  }, [initialDebates])
+
+  // Fallback: fetch independently when no initial data
+  useEffect(() => {
+    if (user && !initialDebates) {
       fetchRecentDebates()
     }
   }, [user])

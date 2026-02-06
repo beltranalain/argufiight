@@ -23,14 +23,33 @@ interface LeaderboardEntry {
   overallScorePercent: number
 }
 
-export function LeaderboardPanel() {
+export function LeaderboardPanel({ initialData }: { initialData?: any }) {
   const { user } = useAuth()
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [userRank, setUserRank] = useState<LeaderboardEntry | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Use initial data from consolidated endpoint when available
   useEffect(() => {
-    fetchLeaderboard()
+    if (initialData) {
+      if (Array.isArray(initialData.leaderboard)) {
+        setLeaderboard(initialData.leaderboard)
+      }
+      if (initialData.userRank && user?.id) {
+        const isInTop3 = (initialData.leaderboard || []).some((entry: LeaderboardEntry) => entry.id === user.id)
+        setUserRank(isInTop3 ? null : initialData.userRank)
+      } else {
+        setUserRank(null)
+      }
+      setIsLoading(false)
+    }
+  }, [initialData])
+
+  // Fallback: fetch independently when no initial data
+  useEffect(() => {
+    if (!initialData) {
+      fetchLeaderboard()
+    }
   }, [user])
 
   const fetchLeaderboard = async () => {

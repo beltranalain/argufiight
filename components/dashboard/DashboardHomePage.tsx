@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { TopNav } from '@/components/layout/TopNav'
 import { ArenaPanel } from '@/components/panels/ArenaPanel'
@@ -17,97 +17,105 @@ export function DashboardHomePage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isMyTurn, setIsMyTurn] = useState(false)
   const [showBlink, setShowBlink] = useState(false)
-  const [hasBeltChallenge, setHasBeltChallenge] = useState(false)
+  const [dashData, setDashData] = useState<any>(null)
   const { user } = useAuth()
 
-  // Check for belt challenges and your turn using lightweight endpoints
+  // Single consolidated fetch for ALL dashboard data
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const response = await fetch('/api/dashboard-data', { cache: 'no-store' })
+      if (!response.ok) {
+        setDashData((prev: any) => prev || {})
+        return
+      }
+      const data = await response.json()
+      setDashData(data)
+
+      // Process your-turn and belt challenges from consolidated data
+      if (data.yourTurn?.hasTurn) {
+        setIsMyTurn(true)
+        setShowBlink(true)
+        setTimeout(() => setShowBlink(false), 5000)
+      } else {
+        setIsMyTurn(false)
+      }
+
+      const pendingBeltChallenges = (data.belts?.challengesToMyBelts || []).filter(
+        (c: any) => c.status === 'PENDING'
+      )
+      if (pendingBeltChallenges.length > 0) {
+        setShowBlink(true)
+        setTimeout(() => setShowBlink(false), 10000)
+      }
+    } catch {
+      setDashData((prev: any) => prev || {})
+    }
+  }, [])
+
   useEffect(() => {
     if (!user) {
       setIsMyTurn(false)
       setShowBlink(false)
-      setHasBeltChallenge(false)
+      setDashData({})
       return
     }
 
-    let blinkTimeout: NodeJS.Timeout | null = null
+    fetchDashboardData()
 
-    const checkBeltChallenges = async () => {
-      try {
-        const response = await fetch('/api/belts/challenges', { cache: 'no-store' })
-        if (response.ok) {
-          const data = await response.json()
-          const pendingChallenges = (data.challengesToMyBelts || []).filter(
-            (c: any) => c.status === 'PENDING'
-          )
-          const hasPending = pendingChallenges.length > 0
-          setHasBeltChallenge(hasPending)
-          if (hasPending) {
-            setShowBlink(true)
-            if (blinkTimeout) clearTimeout(blinkTimeout)
-            blinkTimeout = setTimeout(() => setShowBlink(false), 10000)
-          }
-        }
-      } catch {
-        setHasBeltChallenge(false)
-      }
-    }
+    // Refresh on events
+    const handleUpdate = () => fetchDashboardData()
+    window.addEventListener('debate-updated', handleUpdate)
+    window.addEventListener('statement-submitted', handleUpdate)
+    window.addEventListener('debate-created', handleUpdate)
+    window.addEventListener('belt-challenge-accepted', handleUpdate)
 
-    // Use lightweight /api/debates/your-turn instead of fetching full debate details
-    const checkMyTurn = async () => {
-      try {
-        const response = await fetch('/api/debates/your-turn')
-        if (response.ok) {
-          const data = await response.json()
-          if (data.hasTurn) {
-            setIsMyTurn(true)
-            setShowBlink(true)
-            if (blinkTimeout) clearTimeout(blinkTimeout)
-            blinkTimeout = setTimeout(() => setShowBlink(false), 5000)
-          } else {
-            setIsMyTurn(false)
-          }
-        }
-      } catch {
-        setIsMyTurn(false)
-      }
-    }
-
-    // Delay initial check to avoid competing with panel fetches
-    const initialTimeout = setTimeout(() => {
-      checkMyTurn()
-      checkBeltChallenges()
-    }, 2000)
-
-    const handleDebateUpdate = () => checkMyTurn()
-    window.addEventListener('debate-updated', handleDebateUpdate)
-    window.addEventListener('statement-submitted', handleDebateUpdate)
-
-    const interval = setInterval(() => {
-      checkMyTurn()
-      checkBeltChallenges()
-    }, 60000)
+    // Poll every 60s for updates
+    const interval = setInterval(fetchDashboardData, 60000)
 
     return () => {
-      clearTimeout(initialTimeout)
       clearInterval(interval)
-      window.removeEventListener('debate-updated', handleDebateUpdate)
-      window.removeEventListener('statement-submitted', handleDebateUpdate)
-      if (blinkTimeout) clearTimeout(blinkTimeout)
+      window.removeEventListener('debate-updated', handleUpdate)
+      window.removeEventListener('statement-submitted', handleUpdate)
+      window.removeEventListener('debate-created', handleUpdate)
+      window.removeEventListener('belt-challenge-accepted', handleUpdate)
     }
-  }, [user])
+  }, [user, fetchDashboardData])
 
   return (
     <div className={`min-h-screen bg-bg-primary relative ${showBlink ? 'slow-blink-orange' : ''}`}>
-      <TopNav currentPanel="THE ARENA" />
-      
+      <TopNav currentPanel="THE ARENA" initialNavData={dashData?.nav} />
+
       <div className="pt-16 md:pt-20 px-4 md:px-8 pb-8">
         <div className="max-w-[1600px] mx-auto">
           {/* Main Grid Layout - 3 Columns */}
+          {dashData === null ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-pulse">
+              <div className="space-y-6">
+                <div className="bg-bg-secondary rounded-xl border border-bg-tertiary mt-8 h-64" />
+                <div className="bg-bg-secondary rounded-xl border border-bg-tertiary h-96" />
+              </div>
+              <div className="space-y-6">
+                <div className="bg-bg-secondary rounded-xl border border-bg-tertiary mt-8 h-80" />
+                <div className="bg-bg-secondary rounded-xl border border-bg-tertiary h-64" />
+              </div>
+              <div className="space-y-6">
+                <div className="bg-bg-secondary rounded-xl border border-bg-tertiary mt-8 h-64" />
+                <div className="bg-bg-secondary rounded-xl border border-bg-tertiary h-48" />
+              </div>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
+
             {/* Column 1 - Left */}
             <div className="space-y-6">
-              <ArenaPanel />
+              <ArenaPanel
+                initialCategories={dashData?.categories}
+                initialActiveDebates={dashData?.activeDebates}
+                initialUserActiveDebates={dashData?.userActiveDebates}
+                initialWaitingDebates={dashData?.waitingDebates}
+                initialUserWaitingDebates={dashData?.userWaitingDebates}
+                initialBeltChallenges={dashData?.belts}
+              />
             </div>
 
             {/* Column 2 - Middle */}
@@ -115,12 +123,12 @@ export function DashboardHomePage() {
               {/* Your Profile */}
               <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary mt-8">
                 <h2 className="text-2xl font-bold text-text-primary mb-2">Your Profile</h2>
-                <ProfilePanel />
+                <ProfilePanel initialDebates={dashData?.recentDebates} />
               </div>
 
               {/* ELO Leaderboard */}
               <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
-                <LeaderboardPanel />
+                <LeaderboardPanel initialData={dashData?.leaderboard} />
               </div>
             </div>
 
@@ -135,20 +143,21 @@ export function DashboardHomePage() {
                   </Link>
                 </div>
                 <p className="text-text-secondary text-sm mb-4">Your championship belts and challenges</p>
-                <BeltsPanel />
+                <BeltsPanel initialData={dashData?.belts} />
               </div>
 
               {/* Tournaments */}
               <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
-                <TournamentsPanel />
+                <TournamentsPanel initialData={dashData?.tournaments} />
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
 
       {/* FAB Button */}
-      <button 
+      <button
         className="fixed bottom-20 right-4 md:bottom-24 md:right-8 w-14 h-14 md:w-16 md:h-16 rounded-full bg-electric-blue flex items-center justify-center text-black shadow-lg hover:scale-110 active:scale-95 transition-transform z-40 hover:bg-[#00B8E6] touch-manipulation"
         onClick={() => setIsCreateModalOpen(true)}
         aria-label="Create Debate"
@@ -170,4 +179,3 @@ export function DashboardHomePage() {
     </div>
   )
 }
-

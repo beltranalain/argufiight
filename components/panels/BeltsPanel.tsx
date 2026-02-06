@@ -48,7 +48,7 @@ interface BeltChallenge {
   createdAt: string
 }
 
-export function BeltsPanel() {
+export function BeltsPanel({ initialData }: { initialData?: any }) {
   const { user } = useAuth()
   const router = useRouter()
   const { showToast } = useToast()
@@ -64,10 +64,31 @@ export function BeltsPanel() {
   const [challengeModalOpen, setChallengeModalOpen] = useState(false)
   const [selectedBeltForChallenge, setSelectedBeltForChallenge] = useState<Belt | null>(null)
 
+  // Use initial data from consolidated endpoint when available
   useEffect(() => {
+    if (initialData) {
+      const newBelts = initialData.currentBelts || []
+      setCurrentBelts(newBelts)
+      const newChallengesToMyBelts = (initialData.challengesToMyBelts || [])
+        .filter((c: any) => c.status !== 'COMPLETED' && c.status !== 'DECLINED')
+      const newChallengesMade = (initialData.challengesMade || [])
+        .filter((c: any) => c.status !== 'COMPLETED' && c.status !== 'DECLINED')
+      setChallengesToMyBelts(newChallengesToMyBelts)
+      setChallengesMade(newChallengesMade)
+      setIsLoading(false)
+      setIsInitialLoad(false)
+      // If no belts or challenges, fetch all belts for display
+      if (newBelts.length === 0 && newChallengesToMyBelts.length === 0 && newChallengesMade.length === 0) {
+        fetchAllBelts()
+      }
+    }
+  }, [initialData])
+
+  // Fallback: fetch independently when no initial data
+  useEffect(() => {
+    if (initialData) return
     if (user) {
       fetchBeltsData(true)
-      // Refresh every 60 seconds (reduced from 30 to minimize reloads)
       const interval = setInterval(() => fetchBeltsData(false), 60000)
       return () => clearInterval(interval)
     } else {
@@ -76,23 +97,23 @@ export function BeltsPanel() {
     }
   }, [user])
 
-  // Listen for belt challenge events
+  // Listen for belt challenge events (only when self-fetching)
   useEffect(() => {
-    if (!user) return
-    
+    if (!user || initialData) return // Parent handles refresh when initialData provided
+
     let isMounted = true
-    
+
     const handleRefresh = () => {
       if (isMounted && document.visibilityState === 'visible') {
         fetchBeltsData(false)
       }
     }
-    
+
     const timeoutId = setTimeout(() => {
       window.addEventListener('belt-challenge-accepted', handleRefresh)
       window.addEventListener('belt-challenge-declined', handleRefresh)
     }, 100)
-    
+
     return () => {
       isMounted = false
       clearTimeout(timeoutId)
@@ -102,8 +123,9 @@ export function BeltsPanel() {
   }, [user])
 
 
-  // Fetch all belts when user has no belts or challenges
+  // Fetch all belts when user has no belts or challenges (only when self-fetching)
   useEffect(() => {
+    if (initialData) return // Already handled in initialData useEffect
     if (user && !isLoading && isInitialLoad === false) {
       const hasBelts = currentBelts.length > 0
       const hasChallenges = challengesToMyBelts.length > 0 || challengesMade.length > 0

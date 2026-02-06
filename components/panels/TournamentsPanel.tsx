@@ -18,13 +18,30 @@ interface Tournament {
   isParticipant: boolean
 }
 
-export function TournamentsPanel() {
+export function TournamentsPanel({ initialData }: { initialData?: any }) {
   const { user } = useAuth()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isFeatureEnabled, setIsFeatureEnabled] = useState(false)
 
+  // Use initial data from consolidated endpoint when available
   useEffect(() => {
+    if (initialData?.tournaments !== undefined) {
+      const activeTournaments = (initialData.tournaments || []).filter(
+        (t: Tournament) =>
+          t.status === 'UPCOMING' ||
+          t.status === 'REGISTRATION_OPEN' ||
+          t.status === 'IN_PROGRESS'
+      )
+      setTournaments(activeTournaments.slice(0, 3))
+      setIsFeatureEnabled(true)
+      setIsLoading(false)
+    }
+  }, [initialData])
+
+  // Fallback: fetch independently when no initial data
+  useEffect(() => {
+    if (initialData) return
     if (user) {
       checkFeatureStatus().then(() => {
         if (isFeatureEnabled) {
@@ -39,13 +56,14 @@ export function TournamentsPanel() {
   }, [user])
 
   useEffect(() => {
-    if (isFeatureEnabled && user) {
+    if (isFeatureEnabled && user && !initialData) {
       fetchTournaments()
     }
   }, [isFeatureEnabled])
 
-  // Refresh tournaments when page becomes visible
+  // Refresh tournaments when page becomes visible (only when self-fetching)
   useEffect(() => {
+    if (initialData) return // Parent handles refresh
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && isFeatureEnabled && user) {
         fetchTournaments()

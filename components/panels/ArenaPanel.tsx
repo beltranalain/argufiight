@@ -14,22 +14,71 @@ import { StaggerItem } from '@/components/ui/StaggerItem'
 import { ChallengesPanel } from '@/components/panels/ChallengesPanel'
 import { useAuth } from '@/lib/hooks/useAuth'
 
-export function ArenaPanel() {
+interface ArenaPanelProps {
+  initialCategories?: any
+  initialActiveDebates?: any
+  initialUserActiveDebates?: any
+  initialWaitingDebates?: any
+  initialUserWaitingDebates?: any
+  initialBeltChallenges?: any
+}
+
+export function ArenaPanel({
+  initialCategories,
+  initialActiveDebates,
+  initialUserActiveDebates,
+  initialWaitingDebates,
+  initialUserWaitingDebates,
+  initialBeltChallenges,
+}: ArenaPanelProps) {
   const { user } = useAuth()
   const [debates, setDebates] = useState<any[]>([])
   const [myActiveDebate, setMyActiveDebate] = useState<any | null>(null)
-  const [isLoadingMyDebate, setIsLoadingMyDebate] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMyDebate, setIsLoadingMyDebate] = useState(!initialUserActiveDebates)
+  const [isLoading, setIsLoading] = useState(!initialActiveDebates)
   const [filter, setFilter] = useState('ALL')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [initialDebateData, setInitialDebateData] = useState<{ topic?: string; category?: string } | null>(null)
   const [categories, setCategories] = useState<string[]>(['ALL', 'SPORTS', 'TECH', 'POLITICS'])
 
+  // Process initial data from consolidated endpoint
   useEffect(() => {
-    fetchCategories()
-    fetchDebates()
+    if (initialCategories?.categories) {
+      const categoryNames = ['ALL', ...initialCategories.categories.map((cat: any) => cat.name)]
+      setCategories(categoryNames)
+    }
+  }, [initialCategories])
 
-    // Refresh when user returns to tab (clears stale debates)
+  useEffect(() => {
+    if (initialActiveDebates?.debates) {
+      const allDebates = initialActiveDebates.debates.filter((d: any) => {
+        if (d.status !== 'ACTIVE' || d.winnerId || d.verdictReached) return false
+        if (myActiveDebate && d.id === myActiveDebate.id) return false
+        return true
+      })
+      setDebates(allDebates)
+      setIsLoading(false)
+    }
+  }, [initialActiveDebates])
+
+  useEffect(() => {
+    if (initialUserActiveDebates?.debates) {
+      const debates = initialUserActiveDebates.debates
+      const active = debates.find((d: any) =>
+        d.status === 'ACTIVE' && !d.winnerId && !d.verdictReached
+      )
+      setMyActiveDebate(active || null)
+      setIsLoadingMyDebate(false)
+    }
+  }, [initialUserActiveDebates])
+
+  // Fallback: fetch independently when no initial data
+  useEffect(() => {
+    if (!initialCategories) fetchCategories()
+    if (!initialActiveDebates) fetchDebates()
+
+    // Refresh when user returns to tab (only when self-fetching)
+    if (initialActiveDebates) return
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         fetchDebates()
@@ -41,13 +90,15 @@ export function ArenaPanel() {
   }, [])
 
   useEffect(() => {
-    if (user) {
+    if (user && !initialUserActiveDebates) {
       fetchMyActiveDebate()
     }
   }, [user])
 
   useEffect(() => {
-    fetchDebates()
+    if (!initialActiveDebates) {
+      fetchDebates()
+    }
   }, [filter])
 
   const fetchCategories = async () => {
@@ -65,25 +116,24 @@ export function ArenaPanel() {
     }
   }
 
-  // Listen for custom event to refresh debates
-  // Only listen if this component is mounted (not during page refresh)
+  // Listen for custom event to refresh debates (only when self-fetching)
   useEffect(() => {
+    if (initialActiveDebates) return // Parent handles refresh
+
     let isMounted = true
-    
+
     const handleRefresh = () => {
-      // Only refresh if component is still mounted and not during initial load
       if (isMounted && document.visibilityState === 'visible') {
         fetchDebates()
       }
     }
-    
+
     const handleMyDebateRefresh = () => {
       if (isMounted && document.visibilityState === 'visible') {
         fetchMyActiveDebate()
       }
     }
-    
-    // Small delay to avoid catching events from page refresh
+
     const timeoutId = setTimeout(() => {
       window.addEventListener('debate-created', handleRefresh)
       window.addEventListener('belt-challenge-accepted', handleRefresh)
@@ -91,7 +141,7 @@ export function ArenaPanel() {
       window.addEventListener('statement-submitted', handleMyDebateRefresh)
       window.addEventListener('verdict-ready', handleMyDebateRefresh)
     }, 100)
-    
+
     return () => {
       isMounted = false
       clearTimeout(timeoutId)
@@ -225,7 +275,11 @@ export function ArenaPanel() {
         <h2 className="text-2xl font-bold text-text-primary mb-2">Open Challenges</h2>
         <p className="text-text-secondary text-sm mb-4">Debates waiting for opponents</p>
         <div className="max-h-[500px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
-          <ChallengesPanel />
+          <ChallengesPanel
+            initialWaitingDebates={initialWaitingDebates}
+            initialUserWaitingDebates={initialUserWaitingDebates}
+            initialBeltChallenges={initialBeltChallenges}
+          />
         </div>
       </div>
 

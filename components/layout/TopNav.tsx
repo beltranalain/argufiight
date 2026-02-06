@@ -13,9 +13,10 @@ import { AnimatePresence } from 'framer-motion'
 
 interface TopNavProps {
   currentPanel: string
+  initialNavData?: any
 }
 
-export function TopNav({ currentPanel }: TopNavProps) {
+export function TopNav({ currentPanel, initialNavData }: TopNavProps) {
   const router = useRouter()
   const { user, logout } = useAuth()
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
@@ -100,12 +101,28 @@ export function TopNav({ currentPanel }: TopNavProps) {
     }
   }
 
+  // Apply initial nav data from consolidated dashboard endpoint
+  useEffect(() => {
+    if (initialNavData) {
+      if (currentPanel !== 'ADVERTISER') {
+        setUnreadCount(initialNavData.unreadCount || 0)
+      }
+      setUserTier(initialNavData.tier || 'FREE')
+      setIsAdvertiser(initialNavData.isAdvertiser || false)
+      setBeltCount(initialNavData.beltCount || 0)
+      setCoinBalance(initialNavData.coinBalance || 0)
+    }
+  }, [initialNavData])
+
   useEffect(() => {
     if (user && isMounted) {
       if (currentPanel === 'ADVERTISER') {
         setUnreadCount(0)
       }
-      fetchNavData()
+      // Skip initial fetch if initialNavData is provided (dashboard mode)
+      if (!initialNavData) {
+        fetchNavData()
+      }
       // Poll for notification count every 30 seconds
       const interval = currentPanel !== 'ADVERTISER'
         ? setInterval(fetchUnreadCount, 30000)
