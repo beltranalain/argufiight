@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import crypto from 'crypto'
+import { sendPushNotificationForNotification } from '@/lib/notifications/push-notifications'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -125,6 +126,11 @@ export async function GET(request: NextRequest) {
               `
             }
           } catch (e) { console.error('Failed to notify:', e) }
+          // Push notifications for cancellation (non-blocking)
+          sendPushNotificationForNotification(debate.challengerId, 'OTHER', 'Debate Cancelled', msg, debate.id).catch(() => {})
+          if (debate.opponentId) {
+            sendPushNotificationForNotification(debate.opponentId, 'OTHER', 'Debate Cancelled', msg, debate.id).catch(() => {})
+          }
           cancelledCount++
           console.log(`[Cron] Cancelled Round 1 no-show debate: ${debate.id}`)
           continue
@@ -211,6 +217,11 @@ async function handleMissingSubmission(debate: any, submitterId: string, nonSubm
         VALUES (${crypto.randomUUID()}, ${nonSubmitterId}, ${'DEBATE_LOST'}, ${'Round Time Expired'}, ${`You missed the deadline for Round ${debate.currentRound} in "${debate.topic}". Your opponent's argument was accepted.`}, ${debate.id}, ${now}, ${false})
       `
     } catch (e) { console.error('Failed to notify:', e) }
+    // Push notification for missed deadline (non-blocking)
+    sendPushNotificationForNotification(
+      nonSubmitterId, 'DEBATE_LOST', 'Round Time Expired',
+      `You missed the deadline for Round ${debate.currentRound} in "${debate.topic}".`, debate.id
+    ).catch(() => {})
   }
 
   const halfwayPoint = Math.ceil(debate.totalRounds / 2)
@@ -263,6 +274,11 @@ async function handleBothMissing(debate: any, now: Date) {
       `
     }
   } catch (e) { console.error('Failed to notify:', e) }
+  // Push notifications for both missing (non-blocking)
+  sendPushNotificationForNotification(debate.challengerId, 'DEBATE_TIED', 'Round Time Expired', msg, debate.id).catch(() => {})
+  if (debate.opponentId) {
+    sendPushNotificationForNotification(debate.opponentId, 'DEBATE_TIED', 'Round Time Expired', msg, debate.id).catch(() => {})
+  }
 
   const halfwayPoint = Math.ceil(debate.totalRounds / 2)
   const isFinalRound = debate.currentRound >= debate.totalRounds

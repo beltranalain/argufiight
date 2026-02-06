@@ -8,6 +8,41 @@ import { sendPushNotifications as sendVAPIDPushNotifications } from '@/lib/web-p
 import { isNotificationTypeEnabled } from './notification-preferences'
 
 /**
+ * Parse FCM tokens into valid Web Push subscriptions
+ */
+function parseSubscriptions(
+  tokens: Array<{ token: string }>
+): Array<{ endpoint: string; keys: { p256dh: string; auth: string } }> {
+  return tokens
+    .map((t) => {
+      try {
+        const parsed = JSON.parse(t.token)
+        if (parsed && parsed.endpoint && parsed.keys && parsed.keys.p256dh && parsed.keys.auth) {
+          return parsed
+        }
+        return null
+      } catch {
+        return null
+      }
+    })
+    .filter((sub): sub is { endpoint: string; keys: { p256dh: string; auth: string } } => sub !== null)
+}
+
+/**
+ * Clean up invalid subscriptions by endpoint after a failed send
+ */
+async function cleanupInvalidSubscriptions(
+  invalidSubscriptions: Array<{ endpoint: string }>
+): Promise<void> {
+  if (invalidSubscriptions.length === 0) return
+
+  for (const invalidSub of invalidSubscriptions) {
+    await removeInvalidSubscriptionByEndpoint(invalidSub.endpoint).catch(() => {})
+  }
+  console.log(`[Push Notification] Removed ${invalidSubscriptions.length} invalid subscription(s)`)
+}
+
+/**
  * Send push notification when it's a user's turn in a debate
  */
 export async function sendYourTurnPushNotification(
@@ -30,35 +65,16 @@ export async function sendYourTurnPushNotification(
     })
 
     if (tokens.length === 0) {
-      // User hasn't enabled push notifications, that's fine
       return
     }
 
-    // Convert to web push subscriptions
-    // The token field contains the subscription JSON for Web Push
-    const subscriptions = tokens
-      .map((t) => {
-        // Try to parse token as subscription JSON
-        try {
-          const parsed = JSON.parse(t.token)
-          // Verify it's a valid subscription object
-          if (parsed && parsed.endpoint && parsed.keys && parsed.keys.p256dh && parsed.keys.auth) {
-            return parsed
-          }
-          return null
-        } catch {
-          // Not JSON, might be an old FCM token format - skip it
-          return null
-        }
-      })
-      .filter((sub): sub is { endpoint: string; keys: { p256dh: string; auth: string } } => sub !== null)
-
+    const subscriptions = parseSubscriptions(tokens)
     if (subscriptions.length === 0) {
       return
     }
 
     // Send push notification using VAPID
-    await sendVAPIDPushNotifications(
+    const result = await sendVAPIDPushNotifications(
       subscriptions,
       {
         title: "It's Your Turn!",
@@ -72,7 +88,8 @@ export async function sendYourTurnPushNotification(
       }
     )
 
-    console.log(`[Push Notification] Sent "Your Turn" notification to user ${userId}`)
+    await cleanupInvalidSubscriptions(result.invalidSubscriptions)
+    console.log(`[Push Notification] Sent "Your Turn" to user ${userId} (${result.success} ok, ${result.failed} failed)`)
   } catch (error: any) {
     // Don't throw - push notifications are optional
     console.error(`[Push Notification] Failed to send to user ${userId}:`, error)
@@ -107,25 +124,7 @@ export async function sendPushNotificationForNotification(
       return
     }
 
-    // Convert to web push subscriptions
-    // The token field contains the subscription JSON for Web Push
-    const subscriptions = tokens
-      .map((t) => {
-        // Try to parse token as subscription JSON
-        try {
-          const parsed = JSON.parse(t.token)
-          // Verify it's a valid subscription object
-          if (parsed && parsed.endpoint && parsed.keys && parsed.keys.p256dh && parsed.keys.auth) {
-            return parsed
-          }
-          return null
-        } catch {
-          // Not JSON, might be an old FCM token format - skip it
-          return null
-        }
-      })
-      .filter((sub): sub is { endpoint: string; keys: { p256dh: string; auth: string } } => sub !== null)
-
+    const subscriptions = parseSubscriptions(tokens)
     if (subscriptions.length === 0) {
       return
     }
@@ -139,7 +138,7 @@ export async function sendPushNotificationForNotification(
     }
 
     // Send push notification using VAPID
-    await sendVAPIDPushNotifications(
+    const result = await sendVAPIDPushNotifications(
       subscriptions,
       {
         title,
@@ -153,9 +152,36 @@ export async function sendPushNotificationForNotification(
       }
     )
 
-    console.log(`[Push Notification] Sent ${notificationType} to user ${userId}`)
+    await cleanupInvalidSubscriptions(result.invalidSubscriptions)
+    console.log(`[Push Notification] Sent ${notificationType} to user ${userId} (${result.success} ok, ${result.failed} failed)`)
   } catch (error: any) {
     console.error(`[Push Notification] Failed to send to user ${userId}:`, error)
+  }
+}
+
+/**
+ * Remove invalid subscription by endpoint (matches endpoint inside stored JSON)
+ */
+async function removeInvalidSubscriptionByEndpoint(endpoint: string): Promise<void> {
+  try {
+    const allTokens = await prisma.fCMToken.findMany({
+      select: { id: true, token: true },
+    })
+    const toDelete = allTokens.filter(t => {
+      try {
+        const parsed = JSON.parse(t.token)
+        return parsed.endpoint === endpoint
+      } catch {
+        return false
+      }
+    })
+    if (toDelete.length > 0) {
+      await prisma.fCMToken.deleteMany({
+        where: { id: { in: toDelete.map(t => t.id) } },
+      })
+    }
+  } catch (error) {
+    console.error('[Push Notification] Failed to remove invalid subscription:', error)
   }
 }
 
@@ -172,4 +198,3 @@ export async function removeInvalidFCMToken(token: string): Promise<void> {
     console.error('Failed to remove invalid FCM token:', error)
   }
 }
-

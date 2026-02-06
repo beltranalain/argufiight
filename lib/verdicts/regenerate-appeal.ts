@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db/prisma'
 import { generateVerdict, type DebateContext, createDeepSeekClient } from '@/lib/ai/deepseek'
 import { JUDGE_PERSONALITIES } from '@/lib/ai/judges'
 import { logApiUsage } from '@/lib/ai/api-tracking'
+import { sendPushNotificationForNotification } from '@/lib/notifications/push-notifications'
 
 /**
  * Generate an approval reason when an appeal changes the verdict
@@ -682,6 +683,21 @@ export async function regenerateAppealVerdicts(debateId: string) {
         }] : []),
       ],
     })
+
+    // Send push notifications for appeal verdict (non-blocking)
+    sendPushNotificationForNotification(
+      debate.challengerId, challengerNotificationType, 'Appeal Verdict Ready',
+      `The appeal verdict is ready. ${finalWinnerId === debate.challengerId ? 'You won!' : finalWinnerId === debate.opponentId ? 'You lost.' : 'It\'s a tie!'}`,
+      debateId
+    ).catch(() => {})
+
+    if (debate.opponentId) {
+      sendPushNotificationForNotification(
+        debate.opponentId, opponentNotificationType, 'Appeal Verdict Ready',
+        `The appeal verdict is ready. ${finalWinnerId === debate.opponentId ? 'You won!' : finalWinnerId === debate.challengerId ? 'You lost.' : 'It\'s a tie!'}`,
+        debateId
+      ).catch(() => {})
+    }
 
     return {
       success: true,

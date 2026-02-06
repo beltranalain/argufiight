@@ -42,122 +42,75 @@ export function PushNotificationManager() {
           return
         }
 
-        // Unregister ALL service workers first to clear any Firebase registrations
-        if ('serviceWorker' in navigator) {
-          try {
-            const registrations = await navigator.serviceWorker.getRegistrations()
-            console.log(`[Push Notifications] Found ${registrations.length} service worker registration(s)`)
-            
-            for (const registration of registrations) {
-              console.log('[Push Notifications] Unregistering service worker:', registration.scope)
-              await registration.unregister()
-            }
-            
-            // Wait for unregistration to complete
-            if (registrations.length > 0) {
-              console.log('[Push Notifications] Waiting for service workers to unregister...')
-              await new Promise(resolve => setTimeout(resolve, 1000))
-            }
-          } catch (error) {
-            console.warn('[Push Notifications] Error unregistering service workers:', error)
-          }
-        }
-
-        // Register our new service worker
+        // Register service worker (reuse existing if possible)
         let serviceWorkerRegistration: ServiceWorkerRegistration | null = null
-        if ('serviceWorker' in navigator) {
-          try {
-            serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js', {
-              scope: '/',
-              updateViaCache: 'none', // Don't cache the service worker
-            })
-            console.log('[Push Notifications] Service worker registered:', serviceWorkerRegistration.scope)
-            
-            // Wait for service worker to be ready and active
-            let serviceWorker = serviceWorkerRegistration.installing || serviceWorkerRegistration.waiting || serviceWorkerRegistration.active
-            if (serviceWorkerRegistration.installing) {
-              await new Promise((resolve) => {
-                serviceWorkerRegistration!.installing!.addEventListener('statechange', function() {
-                  if (this.state === 'activated') {
-                    resolve(undefined)
-                  }
-                })
+        try {
+          serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js', {
+            scope: '/',
+            updateViaCache: 'none',
+          })
+          console.log('[Push Notifications] Service worker registered:', serviceWorkerRegistration.scope)
+
+          // Wait for service worker to activate
+          if (serviceWorkerRegistration.installing) {
+            await new Promise<void>((resolve) => {
+              serviceWorkerRegistration!.installing!.addEventListener('statechange', function() {
+                if (this.state === 'activated') resolve()
               })
-            } else if (serviceWorkerRegistration.waiting) {
-              // If waiting, skip waiting to activate
-              serviceWorkerRegistration.waiting.postMessage({ type: 'SKIP_WAITING' })
-              await new Promise(resolve => setTimeout(resolve, 500))
-            }
-            
-            // Force update
-            await serviceWorkerRegistration.update()
-            
-            // Wait a bit for service worker to fully activate
-            await new Promise(resolve => setTimeout(resolve, 1000))
-          } catch (error) {
-            console.error('[Push Notifications] Service worker registration failed:', error)
-            return
+            })
+          } else if (serviceWorkerRegistration.waiting) {
+            serviceWorkerRegistration.waiting.postMessage({ type: 'SKIP_WAITING' })
+            await new Promise(resolve => setTimeout(resolve, 500))
           }
-        } else {
-          console.error('[Push Notifications] Service workers not supported')
+
+          await serviceWorkerRegistration.update()
+        } catch (error) {
+          console.error('[Push Notifications] Service worker registration failed:', error)
           return
         }
 
-        // Get existing subscription or create new one
+        // Check existing subscription — only re-subscribe if VAPID key changed
         let subscription = await serviceWorkerRegistration.pushManager.getSubscription()
+        const vapidKeyArray = urlBase64ToUint8Array(config.vapidKey)
 
-        // Always unsubscribe from any existing subscription to ensure clean state
+        let needsNewSubscription = false
         if (subscription) {
-          console.log('[Push Notifications] Found existing subscription:', subscription.endpoint.substring(0, 50) + '...')
-          if (subscription.endpoint.includes('fcm.googleapis.com')) {
-            console.log('[Push Notifications] Existing subscription is from Firebase, unsubscribing...')
+          const existingKey = subscription.options?.applicationServerKey
+          if (existingKey) {
+            const existingKeyArray = new Uint8Array(existingKey)
+            const keysMatch = existingKeyArray.length === vapidKeyArray.length &&
+              existingKeyArray.every((val, i) => val === vapidKeyArray[i])
+
+            if (!keysMatch) {
+              console.log('[Push Notifications] VAPID key changed, re-subscribing...')
+              try { await subscription.unsubscribe() } catch { /* ok */ }
+              subscription = null
+              needsNewSubscription = true
+            } else {
+              console.log('[Push Notifications] Existing subscription matches VAPID key, re-registering with server')
+            }
           } else {
-            console.log('[Push Notifications] Unsubscribing from existing subscription to ensure clean state...')
-          }
-          try {
-            await subscription.unsubscribe()
-            console.log('[Push Notifications] Unsubscribed from existing subscription')
+            // Can't verify key, re-create
+            try { await subscription.unsubscribe() } catch { /* ok */ }
             subscription = null
-            // Wait a bit for unsubscription to complete
-            await new Promise(resolve => setTimeout(resolve, 500))
-          } catch (error: any) {
-            console.error('[Push Notifications] Failed to unsubscribe:', error)
-            // Continue anyway
-            subscription = null
+            needsNewSubscription = true
           }
+        } else {
+          needsNewSubscription = true
         }
 
-        // Create new subscription with VAPID public key
-        console.log('[Push Notifications] Creating new Web Push subscription with VAPID keys...')
-        try {
-          const vapidKeyArray = urlBase64ToUint8Array(config.vapidKey)
-          console.log('[Push Notifications] VAPID key converted, subscribing...')
-          
-          subscription = await serviceWorkerRegistration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: vapidKeyArray.buffer as ArrayBuffer,
-          })
-          
-          console.log('[Push Notifications] Subscription created:', subscription.endpoint.substring(0, 50) + '...')
-          
-          // Check if it's a Firebase endpoint (Chrome/Edge sometimes routes VAPID through Firebase)
-          if (subscription.endpoint.includes('fcm.googleapis.com')) {
-            console.warn('[Push Notifications] ⚠️ Browser created Firebase subscription despite VAPID keys')
-            console.warn('[Push Notifications] This is a known Chrome/Edge behavior where the browser caches push service preferences.')
-            console.warn('[Push Notifications] The subscription may still work, but for best results:')
-            console.warn('[Push Notifications] 1. Close ALL tabs with argufight.com')
-            console.warn('[Push Notifications] 2. Open Chrome Settings (chrome://settings/content/all)')
-            console.warn('[Push Notifications] 3. Search for "argufight.com" and click "Delete"')
-            console.warn('[Push Notifications] 4. Or use Incognito/Private mode to test')
-            console.warn('[Push Notifications] 5. Refresh this page after clearing')
-            // Don't throw error - try to register it anyway, it might work
-            // The backend will handle it if it's a valid subscription format
-          } else {
-            console.log('[Push Notifications] ✅ Valid Web Push subscription created (not Firebase)')
+        if (needsNewSubscription) {
+          console.log('[Push Notifications] Creating new Web Push subscription...')
+          try {
+            subscription = await serviceWorkerRegistration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: vapidKeyArray.buffer as ArrayBuffer,
+            })
+            console.log('[Push Notifications] Subscription created:', subscription.endpoint.substring(0, 50) + '...')
+          } catch (error: any) {
+            console.error('[Push Notifications] Failed to create subscription:', error)
+            throw error
           }
-        } catch (error: any) {
-          console.error('[Push Notifications] Failed to create subscription:', error)
-          throw error
         }
 
         if (subscription) {

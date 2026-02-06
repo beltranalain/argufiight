@@ -135,7 +135,12 @@ export async function sendPushNotifications(
     }
   }>,
   payload: PushNotificationPayload
-): Promise<{ success: number; failed: number; errors: string[] }> {
+): Promise<{
+  success: number
+  failed: number
+  errors: string[]
+  invalidSubscriptions: Array<{ endpoint: string; keys: { p256dh: string; auth: string } }>
+}> {
   const results = await Promise.allSettled(
     subscriptions.map((sub) => sendPushNotification(sub, payload))
   )
@@ -143,6 +148,7 @@ export async function sendPushNotifications(
   let success = 0
   let failed = 0
   const errors: string[] = []
+  const invalidSubscriptions: typeof subscriptions = []
 
   results.forEach((result, index) => {
     if (result.status === 'fulfilled' && result.value.success) {
@@ -154,10 +160,14 @@ export async function sendPushNotifications(
           ? result.reason?.message || 'Unknown error'
           : result.value.error || 'Unknown error'
       errors.push(`Subscription ${index + 1}: ${error}`)
+
+      if (error === 'INVALID_SUBSCRIPTION') {
+        invalidSubscriptions.push(subscriptions[index])
+      }
     }
   })
 
-  return { success, failed, errors }
+  return { success, failed, errors, invalidSubscriptions }
 }
 
 /**

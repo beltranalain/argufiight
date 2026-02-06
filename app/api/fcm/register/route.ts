@@ -24,15 +24,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // For Web Push subscriptions, store the subscription as JSON in the token field
-    // For FCM tokens, use the token itself
-    // Use endpoint as unique identifier for Web Push subscriptions
-    const uniqueToken = subscription 
-      ? subscription.endpoint 
-      : token
-
     // Store subscription as JSON string in token field for Web Push
-    const tokenValue = subscription 
+    const tokenValue = subscription
       ? JSON.stringify(subscription)
       : token
 
@@ -41,19 +34,45 @@ export async function POST(request: NextRequest) {
       console.log(`[FCM Register] Subscription endpoint: ${subscription.endpoint.substring(0, 50)}...`)
     }
 
-    // Upsert FCM token (update if exists, create if new)
+    // For Web Push subscriptions: clean up old subscriptions with same endpoint for this user
+    // This replaces the broken upsert that searched by endpoint URL but stored full JSON
+    if (subscription) {
+      const existingTokens = await prisma.fCMToken.findMany({
+        where: { userId },
+        select: { id: true, token: true },
+      })
+
+      const tokensToDelete = existingTokens
+        .filter(t => {
+          try {
+            const parsed = JSON.parse(t.token)
+            return parsed.endpoint === subscription.endpoint
+          } catch {
+            return false
+          }
+        })
+        .map(t => t.id)
+
+      if (tokensToDelete.length > 0) {
+        await prisma.fCMToken.deleteMany({
+          where: { id: { in: tokensToDelete } },
+        })
+        console.log(`[FCM Register] Cleaned up ${tokensToDelete.length} old subscription(s) for same endpoint`)
+      }
+    }
+
+    // Create or update the token record
     await prisma.fCMToken.upsert({
-      where: { token: uniqueToken },
+      where: { token: tokenValue },
       update: {
         userId,
-        token: tokenValue, // Store subscription JSON or FCM token
         device: device || null,
         userAgent: userAgent || null,
         updatedAt: new Date(),
       },
       create: {
         userId,
-        token: tokenValue, // Store subscription JSON or FCM token
+        token: tokenValue,
         device: device || null,
         userAgent: userAgent || null,
       },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { generateVerdict, type DebateContext } from '@/lib/ai/deepseek'
+import { sendPushNotificationForNotification } from '@/lib/notifications/push-notifications'
 
 // POST /api/verdicts/generate - Generate AI verdicts for a completed debate
 export async function POST(request: NextRequest) {
@@ -384,6 +385,27 @@ export async function POST(request: NextRequest) {
     }
     
     await Promise.all(notifications)
+
+    // Send push notifications for verdict (non-blocking)
+    const challengerType = finalWinnerId === debate.challengerId ? 'DEBATE_WON'
+      : finalWinnerId === debate.opponentId ? 'DEBATE_LOST' : 'DEBATE_TIED'
+    const challengerTitle = finalWinnerId === debate.challengerId ? 'You Won!'
+      : finalWinnerId === debate.opponentId ? 'You Lost' : 'Debate Tied'
+    sendPushNotificationForNotification(
+      debate.challengerId, challengerType, challengerTitle,
+      `The verdict for "${debate.topic}" is ready!`, debateId
+    ).catch(() => {})
+
+    if (debate.opponentId) {
+      const opponentType = finalWinnerId === debate.opponentId ? 'DEBATE_WON'
+        : finalWinnerId === debate.challengerId ? 'DEBATE_LOST' : 'DEBATE_TIED'
+      const opponentTitle = finalWinnerId === debate.opponentId ? 'You Won!'
+        : finalWinnerId === debate.challengerId ? 'You Lost' : 'Debate Tied'
+      sendPushNotificationForNotification(
+        debate.opponentId, opponentType, opponentTitle,
+        `The verdict for "${debate.topic}" is ready!`, debateId
+      ).catch(() => {})
+    }
 
     return NextResponse.json({
       success: true,

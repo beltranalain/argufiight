@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { generateVerdict, type DebateContext } from '@/lib/ai/deepseek'
 import { updateUserAnalyticsOnDebateComplete } from '@/lib/utils/analytics'
+import { sendPushNotificationForNotification } from '@/lib/notifications/push-notifications'
 
 // Simplified ELO calculation
 function calculateEloChange(
@@ -494,6 +495,27 @@ export async function generateInitialVerdicts(debateId: string) {
     }
     
     await Promise.all(notifications)
+
+    // Send push notifications for verdict (non-blocking)
+    const challengerPushType = finalWinnerId === debate.challengerId ? 'DEBATE_WON'
+      : finalWinnerId === debate.opponentId ? 'DEBATE_LOST' : 'DEBATE_TIED'
+    const challengerPushTitle = finalWinnerId === debate.challengerId ? 'You Won!'
+      : finalWinnerId === debate.opponentId ? 'You Lost' : 'Debate Tied'
+    sendPushNotificationForNotification(
+      debate.challengerId, challengerPushType, challengerPushTitle,
+      `The verdict for "${debate.topic}" is ready!`, debateId
+    ).catch(() => {})
+
+    if (debate.opponentId) {
+      const opponentPushType = finalWinnerId === debate.opponentId ? 'DEBATE_WON'
+        : finalWinnerId === debate.challengerId ? 'DEBATE_LOST' : 'DEBATE_TIED'
+      const opponentPushTitle = finalWinnerId === debate.opponentId ? 'You Won!'
+        : finalWinnerId === debate.challengerId ? 'You Lost' : 'Debate Tied'
+      sendPushNotificationForNotification(
+        debate.opponentId, opponentPushType, opponentPushTitle,
+        `The verdict for "${debate.topic}" is ready!`, debateId
+      ).catch(() => {})
+    }
 
     // Update user analytics for average rounds (non-blocking)
     updateUserAnalyticsOnDebateComplete(debate.challengerId, debate.totalRounds).catch(err => {
