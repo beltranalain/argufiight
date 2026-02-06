@@ -63,12 +63,6 @@ export function Modal({
 
   if (typeof window === 'undefined') return null
 
-  console.log('🔵 [Modal] Rendering, isOpen:', isOpen, 'title:', title)
-  
-  if (isOpen) {
-    console.log('🔵 [Modal] isOpen is TRUE, should render modal')
-  }
-
   return createPortal(
     <AnimatePresence>
       {isOpen && (

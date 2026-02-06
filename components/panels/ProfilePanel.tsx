@@ -45,17 +45,6 @@ export function ProfilePanel() {
             return dateB - dateA
           })
           .slice(0, 3)
-        // Debug: Log debate data to verify winnerId, verdictReached, and hasNoStatements
-        console.log('[ProfilePanel] Recent debates data:', filtered.map((d: any) => ({
-          id: d.id,
-          topic: d.topic?.substring(0, 40),
-          status: d.status,
-          winnerId: d.winnerId,
-          hasWinnerId: !!d.winnerId,
-          verdictReached: d.verdictReached,
-          hasNoStatements: d.hasNoStatements,
-          statementCount: d.statements?.length || 0,
-        })))
         setRecentDebates(filtered)
       } else {
         console.error('Failed to fetch recent debates:', response.status, await response.text())
@@ -207,18 +196,6 @@ export function ProfilePanel() {
                 const isWinner = debate.winnerId === user?.id
                 const isTie = !debate.winnerId
                 const opponent = debate.challengerId === user?.id ? debate.opponent : debate.challenger
-                
-                // Debug logging for status badge
-                if (debate.status === 'COMPLETED') {
-                  console.log('[ProfilePanel] COMPLETED debate status check:', {
-                    id: debate.id,
-                    topic: debate.topic?.substring(0, 30),
-                    status: debate.status,
-                    hasNoStatements: debate.hasNoStatements,
-                    verdictReached: debate.verdictReached,
-                    statementCount: debate.statements?.length || 0,
-                  })
-                }
                 
                 return (
                   <Link

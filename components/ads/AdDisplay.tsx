@@ -43,7 +43,6 @@ export function AdDisplay({ placement, userId, debateId, context }: AdDisplayPro
         ? '/api/ads/banner' 
         : `/api/ads/select?${params.toString()}`
       
-      console.log(`[AdDisplay] Fetching from: ${apiUrl}`)
       const response = await fetch(apiUrl, {
         cache: 'no-store',
         headers: {
@@ -52,12 +51,6 @@ export function AdDisplay({ placement, userId, debateId, context }: AdDisplayPro
       })
       if (response.ok) {
         const data = await response.json()
-        if (placement === 'PROFILE_BANNER') {
-          console.log('[AdDisplay] API response for PROFILE_BANNER:', JSON.stringify(data, null, 2))
-          console.log('[AdDisplay] API response ad:', data.ad)
-          console.log('[AdDisplay] API response ad is null?', data.ad === null)
-          console.log('[AdDisplay] API response ad is undefined?', data.ad === undefined)
-        }
         setAd(data.ad)
       } else {
         if (placement === 'PROFILE_BANNER') {
@@ -141,31 +134,14 @@ export function AdDisplay({ placement, userId, debateId, context }: AdDisplayPro
     }
   }, [ad])
 
-  // Debug logging for PROFILE_BANNER
-  useEffect(() => {
-    if (placement === 'PROFILE_BANNER') {
-      console.log('[AdDisplay] PROFILE_BANNER state:', {
-        isLoading,
-        hasAd: !!ad,
-        adId: ad?.id,
-        bannerUrl: ad?.bannerUrl,
-        userId,
-        placement,
-      })
-    }
-  }, [placement, isLoading, ad, userId])
-
   // For PROFILE_BANNER, show loading state or ad, but don't hide completely
   if (placement === 'PROFILE_BANNER') {
     if (isLoading) {
-      console.log('[AdDisplay] PROFILE_BANNER is loading...')
       return null // Still return null while loading
     }
     if (!ad) {
-      console.log('[AdDisplay] PROFILE_BANNER has no ad - API returned null')
       return null
     }
-    console.log('[AdDisplay] PROFILE_BANNER rendering ad:', ad.id)
   }
 
   if (isLoading || !ad) {

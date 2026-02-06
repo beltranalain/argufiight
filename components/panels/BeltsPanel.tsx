@@ -108,7 +108,6 @@ export function BeltsPanel() {
       const hasBelts = currentBelts.length > 0
       const hasChallenges = challengesToMyBelts.length > 0 || challengesMade.length > 0
       if (!hasBelts && !hasChallenges) {
-        console.log('[BeltsPanel] Fetching all belts - user has no belts or challenges')
         fetchAllBelts()
       }
     }
@@ -128,7 +127,7 @@ export function BeltsPanel() {
       }
       
       // Fetch belt room (current belts) with cache busting
-      const roomResponse = await fetch(`/api/belts/room?t=${Date.now()}`, {
+      const roomResponse = await fetch('/api/belts/room', {
         credentials: 'include',
         cache: 'no-store',
       })
@@ -136,19 +135,6 @@ export function BeltsPanel() {
       let hasCurrentBelts = false
       if (roomResponse.ok) {
         const roomData = await roomResponse.json()
-        // Only log on initial load to reduce console noise
-        if (isInitial) {
-          console.log('[BeltsPanel] Belt room data received:', roomData)
-          console.log('[BeltsPanel] Current belts count:', roomData.currentBelts?.length || 0)
-          if (roomData.currentBelts && roomData.currentBelts.length > 0) {
-            console.log('[BeltsPanel] First belt sample:', roomData.currentBelts[0])
-            roomData.currentBelts.forEach((belt: any) => {
-              console.log(`[BeltsPanel] Belt ${belt.id} (${belt.name}): designImageUrl =`, belt.designImageUrl, 'hasImage:', !!belt.designImageUrl)
-            })
-          } else {
-            console.warn('[BeltsPanel] No belts found in response!')
-          }
-        }
         // Only update state if data actually changed to prevent unnecessary re-renders
         const newBelts = roomData.currentBelts || []
         hasCurrentBelts = newBelts.length > 0
@@ -164,7 +150,7 @@ export function BeltsPanel() {
       }
 
       // Fetch pending challenges with cache busting
-      const challengesResponse = await fetch(`/api/belts/challenges?t=${Date.now()}`, {
+      const challengesResponse = await fetch('/api/belts/challenges', {
         credentials: 'include',
         cache: 'no-store',
       })
@@ -172,20 +158,6 @@ export function BeltsPanel() {
       let hasChallenges = false
       if (challengesResponse.ok) {
         const challengesData = await challengesResponse.json()
-        // Only log on initial load to reduce console noise
-        if (isInitial) {
-          console.log('[BeltsPanel] Challenges data received:', challengesData)
-          if (challengesData.challengesToMyBelts) {
-            challengesData.challengesToMyBelts.forEach((challenge: any) => {
-              console.log(`[BeltsPanel] Challenge ${challenge.id} for belt ${challenge.belt?.id} (${challenge.belt?.name}): designImageUrl =`, challenge.belt?.designImageUrl)
-              // Specifically check for SPORTS belt challenges
-              if (challenge.belt?.name?.includes('SPORTS') || challenge.belt?.category === 'SPORTS') {
-                console.log(`[BeltsPanel] *** SPORTS BELT CHALLENGE FOUND ***`)
-                console.log(`[BeltsPanel] SPORTS Challenge belt designImageUrl:`, challenge.belt?.designImageUrl)
-              }
-            })
-          }
-        }
         // Filter out COMPLETED challenges
         const newChallengesToMyBelts = (challengesData.challengesToMyBelts || [])
           .filter((challenge: any) => challenge.status !== 'COMPLETED' && challenge.status !== 'DECLINED')
@@ -212,8 +184,7 @@ export function BeltsPanel() {
       
       // After fetching, if user has no belts or challenges, fetch all belts
       if (isInitial && !hasCurrentBelts && !hasChallenges) {
-        console.log('[BeltsPanel] Initial load complete, user has no belts or challenges, fetching all belts')
-        setTimeout(() => fetchAllBelts(), 100) // Small delay to ensure state is set
+        setTimeout(() => fetchAllBelts(), 100)
       }
     } catch (error) {
       console.error('Failed to fetch belts data:', error)
@@ -230,13 +201,12 @@ export function BeltsPanel() {
     try {
       setIsLoadingAllBelts(true)
       // Fetch all belts (not just ACTIVE) to show all available belts
-      const response = await fetch(`/api/belts?t=${Date.now()}`, {
+      const response = await fetch('/api/belts', {
         credentials: 'include',
         cache: 'no-store',
       })
       if (response.ok) {
         const data = await response.json()
-        console.log('[BeltsPanel] Fetched all belts:', data.belts?.length || 0)
         // Show all belts (with and without holders)
         setAllBelts(data.belts || [])
       } else {
@@ -453,7 +423,6 @@ export function BeltsPanel() {
           </div>
           <div className="space-y-2">
             {currentBelts.slice(0, 3).map((belt) => {
-              console.log('Belt in panel:', belt.id, 'designImageUrl:', belt.designImageUrl)
               return (
                 <Link
                   key={belt.id}
@@ -471,7 +440,6 @@ export function BeltsPanel() {
                           style={{ imageRendering: 'auto' as const }}
                           loading="lazy"
                           onError={(e) => {
-                            console.error('Image failed to load:', belt.designImageUrl)
                             e.currentTarget.style.display = 'none'
                             const parent = e.currentTarget.parentElement
                             if (parent) {
@@ -543,7 +511,6 @@ export function BeltsPanel() {
                         style={{ imageRendering: 'auto' as const }}
                         loading="lazy"
                         onError={(e) => {
-                          console.error('Challenge belt image failed to load:', challenge.belt.designImageUrl)
                           e.currentTarget.style.display = 'none'
                           const parent = e.currentTarget.parentElement
                           if (parent) {

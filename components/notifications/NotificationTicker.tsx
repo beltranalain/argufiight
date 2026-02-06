@@ -102,9 +102,11 @@ export function NotificationTicker() {
         } else {
           setYourTurnUpdate(null)
         }
+      } else {
+        setYourTurnUpdate(null)
       }
-    } catch (error) {
-      console.error('[Ticker] Failed to check your turn:', error)
+    } catch {
+      setYourTurnUpdate(null)
     }
   }
 

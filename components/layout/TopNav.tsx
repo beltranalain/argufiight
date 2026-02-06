@@ -50,15 +50,11 @@ export function TopNav({ currentPanel }: TopNavProps) {
 
   useEffect(() => {
     if (user && isMounted) {
-      console.log('[TopNav] useEffect running, currentPanel:', currentPanel, 'user:', user.email)
-      
       // On advertiser dashboard - explicitly set count to 0 and don't fetch
       if (currentPanel === 'ADVERTISER') {
-        console.log('[TopNav] On advertiser dashboard - setting notification count to 0, skipping fetch')
         setUnreadCount(0)
       } else {
         // Only fetch notifications if not on advertiser dashboard
-        console.log('[TopNav] Not on advertiser dashboard - fetching notifications')
         fetchUnreadCount()
         // Poll for new notifications every 30 seconds
         const interval = setInterval(fetchUnreadCount, 30000)
@@ -133,7 +129,6 @@ export function TopNav({ currentPanel }: TopNavProps) {
         const data = await response.json()
         const count = data.currentBelts?.length || 0
         setBeltCount(count)
-        console.log('[TopNav] Belt count fetched:', count)
       } else if (response.status === 403) {
         // Belt system not enabled
         setBeltCount(0)
@@ -173,7 +168,6 @@ export function TopNav({ currentPanel }: TopNavProps) {
   const fetchUnreadCount = async () => {
     // Don't fetch notifications on advertiser dashboard
     if (currentPanel === 'ADVERTISER') {
-      console.log('[TopNav] Skipping notification fetch - on advertiser dashboard')
       setUnreadCount(0)
       return
     }
@@ -196,15 +190,13 @@ export function TopNav({ currentPanel }: TopNavProps) {
             })
           : []
         const count = unreadNotifications.length
-        console.log('[TopNav] Unread notification count:', count, 'from', notifications.length, 'total notifications')
-        
+
         // Only update if count changed to prevent unnecessary re-renders
         if (count !== unreadCount) {
           setUnreadCount(count)
         }
       } else {
         // If API fails, set count to 0
-        console.log('[TopNav] Failed to fetch notifications, setting count to 0')
         setUnreadCount(0)
       }
     } catch (error) {

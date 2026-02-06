@@ -65,8 +65,6 @@ export function CreateDebateModal({
   opponentUsername,
   beltName
 }: CreateDebateModalProps) {
-  console.log('[CreateDebateModal] Rendered with isOpen:', isOpen, 'beltChallengeMode:', beltChallengeMode, 'beltId:', beltId)
-  
   const [topic, setTopic] = useState('')
   const [description, setDescription] = useState('')
   const [categories, setCategories] = useState<Array<{ value: string; label: string }>>([])
@@ -335,20 +333,7 @@ export function CreateDebateModal({
           allowCopyPaste,
         }
 
-        // Comprehensive logging
-        console.log('[CreateDebateModal] ===== BELT CHALLENGE REQUEST =====')
-        console.log('[CreateDebateModal] Topic state value:', topic)
-        console.log('[CreateDebateModal] Topic trimmed:', finalTopic)
-        console.log('[CreateDebateModal] Topic length:', finalTopic.length)
-        console.log('[CreateDebateModal] Full requestBody:', requestBody)
-        console.log('[CreateDebateModal] RequestBody.topic:', requestBody.topic)
-        
         const jsonBody = JSON.stringify(requestBody)
-        console.log('[CreateDebateModal] JSON body:', jsonBody)
-        
-        // Verify topic is in the JSON
-        const parsed = JSON.parse(jsonBody)
-        console.log('[CreateDebateModal] Parsed topic:', parsed.topic, 'Type:', typeof parsed.topic)
 
         const response = await fetch('/api/belts/challenge', {
           method: 'POST',
@@ -439,12 +424,10 @@ export function CreateDebateModal({
             }
 
             const result = await imageResponse.json()
-            console.log(`✅ Image ${i + 1} uploaded successfully:`, result.image?.url || result.url)
             return result
           })
 
           await Promise.all(uploadPromises)
-          console.log(`✅ All ${images.length} images uploaded successfully`)
         } catch (error: any) {
           console.error('Error uploading images:', error)
           showToast({

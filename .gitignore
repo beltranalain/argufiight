@@ -55,3 +55,6 @@ public/uploads/
 # Sensitive files
 USER_PASSWORDS.md
 
+
+.vercel
+.env*.local

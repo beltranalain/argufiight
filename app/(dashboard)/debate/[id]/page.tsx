@@ -296,24 +296,6 @@ export default function DebatePage() {
         const previousStatus = debate?.status
         const previousWinnerId = debate?.winnerId
         
-        // Debug: Log belt information with full details
-        console.log('[DebatePage] Debate data received:', JSON.stringify({
-          hasBeltAtStake: data.hasBeltAtStake,
-          beltStakeType: data.beltStakeType,
-          stakedBelt: data.stakedBelt,
-          winnerId: data.winnerId,
-          status: data.status,
-        }, null, 2))
-        console.log('[DebatePage] Belt condition check:', {
-          hasBeltAtStake: data.hasBeltAtStake,
-          hasStakedBelt: !!data.stakedBelt,
-          stakedBeltName: data.stakedBelt?.name,
-          stakedBeltImage: data.stakedBelt?.designImageUrl,
-          hasWinnerId: !!data.winnerId,
-          winnerId: data.winnerId,
-          willShowBelt: !!(data.hasBeltAtStake && data.stakedBelt && data.winnerId),
-        })
-        
         setDebate(data)
         
         // If status changed from WAITING to ACTIVE, show a message
@@ -447,18 +429,6 @@ export default function DebatePage() {
     (debate.participants && debate.participants.length > 2 && debate.challengeType !== 'ONE_ON_ONE')
   )
 
-  // Debug logging
-  if (debate && process.env.NODE_ENV === 'development') {
-    console.log('[Debate Page] Group Challenge Detection:', {
-      debateId: debate.id,
-      tournamentFormat: debate.tournamentMatch?.tournament?.format,
-      challengeType: debate.challengeType,
-      participantsCount: debate.participants?.length || 0,
-      isGroupChallenge,
-      hasParticipants: !!debate.participants,
-    })
-  }
-
   // Check if user is a participant (for both 2-person and group debates)
   const isParticipant = debate && user && (
     isGroupChallenge
@@ -473,20 +443,6 @@ export default function DebatePage() {
   const currentRoundStatements = (debate?.statements && Array.isArray(debate.statements))
     ? debate.statements.filter(s => s.round === debate.currentRound)
     : []
-  
-  // Debug: Log statement filtering
-  if (debate && user) {
-    console.log('[DebatePage] Statement filtering:', {
-      currentRound: debate.currentRound,
-      totalStatements: debate.statements.length,
-      statementsByRound: debate.statements.reduce((acc, s) => {
-        acc[s.round] = (acc[s.round] || 0) + 1
-        return acc
-      }, {} as Record<number, number>),
-      currentRoundStatementsCount: currentRoundStatements.length,
-      currentRoundStatementAuthors: currentRoundStatements.map(s => s.author.username),
-    })
-  }
   
   const challengerSubmitted = debate && currentRoundStatements.some(
     s => s.author.id === debate.challenger.id
@@ -545,34 +501,6 @@ export default function DebatePage() {
     !userSubmitted &&
     (isGroupChallenge ? isGroupParticipant : isParticipant) &&
     isMyTurn
-
-  // Debug logging for submit form visibility
-  useEffect(() => {
-    if (debate && user) {
-      console.log('[DebatePage] Submit form debug:', {
-        debateId: debate.id,
-        challengeType: debate.challengeType,
-        isGroupChallenge,
-        currentRound: debate.currentRound,
-        totalRounds: debate.totalRounds,
-        status: debate.status,
-        userId: user.id,
-        username: user.username,
-        isParticipant,
-        isGroupParticipant,
-        userSubmitted,
-        isMyTurn,
-        canSubmit,
-        currentRoundStatementsCount: currentRoundStatements.length,
-        participantsCount: debate.participants?.length || 0,
-        participants: debate.participants?.map((p: any) => ({
-          userId: (p as any).userId || p.user?.id,
-          status: (p as any).status,
-          username: p.user?.username,
-        })) || [],
-      })
-    }
-  }, [debate, user, isParticipant, isGroupParticipant, userSubmitted, isMyTurn, canSubmit, currentRoundStatements.length, isGroupChallenge])
 
   if (isLoading) {
     return (
