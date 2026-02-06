@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
@@ -8,39 +9,24 @@ import crypto from 'crypto'
 // GET /api/debates - List debates
 export async function GET(request: NextRequest) {
   try {
-    // Process expired rounds in the background (non-blocking)
-    // Note: Also runs daily via Vercel Cron, but this ensures immediate processing
-    // Vercel Hobby plan limits cron to once per day, so we keep this for real-time processing
-    fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/debates/process-expired`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    }).catch(() => {
-      // Silently fail - this is a background task
-    })
+    // Run background tasks after response is sent using after()
+    // This is more reliable than fire-and-forget fetches in Vercel serverless
+    after(async () => {
+      try {
+        // Process expired debates
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
+          (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+        fetch(`${baseUrl}/api/debates/process-expired`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }).catch(() => {})
 
-    // Also trigger AI auto-accept in the background (non-blocking)
-    // Note: Also runs daily via Vercel Cron, but this ensures immediate processing
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-    
-    fetch(`${baseUrl}/api/cron/ai-auto-accept`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    }).catch((error) => {
-      // Log error but don't block the request
-      console.error('[Debates API] Failed to trigger AI auto-accept:', error.message)
-    })
-
-    // Also trigger AI response generation in the background (non-blocking)
-    // This ensures AI responds automatically when debates are viewed/refreshed
-    const aiResponseBaseUrl = process.env.NEXT_PUBLIC_APP_URL || 
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-    fetch(`${aiResponseBaseUrl}/api/cron/ai-generate-responses`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-    }).catch((error) => {
-      // Log error but don't block the request
-      console.error('[Debates API] Failed to trigger AI response generation:', error.message)
+        // AI auto-accept open challenges
+        const { triggerAIAutoAccept } = await import('@/lib/ai/trigger-ai-accept')
+        await triggerAIAutoAccept()
+      } catch {
+        // Background task failure is non-critical
+      }
     })
 
     const { searchParams } = new URL(request.url)

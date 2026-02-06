@@ -45,6 +45,8 @@ export async function GET(request: NextRequest) {
           status: 'WAITING',
           challengeType: 'OPEN',
           opponentId: null,
+          // Only accept challenges from human users (prevent AI-to-AI debates)
+          challenger: { isAI: false },
         },
         include: {
           challenger: {
@@ -154,10 +156,6 @@ export async function GET(request: NextRequest) {
             if (!isAITurn) continue
 
             const now = new Date()
-            if (debate.roundDeadline && debate.roundDeadline > now) {
-              continue
-            }
-
             const delayMs = aiUser.aiResponseDelay || 150000
             const isChallenger = debate.challengerId === aiUser.id
 

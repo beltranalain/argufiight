@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { after } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getSession } from '@/lib/auth/session';
 import { notifyDebateWatchers, notifyDebateParticipants, createDebateNotification } from '@/lib/notifications/debateNotifications';
@@ -531,6 +532,17 @@ export async function POST(
       winnerId: updatedDebateForResponse.winnerId,
       verdictReached: updatedDebateForResponse.verdictReached,
     } : null;
+
+    // Trigger AI response in the background if opponent is an AI user
+    // Uses after() so it runs after the response is sent to the human
+    after(async () => {
+      try {
+        const { triggerAIResponseForDebate } = await import('@/lib/ai/trigger-ai-response')
+        await triggerAIResponseForDebate(id)
+      } catch {
+        // AI trigger failure is non-critical
+      }
+    })
 
     return NextResponse.json({
       statement: formattedStatement,

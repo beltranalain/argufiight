@@ -37,14 +37,9 @@ export async function GET(request: NextRequest) {
     }
 
     let responsesGenerated = 0
-    const startTime = Date.now()
-
-    console.log(`[AI Response Generation] Starting at ${new Date().toISOString()}`)
-    console.log(`[AI Response Generation] Found ${aiUsers.length} active AI user(s)`)
 
     // For each AI user, find debates where it's their turn
     for (const aiUser of aiUsers) {
-      console.log(`[AI Response Generation] Processing AI user: ${aiUser.username}`)
       // Find active debates where:
       // 1. AI user is a participant (challenger or opponent)
       // 2. Debate is ACTIVE
@@ -141,8 +136,6 @@ export async function GET(request: NextRequest) {
             const statementAge = now.getTime() - new Date(challengerStatement.createdAt).getTime()
             if (statementAge < delayMs) {
               // Not enough time has passed, skip this debate
-              const secondsRemaining = Math.ceil((delayMs - statementAge) / 1000)
-              console.log(`[AI Response] ${aiUser.username} waiting ${secondsRemaining} more second(s) before responding to debate ${debate.id}`)
               continue
             }
           } else if (isChallenger && opponentStatement) {
@@ -150,19 +143,13 @@ export async function GET(request: NextRequest) {
             const statementAge = now.getTime() - new Date(opponentStatement.createdAt).getTime()
             if (statementAge < delayMs) {
               // Not enough time has passed, skip this debate
-              const secondsRemaining = Math.ceil((delayMs - statementAge) / 1000)
-              console.log(`[AI Response] ${aiUser.username} waiting ${secondsRemaining} more second(s) before responding to debate ${debate.id}`)
               continue
             }
           }
           // If AI is going first (no opponent statement yet), no delay needed
 
-          console.log(`[AI Response Generation] ${aiUser.username} generating response for debate ${debate.id} (Round ${debate.currentRound})`)
-
           // Generate AI response
           const response = await generateAIResponse(debate.id, aiUser.id, debate.currentRound)
-
-          console.log(`[AI Response Generation] ${aiUser.username} generated response (${response.length} chars)`)
 
           // Create statement
           const statement = await prisma.statement.create({
@@ -174,16 +161,11 @@ export async function GET(request: NextRequest) {
             },
           })
 
-          console.log(`[AI Response Generation] ${aiUser.username} created statement ${statement.id}`)
-
           // Update user analytics
           const wordCount = calculateWordCount(response)
           await updateUserAnalyticsOnStatement(aiUser.id, wordCount)
 
-          console.log(`[AI Response Generation] ${aiUser.username} completed. Total responses: ${responsesGenerated + 1}`)
-
           // Check if both participants have submitted for this round
-          console.log(`[AI Response Generation] Checking if both participants submitted for round ${debate.currentRound}`)
           const updatedChallengerStatement = await prisma.statement.findUnique({
             where: {
               debateId_authorId_round: {
@@ -204,19 +186,10 @@ export async function GET(request: NextRequest) {
             },
           }) : null
 
-          console.log(`[AI Response Generation] Round ${debate.currentRound} status:`, {
-            challengerSubmitted: !!updatedChallengerStatement,
-            opponentSubmitted: !!updatedOpponentStatement,
-            bothSubmitted: !!(updatedChallengerStatement && updatedOpponentStatement),
-          })
-
           // If both have submitted, advance to next round or complete
           if (updatedChallengerStatement && updatedOpponentStatement) {
-            console.log(`[AI Response Generation] Both participants submitted for round ${debate.currentRound}`)
-            
             if (debate.currentRound >= debate.totalRounds) {
               // Debate complete, mark as COMPLETED
-              console.log(`[AI Response Generation] Debate ${debate.id} completed (final round)`)
               await prisma.debate.update({
                 where: { id: debate.id },
                 data: {
@@ -226,19 +199,15 @@ export async function GET(request: NextRequest) {
               })
 
               // Trigger verdict generation automatically
-              console.log(`[AI Response Cron] Debate ${debate.id} completed, triggering verdict generation`)
               import('@/lib/verdicts/generate-initial').then(async (generateModule) => {
                 try {
-                  console.log(`[AI Response Cron] Starting verdict generation for debate ${debate.id}`)
                   await generateModule.generateInitialVerdicts(debate.id)
-                  console.log(`[AI Response Cron] ✅ Verdict generation completed for debate ${debate.id}`)
-                  
+
                   // Update debate status to VERDICT_READY after successful generation
                   await prisma.debate.update({
                     where: { id: debate.id },
                     data: { status: 'VERDICT_READY' },
                   })
-                  console.log(`[AI Response Cron] ✅ Debate ${debate.id} status updated to VERDICT_READY`)
                 } catch (error: any) {
                   console.error(`[AI Response Cron] ❌ Failed to generate verdicts for debate ${debate.id}:`, error.message)
                   console.error(`[AI Response Cron] Error stack:`, error.stack)
@@ -252,8 +221,7 @@ export async function GET(request: NextRequest) {
               // Advance to next round
               const newRound = debate.currentRound + 1
               const newDeadline = new Date(Date.now() + debate.roundDuration)
-              console.log(`[AI Response Generation] Advancing debate ${debate.id} to round ${newRound}`)
-              
+
               await prisma.debate.update({
                 where: { id: debate.id },
                 data: {
@@ -261,11 +229,7 @@ export async function GET(request: NextRequest) {
                   roundDeadline: newDeadline,
                 },
               })
-              
-              console.log(`[AI Response Generation] ✅ Debate advanced to round ${newRound}, deadline: ${newDeadline}`)
             }
-          } else {
-            console.log(`[AI Response Generation] Waiting for other participant to submit`)
           }
 
           responsesGenerated++
