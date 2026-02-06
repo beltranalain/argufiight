@@ -1,7 +1,10 @@
 import { jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 
-const secretKey = process.env.AUTH_SECRET || 'your-secret-key-change-in-production'
+if (!process.env.AUTH_SECRET) {
+  throw new Error('AUTH_SECRET environment variable is required')
+}
+const secretKey = process.env.AUTH_SECRET
 const encodedKey = new TextEncoder().encode(secretKey)
 
 /**
@@ -170,7 +173,10 @@ export async function getSession(token: string) {
     const { prisma } = await import('@/lib/db/prisma')
     const { jwtVerify } = await import('jose')
     
-    const secretKey = process.env.AUTH_SECRET || 'your-secret-key-change-in-production'
+    if (!process.env.AUTH_SECRET) {
+      throw new Error('AUTH_SECRET environment variable is required')
+    }
+    const secretKey = process.env.AUTH_SECRET
     const encodedKey = new TextEncoder().encode(secretKey)
 
     // Verify JWT

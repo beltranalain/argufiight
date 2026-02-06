@@ -7,12 +7,16 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { verifyCronAuth } from '@/lib/auth/cron-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
+
     console.log('[Cron] Starting offer expiration check...')
 
     const now = new Date()

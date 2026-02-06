@@ -1,17 +1,20 @@
 // Cron Job: Process Expired Debate Rounds
-// Runs every 10 minutes to handle debates with expired round deadlines
-// Schedule: every 10 minutes
+// Schedule: daily (free tier)
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import crypto from 'crypto'
 import { sendPushNotificationForNotification } from '@/lib/notifications/push-notifications'
+import { verifyCronAuth } from '@/lib/auth/cron-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
+
     console.log('[Cron] Starting expired debate rounds processing...')
 
     const now = new Date()

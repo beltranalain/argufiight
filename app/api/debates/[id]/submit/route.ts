@@ -351,7 +351,10 @@ export async function POST(
     // Use a more reliable fetch with timeout and better error handling
     fetch(`${baseUrl}/api/cron/ai-generate-responses`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.CRON_SECRET ? { 'Authorization': `Bearer ${process.env.CRON_SECRET}` } : {}),
+      },
       signal: AbortSignal.timeout(5000), // 5 second timeout
     })
       .then((response) => {

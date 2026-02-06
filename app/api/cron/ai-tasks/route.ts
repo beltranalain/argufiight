@@ -3,19 +3,15 @@ import { prisma } from '@/lib/db/prisma'
 import { generateAIResponse } from '@/lib/ai/ai-user-responses'
 import { calculateWordCount, updateUserAnalyticsOnStatement } from '@/lib/utils/analytics'
 import { checkInactiveBelts } from '@/lib/belts/core'
+import { verifyCronAuth } from '@/lib/auth/cron-auth'
 
 // Combined AI tasks endpoint - handles both auto-accept and response generation
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
 
   try {
-    // Verify this is a cron request
-    const authHeader = request.headers.get('authorization')
-    const cronSecret = process.env.CRON_SECRET
-
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     const results = {
       autoAccept: { accepted: 0, errors: [] as string[] },

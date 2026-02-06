@@ -2,7 +2,10 @@ import { SignJWT } from 'jose'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/db/prisma'
 
-const secretKey = process.env.AUTH_SECRET || 'your-secret-key-change-in-production'
+if (!process.env.AUTH_SECRET) {
+  throw new Error('AUTH_SECRET environment variable is required')
+}
+const secretKey = process.env.AUTH_SECRET
 const encodedKey = new TextEncoder().encode(secretKey)
 
 /**

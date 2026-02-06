@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -18,7 +18,7 @@ interface Tournament {
   isParticipant: boolean
 }
 
-export function TournamentsPanel({ initialData }: { initialData?: any }) {
+export const TournamentsPanel = memo(function TournamentsPanel({ initialData }: { initialData?: any }) {
   const { user } = useAuth()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -204,5 +204,5 @@ export function TournamentsPanel({ initialData }: { initialData?: any }) {
       )}
     </div>
   )
-}
+})
 

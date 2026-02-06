@@ -4,10 +4,17 @@ import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { getOrCreateCustomer, createStripeClient, getStripeKeys } from '@/lib/stripe/stripe-client'
 import { calculateStripeFees } from '@/lib/stripe/fee-calculator'
+import { rateLimitMiddleware } from '@/lib/rate-limit'
 
 // POST /api/advertiser/campaigns/payment - Create payment for Platform Ads campaign
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: prevent payment endpoint abuse
+    const rateLimit = await rateLimitMiddleware(request, 'general')
+    if (!rateLimit.success) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
+    }
+
     const session = await verifySession()
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -1,27 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { verifyCronAuth } from '@/lib/auth/cron-auth'
 
-/**
- * Cron job to mark expired offers as EXPIRED
- * Should be called by Vercel Cron or external scheduler
- * 
- * Expected cron schedule: Daily at 3 AM UTC
- * Note: Hobby accounts are limited to daily cron jobs, so this runs once per day
- * vercel.json:
- * {
- *   "crons": [{
- *     "path": "/api/cron/check-expired-offers",
- *     "schedule": "0 3 * * *"
- *   }]
- * }
- */
+// Cron job to mark expired offers as EXPIRED
+// Schedule: Daily at 3 AM UTC
 export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret
-    const authHeader = request.headers.get('authorization')
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     const now = new Date()
     const expiredOffers = await prisma.offer.updateMany({

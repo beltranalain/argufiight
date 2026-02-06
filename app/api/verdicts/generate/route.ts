@@ -2,10 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { generateVerdict, type DebateContext } from '@/lib/ai/deepseek'
 import { sendPushNotificationForNotification } from '@/lib/notifications/push-notifications'
+import { rateLimitMiddleware } from '@/lib/rate-limit'
 
 // POST /api/verdicts/generate - Generate AI verdicts for a completed debate
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: AI verdict generation is expensive
+    const rateLimit = await rateLimitMiddleware(request, 'ai')
+    if (!rateLimit.success) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
+    }
+
     const { debateId } = await request.json()
 
     if (!debateId) {

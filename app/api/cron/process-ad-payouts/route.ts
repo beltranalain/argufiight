@@ -17,11 +17,9 @@ import { payoutToCreator, capturePaymentIntent } from '@/lib/stripe/stripe-clien
  */
 export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret (if using Vercel Cron, this is automatic)
-    const authHeader = request.headers.get('authorization')
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { verifyCronAuth } = await import('@/lib/auth/cron-auth')
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     const now = new Date()
     const processedContracts: string[] = []

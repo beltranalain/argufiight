@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/ui/Loading'
@@ -23,7 +23,7 @@ interface LeaderboardEntry {
   overallScorePercent: number
 }
 
-export function LeaderboardPanel({ initialData }: { initialData?: any }) {
+export const LeaderboardPanel = memo(function LeaderboardPanel({ initialData }: { initialData?: any }) {
   const { user } = useAuth()
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [userRank, setUserRank] = useState<LeaderboardEntry | null>(null)
@@ -55,7 +55,7 @@ export function LeaderboardPanel({ initialData }: { initialData?: any }) {
   const fetchLeaderboard = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/leaderboard?limit=3&t=${Date.now()}` + (user?.id ? `&userId=${user.id}` : ''), {
+      const response = await fetch(`/api/leaderboard?limit=3` + (user?.id ? `&userId=${user.id}` : ''), {
         cache: 'no-store',
       })
       if (response.ok) {
@@ -142,7 +142,7 @@ export function LeaderboardPanel({ initialData }: { initialData?: any }) {
             description="Complete debates to appear on the leaderboard"
           />
         ) : (
-        <div className="overflow-x-auto -mx-6 px-6 pb-2">
+        <div className="overflow-x-auto -mx-6 px-6 pb-2" role="region" aria-label="Leaderboard rankings" tabIndex={0}>
           <div className="flex gap-4 min-w-max">
             {/* User's Card First (if not in top 3) */}
             {userRank && (
@@ -283,5 +283,5 @@ export function LeaderboardPanel({ initialData }: { initialData?: any }) {
       </div>
     </div>
   )
-}
+})
 

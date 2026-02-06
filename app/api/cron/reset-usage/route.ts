@@ -9,11 +9,9 @@ import { FEATURE_LIMITS, FEATURES } from '@/lib/subscriptions/features'
  */
 export async function GET(request: NextRequest) {
   try {
-    // Verify this is called from a cron job (optional security check)
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { verifyCronAuth } = await import('@/lib/auth/cron-auth')
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     const now = new Date()
     const currentMonth = now.getMonth()

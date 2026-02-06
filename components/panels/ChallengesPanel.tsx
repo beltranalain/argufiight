@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import Link from 'next/link'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Tabs } from '@/components/ui/Tabs'
@@ -10,6 +10,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Modal } from '@/components/ui/Modal'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
+import { useRouter } from 'next/navigation'
 
 // Modal component for decline confirmation
 
@@ -44,7 +45,7 @@ interface ChallengesPanelProps {
   initialBeltChallenges?: any
 }
 
-export function ChallengesPanel({
+export const ChallengesPanel = memo(function ChallengesPanel({
   initialWaitingDebates,
   initialUserWaitingDebates,
   initialBeltChallenges,
@@ -56,8 +57,10 @@ export function ChallengesPanel({
   const [isDeclining, setIsDeclining] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [declineDebateConfirmId, setDeclineDebateConfirmId] = useState<string | null>(null)
   const { user } = useAuth()
   const { showToast } = useToast()
+  const router = useRouter()
 
   // Process initial data from consolidated endpoint
   useEffect(() => {
@@ -407,10 +410,9 @@ export function ChallengesPanel({
         
         // Redirect to debate page if created
         if (data.debate?.id) {
-          window.location.href = `/debate/${data.debate.id}?accepted=true&t=${Date.now()}`
+          router.push(`/debate/${data.debate.id}?accepted=true`)
         } else {
-          // Refresh the page to update belt data
-          window.location.reload()
+          router.refresh()
         }
       } else {
         // Accept regular debate challenge
@@ -440,8 +442,8 @@ export function ChallengesPanel({
           window.dispatchEvent(new CustomEvent('debate-accepted', { detail: { debateId: data.id } }))
         }
         
-        // Redirect to debate page with cache-busting
-        window.location.href = `/debate/${data.id}?accepted=true&t=${Date.now()}`
+        // Redirect to debate page
+        router.push(`/debate/${data.id}?accepted=true`)
       }
     } catch (error: any) {
       showToast({
@@ -453,9 +455,13 @@ export function ChallengesPanel({
   }
 
   const handleDeclineChallenge = async (debateId: string) => {
-    if (!confirm('Are you sure you want to decline this challenge?')) {
-      return
-    }
+    setDeclineDebateConfirmId(debateId)
+  }
+
+  const confirmDeclineChallenge = async () => {
+    const debateId = declineDebateConfirmId
+    if (!debateId) return
+    setDeclineDebateConfirmId(null)
 
     try {
       const response = await fetch(`/api/debates/${debateId}/decline`, {
@@ -959,6 +965,33 @@ export function ChallengesPanel({
           </div>
         </div>
       </Modal>
+
+      {/* Decline Debate Challenge Modal */}
+      <Modal
+        isOpen={!!declineDebateConfirmId}
+        onClose={() => setDeclineDebateConfirmId(null)}
+        title="Decline Challenge"
+      >
+        <div className="space-y-4">
+          <p className="text-text-secondary">
+            Are you sure you want to decline this challenge?
+          </p>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => setDeclineDebateConfirmId(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={confirmDeclineChallenge}
+            >
+              Decline
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   )
-}
+})

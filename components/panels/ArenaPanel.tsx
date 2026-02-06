@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import Link from 'next/link'
 import { DebateCard } from '@/components/debate/DebateCard'
 import { LoadingCard } from '@/components/ui/Loading'
@@ -23,7 +23,7 @@ interface ArenaPanelProps {
   initialBeltChallenges?: any
 }
 
-export function ArenaPanel({
+export const ArenaPanel = memo(function ArenaPanel({
   initialCategories,
   initialActiveDebates,
   initialUserActiveDebates,
@@ -274,7 +274,7 @@ export function ArenaPanel({
       <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary mt-8">
         <h2 className="text-2xl font-bold text-text-primary mb-2">Open Challenges</h2>
         <p className="text-text-secondary text-sm mb-4">Debates waiting for opponents</p>
-        <div className="max-h-[500px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
+        <div className="max-h-[60vh] overflow-y-auto pr-2 scroll-smooth" role="region" aria-label="Open challenges list" style={{ scrollBehavior: 'smooth' }}>
           <ChallengesPanel
             initialWaitingDebates={initialWaitingDebates}
             initialUserWaitingDebates={initialUserWaitingDebates}
@@ -472,7 +472,7 @@ export function ArenaPanel({
           />
         </div>
       ) : (
-        <div className="max-h-[500px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
+        <div className="max-h-[60vh] overflow-y-auto pr-2 scroll-smooth" role="region" aria-label="Active debates list" style={{ scrollBehavior: 'smooth' }}>
           <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {debates.map((debate: any) => (
               <StaggerItem key={debate.id}>
@@ -500,5 +500,5 @@ export function ArenaPanel({
       />
     </div>
   )
-}
+})
 

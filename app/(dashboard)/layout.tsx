@@ -1,6 +1,5 @@
-import { verifySession } from '@/lib/auth/session'
+import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { redirect } from 'next/navigation'
-import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
 export default async function DashboardLayout({
@@ -8,31 +7,22 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await verifySession()
+  const session = await verifySessionWithDb()
 
-  if (!session || !getUserIdFromSession(session)) {
+  if (!session?.userId) {
     redirect('/login')
   }
 
   // Check if user is an advertiser and redirect them
-  const userId = getUserIdFromSession(session)
-  if (userId) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true },
+  // session.user.email is already available from verifySessionWithDb — no extra DB query needed
+  if (session.user.email) {
+    const advertiser = await prisma.advertiser.findUnique({
+      where: { contactEmail: session.user.email },
+      select: { status: true },
     })
 
-    if (user) {
-      const advertiser = await prisma.advertiser.findUnique({
-        where: { contactEmail: user.email },
-        select: { status: true },
-      })
-
-      // If user is an advertiser (any status), redirect to advertiser dashboard
-      // The advertiser dashboard will show appropriate message based on status
-      if (advertiser) {
-        redirect('/advertiser/dashboard')
-      }
+    if (advertiser) {
+      redirect('/advertiser/dashboard')
     }
   }
 

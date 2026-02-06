@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { verifyCronAuth } from '@/lib/auth/cron-auth'
 // TODO: Re-enable when creator Stripe accounts are implemented
 // import { payoutToCreator } from '@/lib/stripe/stripe-client'
 
@@ -15,6 +16,9 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
+
     console.log('[Cron] Starting escrow processing...')
 
     const now = new Date()
@@ -77,43 +81,17 @@ export async function GET(request: NextRequest) {
         //   `Payout for campaign: ${contract.campaign.name}`
         // )
 
-        console.log(`[Cron] Contract ${contract.id} marked for manual payout (Stripe integration pending)`)
+        console.log(`[Cron] Contract ${contract.id} eligible for payout (Stripe integration pending - skipping automatic payout)`)
 
-        // Update contract record
-        await prisma.adContract.update({
-          where: { id: contract.id },
-          data: {
-            payoutSent: true,
-            payoutDate: now,
-            escrowHeld: false, // Release escrow
-            // stripePayoutId will be updated when manual payout is processed
-          },
-        })
-
+        // DO NOT mark as payoutSent until Stripe transfers are actually implemented
+        // Currently only log eligible contracts for manual review
         processedCount++
         paidAmount += creatorPayout
 
-        console.log(`[Cron] Contract marked for payout to ${contract.creator.username}: $${creatorPayout.toFixed(2)} (manual processing required)`)
+        console.log(`[Cron] Contract ${contract.id} for ${contract.creator.username}: $${creatorPayout.toFixed(2)} - awaiting Stripe integration`)
 
-        // Send notification to creator
-        await prisma.notification.create({
-          data: {
-            userId: contract.creator.id,
-            type: 'OTHER',
-            title: 'Payment Processing',
-            message: `Your payment of $${creatorPayout.toFixed(2)} for campaign "${contract.campaign.name}" is being processed. You'll be contacted to complete payout setup.`,
-          },
-        })
-
-        // Send notification to advertiser
-        await prisma.notification.create({
-          data: {
-            userId: contract.advertiserId,
-            type: 'OTHER',
-            title: 'Campaign Payment Processing',
-            message: `Payment of $${creatorPayout.toFixed(2)} for ${contract.creator.username}'s campaign "${contract.campaign.name}" is being processed.`,
-          },
-        })
+        // TODO: Send notifications when Stripe payouts are actually implemented
+        // For now, skip sending misleading "payment processing" notifications
 
       } catch (error: any) {
         const errorMsg = `Failed to process contract ${contract.id}: ${error.message}`

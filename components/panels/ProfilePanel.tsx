@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { Card, CardBody } from '@/components/ui/Card'
@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { Button } from '@/components/ui/Button'
 
-export function ProfilePanel({ initialDebates }: { initialDebates?: any }) {
+export const ProfilePanel = memo(function ProfilePanel({ initialDebates }: { initialDebates?: any }) {
   const { user, isLoading } = useAuth()
   const [recentDebates, setRecentDebates] = useState<any[]>([])
   const [isLoadingDebates, setIsLoadingDebates] = useState(true)
@@ -39,11 +39,8 @@ export function ProfilePanel({ initialDebates }: { initialDebates?: any }) {
       setIsLoadingDebates(true)
       // Fetch user's recent debates (all statuses except WAITING)
       // This includes ACTIVE, COMPLETED, VERDICT_READY, APPEALED, etc.
-      const response = await fetch(`/api/debates?userId=${user?.id}&t=${Date.now()}`, {
+      const response = await fetch(`/api/debates?userId=${user?.id}`, {
         cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
       })
       if (response.ok) {
         const data = await response.json()
@@ -301,4 +298,4 @@ export function ProfilePanel({ initialDebates }: { initialDebates?: any }) {
       </Card>
     </div>
   )
-}
+})

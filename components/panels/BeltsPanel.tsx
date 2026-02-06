@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, memo } from 'react'
 import Link from 'next/link'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
@@ -48,7 +48,7 @@ interface BeltChallenge {
   createdAt: string
 }
 
-export function BeltsPanel({ initialData }: { initialData?: any }) {
+export const BeltsPanel = memo(function BeltsPanel({ initialData }: { initialData?: any }) {
   const { user } = useAuth()
   const router = useRouter()
   const { showToast } = useToast()
@@ -161,9 +161,8 @@ export function BeltsPanel({ initialData }: { initialData?: any }) {
         const newBelts = roomData.currentBelts || []
         hasCurrentBelts = newBelts.length > 0
         setCurrentBelts((prevBelts) => {
-          // Check if data actually changed
-          if (JSON.stringify(prevBelts) === JSON.stringify(newBelts)) {
-            return prevBelts // Return previous state to prevent re-render
+          if (prevBelts.length === newBelts.length && prevBelts.every((b: Belt, i: number) => b.id === newBelts[i]?.id && b.status === newBelts[i]?.status)) {
+            return prevBelts
           }
           return newBelts
         })
@@ -188,15 +187,15 @@ export function BeltsPanel({ initialData }: { initialData?: any }) {
         hasChallenges = newChallengesToMyBelts.length > 0 || newChallengesMade.length > 0
         
         // Only update state if data actually changed to prevent unnecessary re-renders
-        setChallengesToMyBelts((prevChallenges) => {
-          if (JSON.stringify(prevChallenges) === JSON.stringify(newChallengesToMyBelts)) {
-            return prevChallenges
+        setChallengesToMyBelts((prev) => {
+          if (prev.length === newChallengesToMyBelts.length && prev.every((c: any, i: number) => c.id === newChallengesToMyBelts[i]?.id && c.status === newChallengesToMyBelts[i]?.status)) {
+            return prev
           }
           return newChallengesToMyBelts
         })
-        setChallengesMade((prevChallenges) => {
-          if (JSON.stringify(prevChallenges) === JSON.stringify(newChallengesMade)) {
-            return prevChallenges
+        setChallengesMade((prev) => {
+          if (prev.length === newChallengesMade.length && prev.every((c: any, i: number) => c.id === newChallengesMade[i]?.id && c.status === newChallengesMade[i]?.status)) {
+            return prev
           }
           return newChallengesMade
         })
@@ -206,7 +205,7 @@ export function BeltsPanel({ initialData }: { initialData?: any }) {
       
       // After fetching, if user has no belts or challenges, fetch all belts
       if (isInitial && !hasCurrentBelts && !hasChallenges) {
-        setTimeout(() => fetchAllBelts(), 100)
+        fetchAllBelts()
       }
     } catch (error) {
       console.error('Failed to fetch belts data:', error)
@@ -368,10 +367,6 @@ export function BeltsPanel({ initialData }: { initialData?: any }) {
                           loading="lazy"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none'
-                            const parent = e.currentTarget.parentElement
-                            if (parent) {
-                              parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-text-secondary"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path></svg></div>'
-                            }
                           }}
                         />
                       </div>
@@ -463,10 +458,6 @@ export function BeltsPanel({ initialData }: { initialData?: any }) {
                           loading="lazy"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none'
-                            const parent = e.currentTarget.parentElement
-                            if (parent) {
-                              parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-text-secondary"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path></svg></div>'
-                            }
                           }}
                         />
                       </div>
@@ -484,11 +475,11 @@ export function BeltsPanel({ initialData }: { initialData?: any }) {
                         {belt.name}
                       </p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className={getStatusBadgeColor(belt.status)} style={{ color: '#ffffff' }}>
+                        <Badge className={`${getStatusBadgeColor(belt.status)} !text-white`}>
                           {formatBeltStatus(belt.status)}
                         </Badge>
                         {belt.category && (
-                          <span className="inline-flex items-center font-bold rounded-full transition-colors px-2 py-0.5 text-xs bg-gray-600 text-white" style={{ color: '#ffffff' }}>
+                          <span className="inline-flex items-center font-bold rounded-full transition-colors px-2 py-0.5 text-xs bg-gray-600 !text-white">
                             {belt.category}
                           </span>
                         )}
@@ -606,10 +597,6 @@ export function BeltsPanel({ initialData }: { initialData?: any }) {
                         className="w-full h-full object-contain"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none'
-                          const parent = e.currentTarget.parentElement
-                          if (parent) {
-                            parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-text-secondary text-xs">No Image</div>'
-                          }
                         }}
                       />
                     </div>
@@ -656,4 +643,4 @@ export function BeltsPanel({ initialData }: { initialData?: any }) {
       {renderModal()}
     </>
   )
-}
+})

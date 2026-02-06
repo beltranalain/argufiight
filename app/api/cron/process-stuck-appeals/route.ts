@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { verifyCronAuth } from '@/lib/auth/cron-auth'
 
 // GET /api/cron/process-stuck-appeals - Cron job to process stuck appeals
-// This should be called by Vercel Cron or a scheduled task
 export async function GET(request: NextRequest) {
   try {
-    // Verify this is a cron request (optional security check)
-    const authHeader = request.headers.get('authorization')
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     // Find all stuck appeals (PENDING status for more than 5 minutes)
     // This gives the automatic trigger time to work, but catches any that fail

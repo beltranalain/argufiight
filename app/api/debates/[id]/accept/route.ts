@@ -282,34 +282,45 @@ export async function POST(
     const now = new Date()
     const deadline = new Date(now.getTime() + debate.roundDuration)
 
-    // Update debate
-    const updatedDebate = await prisma.debate.update({
-      where: { id },
-      data: {
-        opponentId: userId,
-        status: 'ACTIVE',
-        startedAt: now,
-        currentRound: 1,
-        roundDeadline: deadline,
-      },
-      include: {
-        challenger: {
-          select: {
-            id: true,
-            username: true,
-            avatarUrl: true,
-            eloRating: true,
-          }
+    // Use transaction to prevent race condition where two users accept simultaneously
+    const updatedDebate = await prisma.$transaction(async (tx) => {
+      // Re-check debate status inside transaction
+      const current = await tx.debate.findUnique({ where: { id } })
+      if (!current || current.status !== 'WAITING') {
+        throw new Error('Debate is no longer available for acceptance')
+      }
+      if (current.opponentId && current.challengeType !== 'DIRECT') {
+        throw new Error('This challenge has already been accepted by another user')
+      }
+
+      return tx.debate.update({
+        where: { id },
+        data: {
+          opponentId: userId,
+          status: 'ACTIVE',
+          startedAt: now,
+          currentRound: 1,
+          roundDeadline: deadline,
         },
-        opponent: {
-          select: {
-            id: true,
-            username: true,
-            avatarUrl: true,
-            eloRating: true,
-          }
+        include: {
+          challenger: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+              eloRating: true,
+            }
+          },
+          opponent: {
+            select: {
+              id: true,
+              username: true,
+              avatarUrl: true,
+              eloRating: true,
+            }
+          },
         },
-      },
+      })
     })
 
     // Notify challenger (with push notification)

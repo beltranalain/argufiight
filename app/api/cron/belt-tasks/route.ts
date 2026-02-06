@@ -1,35 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkInactiveBelts } from '@/lib/belts/core'
 import { prisma } from '@/lib/db/prisma'
-
-// Verify cron secret for security
-function verifyCronSecret(request: NextRequest): boolean {
-  const authHeader = request.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-
-  if (!cronSecret) {
-    // If no secret is set, allow (for development)
-    return true
-  }
-
-  if (!authHeader) {
-    return false
-  }
-
-  const token = authHeader.replace('Bearer ', '')
-  return token === cronSecret
-}
+import { verifyCronAuth } from '@/lib/auth/cron-auth'
 
 // POST /api/cron/belt-tasks - Run belt system maintenance tasks
 export async function POST(request: NextRequest) {
   try {
-    // Verify cron secret
-    if (!verifyCronSecret(request)) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     const results = {
       inactiveBeltsChecked: 0,

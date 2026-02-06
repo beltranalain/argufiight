@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
+import { verifyCronAuth } from '@/lib/auth/cron-auth'
 
 // Cron job to auto-accept open challenges for AI users
-// Also called via after() from the debates list API for real-time processing
 export async function GET(request: NextRequest) {
   try {
-    // Verify this is a cron request (optional - only if CRON_SECRET is set)
-    const authHeader = request.headers.get('authorization')
-    const cronSecret = process.env.CRON_SECRET
-
-    // Only require auth if CRON_SECRET is set and provided
-    if (cronSecret && authHeader && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     // Get all active, non-paused AI users
     const aiUsers = await prisma.user.findMany({

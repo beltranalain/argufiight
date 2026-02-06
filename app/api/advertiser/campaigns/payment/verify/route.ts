@@ -3,12 +3,19 @@ import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { createStripeClient, getStripeKeys } from '@/lib/stripe/stripe-client'
+import { rateLimitMiddleware } from '@/lib/rate-limit'
 
 // POST /api/advertiser/campaigns/payment/verify - Verify payment and update campaign
 // Note: This endpoint doesn't require a session because Stripe redirects may lose session cookies
 // Instead, we verify ownership through Stripe session metadata
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: prevent payment verification abuse
+    const rateLimit = await rateLimitMiddleware(request, 'general')
+    if (!rateLimit.success) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
+    }
+
     const body = await request.json()
     const { sessionId, campaignId } = body
 

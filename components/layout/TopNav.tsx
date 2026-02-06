@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { DropdownMenu } from '@/components/ui/DropdownMenu'
 import { NotificationsModal } from '@/components/notifications/NotificationsModal'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { NAV_POLL_INTERVAL_MS } from '@/lib/constants'
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher'
 import { AnimatePresence } from 'framer-motion'
 
@@ -123,9 +124,9 @@ export function TopNav({ currentPanel, initialNavData }: TopNavProps) {
       if (!initialNavData) {
         fetchNavData()
       }
-      // Poll for notification count every 30 seconds
+      // Poll for notification count
       const interval = currentPanel !== 'ADVERTISER'
-        ? setInterval(fetchUnreadCount, 30000)
+        ? setInterval(fetchUnreadCount, NAV_POLL_INTERVAL_MS)
         : null
       return () => { if (interval) clearInterval(interval) }
     }

@@ -3,6 +3,7 @@ import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { getOrCreateCustomer, createStripeClient, getStripeKeys } from '@/lib/stripe/stripe-client'
+import { rateLimitMiddleware } from '@/lib/rate-limit'
 
 /**
  * POST /api/coins/purchase/checkout
@@ -10,6 +11,12 @@ import { getOrCreateCustomer, createStripeClient, getStripeKeys } from '@/lib/st
  */
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 10 requests per minute per IP for payment endpoints
+    const rateLimit = await rateLimitMiddleware(request, 'general')
+    if (!rateLimit.success) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
+    }
+
     const session = await verifySession()
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

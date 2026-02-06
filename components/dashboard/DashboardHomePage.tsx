@@ -12,6 +12,7 @@ import { LeaderboardPanel } from '@/components/panels/LeaderboardPanel'
 import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/lib/hooks/useAuth'
+import { POLL_INTERVAL_MS, BLINK_DURATION_MS, BELT_BLINK_DURATION_MS } from '@/lib/constants'
 
 export function DashboardHomePage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -35,7 +36,7 @@ export function DashboardHomePage() {
       if (data.yourTurn?.hasTurn) {
         setIsMyTurn(true)
         setShowBlink(true)
-        setTimeout(() => setShowBlink(false), 5000)
+        setTimeout(() => setShowBlink(false), BLINK_DURATION_MS)
       } else {
         setIsMyTurn(false)
       }
@@ -45,7 +46,7 @@ export function DashboardHomePage() {
       )
       if (pendingBeltChallenges.length > 0) {
         setShowBlink(true)
-        setTimeout(() => setShowBlink(false), 10000)
+        setTimeout(() => setShowBlink(false), BELT_BLINK_DURATION_MS)
       }
     } catch {
       setDashData((prev: any) => prev || {})
@@ -69,8 +70,8 @@ export function DashboardHomePage() {
     window.addEventListener('debate-created', handleUpdate)
     window.addEventListener('belt-challenge-accepted', handleUpdate)
 
-    // Poll every 60s for updates
-    const interval = setInterval(fetchDashboardData, 60000)
+    // Poll for updates
+    const interval = setInterval(fetchDashboardData, POLL_INTERVAL_MS)
 
     return () => {
       clearInterval(interval)
