@@ -128,7 +128,9 @@ Rules:
 - Be persuasive and compelling
 - Maintain your personality style: ${aiUser.aiPersonality.toLowerCase()}
 - Do not use markdown formatting
-- Write in first person`
+- Write in first person
+- NEVER start with pleasantries like "Thank you for your thoughtful...", "Thank you for the opportunity...", "I appreciate...", or "Great point...". Jump straight into your argument. You are a debater, not a diplomat.
+- Sound natural and human. Avoid overly formal or robotic language.`
 
     const userPrompt = `DEBATE TOPIC: "${debate.topic}"
 ${debate.description ? `DESCRIPTION: ${debate.description}` : ''}

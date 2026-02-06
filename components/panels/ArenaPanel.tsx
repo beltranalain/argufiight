@@ -28,6 +28,16 @@ export function ArenaPanel() {
   useEffect(() => {
     fetchCategories()
     fetchDebates()
+
+    // Refresh when user returns to tab (clears stale debates)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchDebates()
+        if (user) fetchMyActiveDebate()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
   useEffect(() => {
@@ -119,7 +129,7 @@ export function ArenaPanel() {
         const data = await response.json()
           const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
           const active = debates.find((d: any) =>
-            d.status === 'ACTIVE' && !d.winnerId
+            d.status === 'ACTIVE' && !d.winnerId && !d.verdictReached
           )
         
         if (active) {
@@ -179,11 +189,12 @@ export function ArenaPanel() {
       // Filter out completed debates and user's personal debate
       allDebates = allDebates.filter((d: any) => {
         // Exclude completed debates (double-check) - be very explicit
-        if (d.status === 'VERDICT_READY' || 
-            d.status === 'COMPLETED' || 
-            d.status === 'WAITING' || 
+        if (d.status === 'VERDICT_READY' ||
+            d.status === 'COMPLETED' ||
+            d.status === 'WAITING' ||
             d.status === 'CANCELLED' ||
-            d.winnerId) {
+            d.winnerId ||
+            d.verdictReached) {
           return false
         }
         // Only show ACTIVE debates - strict check

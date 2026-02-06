@@ -28,6 +28,24 @@ export async function triggerAIResponseForDebate(debateId: string): Promise<bool
       return false
     }
 
+    // Self-healing: if all rounds are submitted but debate is still ACTIVE, complete it
+    const finalRoundStmts = debate.statements.filter(s => s.round === debate.totalRounds)
+    const challengerDone = finalRoundStmts.some(s => s.authorId === debate.challengerId)
+    const opponentDone = debate.opponentId ? finalRoundStmts.some(s => s.authorId === debate.opponentId) : false
+    if (challengerDone && opponentDone) {
+      await prisma.debate.update({
+        where: { id: debateId },
+        data: { status: 'COMPLETED', endedAt: new Date() },
+      })
+      try {
+        const { generateInitialVerdicts } = await import('@/lib/verdicts/generate-initial')
+        await generateInitialVerdicts(debateId)
+      } catch {
+        // Verdict generation failure is non-critical here
+      }
+      return false
+    }
+
     // Find the AI participant (could be challenger or opponent)
     const aiUser =
       (debate.challenger.isAI && !debate.challenger.aiPaused) ? debate.challenger :
@@ -59,6 +77,32 @@ export async function triggerAIResponseForDebate(debateId: string): Promise<bool
     }
 
     if (!shouldRespond) return false
+
+    // Enforce response delay so AI doesn't reply instantly
+    const delayMs = aiUser.aiResponseDelay || 150000 // Default 2.5 minutes
+    let referenceTime: Date | null = null
+
+    if (isChallenger) {
+      // AI goes first in round — measure from round start
+      if (debate.currentRound === 1) {
+        referenceTime = debate.startedAt || debate.createdAt
+      } else {
+        const prevRoundStmts = debate.statements.filter(s => s.round === debate.currentRound - 1)
+        referenceTime = prevRoundStmts.length > 0
+          ? prevRoundStmts[prevRoundStmts.length - 1].createdAt
+          : null
+      }
+    } else {
+      // AI responds after human — measure from human's submission
+      const humanStmt = debate.statements.find(
+        s => s.authorId !== aiUser.id && s.round === debate.currentRound
+      )
+      referenceTime = humanStmt?.createdAt || null
+    }
+
+    if (referenceTime && (Date.now() - referenceTime.getTime()) < delayMs) {
+      return false // Not enough time has passed — will fire again on next page view
+    }
 
     // Race condition guard: re-check DB to prevent duplicate submissions
     const recheck = await prisma.statement.findUnique({
