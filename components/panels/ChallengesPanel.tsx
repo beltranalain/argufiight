@@ -44,6 +44,8 @@ export function ChallengesPanel() {
   const [isLoading, setIsLoading] = useState(true)
   const [declineConfirmId, setDeclineConfirmId] = useState<string | null>(null)
   const [isDeclining, setIsDeclining] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const { user } = useAuth()
   const { showToast } = useToast()
 
@@ -402,10 +404,7 @@ export function ChallengesPanel() {
   }
 
   const handleDeleteChallenge = async (debateId: string) => {
-    if (!confirm('Are you sure you want to delete this challenge? This action cannot be undone.')) {
-      return
-    }
-
+    setIsDeleting(true)
     try {
       const response = await fetch(`/api/debates/${debateId}/delete`, {
         method: 'DELETE',
@@ -422,10 +421,9 @@ export function ChallengesPanel() {
         type: 'success',
       })
 
-      // Refresh challenges
+      setDeleteConfirmId(null)
       fetchChallenges()
-      
-      // Dispatch event to refresh debate pages
+
       if (document.readyState === 'complete') {
         window.dispatchEvent(new CustomEvent('debate-created'))
       }
@@ -435,6 +433,8 @@ export function ChallengesPanel() {
         description: error.message || 'Failed to delete challenge',
         type: 'error',
       })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -774,11 +774,11 @@ export function ChallengesPanel() {
                           <p className="text-text-secondary text-xs">
                             Waiting for opponent...
                           </p>
-                          <Button 
-                            variant="secondary" 
+                          <Button
+                            variant="secondary"
                             size="sm"
                             className="text-xs py-1 px-3"
-                            onClick={() => handleDeleteChallenge(challenge.id)}
+                            onClick={() => setDeleteConfirmId(challenge.id)}
                           >
                             Delete
                           </Button>
@@ -832,6 +832,48 @@ export function ChallengesPanel() {
               isLoading={isDeclining}
             >
               Decline Challenge
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!deleteConfirmId}
+        onClose={() => {
+          if (!isDeleting) {
+            setDeleteConfirmId(null)
+          }
+        }}
+        title="Delete Challenge"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-text-secondary">
+            Are you sure you want to delete this challenge? This action cannot be undone.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (!isDeleting) {
+                  setDeleteConfirmId(null)
+                }
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (deleteConfirmId) {
+                  handleDeleteChallenge(deleteConfirmId)
+                }
+              }}
+              isLoading={isDeleting}
+            >
+              Delete
             </Button>
           </div>
         </div>

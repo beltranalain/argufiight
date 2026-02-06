@@ -59,32 +59,32 @@ export async function DELETE(
       )
     }
 
+    // Notify invited users BEFORE deleting (FK constraint on debate_id)
+    if ((debate.challengeType === 'DIRECT' || debate.challengeType === 'GROUP') && debate.invitedUserIds) {
+      try {
+        const invitedIds = JSON.parse(debate.invitedUserIds) as string[]
+        if (invitedIds.length > 0) {
+          const message = `The challenge "${debate.topic}" has been cancelled`
+          for (const invitedUserId of invitedIds) {
+            await prisma.notification.create({
+              data: {
+                userId: invitedUserId,
+                type: 'NEW_CHALLENGE',
+                title: 'Challenge Cancelled',
+                message,
+              },
+            })
+          }
+        }
+      } catch {
+        // Notification failure shouldn't block deletion
+      }
+    }
+
     // Delete the debate
     await prisma.debate.delete({
       where: { id: debateId },
     })
-
-    // Notify invited users if it was a DIRECT or GROUP challenge
-    if ((debate.challengeType === 'DIRECT' || debate.challengeType === 'GROUP') && debate.invitedUserIds) {
-      const invitedIds = JSON.parse(debate.invitedUserIds) as string[]
-      
-      // Create notifications for all invited users using raw SQL
-      if (invitedIds.length > 0) {
-        const message = `The challenge "${debate.topic}" has been cancelled`
-        for (const invitedUserId of invitedIds) {
-          await prisma.$executeRawUnsafe(`
-            INSERT INTO notifications (id, user_id, type, title, message, debate_id, created_at)
-            VALUES (gen_random_uuid(), $1, $2::"NotificationType", $3, $4, $5, NOW())
-          `,
-            invitedUserId,
-            'NEW_CHALLENGE', // Using existing enum value
-            'Challenge Cancelled',
-            message,
-            debateId
-          )
-        }
-      }
-    }
 
     return NextResponse.json({ 
       success: true,
