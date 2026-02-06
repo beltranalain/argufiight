@@ -6,9 +6,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ThemeProvider } from '@/lib/contexts/ThemeContext'
 import { ChallengeProvider } from '@/lib/contexts/ChallengeContext'
 import { ChallengeModal } from '@/components/challenge/ChallengeModal'
-import { NotificationTicker } from '@/components/notifications/NotificationTicker'
-import { PushNotificationManager } from '@/components/notifications/PushNotificationManager'
-import { prisma } from '@/lib/db/prisma'
+import { LazyNotifications } from '@/components/notifications/LazyNotifications'
 import { OrganizationSchema, WebsiteSearchSchema } from '@/components/seo/StructuredData'
 
 export const metadata: Metadata = {
@@ -37,28 +35,13 @@ export const metadata: Metadata = {
   },
 }
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Google Analytics Tracking ID (from environment variable or use default)
   const gaTrackingId = process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || 'G-HC5T282D74'
-  
-  // Get Google Search Console verification from database
-  let gscVerification = process.env.GOOGLE_SEARCH_CONSOLE_VERIFICATION || ''
-  try {
-    const gscSetting = await prisma.adminSetting.findUnique({
-      where: { key: 'seo_googleSearchConsoleVerification' },
-    })
-    if (gscSetting?.value) {
-      gscVerification = gscSetting.value
-    }
-  } catch (error) {
-    // Fallback to env variable if database query fails
-    // This is expected if database is not available - don't crash the app
-    console.log('[Layout] Could not fetch GSC verification from database, using env variable')
-  }
+  const gscVerification = process.env.GOOGLE_SEARCH_CONSOLE_VERIFICATION || ''
 
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
@@ -118,8 +101,7 @@ export default async function RootLayout({
               <ToastProvider>
                 {children}
                 <ChallengeModal />
-                <NotificationTicker />
-                <PushNotificationManager />
+                <LazyNotifications />
               </ToastProvider>
             </ErrorBoundary>
           </ChallengeProvider>

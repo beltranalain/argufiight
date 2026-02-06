@@ -54,7 +54,9 @@ export async function verifySessionWithDb() {
     const { payload } = await jwtVerify(sessionJWT, encodedKey)
     const { sessionToken } = payload as { sessionToken: string }
 
-    console.log('[verifySessionWithDb] Decoded sessionToken:', sessionToken.substring(0, 20) + '...')
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[verifySessionWithDb] Decoded sessionToken:', sessionToken.substring(0, 20) + '...')
+    }
 
     // Dynamic import Prisma to avoid Edge runtime issues
     const { prisma } = await import('@/lib/db/prisma')
@@ -76,12 +78,16 @@ export async function verifySessionWithDb() {
     })
 
     if (!session) {
-      console.log('[verifySessionWithDb] Session not found in database for token:', sessionToken.substring(0, 20) + '...')
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[verifySessionWithDb] Session not found in database for token:', sessionToken.substring(0, 20) + '...')
+      }
       return null
     }
 
     if (session.expiresAt < new Date()) {
-      console.log('[verifySessionWithDb] Session expired, deleting:', session.id)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[verifySessionWithDb] Session expired, deleting:', session.id)
+      }
       // Clean up expired session
       await prisma.session.delete({ where: { id: session.id } })
       return null
@@ -101,14 +107,16 @@ export async function verifySessionWithDb() {
       return null
     }
 
-    console.log('[verifySessionWithDb] Session verified:', {
-      sessionId: session.id,
-      userId: session.userId,
-      userEmail: session.user.email,
-      username: session.user.username,
-      isAdmin: session.user.isAdmin,
-      tokenMatch: session.token === sessionToken,
-    })
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[verifySessionWithDb] Session verified:', {
+        sessionId: session.id,
+        userId: session.userId,
+        userEmail: session.user.email,
+        username: session.user.username,
+        isAdmin: session.user.isAdmin,
+        tokenMatch: session.token === sessionToken,
+      })
+    }
 
     return {
       userId: session.userId,

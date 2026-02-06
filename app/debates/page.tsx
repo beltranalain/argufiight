@@ -128,22 +128,24 @@ export default async function DebatesArchivePage({
     orderBy: { sortOrder: 'asc' },
   })
 
-  // Calculate debate counts for each category
-  const categoriesWithCounts = await Promise.all(
-    categories.map(async (category) => {
-      const count = await prisma.debate.count({
-        where: {
-          category: category.name as any,
-          visibility: 'PUBLIC',
-          status: { in: ['COMPLETED', 'VERDICT_READY'] },
-        },
-      })
-      return {
-        ...category,
-        debateCount: count,
-      }
-    })
+  // Get all category counts in a single query instead of N+1 individual counts
+  const categoryCounts = await prisma.debate.groupBy({
+    by: ['category'],
+    where: {
+      visibility: 'PUBLIC',
+      status: { in: ['COMPLETED', 'VERDICT_READY'] },
+    },
+    _count: { id: true },
+  })
+
+  const countMap = Object.fromEntries(
+    categoryCounts.map(c => [c.category, c._count.id])
   )
+
+  const categoriesWithCounts = categories.map(cat => ({
+    ...cat,
+    debateCount: countMap[cat.name] || 0,
+  }))
 
   const totalPages = Math.ceil(total / limit)
 

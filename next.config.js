@@ -6,7 +6,14 @@ const nextConfig = {
       bodySizeLimit: '2mb',
     },
     // Workaround for Next.js 15 client reference manifest issue with route groups
-    optimizePackageImports: ['@prisma/client'],
+    optimizePackageImports: [
+      '@prisma/client',
+      'recharts',
+      'framer-motion',
+      'firebase',
+      '@tiptap/react',
+      '@tiptap/starter-kit',
+    ],
   },
   
   // Ensure Prisma engines are traced (moved from experimental)
