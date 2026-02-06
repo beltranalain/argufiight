@@ -319,6 +319,76 @@ export function FAQSchema({ items }: FAQSchemaProps): ReactElement {
 }
 
 /**
+ * Debate Discussion Schema (using DiscussionForumPosting)
+ * More semantically accurate for debates than Article schema
+ * Supported by Google since 2024
+ */
+export interface DebateDiscussionSchemaProps {
+  title: string
+  description: string
+  url: string
+  datePublished: string
+  dateModified?: string
+  author: {
+    name: string
+    url?: string
+  }
+  opponent?: {
+    name: string
+    url?: string
+  }
+  statements?: Array<{
+    authorName: string
+    authorUrl?: string
+    content: string
+    round: number
+    dateCreated: string
+  }>
+  category?: string
+}
+
+export function DebateDiscussionSchema(props: DebateDiscussionSchemaProps): ReactElement {
+  const comments = (props.statements || []).map((s, i) => ({
+    '@type': 'Comment',
+    'position': i + 1,
+    'text': s.content,
+    'author': {
+      '@type': 'Person',
+      'name': s.authorName,
+      ...(s.authorUrl && { url: s.authorUrl }),
+    },
+    'dateCreated': s.dateCreated,
+  }))
+
+  const schema = {
+    '@context': 'https://schema.org',
+    '@type': 'DiscussionForumPosting',
+    'headline': props.title,
+    'text': props.description,
+    'url': props.url,
+    'datePublished': props.datePublished,
+    'dateModified': props.dateModified || props.datePublished,
+    'author': {
+      '@type': 'Person',
+      'name': props.author.name,
+      ...(props.author.url && { url: props.author.url }),
+    },
+    ...(props.category && {
+      'about': { '@type': 'Thing', 'name': props.category },
+    }),
+    ...(comments.length > 0 && { 'comment': comments }),
+    'commentCount': comments.length,
+    'interactionStatistic': {
+      '@type': 'InteractionCounter',
+      'interactionType': 'https://schema.org/CommentAction',
+      'userInteractionCount': comments.length,
+    },
+  }
+
+  return <StructuredData data={schema} />
+}
+
+/**
  * Website Search Schema
  * Used in root layout to enable search box in Google results
  */

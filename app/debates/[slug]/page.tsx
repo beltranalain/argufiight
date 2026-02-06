@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { Breadcrumbs } from '@/components/seo/Breadcrumbs'
 import { RelatedDebates } from '@/components/debate/RelatedDebates'
 import { LiveChat } from '@/components/debate/LiveChat'
-import { DebateSchema } from '@/components/seo/StructuredData'
+import { DebateDiscussionSchema } from '@/components/seo/StructuredData'
 
 export async function generateMetadata({
   params,
@@ -342,8 +342,8 @@ export default async function PublicDebatePage({
 
   return (
     <>
-      {/* Structured Data for SEO */}
-      <DebateSchema
+      {/* Structured Data for SEO - DiscussionForumPosting for AI search engines */}
+      <DebateDiscussionSchema
         title={debate.topic}
         description={debate.description || debate.topic}
         url={`${baseUrl}/debates/${debate.slug || debate.id}`}
@@ -361,8 +361,13 @@ export default async function PublicDebatePage({
               }
             : undefined
         }
-        image={debate.challenger.avatarUrl || undefined}
-        status={debate.status}
+        statements={debate.statements.map((s: any) => ({
+          authorName: s.author.username,
+          authorUrl: `${baseUrl}/profile/${s.author.username}`,
+          content: s.content,
+          round: s.round,
+          dateCreated: s.createdAt.toISOString(),
+        }))}
         category={debate.category}
       />
 

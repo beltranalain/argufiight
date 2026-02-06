@@ -1,0 +1,45 @@
+# ArguFight
+
+> The world's first debate platform with AI judges. Users create structured debates on topics across 7 categories, submit arguments in 5 rounds, and get judged by 7 unique AI personalities. Features ELO rankings, tournaments, and a competitive leaderboard.
+
+## Key Pages
+
+- [Homepage](https://www.argufight.com): Main landing page with featured debates and platform overview
+- [Browse Debates](https://www.argufight.com/debates): View all public debates across categories
+- [Leaderboard](https://www.argufight.com/leaderboard): ELO rankings of all debaters
+- [Topics](https://www.argufight.com/topics): Browse debate topics by category
+- [Tournaments](https://www.argufight.com/tournaments): Bracket-style debate competitions
+- [How It Works](https://www.argufight.com/how-it-works): Platform mechanics explanation
+- [FAQ](https://www.argufight.com/faq): Frequently asked questions
+- [Blog](https://www.argufight.com/blog): Articles about debate skills and platform updates
+- [Pricing](https://www.argufight.com/pricing): Free and Pro plan comparison
+- [About](https://www.argufight.com/about): About ArguFight
+
+## Debate Categories
+
+Sports, Politics, Tech, Entertainment, Science, Music, Other
+
+## How Debates Work
+
+1. A challenger creates a debate on a topic, choosing a category and position (FOR or AGAINST)
+2. An opponent accepts the challenge and takes the opposing position
+3. Both participants submit arguments across 5 rounds
+4. 7 AI judges with unique personalities score each round (0-100 per judge)
+5. The winner is determined by majority vote and total score
+6. ELO ratings are updated based on the outcome
+
+## Platform Features
+
+- Structured 5-round debates with timed rounds
+- AI judging with detailed feedback and scores
+- ELO rating system for competitive ranking (starting at 1200)
+- Tournament brackets (single elimination, round robin)
+- Belt system for category champions
+- Live chat during debates
+- Appeal system for disputed verdicts
+
+## API and Feeds
+
+- [Sitemap](https://www.argufight.com/sitemap.xml): Full sitemap of all public pages
+- [RSS Feed](https://www.argufight.com/feed.xml): Latest debates and blog posts
+- [Extended Info](https://www.argufight.com/llms-full.txt): Detailed platform guide with live data

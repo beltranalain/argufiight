@@ -106,6 +106,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'weekly',
       priority: 0.8,
     },
+    {
+      url: `${baseUrl}/feed.xml`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.3,
+    },
   ]
 
   // Get public debates (no limit - include all public debates for SEO)

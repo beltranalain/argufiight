@@ -63,6 +63,9 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
+        {/* RSS Feed Autodiscovery */}
+        <link rel="alternate" type="application/rss+xml" title="ArguFight RSS Feed" href="/feed.xml" />
+
         {/* Google Search Console Verification */}
         {gscVerification && (
           <meta name="google-site-verification" content={gscVerification} />
