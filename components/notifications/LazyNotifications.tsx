@@ -1,7 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useEffect, useState } from 'react'
+import { useAuth } from '@/lib/hooks/useAuth'
 
 const NotificationTicker = dynamic(
   () => import('./NotificationTicker').then(mod => ({ default: mod.NotificationTicker })),
@@ -14,14 +14,11 @@ const PushNotificationManager = dynamic(
 )
 
 export function LazyNotifications() {
-  const [hasSession, setHasSession] = useState(false)
+  const { user, isLoading } = useAuth()
 
-  useEffect(() => {
-    const hasCookie = document.cookie.includes('session=')
-    setHasSession(hasCookie)
-  }, [])
-
-  if (!hasSession) return null
+  // Don't render until we know if user is logged in
+  // Components handle their own auth checks internally
+  if (isLoading || !user) return null
 
   return (
     <>
