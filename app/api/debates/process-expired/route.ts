@@ -91,14 +91,6 @@ export async function POST(request: NextRequest) {
       WHERE status = 'ACTIVE'
         AND round_deadline IS NOT NULL
         AND round_deadline <= ${now}
-        AND (
-          current_round > 1 
-          OR EXISTS (
-            SELECT 1 FROM statements 
-            WHERE debate_id = debates.id 
-            AND round = debates.current_round
-          )
-        )
     `
 
     // Fetch statements for each debate
@@ -171,6 +163,39 @@ export async function POST(request: NextRequest) {
           deadline: debate.roundDeadline,
           isExpired: deadlineDate ? deadlineDate <= now : false,
         })
+
+        // Case 0: Round 1 with neither player submitting - CANCEL the debate
+        // Neither player showed up, so the debate should just die
+        if (debate.currentRound === 1 && !challengerSubmitted && !opponentSubmitted) {
+          await prisma.$executeRaw`
+            UPDATE debates
+            SET status = ${'CANCELLED'}::"DebateStatus", ended_at = ${now}, round_deadline = NULL
+            WHERE id = ${debate.id}
+          `
+
+          // Notify both participants
+          const cancelMessage = `The debate "${debate.topic}" was cancelled because neither participant submitted an argument in Round 1.`
+          try {
+            await Promise.all([
+              prisma.$executeRaw`
+                INSERT INTO notifications (id, user_id, type, title, message, debate_id, created_at, read)
+                VALUES (${crypto.randomUUID()}, ${debate.challengerId}, ${'OTHER'}, ${'Debate Cancelled'}, ${cancelMessage}, ${debate.id}, ${now}, ${false})
+              `,
+              debate.opponentId
+                ? prisma.$executeRaw`
+                    INSERT INTO notifications (id, user_id, type, title, message, debate_id, created_at, read)
+                    VALUES (${crypto.randomUUID()}, ${debate.opponentId}, ${'OTHER'}, ${'Debate Cancelled'}, ${cancelMessage}, ${debate.id}, ${now}, ${false})
+                  `
+                : Promise.resolve(),
+            ])
+          } catch (error) {
+            console.error('Failed to create cancel notifications:', error)
+          }
+
+          console.log(`Cancelled Round 1 no-show debate: ${debate.id}`)
+          results.cancelled++
+          continue
+        }
 
         // Case 1: Both submitted - should have already advanced, but check anyway
         if (challengerSubmitted && opponentSubmitted) {

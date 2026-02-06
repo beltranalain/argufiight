@@ -95,76 +95,48 @@ export function ChallengesPanel() {
     
     try {
       setIsLoading(true)
-      
-      // Fetch all waiting challenges with cache-busting
-      const allResponse = await fetch(`/api/debates?status=WAITING&t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
-      })
+
+      // Fetch all data in parallel: waiting debates, belt challenges, and user's waiting debates
+      const [allResponse, beltResponse, myResponse] = await Promise.all([
+        fetch('/api/debates?status=WAITING', { cache: 'no-store' }),
+        fetch('/api/belts/challenges', { cache: 'no-store' }),
+        user ? fetch(`/api/debates?userId=${user.id}&status=WAITING`, { cache: 'no-store' }) : Promise.resolve(null),
+      ])
+
+      // Process waiting debates
       let allData: any[] = []
       if (allResponse.ok) {
         const responseData = await allResponse.json()
-        // Handle paginated response format: { debates: [...], pagination: {...} }
-        // or array format for backwards compatibility
         allData = responseData.debates || (Array.isArray(responseData) ? responseData : [])
-        
-        // Debug: Log images for ED Reed debate
-        const edReedDebate = allData.find((d: any) => d.id === 'e59863ee-9213-4c16-86a9-bd4c25621048')
-        if (edReedDebate) {
-          console.log('ED Reed debate in API response:', {
-            id: edReedDebate.id,
-            topic: edReedDebate.topic,
-            hasImages: edReedDebate.images !== null && edReedDebate.images !== undefined,
-            imagesCount: edReedDebate.images?.length || 0,
-            images: edReedDebate.images
-          })
-        }
       }
 
-      // Fetch belt challenges that are pending (where user is the belt holder - challenges TO their belts)
-      let beltChallenges: any[] = []
-      try {
-        // Add cache-busting to ensure fresh data
-        const beltResponse = await fetch(`/api/belts/challenges?t=${Date.now()}`, {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-          },
-        })
-        if (beltResponse.ok) {
-          const beltData = await beltResponse.json()
-          // Get challenges TO user's belts (where user is the belt holder)
-          const challengesToMyBelts = beltData.challengesToMyBelts || []
-          // Convert belt challenges to a format compatible with debate challenges
-          // Only include PENDING challenges for "All Challenges" (exclude COMPLETED, DECLINED)
-          beltChallenges = challengesToMyBelts
-            .filter((bc: any) => {
-              // Explicitly filter out DECLINED and COMPLETED
-              return bc.status === 'PENDING' && bc.status !== 'COMPLETED' && bc.status !== 'DECLINED'
-            }) // Only show pending challenges
-            .map((bc: any) => ({
-              id: `belt-${bc.id}`,
-              topic: bc.debateTopic || `Challenge for ${bc.belt.name}`,
-              description: bc.debateDescription,
-              category: bc.belt.category || bc.debateCategory,
-              challengerId: bc.challengerId,
-              challenger: bc.challenger,
-              challengeType: 'BELT',
-              isBeltChallenge: true,
-              beltChallengeId: bc.id,
-              belt: bc.belt,
-              entryFee: bc.entryFee,
-              coinReward: bc.coinReward,
-              createdAt: bc.createdAt,
-              expiresAt: bc.expiresAt,
-              status: bc.status, // Include status for filtering
-            }))
-        }
-      } catch (error) {
-        console.error('Failed to fetch belt challenges:', error)
+      // Process belt challenges (single fetch, reused for both tabs)
+      let challengesToMyBelts: any[] = []
+      if (beltResponse.ok) {
+        const beltData = await beltResponse.json()
+        challengesToMyBelts = beltData.challengesToMyBelts || []
       }
+
+      // PENDING belt challenges for "All Challenges" tab
+      const beltChallenges = challengesToMyBelts
+        .filter((bc: any) => bc.status === 'PENDING')
+        .map((bc: any) => ({
+          id: `belt-${bc.id}`,
+          topic: bc.debateTopic || `Challenge for ${bc.belt.name}`,
+          description: bc.debateDescription,
+          category: bc.belt.category || bc.debateCategory,
+          challengerId: bc.challengerId,
+          challenger: bc.challenger,
+          challengeType: 'BELT',
+          isBeltChallenge: true,
+          beltChallengeId: bc.id,
+          belt: bc.belt,
+          entryFee: bc.entryFee,
+          coinReward: bc.coinReward,
+          createdAt: bc.createdAt,
+          expiresAt: bc.expiresAt,
+          status: bc.status,
+        }))
 
       // Combine debate challenges and belt challenges
       const combinedChallenges = [...allData, ...beltChallenges]
@@ -172,15 +144,8 @@ export function ChallengesPanel() {
       // Filter challenges based on type and user
       if (user) {
         const filtered = combinedChallenges.filter((d: any) => {
-          // Belt challenges are always shown (they're challenges TO the user's belts)
-          if (d.isBeltChallenge) {
-            return true
-          }
-          // Show open challenges to everyone
-          if (d.challengeType === 'OPEN' || !d.challengeType) {
-            return true
-          }
-          // Show direct/group challenges only if user is invited
+          if (d.isBeltChallenge) return true
+          if (d.challengeType === 'OPEN' || !d.challengeType) return true
           if (d.challengeType === 'DIRECT' || d.challengeType === 'GROUP') {
             if (d.invitedUserIds) {
               try {
@@ -196,91 +161,35 @@ export function ChallengesPanel() {
         })
         setChallenges(filtered)
       } else {
-        // For non-logged-in users, only show open challenges (no belt challenges)
         setChallenges(allData.filter((d: any) => d.challengeType === 'OPEN' || !d.challengeType))
       }
 
-      // Fetch user's challenges
-      if (user) {
-        const myResponse = await fetch(`/api/debates?userId=${user.id}&status=WAITING&t=${Date.now()}`, {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-          },
-        })
-        let myData: any[] = []
-        if (myResponse.ok) {
-          const responseData = await myResponse.json()
-          // Handle paginated response format: { debates: [...], pagination: {...} }
-          // or array format for backwards compatibility
-          const debates = responseData.debates || (Array.isArray(responseData) ? responseData : [])
-          console.log('[ChallengesPanel] Raw API response for My Challenges:', {
-            responseDataKeys: Object.keys(responseData),
-            debatesArray: Array.isArray(debates),
-            debatesLength: debates.length,
-            userId: user.id,
-            firstDebate: debates[0] ? {
-              id: debates[0].id,
-              challengerId: debates[0].challengerId,
-              topic: debates[0].topic?.substring(0, 50),
-            } : null,
-          })
-          // Filter to only show debates where user is the challenger (debates they created)
-          myData = debates.filter((d: any) => {
-            const isMyChallenge = d.challengerId === user.id
-            if (!isMyChallenge && debates.length > 0) {
-              console.log('[ChallengesPanel] Debate filtered out:', {
-                id: d.id,
-                challengerId: d.challengerId,
-                userId: user.id,
-                match: d.challengerId === user.id,
-              })
-            }
-            return isMyChallenge
-          })
-          console.log('[ChallengesPanel] My Challenges after filtering:', {
-            totalDebates: debates.length,
-            myChallenges: myData.length,
-            challengeIds: myData.map((d: any) => d.id),
-            challengeTopics: myData.map((d: any) => d.topic?.substring(0, 40)),
-          })
-        } else {
-          console.error('[ChallengesPanel] Failed to fetch my challenges:', myResponse.status, myResponse.statusText)
-        }
-        
-        // Also fetch ACCEPTED belt challenges (where user is the belt holder)
-        try {
-          const beltResponse = await fetch('/api/belts/challenges')
-          if (beltResponse.ok) {
-            const beltData = await beltResponse.json()
-            const challengesToMyBelts = beltData.challengesToMyBelts || []
-            // Add ACCEPTED belt challenges to "My Challenges" (exclude COMPLETED)
-            const acceptedBeltChallenges = challengesToMyBelts
-              .filter((bc: any) => bc.status === 'ACCEPTED' && bc.status !== 'COMPLETED' && bc.status !== 'DECLINED')
-              .map((bc: any) => ({
-                id: `belt-accepted-${bc.id}`,
-                topic: bc.debateTopic || `Challenge for ${bc.belt.name}`,
-                description: bc.debateDescription,
-                category: bc.belt.category || bc.debateCategory,
-                challengerId: bc.challengerId,
-                challenger: bc.challenger,
-                challengeType: 'BELT',
-                isBeltChallenge: true,
-                beltChallengeId: bc.id,
-                belt: bc.belt,
-                status: bc.status,
-                debateId: bc.debateId, // Link to the created debate
-                createdAt: bc.createdAt,
-              }))
-            myData = [...myData, ...acceptedBeltChallenges]
-          }
-        } catch (error) {
-          console.error('Failed to fetch accepted belt challenges:', error)
-        }
-        
-        // Don't show rematch requests in "My Challenges" for the requester
-        // They already see it on the debate page
-        // Only show regular waiting challenges
+      // Process user's challenges
+      if (user && myResponse && myResponse.ok) {
+        const responseData = await myResponse.json()
+        const debates = responseData.debates || (Array.isArray(responseData) ? responseData : [])
+        let myData = debates.filter((d: any) => d.challengerId === user.id)
+
+        // Add ACCEPTED belt challenges to "My Challenges" (reuse same belt data)
+        const acceptedBeltChallenges = challengesToMyBelts
+          .filter((bc: any) => bc.status === 'ACCEPTED')
+          .map((bc: any) => ({
+            id: `belt-accepted-${bc.id}`,
+            topic: bc.debateTopic || `Challenge for ${bc.belt.name}`,
+            description: bc.debateDescription,
+            category: bc.belt.category || bc.debateCategory,
+            challengerId: bc.challengerId,
+            challenger: bc.challenger,
+            challengeType: 'BELT',
+            isBeltChallenge: true,
+            beltChallengeId: bc.id,
+            belt: bc.belt,
+            status: bc.status,
+            debateId: bc.debateId,
+            createdAt: bc.createdAt,
+          }))
+        myData = [...myData, ...acceptedBeltChallenges]
+
         setMyChallenges(myData)
       }
     } catch (error) {
@@ -544,15 +453,11 @@ export function ChallengesPanel() {
     }
     
     try {
-      console.log('Fetching pending rematches for winner:', user.id, user.username)
       const response = await fetch('/api/debates/rematch-pending')
       if (response.ok) {
         const data = await response.json()
-        console.log('Pending rematches fetched:', data.length, data)
         setPendingRematches(data || [])
       } else {
-        const errorText = await response.text()
-        console.error('Failed to fetch pending rematches:', response.status, errorText)
         setPendingRematches([])
       }
     } catch (error) {
@@ -668,20 +573,7 @@ export function ChallengesPanel() {
                       )}
                       
                       {/* Display images if available */}
-                      {(() => {
-                        // Debug logging for ED Reed debate
-                        if (challenge.id === 'e59863ee-9213-4c16-86a9-bd4c25621048') {
-                          console.log('Rendering ED Reed challenge card:', {
-                            id: challenge.id,
-                            topic: challenge.topic,
-                            images: challenge.images,
-                            imagesType: typeof challenge.images,
-                            isArray: Array.isArray(challenge.images),
-                            length: challenge.images?.length || 0
-                          })
-                        }
-                        return challenge.images && Array.isArray(challenge.images) && challenge.images.length > 0
-                      })() && (
+                      {challenge.images && Array.isArray(challenge.images) && challenge.images.length > 0 && (
                         <div className="mb-3">
                           <div className={`grid gap-2 ${
                             challenge.images.length === 1 ? 'grid-cols-1' :
@@ -697,13 +589,7 @@ export function ChallengesPanel() {
                                   alt={image.alt || challenge.topic}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
-                                    console.error('Failed to load debate image:', image.url)
                                     e.currentTarget.style.display = 'none'
-                                  }}
-                                  onLoad={() => {
-                                    if (challenge.id === 'e59863ee-9213-4c16-86a9-bd4c25621048') {
-                                      console.log('Image loaded successfully:', image.url)
-                                    }
                                   }}
                                 />
                               </div>
@@ -874,7 +760,6 @@ export function ChallengesPanel() {
                                   alt={image.alt || challenge.topic}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
-                                    console.error('Failed to load debate image:', image.url)
                                     e.currentTarget.style.display = 'none'
                                   }}
                                 />

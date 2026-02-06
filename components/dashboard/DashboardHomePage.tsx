@@ -33,7 +33,7 @@ export function DashboardHomePage() {
 
     const checkBeltChallenges = async () => {
       try {
-        const response = await fetch(`/api/belts/challenges?t=${Date.now()}`, {
+        const response = await fetch('/api/belts/challenges', {
           cache: 'no-store',
         })
         if (response.ok) {
@@ -156,24 +156,28 @@ export function DashboardHomePage() {
       }
     }
 
-    checkMyTurn()
-    checkBeltChallenges()
-    
+    // Delay initial check to avoid competing with ArenaPanel's initial fetches
+    const initialTimeout = setTimeout(() => {
+      checkMyTurn()
+      checkBeltChallenges()
+    }, 2000)
+
     // Listen for debate updates (e.g., when user submits)
     const handleDebateUpdate = () => {
       checkMyTurn()
     }
-    
+
     window.addEventListener('debate-updated', handleDebateUpdate)
     window.addEventListener('statement-submitted', handleDebateUpdate)
-    
-    // Check every 30 seconds
+
+    // Check every 60 seconds (reduced from 30s)
     const interval = setInterval(() => {
       checkMyTurn()
       checkBeltChallenges()
-    }, 30000)
+    }, 60000)
     
     return () => {
+      clearTimeout(initialTimeout)
       clearInterval(interval)
       window.removeEventListener('debate-updated', handleDebateUpdate)
       window.removeEventListener('statement-submitted', handleDebateUpdate)

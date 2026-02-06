@@ -27,6 +27,7 @@ export function ArenaPanel() {
 
   useEffect(() => {
     fetchCategories()
+    fetchDebates()
   }, [])
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export function ArenaPanel() {
 
   useEffect(() => {
     fetchDebates()
-  }, [filter, myActiveDebate])
+  }, [filter])
 
   const fetchCategories = async () => {
     try {
@@ -111,36 +112,19 @@ export function ArenaPanel() {
     
     try {
       setIsLoadingMyDebate(true)
-      // Only fetch ACTIVE debates (exclude COMPLETED, VERDICT_READY, WAITING)
-      // Add cache-busting to ensure fresh data
-      const response = await fetch(`/api/debates?userId=${user.id}&status=ACTIVE&t=${Date.now()}`, {
+      const response = await fetch(`/api/debates?userId=${user.id}&status=ACTIVE`, {
         cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
       })
       if (response.ok) {
         const data = await response.json()
           const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
-          console.log('[ArenaPanel] fetchMyActiveDebate - debates found:', debates.length, debates.map((d: any) => ({ id: d.id, status: d.status, topic: d.topic?.substring(0, 40) })))
-          // Only show ACTIVE debates (exclude COMPLETED, VERDICT_READY, WAITING)
-          // Double-check status to ensure we don't show completed debates
-          const active = debates.find((d: any) => 
-            d.status === 'ACTIVE' && 
-            !d.winnerId &&
-            d.status !== 'COMPLETED' &&
-            d.status !== 'VERDICT_READY' &&
-            d.status !== 'WAITING'
+          const active = debates.find((d: any) =>
+            d.status === 'ACTIVE' && !d.winnerId
           )
         
         if (active) {
-          console.log('[ArenaPanel] fetchMyActiveDebate - active debate found:', active.id, active.topic?.substring(0, 40))
-          // Fetch full details
-          const detailResponse = await fetch(`/api/debates/${active.id}?t=${Date.now()}`, {
+          const detailResponse = await fetch(`/api/debates/${active.id}`, {
             cache: 'no-store',
-            headers: {
-              'Cache-Control': 'no-cache',
-            },
           })
           if (detailResponse.ok) {
             const fullDebate = await detailResponse.json()
@@ -155,17 +139,12 @@ export function ArenaPanel() {
                 authorId: s.author.id,
               })) || [],
             })
-            console.log('[ArenaPanel] fetchMyActiveDebate - set myActiveDebate:', active.id)
           } else {
-            console.log('[ArenaPanel] fetchMyActiveDebate - detail fetch failed:', detailResponse.status)
             setMyActiveDebate(active)
           }
         } else {
-          console.log('[ArenaPanel] fetchMyActiveDebate - no active debate found')
           setMyActiveDebate(null)
         }
-      } else {
-        console.error('[ArenaPanel] fetchMyActiveDebate - API error:', response.status, response.statusText)
       }
     } catch (error) {
       console.error('[ArenaPanel] Failed to fetch my active debate:', error)
