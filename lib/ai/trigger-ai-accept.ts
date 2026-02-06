@@ -32,7 +32,9 @@ export async function triggerAIAutoAccept(): Promise<number> {
     let accepted = 0
 
     for (const aiUser of aiUsers) {
-      const delayMs = aiUser.aiResponseDelay || 3600000 // Default 1 hour
+      // Accept delay: use a short window so bots pick up challenges quickly
+      // Cap at 5 min — aiResponseDelay may be tuned for response timing, not acceptance
+      const delayMs = Math.min(aiUser.aiResponseDelay || 150000, 300000)
       const cutoffTime = new Date(Date.now() - delayMs)
 
       const eligible = allOpenChallenges
@@ -72,6 +74,14 @@ export async function triggerAIAutoAccept(): Promise<number> {
             }),
           ])
           accepted++
+
+          // Trigger AI's opening argument (respects the response delay)
+          try {
+            const { triggerAIResponseForDebate } = await import('./trigger-ai-response')
+            await triggerAIResponseForDebate(challenge.id)
+          } catch {
+            // Response will be triggered when someone views the debate
+          }
         } catch {
           // Likely race condition — another process already accepted this challenge
         }
