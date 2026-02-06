@@ -20,7 +20,7 @@ export function DashboardHomePage() {
   const [hasBeltChallenge, setHasBeltChallenge] = useState(false)
   const { user } = useAuth()
 
-  // Check for belt challenges and your turn
+  // Check for belt challenges and your turn using lightweight endpoints
   useEffect(() => {
     if (!user) {
       setIsMyTurn(false)
@@ -33,157 +33,66 @@ export function DashboardHomePage() {
 
     const checkBeltChallenges = async () => {
       try {
-        const response = await fetch('/api/belts/challenges', {
-          cache: 'no-store',
-        })
+        const response = await fetch('/api/belts/challenges', { cache: 'no-store' })
         if (response.ok) {
           const data = await response.json()
-          const challengesToMyBelts = data.challengesToMyBelts || []
-          // Only count PENDING challenges (exclude DECLINED, COMPLETED, ACCEPTED)
-          const pendingChallenges = challengesToMyBelts.filter(
-            (challenge: any) => challenge.status === 'PENDING'
+          const pendingChallenges = (data.challengesToMyBelts || []).filter(
+            (c: any) => c.status === 'PENDING'
           )
-          if (pendingChallenges.length > 0) {
-            setHasBeltChallenge(true)
+          const hasPending = pendingChallenges.length > 0
+          setHasBeltChallenge(hasPending)
+          if (hasPending) {
             setShowBlink(true)
-            // Stop blinking after 10 seconds for belt challenges
-            if (blinkTimeout) {
-              clearTimeout(blinkTimeout)
-            }
-            blinkTimeout = setTimeout(() => {
-              setShowBlink(false)
-            }, 10000)
-          } else {
-            setHasBeltChallenge(false)
-            setShowBlink(false)
-            if (blinkTimeout) {
-              clearTimeout(blinkTimeout)
-            }
-          }
-        } else {
-          setHasBeltChallenge(false)
-          setShowBlink(false)
-          if (blinkTimeout) {
-            clearTimeout(blinkTimeout)
+            if (blinkTimeout) clearTimeout(blinkTimeout)
+            blinkTimeout = setTimeout(() => setShowBlink(false), 10000)
           }
         }
-      } catch (error) {
-        console.error('Failed to check belt challenges:', error)
+      } catch {
         setHasBeltChallenge(false)
-        setShowBlink(false)
-        if (blinkTimeout) {
-          clearTimeout(blinkTimeout)
-        }
       }
     }
 
+    // Use lightweight /api/debates/your-turn instead of fetching full debate details
     const checkMyTurn = async () => {
       try {
-        const response = await fetch(`/api/debates?userId=${user.id}&status=ACTIVE`)
+        const response = await fetch('/api/debates/your-turn')
         if (response.ok) {
           const data = await response.json()
-          const debates = Array.isArray(data) ? data : (Array.isArray(data.debates) ? data.debates : [])
-          const activeDebate = debates.find((d: any) => d.status === 'ACTIVE')
-          
-          if (activeDebate) {
-            // Fetch full debate details to check statements
-            const detailResponse = await fetch(`/api/debates/${activeDebate.id}`)
-            if (detailResponse.ok) {
-              const fullDebate = await detailResponse.json()
-              
-              // Check if it's user's turn
-              const currentRoundStatements = (fullDebate.statements || []).filter(
-                (s: any) => s.round === fullDebate.currentRound
-              )
-              const challengerSubmitted = currentRoundStatements.some(
-                (s: any) => s.author.id === fullDebate.challenger.id
-              )
-              const opponentSubmitted = fullDebate.opponent && currentRoundStatements.some(
-                (s: any) => s.author.id === fullDebate.opponent.id
-              )
-              const userSubmitted = currentRoundStatements.some(
-                (s: any) => s.author.id === user.id
-              )
-              const isChallenger = user.id === fullDebate.challenger.id
-              const isOpponent = fullDebate.opponent && user.id === fullDebate.opponent.id
-              
-              // Determine if it's user's turn
-              let turnStatus = false
-              if (currentRoundStatements.length === 0 && isChallenger) {
-                turnStatus = true
-              } else if (isChallenger && opponentSubmitted && !challengerSubmitted) {
-                turnStatus = true
-              } else if (isOpponent && challengerSubmitted && !opponentSubmitted) {
-                turnStatus = true
-              }
-              
-              // Only show blink if it's their turn AND they haven't submitted
-              if (turnStatus && !userSubmitted) {
-                setIsMyTurn(true)
-                // Start blinking
-                setShowBlink(true)
-                // Clear any existing timeout
-                if (blinkTimeout) {
-                  clearTimeout(blinkTimeout)
-                }
-                // Stop blinking after 5 seconds
-                blinkTimeout = setTimeout(() => {
-                  setShowBlink(false)
-                }, 5000)
-              } else {
-                setIsMyTurn(false)
-                setShowBlink(false)
-                if (blinkTimeout) {
-                  clearTimeout(blinkTimeout)
-                }
-              }
-            }
+          if (data.hasTurn) {
+            setIsMyTurn(true)
+            setShowBlink(true)
+            if (blinkTimeout) clearTimeout(blinkTimeout)
+            blinkTimeout = setTimeout(() => setShowBlink(false), 5000)
           } else {
             setIsMyTurn(false)
-            setShowBlink(false)
-            if (blinkTimeout) {
-              clearTimeout(blinkTimeout)
-            }
           }
         }
-      } catch (error) {
-        console.error('Failed to check turn status:', error)
+      } catch {
         setIsMyTurn(false)
-        setShowBlink(false)
-        if (blinkTimeout) {
-          clearTimeout(blinkTimeout)
-        }
       }
     }
 
-    // Delay initial check to avoid competing with ArenaPanel's initial fetches
+    // Delay initial check to avoid competing with panel fetches
     const initialTimeout = setTimeout(() => {
       checkMyTurn()
       checkBeltChallenges()
     }, 2000)
 
-    // Listen for debate updates (e.g., when user submits)
-    const handleDebateUpdate = () => {
-      checkMyTurn()
-    }
-
+    const handleDebateUpdate = () => checkMyTurn()
     window.addEventListener('debate-updated', handleDebateUpdate)
     window.addEventListener('statement-submitted', handleDebateUpdate)
 
-    // Check every 60 seconds (reduced from 30s)
     const interval = setInterval(() => {
       checkMyTurn()
       checkBeltChallenges()
     }, 60000)
-    
+
     return () => {
       clearTimeout(initialTimeout)
       clearInterval(interval)
       window.removeEventListener('debate-updated', handleDebateUpdate)
       window.removeEventListener('statement-submitted', handleDebateUpdate)
-      if (blinkTimeout) {
-        clearTimeout(blinkTimeout)
-      }
+      if (blinkTimeout) clearTimeout(blinkTimeout)
     }
   }, [user])
 

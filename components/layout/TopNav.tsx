@@ -48,162 +48,71 @@ export function TopNav({ currentPanel }: TopNavProps) {
     }
   }
 
-  useEffect(() => {
-    if (user && isMounted) {
-      // On advertiser dashboard - explicitly set count to 0 and don't fetch
-      if (currentPanel === 'ADVERTISER') {
-        setUnreadCount(0)
-      } else {
-        // Only fetch notifications if not on advertiser dashboard
-        fetchUnreadCount()
-        // Poll for new notifications every 30 seconds
-        const interval = setInterval(fetchUnreadCount, 30000)
-        return () => clearInterval(interval)
-      }
-      fetchUserTier()
-      checkIfAdvertiser()
-      fetchAccountCount()
-      fetchBeltCount()
-      fetchCoinBalance()
-    }
-  }, [user, isMounted, currentPanel])
-
-  const fetchAccountCount = async () => {
+  // Fetch all nav data in a single API call (replaces 6 separate calls)
+  const fetchNavData = async () => {
     try {
-      if (typeof window === 'undefined') return
-      const linkedAccountIds = JSON.parse(localStorage.getItem('argufight_linked_accounts') || '[]')
-      const response = await fetch('/api/auth/sessions', {
+      const linkedAccountIds = typeof window !== 'undefined'
+        ? JSON.parse(localStorage.getItem('argufight_linked_accounts') || '[]')
+        : []
+
+      const response = await fetch('/api/nav-data', {
+        credentials: 'include',
         headers: {
           'x-linked-accounts': JSON.stringify(linkedAccountIds),
         },
       })
+
       if (response.ok) {
         const data = await response.json()
-        setAccountCount(data.sessions?.length || 1)
+        if (currentPanel !== 'ADVERTISER') {
+          setUnreadCount(data.unreadCount || 0)
+        }
+        setUserTier(data.tier || 'FREE')
+        setIsAdvertiser(data.isAdvertiser || false)
+        setAccountCount(data.accountCount || 1)
+        setBeltCount(data.beltCount || 0)
+        setCoinBalance(data.coinBalance || 0)
       }
-    } catch (error) {
-      console.error('Failed to fetch account count:', error)
-      setAccountCount(1)
-    }
-  }
-  
-  const checkIfAdvertiser = async () => {
-    try {
-      const response = await fetch('/api/advertiser/me')
-      if (response.ok) {
-        setIsAdvertiser(true)
-      } else if (response.status === 404) {
-        // 404 is expected if user is not an advertiser - not an error
-        setIsAdvertiser(false)
-      } else {
-        // Other errors (401, 403, 500, etc.) - user is not an advertiser
-        setIsAdvertiser(false)
-      }
-    } catch (error) {
-      // Network error - assume not an advertiser
-      // Silently fail - don't log 404s as errors
+    } catch {
+      // Set defaults on error
+      setUserTier('FREE')
       setIsAdvertiser(false)
-    }
-  }
-
-  const fetchUserTier = async () => {
-    try {
-      const response = await fetch('/api/subscriptions')
-      if (response.ok) {
-        const data = await response.json()
-        setUserTier(data.subscription?.tier || 'FREE')
-      }
-    } catch (error) {
-      console.error('Failed to fetch user tier:', error)
-      setUserTier('FREE') // Default to FREE
-    }
-  }
-
-  const fetchBeltCount = async () => {
-    try {
-      const response = await fetch('/api/belts/room', {
-        credentials: 'include',
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        const count = data.currentBelts?.length || 0
-        setBeltCount(count)
-      } else if (response.status === 403) {
-        // Belt system not enabled
-        setBeltCount(0)
-      } else if (response.status === 401) {
-        // Not logged in
-        setBeltCount(0)
-      } else {
-        setBeltCount(0)
-      }
-    } catch (error) {
-      // Silently fail - belt system might not be enabled
-      console.error('[TopNav] Failed to fetch belt count:', error)
+      setAccountCount(1)
       setBeltCount(0)
-    }
-  }
-
-  const fetchCoinBalance = async () => {
-    try {
-      const response = await fetch('/api/profile', {
-        credentials: 'include',
-        cache: 'no-store',
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        const coins = data.coins || 0
-        setCoinBalance(coins)
-      } else {
-        setCoinBalance(0)
-      }
-    } catch (error) {
-      console.error('[TopNav] Failed to fetch coin balance:', error)
       setCoinBalance(0)
     }
   }
 
+  // Lightweight poll for just notification count (used by 30s interval)
   const fetchUnreadCount = async () => {
-    // Don't fetch notifications on advertiser dashboard
     if (currentPanel === 'ADVERTISER') {
       setUnreadCount(0)
       return
     }
-    
     try {
-      // Use cache-busting to prevent stale data
-      const response = await fetch(`/api/notifications?unreadOnly=true&t=${Date.now()}`, {
-        cache: 'no-store',
-        credentials: 'include',
-      })
-      
+      const response = await fetch('/api/nav-data', { credentials: 'include' })
       if (response.ok) {
-        const notifications = await response.json()
-        // Ensure notifications is an array and filter out any that are marked as read
-        const unreadNotifications = Array.isArray(notifications) 
-          ? notifications.filter((n: any) => {
-              // Handle both boolean and string 'false' values
-              const isRead = n.read === true || n.read === 'true' || n.read === 1 || n.read === '1'
-              return !isRead
-            })
-          : []
-        const count = unreadNotifications.length
-
-        // Only update if count changed to prevent unnecessary re-renders
-        if (count !== unreadCount) {
-          setUnreadCount(count)
-        }
-      } else {
-        // If API fails, set count to 0
-        setUnreadCount(0)
+        const data = await response.json()
+        setUnreadCount(data.unreadCount || 0)
       }
-    } catch (error) {
-      console.error('[TopNav] Failed to fetch unread count:', error)
-      setUnreadCount(0)
+    } catch {
+      // ignore
     }
   }
+
+  useEffect(() => {
+    if (user && isMounted) {
+      if (currentPanel === 'ADVERTISER') {
+        setUnreadCount(0)
+      }
+      fetchNavData()
+      // Poll for notification count every 30 seconds
+      const interval = currentPanel !== 'ADVERTISER'
+        ? setInterval(fetchUnreadCount, 30000)
+        : null
+      return () => { if (interval) clearInterval(interval) }
+    }
+  }, [user, isMounted, currentPanel])
 
   const menuItems = isAdvertiser ? [
     {
@@ -402,7 +311,7 @@ export function TopNav({ currentPanel }: TopNavProps) {
           isOpen={isNotificationsOpen}
           onClose={() => {
             setIsNotificationsOpen(false)
-            fetchUnreadCount() // Refresh count when closing
+            fetchUnreadCount()
           }}
         />
       )}
@@ -413,7 +322,7 @@ export function TopNav({ currentPanel }: TopNavProps) {
           <AccountSwitcher
             onClose={() => {
               setIsAccountSwitcherOpen(false)
-              fetchAccountCount() // Refresh account count when switcher closes
+              fetchNavData()
             }}
           />
         )}
