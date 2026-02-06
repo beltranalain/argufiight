@@ -1,14 +1,29 @@
 import { NextResponse } from 'next/server'
-import { verifyAdmin } from '@/lib/auth/session-utils'
+import { verifySession } from '@/lib/auth/session'
+import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { sendPushNotifications } from '@/lib/web-push/vapid-push'
 
 // POST /api/admin/notifications/test-push - Send test push to current admin
 export async function POST() {
   try {
-    const userId = await verifyAdmin()
+    const session = await verifySession()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized', reason: 'no_session' }, { status: 401 })
+    }
+
+    const userId = getUserIdFromSession(session)
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized', reason: 'no_user_id' }, { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true },
+    })
+
+    if (!user?.isAdmin) {
+      return NextResponse.json({ error: 'Forbidden', reason: 'not_admin', userId }, { status: 403 })
     }
 
     // Get admin's subscriptions

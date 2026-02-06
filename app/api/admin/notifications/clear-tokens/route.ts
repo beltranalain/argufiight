@@ -1,13 +1,28 @@
 import { NextResponse } from 'next/server'
-import { verifyAdmin } from '@/lib/auth/session-utils'
+import { verifySession } from '@/lib/auth/session'
+import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
 // GET /api/admin/notifications/clear-tokens - Get push subscription stats
 export async function GET() {
   try {
-    const userId = await verifyAdmin()
+    const session = await verifySession()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized', reason: 'no_session' }, { status: 401 })
+    }
+
+    const userId = getUserIdFromSession(session)
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized', reason: 'no_user_id' }, { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true },
+    })
+
+    if (!user?.isAdmin) {
+      return NextResponse.json({ error: 'Forbidden', reason: 'not_admin', userId }, { status: 403 })
     }
 
     const totalTokens = await prisma.fCMToken.count()
@@ -44,16 +59,30 @@ export async function GET() {
     })
   } catch (error: any) {
     console.error('Failed to get push subscription stats:', error)
-    return NextResponse.json({ error: 'Failed to get stats' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to get stats', details: error.message }, { status: 500 })
   }
 }
 
 // DELETE /api/admin/notifications/clear-tokens - Purge all push subscriptions
 export async function DELETE() {
   try {
-    const userId = await verifyAdmin()
+    const session = await verifySession()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized', reason: 'no_session' }, { status: 401 })
+    }
+
+    const userId = getUserIdFromSession(session)
     if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized', reason: 'no_user_id' }, { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isAdmin: true },
+    })
+
+    if (!user?.isAdmin) {
+      return NextResponse.json({ error: 'Forbidden', reason: 'not_admin', userId }, { status: 403 })
     }
 
     const deleted = await prisma.fCMToken.deleteMany({})
@@ -67,6 +96,6 @@ export async function DELETE() {
     })
   } catch (error: any) {
     console.error('Failed to clear push subscriptions:', error)
-    return NextResponse.json({ error: 'Failed to clear push subscriptions' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to clear push subscriptions', details: error.message }, { status: 500 })
   }
 }
