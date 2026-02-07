@@ -1217,18 +1217,20 @@ function SectionImagesManager({
               id={`image-upload-${sectionId}`}
               disabled={isUploading}
             />
-            <label
-              htmlFor={`image-upload-${sectionId}`}
-              className={`cursor-pointer text-electric-blue hover:text-[#00B8E6] transition-colors ${
-                isUploading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {isUploading ? 'Uploading...' : '+ Add Image'}
-            </label>
-            {isUploading && (
-              <div className="mt-2">
-                <div className="inline-block w-4 h-4 border-2 border-electric-blue border-t-transparent rounded-full animate-spin" />
+            {isUploading ? (
+              <div className="flex flex-col items-center gap-2">
+                <LoadingSpinner size="md" />
+                <span className="text-electric-blue text-sm font-medium">
+                  Uploading image...
+                </span>
               </div>
+            ) : (
+              <label
+                htmlFor={`image-upload-${sectionId}`}
+                className="cursor-pointer text-electric-blue hover:text-[#00B8E6] font-medium"
+              >
+                + Add Image
+              </label>
             )}
           </div>
         </div>
@@ -1411,6 +1413,7 @@ function MediaLibraryModal({
   const [isUploading, setIsUploading] = useState(false)
 
   const handleUpload = async (file: File) => {
+    if (isUploading) return
     setIsUploading(true)
     try {
       const formData = new FormData()
@@ -1428,6 +1431,13 @@ function MediaLibraryModal({
           description: 'Image added to media library',
         })
         onUpload()
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        showToast({
+          type: 'error',
+          title: 'Upload Failed',
+          description: errorData.error || `Upload failed (${response.status})`,
+        })
       }
     } catch (error) {
       showToast({
@@ -1443,23 +1453,40 @@ function MediaLibraryModal({
   return (
     <Modal isOpen={true} onClose={onClose} title="Media Library" size="lg">
       <div className="space-y-4">
-        <div className="border-2 border-dashed border-bg-tertiary rounded-lg p-8 text-center">
+        <div
+          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+            isUploading
+              ? 'border-electric-blue/50 bg-electric-blue/5'
+              : 'border-bg-tertiary hover:border-electric-blue/30'
+          }`}
+        >
           <input
             type="file"
             accept="image/*"
+            disabled={isUploading}
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) handleUpload(file)
+              if (e.target) e.target.value = ''
             }}
             className="hidden"
             id="media-upload"
           />
-          <label
-            htmlFor="media-upload"
-            className="cursor-pointer text-electric-blue hover:text-[#00B8E6]"
-          >
-            {isUploading ? 'Uploading...' : '+ Upload Image'}
-          </label>
+          {isUploading ? (
+            <div className="flex flex-col items-center gap-2 py-2">
+              <LoadingSpinner size="md" />
+              <span className="text-electric-blue text-sm font-medium">
+                Uploading image...
+              </span>
+            </div>
+          ) : (
+            <label
+              htmlFor="media-upload"
+              className="cursor-pointer text-electric-blue hover:text-[#00B8E6] font-medium"
+            >
+              + Upload Image
+            </label>
+          )}
         </div>
 
         <div className="grid grid-cols-3 gap-4 max-h-96 overflow-y-auto">

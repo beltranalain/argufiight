@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
+import { LoadingSpinner } from '@/components/ui/Loading'
 import { RichTextEditor } from '@/components/admin/RichTextEditor'
 import { useToast } from '@/components/ui/Toast'
 import Image from 'next/image'
@@ -652,78 +653,12 @@ export function BlogPostEditor({
 
       {/* Image Selector Modal */}
       {showImageSelector && (
-        <Modal isOpen={true} onClose={() => setShowImageSelector(false)} title="Insert Image" size="lg">
-          <div className="space-y-4">
-            <div className="border-2 border-dashed border-bg-tertiary rounded-lg p-8 text-center">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) {
-                    // Upload the file and insert it
-                    const formData = new FormData()
-                    formData.append('file', file)
-
-                    fetch('/api/admin/content/media', {
-                      method: 'POST',
-                      body: formData,
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                      if (data.media) {
-                        handleImageInsert(data.media.url, data.media.alt || '')
-                        fetchMediaLibrary() // Refresh media library
-                      }
-                    })
-                    .catch(error => {
-                      console.error('Upload failed:', error)
-                      showToast({
-                        type: 'error',
-                        title: 'Upload Failed',
-                        description: 'Failed to upload image',
-                      })
-                    })
-                  }
-                  e.target.value = '' // Reset input
-                }}
-                className="hidden"
-                id="content-image-upload"
-              />
-              <label
-                htmlFor="content-image-upload"
-                className="cursor-pointer text-electric-blue hover:text-[#00B8E6]"
-              >
-                + Upload New Image
-              </label>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-              {mediaLibrary.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => handleImageInsert(item.url, item.alt || '')}
-                  className="relative aspect-square rounded-lg overflow-hidden border-2 border-bg-tertiary hover:border-electric-blue cursor-pointer transition-all"
-                >
-                  {item.url.startsWith('data:') || item.url.includes('blob.vercel-storage.com') ? (
-                    <img
-                      src={item.url}
-                      alt={item.alt || ''}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Image
-                      src={item.url}
-                      alt={item.alt || ''}
-                      fill
-                      className="object-cover"
-                    />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </Modal>
+        <ContentImageSelector
+          mediaLibrary={mediaLibrary}
+          onInsert={handleImageInsert}
+          onClose={() => setShowImageSelector(false)}
+          onMediaRefresh={fetchMediaLibrary}
+        />
       )}
     </Modal>
   )
@@ -744,8 +679,10 @@ function MediaLibrarySelector({
 }) {
   const { showToast } = useToast()
   const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleUpload = async (file: File) => {
+    if (isUploading) return // Prevent double uploads
     setIsUploading(true)
     try {
       const formData = new FormData()
@@ -779,16 +716,25 @@ function MediaLibrarySelector({
       })
     } finally {
       setIsUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
   return (
     <Modal isOpen={true} onClose={onClose} title="Select Featured Image" size="lg">
       <div className="space-y-4">
-        <div className="border-2 border-dashed border-bg-tertiary rounded-lg p-8 text-center">
+        <div
+          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+            isUploading
+              ? 'border-electric-blue/50 bg-electric-blue/5'
+              : 'border-bg-tertiary hover:border-electric-blue/30'
+          }`}
+        >
           <input
+            ref={fileInputRef}
             type="file"
             accept="image/*"
+            disabled={isUploading}
             onChange={(e) => {
               const file = e.target.files?.[0]
               if (file) handleUpload(file)
@@ -796,12 +742,21 @@ function MediaLibrarySelector({
             className="hidden"
             id="media-upload"
           />
-          <label
-            htmlFor="media-upload"
-            className="cursor-pointer text-electric-blue hover:text-[#00B8E6]"
-          >
-            {isUploading ? 'Uploading...' : '+ Upload Image'}
-          </label>
+          {isUploading ? (
+            <div className="flex flex-col items-center gap-2 py-2">
+              <LoadingSpinner size="md" />
+              <span className="text-electric-blue text-sm font-medium">
+                Uploading image...
+              </span>
+            </div>
+          ) : (
+            <label
+              htmlFor="media-upload"
+              className="cursor-pointer text-electric-blue hover:text-[#00B8E6] font-medium"
+            >
+              + Upload Image
+            </label>
+          )}
         </div>
 
         <div className="grid grid-cols-3 gap-4 max-h-96 overflow-y-auto">
@@ -837,3 +792,124 @@ function MediaLibrarySelector({
   )
 }
 
+function ContentImageSelector({
+  mediaLibrary,
+  onInsert,
+  onClose,
+  onMediaRefresh,
+}: {
+  mediaLibrary: MediaItem[]
+  onInsert: (url: string, alt: string) => void
+  onClose: () => void
+  onMediaRefresh: () => void
+}) {
+  const { showToast } = useToast()
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleUpload = async (file: File) => {
+    if (isUploading) return
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/admin/content/media', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.media) {
+          onInsert(data.media.url, data.media.alt || '')
+          onMediaRefresh()
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        showToast({
+          type: 'error',
+          title: 'Upload Failed',
+          description: errorData.error || `Upload failed (${response.status})`,
+        })
+      }
+    } catch (error) {
+      console.error('Upload failed:', error)
+      showToast({
+        type: 'error',
+        title: 'Upload Failed',
+        description: 'Failed to upload image',
+      })
+    } finally {
+      setIsUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="Insert Image" size="lg">
+      <div className="space-y-4">
+        <div
+          className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+            isUploading
+              ? 'border-electric-blue/50 bg-electric-blue/5'
+              : 'border-bg-tertiary hover:border-electric-blue/30'
+          }`}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            disabled={isUploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handleUpload(file)
+            }}
+            className="hidden"
+            id="content-image-upload"
+          />
+          {isUploading ? (
+            <div className="flex flex-col items-center gap-2 py-2">
+              <LoadingSpinner size="md" />
+              <span className="text-electric-blue text-sm font-medium">
+                Uploading image...
+              </span>
+            </div>
+          ) : (
+            <label
+              htmlFor="content-image-upload"
+              className="cursor-pointer text-electric-blue hover:text-[#00B8E6] font-medium"
+            >
+              + Upload New Image
+            </label>
+          )}
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+          {mediaLibrary.map((item) => (
+            <div
+              key={item.id}
+              onClick={() => onInsert(item.url, item.alt || '')}
+              className="relative aspect-square rounded-lg overflow-hidden border-2 border-bg-tertiary hover:border-electric-blue cursor-pointer transition-all"
+            >
+              {item.url.startsWith('data:') || item.url.includes('blob.vercel-storage.com') ? (
+                <img
+                  src={item.url}
+                  alt={item.alt || ''}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <Image
+                  src={item.url}
+                  alt={item.alt || ''}
+                  fill
+                  className="object-cover"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </Modal>
+  )
+}
