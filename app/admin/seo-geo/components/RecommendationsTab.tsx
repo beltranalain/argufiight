@@ -104,6 +104,57 @@ export default function RecommendationsTab() {
     }
   }
 
+  const handleCopyAll = () => {
+    const text = recommendations
+      .map((rec, i) => {
+        const parts = [
+          `${i + 1}. [${rec.severity.toUpperCase()}] ${rec.title}`,
+          `   Category: ${CATEGORY_LABELS[rec.category] || rec.category}`,
+          `   ${rec.description}`,
+        ]
+        if (rec.impact) parts.push(`   Impact: ${rec.impact}`)
+        if (rec.effort) parts.push(`   Effort: ${rec.effort}`)
+        if (rec.pageUrl) parts.push(`   URL: ${rec.pageUrl}`)
+        parts.push(`   Status: ${rec.status}`)
+        return parts.join('\n')
+      })
+      .join('\n\n')
+
+    const header = `SEO & GEO Recommendations (${recommendations.length} items)\n${'='.repeat(50)}\n\n`
+    navigator.clipboard.writeText(header + text)
+    showToast({
+      type: 'success',
+      title: 'Copied',
+      description: `${recommendations.length} recommendations copied to clipboard`,
+    })
+  }
+
+  const handleExportCSV = () => {
+    const headers = ['Severity', 'Category', 'Title', 'Description', 'Impact', 'Effort', 'Status', 'URL']
+    const rows = recommendations.map((rec) => [
+      rec.severity,
+      CATEGORY_LABELS[rec.category] || rec.category,
+      rec.title,
+      rec.description,
+      rec.impact || '',
+      rec.effort || '',
+      rec.status,
+      rec.pageUrl || '',
+    ])
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `seo-recommendations-${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -137,8 +188,8 @@ export default function RecommendationsTab() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      {/* Filters & Actions */}
+      <div className="flex flex-wrap items-center gap-3">
         <select
           value={filterCategory}
           onChange={(e) => setFilterCategory(e.target.value)}
@@ -161,6 +212,25 @@ export default function RecommendationsTab() {
           <option value="implemented">Implemented</option>
           <option value="dismissed">Dismissed</option>
         </select>
+
+        <div className="ml-auto flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleCopyAll}
+            disabled={recommendations.length === 0}
+          >
+            Copy All
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={recommendations.length === 0}
+          >
+            Export CSV
+          </Button>
+        </div>
       </div>
 
       {/* Recommendations List */}
