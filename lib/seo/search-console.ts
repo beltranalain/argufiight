@@ -166,6 +166,69 @@ export async function getSitemapStatus(): Promise<
   }))
 }
 
+// Diagnostic: test connection and list available sites
+export async function testGSCConnection(): Promise<{
+  success: boolean
+  error?: string
+  configuredSiteUrl: string
+  availableSites: Array<{ siteUrl: string; permissionLevel: string }>
+  siteAccessible: boolean
+}> {
+  const credentials = await loadGSCCredentials()
+  if (!credentials) {
+    return {
+      success: false,
+      error: 'Missing credentials (need client_id, client_secret, refresh_token, and site_url)',
+      configuredSiteUrl: '',
+      availableSites: [],
+      siteAccessible: false,
+    }
+  }
+
+  const client = createGSCClient(credentials)
+
+  // Step 1: List all sites the user has access to
+  let availableSites: Array<{ siteUrl: string; permissionLevel: string }> = []
+  try {
+    const sitesResponse = await client.sites.list()
+    availableSites = (sitesResponse.data.siteEntry || []).map((s) => ({
+      siteUrl: s.siteUrl || '',
+      permissionLevel: s.permissionLevel || 'unknown',
+    }))
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return {
+      success: false,
+      error: `Failed to list sites: ${msg}. Make sure the Search Console API is enabled in Google Cloud Console.`,
+      configuredSiteUrl: credentials.siteUrl,
+      availableSites: [],
+      siteAccessible: false,
+    }
+  }
+
+  // Step 2: Check if the configured site URL is in the list
+  const siteAccessible = availableSites.some(
+    (s) => s.siteUrl === credentials.siteUrl
+  )
+
+  if (!siteAccessible) {
+    return {
+      success: false,
+      error: `Site URL "${credentials.siteUrl}" not found in your Search Console properties. Available sites are listed below - update the Site URL in Settings to match one of them exactly.`,
+      configuredSiteUrl: credentials.siteUrl,
+      availableSites,
+      siteAccessible: false,
+    }
+  }
+
+  return {
+    success: true,
+    configuredSiteUrl: credentials.siteUrl,
+    availableSites,
+    siteAccessible: true,
+  }
+}
+
 // OAuth helpers
 export function getOAuthUrl(clientId: string, clientSecret: string, redirectUri: string): string {
   const oauth2Client = new OAuth2Client(clientId, clientSecret, redirectUri)

@@ -39,6 +39,14 @@ export default function SettingsTab() {
   const [gscConnecting, setGscConnecting] = useState(false)
   const [gscSavingCreds, setGscSavingCreds] = useState(false)
   const [gscCredsSaved, setGscCredsSaved] = useState(false)
+  const [gscTesting, setGscTesting] = useState(false)
+  const [gscTestResult, setGscTestResult] = useState<{
+    success: boolean
+    error?: string
+    configuredSiteUrl: string
+    availableSites: Array<{ siteUrl: string; permissionLevel: string }>
+    siteAccessible: boolean
+  } | null>(null)
   const [settings, setSettings] = useState<SEOSettings>({
     siteTitle: '',
     siteDescription: '',
@@ -113,10 +121,21 @@ export default function SettingsTab() {
 
   const checkGscStatus = async () => {
     try {
-      const response = await fetch('/api/admin/seo-geo/search-console')
+      // Use the test endpoint to check connection status without fetching analytics data
+      const response = await fetch('/api/admin/seo-geo/search-console/test')
       if (response.ok) {
         const data = await response.json()
-        setGscConnected(data.connected === true)
+        // Connected if we got a configuredSiteUrl (means all credentials exist)
+        setGscConnected(!!data.configuredSiteUrl)
+      } else {
+        // If test endpoint also fails, fall back to checking if credentials exist via settings
+        const settingsRes = await fetch('/api/admin/seo')
+        if (settingsRes.ok) {
+          const sData = await settingsRes.json()
+          const s = sData.settings || {}
+          // If we have a refresh token (even masked), OAuth was completed
+          setGscConnected(!!s.gsc_refresh_token)
+        }
       }
     } catch {
       // GSC not connected
@@ -221,6 +240,61 @@ export default function SettingsTab() {
         type: 'error',
         title: 'Error',
         description: 'Failed to disconnect',
+      })
+    }
+  }
+
+  const handleTestGsc = async () => {
+    setGscTesting(true)
+    setGscTestResult(null)
+    try {
+      const response = await fetch('/api/admin/seo-geo/search-console/test')
+      const result = await response.json()
+      setGscTestResult(result)
+      if (result.success) {
+        showToast({
+          type: 'success',
+          title: 'Connection OK',
+          description: 'Successfully connected to Google Search Console',
+        })
+      } else {
+        showToast({
+          type: 'error',
+          title: 'Connection Issue',
+          description: result.error || 'Check the details below',
+        })
+      }
+    } catch {
+      showToast({
+        type: 'error',
+        title: 'Test Failed',
+        description: 'Failed to test GSC connection',
+      })
+    } finally {
+      setGscTesting(false)
+    }
+  }
+
+  const handleFixSiteUrl = async (correctUrl: string) => {
+    try {
+      await fetch('/api/admin/seo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gsc_site_url: correctUrl }),
+      })
+      setGscSiteUrl(correctUrl)
+      showToast({
+        type: 'success',
+        title: 'Site URL Updated',
+        description: `Updated to ${correctUrl}`,
+      })
+      // Re-run test
+      await handleTestGsc()
+    } catch {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to update site URL',
       })
     }
   }
@@ -435,17 +509,93 @@ export default function SettingsTab() {
           </p>
 
           {gscConnected ? (
-            <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-              <p className="text-green-400 text-sm mb-3">
-                Google Search Console is connected. Ranking data is available in the Search Console tab.
-              </p>
-              <Button
-                variant="secondary"
-                onClick={handleDisconnectGsc}
-                className="text-red-400 border-red-400/30 hover:bg-red-400/10"
-              >
-                Disconnect GSC
-              </Button>
+            <div className="space-y-4">
+              <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <p className="text-green-400 text-sm mb-3">
+                  Google Search Console is connected. Ranking data is available in the Search Console tab.
+                </p>
+                <div className="flex gap-3">
+                  <Button
+                    variant="secondary"
+                    onClick={handleTestGsc}
+                    disabled={gscTesting}
+                    isLoading={gscTesting}
+                  >
+                    Test Connection
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={handleDisconnectGsc}
+                    className="text-red-400 border-red-400/30 hover:bg-red-400/10"
+                  >
+                    Disconnect GSC
+                  </Button>
+                </div>
+              </div>
+
+              {/* Test Results */}
+              {gscTestResult && (
+                <div className={`p-4 rounded-lg border ${
+                  gscTestResult.success
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-red-500/10 border-red-500/30'
+                }`}>
+                  <h4 className={`text-sm font-medium mb-2 ${
+                    gscTestResult.success ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {gscTestResult.success ? 'Connection Successful' : 'Connection Issue'}
+                  </h4>
+
+                  {gscTestResult.error && (
+                    <p className="text-red-400 text-sm mb-3">{gscTestResult.error}</p>
+                  )}
+
+                  {gscTestResult.configuredSiteUrl && (
+                    <p className="text-text-secondary text-xs mb-2">
+                      Configured URL: <code className="text-white">{gscTestResult.configuredSiteUrl}</code>
+                    </p>
+                  )}
+
+                  {gscTestResult.availableSites.length > 0 && (
+                    <div>
+                      <p className="text-text-secondary text-xs mb-2">
+                        Available sites in your Search Console:
+                      </p>
+                      <div className="space-y-1">
+                        {gscTestResult.availableSites.map((site) => (
+                          <div key={site.siteUrl} className="flex items-center gap-2">
+                            <code className={`text-xs px-2 py-1 rounded ${
+                              site.siteUrl === gscTestResult.configuredSiteUrl
+                                ? 'bg-green-500/20 text-green-400'
+                                : 'bg-bg-tertiary text-white'
+                            }`}>
+                              {site.siteUrl}
+                            </code>
+                            <span className="text-text-secondary text-xs">
+                              ({site.permissionLevel})
+                            </span>
+                            {site.siteUrl !== gscTestResult.configuredSiteUrl && (
+                              <button
+                                onClick={() => handleFixSiteUrl(site.siteUrl)}
+                                className="text-electric-blue text-xs hover:underline"
+                              >
+                                Use this
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {gscTestResult.availableSites.length === 0 && !gscTestResult.success && (
+                    <p className="text-text-secondary text-xs">
+                      No sites found. Make sure the Search Console API is enabled in your Google Cloud project
+                      and the authenticated Google account has access to Search Console properties.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -516,6 +666,41 @@ export default function SettingsTab() {
                   Connect to Google
                 </Button>
               </div>
+
+              {/* Test Results (when not connected yet but credentials saved) */}
+              {gscTestResult && (
+                <div className={`p-4 rounded-lg border ${
+                  gscTestResult.success
+                    ? 'bg-green-500/10 border-green-500/30'
+                    : 'bg-red-500/10 border-red-500/30'
+                }`}>
+                  {gscTestResult.error && (
+                    <p className="text-red-400 text-sm mb-2">{gscTestResult.error}</p>
+                  )}
+                  {gscTestResult.availableSites.length > 0 && (
+                    <div>
+                      <p className="text-text-secondary text-xs mb-2">
+                        Available sites:
+                      </p>
+                      <div className="space-y-1">
+                        {gscTestResult.availableSites.map((site) => (
+                          <div key={site.siteUrl} className="flex items-center gap-2">
+                            <code className="text-xs px-2 py-1 rounded bg-bg-tertiary text-white">
+                              {site.siteUrl}
+                            </code>
+                            <button
+                              onClick={() => handleFixSiteUrl(site.siteUrl)}
+                              className="text-electric-blue text-xs hover:underline"
+                            >
+                              Use this
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </CardBody>
