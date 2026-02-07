@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db/prisma'
 import { hashPassword } from '@/lib/auth/password'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/employees - Create a new employee
 export async function POST(request: NextRequest) {
   try {

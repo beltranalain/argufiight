@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/content/buttons - Create a new button
 export async function POST(request: NextRequest) {
   try {

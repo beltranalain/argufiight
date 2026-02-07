@@ -3,6 +3,8 @@ import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 
+export const dynamic = 'force-dynamic'
+
 // DELETE /api/admin/debates/[id] - Delete a debate (admin only)
 export async function DELETE(
   request: NextRequest,

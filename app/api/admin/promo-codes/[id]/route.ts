@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/admin/promo-codes/[id] - Get a specific promo code
 export async function GET(
   request: NextRequest,

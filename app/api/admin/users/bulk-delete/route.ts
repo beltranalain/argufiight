@@ -3,6 +3,8 @@ import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/users/bulk-delete - Delete multiple users (admin only)
 export async function POST(request: NextRequest) {
   try {

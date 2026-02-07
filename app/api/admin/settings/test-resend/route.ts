@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { getResendKey, createResendClient } from '@/lib/email/resend'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/settings/test-resend - Test Resend API connection
 export async function POST(request: NextRequest) {
   try {

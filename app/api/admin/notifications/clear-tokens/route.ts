@@ -3,6 +3,8 @@ import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/admin/notifications/clear-tokens - Get push subscription stats
 export async function GET() {
   try {

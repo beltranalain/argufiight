@@ -4,6 +4,8 @@ import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { payoutToCreator } from '@/lib/stripe/stripe-client'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/admin/contracts/[id]/payout
  * Manually trigger a payout for a specific contract

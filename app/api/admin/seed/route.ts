@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { JUDGE_PERSONALITIES } from '@/lib/ai/judges'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/seed - Seed database with initial data (admin only)
 export async function POST(request: NextRequest) {
   try {

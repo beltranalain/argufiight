@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { sendAdvertiserRejectionEmail } from '@/lib/email/advertiser-notifications'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

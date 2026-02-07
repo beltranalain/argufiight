@@ -5,6 +5,8 @@ import { prisma } from '@/lib/db/prisma'
 import { generate1099PDF } from '@/lib/taxes/generate1099'
 import { put } from '@vercel/blob'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/creator-taxes/bulk-generate-1099 - Generate 1099 forms for all qualifying creators
 export async function POST(request: NextRequest) {
   try {

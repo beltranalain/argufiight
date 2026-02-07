@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
+export const dynamic = 'force-dynamic'
+
 // DELETE /api/admin/cards/[id]/labels/[labelId] - Remove a label from a card
 export async function DELETE(
   request: NextRequest,

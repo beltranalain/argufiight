@@ -3,6 +3,8 @@ import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/creator-taxes/[creatorId]/1099/[taxYear]/mark-sent - Mark 1099 as sent
 export async function POST(
   request: NextRequest,

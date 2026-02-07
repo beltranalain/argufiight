@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { BetaAnalyticsDataClient } from '@google-analytics/data'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/settings/test-google-analytics - Test Google Analytics connection
 export async function POST(request: NextRequest) {
   try {

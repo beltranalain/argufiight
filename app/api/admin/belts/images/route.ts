@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { put } from '@vercel/blob'
 import { randomBytes } from 'crypto'
 
+export const dynamic = 'force-dynamic'
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const MAX_BASE64_SIZE = 1 * 1024 * 1024 // 1MB - base64 fallback limit
 

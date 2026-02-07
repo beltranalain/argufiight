@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { getUserAppealLimit, adjustAppealCount, setMonthlyLimit } from '@/lib/utils/appeal-limits'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/admin/appeals - Get all appeal limits and statistics
 export async function GET(request: NextRequest) {
   try {

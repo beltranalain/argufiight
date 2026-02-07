@@ -5,6 +5,8 @@ import { prisma } from '@/lib/db/prisma'
 import { unlink } from 'fs/promises'
 import { join } from 'path'
 
+export const dynamic = 'force-dynamic'
+
 // PATCH /api/admin/content/images/[id] - Update image
 export async function PATCH(
   request: NextRequest,

@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db/prisma'
 import { sendAdvertiserApprovalEmail, sendAdvertiserRejectionEmail } from '@/lib/email/advertiser-notifications'
 import { logApiUsage } from '@/lib/ai/api-tracking'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     const userId = await verifyAdmin()

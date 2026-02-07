@@ -4,6 +4,8 @@ import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { sendPushNotifications } from '@/lib/web-push/vapid-push'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/notifications/test-push - Send test push to current admin
 export async function POST() {
   try {

@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { put } from '@vercel/blob'
 
+export const dynamic = 'force-dynamic'
+
 // PUT /api/admin/ai-users/[id] - Update AI user
 export async function PUT(
   request: NextRequest,

@@ -3,6 +3,8 @@ import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
 import { checkInactiveBelts } from '@/lib/belts/core'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/admin/belts/inactive - Get inactive belts
 export async function GET() {
   try {

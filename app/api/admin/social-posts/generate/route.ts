@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { getDeepSeekKey } from '@/lib/ai/deepseek'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/social-posts/generate - Generate AI-powered social media post
 export async function POST(request: NextRequest) {
   try {

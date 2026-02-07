@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db/prisma'
 import { hashPassword } from '@/lib/auth/password'
 import { put } from '@vercel/blob'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/admin/ai-users - List all AI users
 export async function GET(request: NextRequest) {
   try {

@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import crypto from 'crypto'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/notifications/test - Create a test notification for the current admin
 export async function POST(request: NextRequest) {
   try {

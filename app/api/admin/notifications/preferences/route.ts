@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { clearNotificationPreferencesCache } from '@/lib/notifications/notification-preferences'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/admin/notifications/preferences - Get notification preferences
 export async function GET(request: NextRequest) {
   try {

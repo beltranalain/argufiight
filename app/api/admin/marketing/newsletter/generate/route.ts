@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { generateWithDeepSeek } from '@/lib/ai/deepseek'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/marketing/newsletter/generate - Generate email newsletter
 export async function POST(request: NextRequest) {
   try {

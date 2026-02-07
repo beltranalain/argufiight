@@ -3,6 +3,8 @@ import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
 import { addCoins } from '@/lib/belts/coin-economics'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/admin/coins/users/[userId]/grant
  * Grant coins to a user (admin)

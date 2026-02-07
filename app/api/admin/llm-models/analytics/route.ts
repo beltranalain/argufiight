@@ -3,6 +3,8 @@ import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/admin/llm-models/analytics - Get appeal analytics for LLM training
 export async function GET(request: NextRequest) {
   try {

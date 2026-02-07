@@ -3,6 +3,8 @@ import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
 import { createBelt } from '@/lib/belts/core'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/belts - Create a new belt (admin only)
 export async function POST(request: NextRequest) {
   try {

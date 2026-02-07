@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { del } from '@vercel/blob'
 
+export const dynamic = 'force-dynamic'
+
 // DELETE /api/admin/content/media/[id] - Delete media from library
 export async function DELETE(
   request: NextRequest,

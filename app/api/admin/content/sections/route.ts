@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { cache } from '@/lib/utils/cache'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/admin/content/sections - Get all homepage sections
 export async function GET() {
   try {

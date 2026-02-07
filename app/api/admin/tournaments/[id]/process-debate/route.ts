@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { updateTournamentMatchOnDebateComplete } from '@/lib/tournaments/match-completion'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * POST /api/admin/tournaments/process-debate
  * Manually trigger tournament match completion for a debate
  * Used to process already-completed debates that need evaluation
- * 
+ *
  * Body: { debateId: string }
  */
 export async function POST(request: NextRequest) {

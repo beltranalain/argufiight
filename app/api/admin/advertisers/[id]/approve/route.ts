@@ -6,6 +6,8 @@ import { hashPassword } from '@/lib/auth/password'
 import { generateResetToken } from '@/lib/auth/password-reset-tokens'
 import crypto from 'crypto'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

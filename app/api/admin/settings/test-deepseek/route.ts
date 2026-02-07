@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db/prisma'
 import { createDeepSeekClient } from '@/lib/ai/deepseek'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/settings/test-deepseek - Test DeepSeek API connection
 export async function POST(request: NextRequest) {
   try {

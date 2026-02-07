@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { put } from '@vercel/blob'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/admin/advertisements/[id] - Get a specific advertisement
 export async function GET(
   request: NextRequest,

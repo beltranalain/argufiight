@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/seo/sitemap/regenerate - Force sitemap regeneration
 export async function POST() {
   try {

@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db/prisma'
 import { getApiUsageStats } from '@/lib/ai/api-tracking'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: NextRequest) {
   try {
     const session = await verifySession()

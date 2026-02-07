@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
+export const dynamic = 'force-dynamic'
+
 // DELETE /api/admin/cards/[id]/members/[memberId] - Remove member from card
 export async function DELETE(
   request: NextRequest,

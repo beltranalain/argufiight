@@ -3,6 +3,8 @@ import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 
+export const dynamic = 'force-dynamic'
+
 // PUT /api/admin/llm-models/ab-tests/[id] - Update an A/B test
 export async function PUT(
   request: NextRequest,

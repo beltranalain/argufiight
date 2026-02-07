@@ -5,6 +5,8 @@ import { generateWithDeepSeek } from '@/lib/ai/deepseek'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { verifySession } from '@/lib/auth/session'
 
+export const dynamic = 'force-dynamic'
+
 // POST /api/admin/marketing/blog/generate - Generate blog post
 export async function POST(request: NextRequest) {
   try {
