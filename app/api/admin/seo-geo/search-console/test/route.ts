@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { testGSCConnection } from '@/lib/seo/search-console'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const userId = await verifyAdmin()

@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { getGeoAnalysis } from '@/lib/seo/geo-analysis'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const userId = await verifyAdmin()

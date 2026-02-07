@@ -3,6 +3,8 @@ import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { getOAuthUrl, exchangeCodeForTokens } from '@/lib/seo/search-console'
 
+export const dynamic = 'force-dynamic'
+
 // GET: Generate OAuth URL or handle callback
 export async function GET(request: NextRequest) {
   try {

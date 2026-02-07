@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db/prisma'
 import { runFullAudit } from '@/lib/seo/audit-engine'
 import { generateRecommendations } from '@/lib/seo/recommendations-engine'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const userId = await verifyAdmin()
