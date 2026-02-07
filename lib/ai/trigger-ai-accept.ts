@@ -3,7 +3,8 @@ import { prisma } from '@/lib/db/prisma'
 /**
  * Check for and auto-accept open challenges for AI users.
  * Called via after() when debates are listed, or by the daily cron.
- * Only accepts challenges from human users that have been waiting longer than the AI's delay.
+ * Uses round-robin distribution so challenges spread evenly across AI users.
+ * AI users with fewer active debates get priority.
  */
 export async function triggerAIAutoAccept(): Promise<number> {
   try {
@@ -14,34 +15,94 @@ export async function triggerAIAutoAccept(): Promise<number> {
 
     if (aiUsers.length === 0) return 0
 
-    const allOpenChallenges = await prisma.debate.findMany({
-      where: {
-        status: 'WAITING',
-        challengeType: 'OPEN',
-        opponentId: null,
-        // Only accept challenges from human users (prevent AI-to-AI debates)
-        challenger: { isAI: false },
-      },
-      include: {
-        challenger: { select: { id: true, username: true } },
-      },
-    })
+    const [allOpenChallenges, activeDebateCounts] = await Promise.all([
+      prisma.debate.findMany({
+        where: {
+          status: 'WAITING',
+          challengeType: 'OPEN',
+          opponentId: null,
+          challenger: { isAI: false },
+        },
+        include: {
+          challenger: { select: { id: true, username: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      // Count active debates per AI user for load balancing
+      prisma.debate.groupBy({
+        by: ['opponentId'],
+        where: {
+          status: 'ACTIVE',
+          opponentId: { in: aiUsers.map(u => u.id) },
+        },
+        _count: true,
+      }),
+    ])
 
     if (allOpenChallenges.length === 0) return 0
 
-    let accepted = 0
+    // Build load map: AI user id -> active debate count
+    const loadMap = new Map<string, number>()
+    for (const entry of activeDebateCounts) {
+      if (entry.opponentId) loadMap.set(entry.opponentId, entry._count)
+    }
 
-    for (const aiUser of aiUsers) {
-      // Accept delay: use a short window so bots pick up challenges quickly
-      // Cap at 5 min — aiResponseDelay may be tuned for response timing, not acceptance
+    // Sort AI users by fewest active debates (least loaded first)
+    const sortedAiUsers = [...aiUsers].sort((a, b) => {
+      return (loadMap.get(a.id) || 0) - (loadMap.get(b.id) || 0)
+    })
+
+    // Build per-user eligible challenge lists (respecting each user's delay)
+    const perUserEligible = new Map<string, Set<string>>()
+    for (const aiUser of sortedAiUsers) {
       const delayMs = Math.min(aiUser.aiResponseDelay || 150000, 300000)
       const cutoffTime = new Date(Date.now() - delayMs)
+      const ids = new Set(
+        allOpenChallenges
+          .filter(c => c.challengerId !== aiUser.id && c.createdAt <= cutoffTime)
+          .map(c => c.id)
+      )
+      perUserEligible.set(aiUser.id, ids)
+    }
 
-      const eligible = allOpenChallenges
-        .filter(c => c.challengerId !== aiUser.id && c.createdAt <= cutoffTime)
-        .slice(0, 5) // Max 5 per AI user per run
+    // Round-robin distribute challenges across AI users
+    const assignments = new Map<string, string[]>() // aiUserId -> challengeIds
+    const claimed = new Set<string>()
+    const maxPerUser = 5
 
-      for (const challenge of eligible) {
+    for (const aiUser of sortedAiUsers) {
+      assignments.set(aiUser.id, [])
+    }
+
+    // Keep distributing until no more can be assigned
+    let assigned = true
+    while (assigned) {
+      assigned = false
+      for (const aiUser of sortedAiUsers) {
+        const userAssignments = assignments.get(aiUser.id)!
+        if (userAssignments.length >= maxPerUser) continue
+
+        const eligible = perUserEligible.get(aiUser.id)!
+        // Find the first unclaimed challenge for this user
+        for (const challenge of allOpenChallenges) {
+          if (!claimed.has(challenge.id) && eligible.has(challenge.id)) {
+            userAssignments.push(challenge.id)
+            claimed.add(challenge.id)
+            assigned = true
+            break // One per user per round (round-robin)
+          }
+        }
+      }
+    }
+
+    // Execute the assignments
+    let accepted = 0
+    const challengeMap = new Map(allOpenChallenges.map(c => [c.id, c]))
+
+    for (const aiUser of sortedAiUsers) {
+      const challengeIds = assignments.get(aiUser.id)!
+      for (const challengeId of challengeIds) {
+        const challenge = challengeMap.get(challengeId)!
         try {
           await prisma.$transaction([
             prisma.debate.update({
