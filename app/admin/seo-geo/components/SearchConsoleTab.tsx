@@ -81,6 +81,7 @@ export default function SearchConsoleTab({
 }) {
   const [data, setData] = useState<GSCData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [timeRange, setTimeRange] = useState('28d')
   const [sortConfig, setSortConfig] = useState<{
     table: string
@@ -106,12 +107,20 @@ export default function SearchConsoleTab({
       const response = await fetch(
         `/api/admin/seo-geo/search-console?type=overview&startDate=${startDate}&endDate=${endDate}`
       )
+      const result = await response.json()
       if (response.ok) {
-        const result = await response.json()
         setData(result)
+        setError(null)
+      } else {
+        setError(result.error || 'Failed to fetch data')
+        // Still set connected status if available
+        if (result.connected === false) {
+          setData({ connected: false })
+        }
       }
-    } catch (error) {
-      console.error('Failed to fetch GSC data:', error)
+    } catch (err) {
+      console.error('Failed to fetch GSC data:', err)
+      setError('Network error fetching Search Console data')
     } finally {
       setIsLoading(false)
     }
@@ -142,6 +151,48 @@ export default function SearchConsoleTab({
     return (
       <div className="flex items-center justify-center h-64">
         <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  // Error state (connected but data fetch failed)
+  if (error && data?.connected !== false) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-white">Google Search Console</h2>
+          <p className="text-text-secondary">
+            Connect Google Search Console to see how your site performs in Google Search
+          </p>
+        </div>
+
+        <Card>
+          <CardBody className="p-8">
+            <div className="max-w-lg mx-auto text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
+                <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">
+                Error Fetching Data
+              </h3>
+              <p className="text-red-400 text-sm mb-2">{error}</p>
+              <p className="text-text-secondary text-sm mb-6">
+                Search Console is connected but there was an error fetching data.
+                This may be a site URL mismatch or permission issue.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Button variant="secondary" onClick={fetchData}>
+                  Retry
+                </Button>
+                <Button variant="secondary" onClick={() => onTabChange('settings')}>
+                  Check Settings
+                </Button>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
       </div>
     )
   }
