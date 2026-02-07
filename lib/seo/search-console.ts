@@ -221,6 +221,36 @@ export async function testGSCConnection(): Promise<{
     }
   }
 
+  // Step 3: Try a test analytics query to verify full access
+  let queryError: string | null = null
+  try {
+    const end = new Date()
+    const start = new Date()
+    start.setDate(start.getDate() - 7)
+    await client.searchanalytics.query({
+      siteUrl: credentials.siteUrl,
+      requestBody: {
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+        dimensions: ['date'],
+        rowLimit: 1,
+      },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    queryError = `Site URL matches but analytics query failed: ${msg}`
+  }
+
+  if (queryError) {
+    return {
+      success: false,
+      error: queryError,
+      configuredSiteUrl: credentials.siteUrl,
+      availableSites,
+      siteAccessible: true,
+    }
+  }
+
   return {
     success: true,
     configuredSiteUrl: credentials.siteUrl,
