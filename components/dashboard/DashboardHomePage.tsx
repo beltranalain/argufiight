@@ -53,14 +53,9 @@ export function DashboardHomePage() {
     }
   }, [])
 
+  // Fire dashboard fetch immediately on mount — the server already verified
+  // the session before rendering this component, so don't wait for useAuth.
   useEffect(() => {
-    if (!user) {
-      setIsMyTurn(false)
-      setShowBlink(false)
-      setDashData({})
-      return
-    }
-
     fetchDashboardData()
 
     // Refresh on events
@@ -80,7 +75,7 @@ export function DashboardHomePage() {
       window.removeEventListener('debate-created', handleUpdate)
       window.removeEventListener('belt-challenge-accepted', handleUpdate)
     }
-  }, [user, fetchDashboardData])
+  }, [fetchDashboardData])
 
   return (
     <div className={`min-h-screen bg-bg-primary relative ${showBlink ? 'slow-blink-orange' : ''}`}>
@@ -116,6 +111,7 @@ export function DashboardHomePage() {
                 initialWaitingDebates={dashData?.waitingDebates}
                 initialUserWaitingDebates={dashData?.userWaitingDebates}
                 initialBeltChallenges={dashData?.belts}
+                initialPendingRematches={dashData?.pendingRematches}
               />
             </div>
 

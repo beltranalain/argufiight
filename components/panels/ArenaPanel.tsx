@@ -21,6 +21,7 @@ interface ArenaPanelProps {
   initialWaitingDebates?: any
   initialUserWaitingDebates?: any
   initialBeltChallenges?: any
+  initialPendingRematches?: any[]
 }
 
 export const ArenaPanel = memo(function ArenaPanel({
@@ -30,6 +31,7 @@ export const ArenaPanel = memo(function ArenaPanel({
   initialWaitingDebates,
   initialUserWaitingDebates,
   initialBeltChallenges,
+  initialPendingRematches,
 }: ArenaPanelProps) {
   const { user } = useAuth()
   const [debates, setDebates] = useState<any[]>([])
@@ -279,6 +281,7 @@ export const ArenaPanel = memo(function ArenaPanel({
             initialWaitingDebates={initialWaitingDebates}
             initialUserWaitingDebates={initialUserWaitingDebates}
             initialBeltChallenges={initialBeltChallenges}
+            initialPendingRematches={initialPendingRematches}
           />
         </div>
       </div>

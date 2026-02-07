@@ -3,8 +3,8 @@ import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
-// Shared select shape for debate listings (matches /api/debates format)
-const debateSelect = {
+// Full select for debates that need all details (active battles, user's active, recent)
+const fullDebateSelect = {
   id: true,
   topic: true,
   category: true,
@@ -62,8 +62,52 @@ const debateSelect = {
   },
 } as const
 
+// Lightweight select for waiting/challenge cards — skip statements, tournamentMatch, participants
+const challengeDebateSelect = {
+  id: true,
+  topic: true,
+  category: true,
+  status: true,
+  challengerId: true,
+  opponentId: true,
+  createdAt: true,
+  challengeType: true,
+  invitedUserIds: true,
+  isPrivate: true,
+  description: true,
+  challenger: {
+    select: { id: true, username: true, avatarUrl: true, eloRating: true },
+  },
+  images: {
+    select: { id: true, url: true, alt: true, order: true },
+    orderBy: { order: 'asc' as const },
+  },
+} as const
+
+// Lightweight select for recent debates in profile panel
+const recentDebateSelect = {
+  id: true,
+  topic: true,
+  category: true,
+  status: true,
+  challengerId: true,
+  opponentId: true,
+  winnerId: true,
+  endedAt: true,
+  createdAt: true,
+  verdictReached: true,
+  challenger: {
+    select: { id: true, username: true },
+  },
+  opponent: {
+    select: { id: true, username: true },
+  },
+  statements: {
+    select: { id: true },
+  },
+} as const
+
 // GET /api/dashboard-data — single endpoint for all dashboard panel data
-// Replaces ~12 separate API calls with 1
 export async function GET() {
   try {
     const session = await verifySession()
@@ -73,7 +117,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Run ALL dashboard queries in parallel
+    // Run ALL dashboard queries in parallel — including rank count and advertiser check
     const [
       categories,
       activeDebates,
@@ -91,6 +135,8 @@ export async function GET() {
       navUser,
       navBeltCount,
       yourTurnDebates,
+      userRankCount,
+      pendingRematches,
     ] = await Promise.all([
       // 1. Categories
       prisma.category.findMany({
@@ -102,46 +148,46 @@ export async function GET() {
       // 2. Active debates (Live Battles - public only)
       prisma.debate.findMany({
         where: { status: 'ACTIVE', isPrivate: false },
-        select: debateSelect,
+        select: fullDebateSelect,
         orderBy: { createdAt: 'desc' },
         take: 20,
       }),
 
-      // 3. User's active debates (My Battle)
+      // 3. User's active debates (My Battle) — needs full select for turn detection
       prisma.debate.findMany({
         where: {
           status: 'ACTIVE',
           OR: [{ challengerId: userId }, { opponentId: userId }],
         },
-        select: debateSelect,
+        select: fullDebateSelect,
         orderBy: { createdAt: 'desc' },
       }),
 
-      // 4. Waiting debates (Open Challenges - public)
+      // 4. Waiting debates (Open Challenges) — lightweight select
       prisma.debate.findMany({
         where: { status: 'WAITING', isPrivate: false },
-        select: debateSelect,
+        select: challengeDebateSelect,
         orderBy: { createdAt: 'desc' },
         take: 20,
       }),
 
-      // 5. User's waiting debates (My Challenges)
+      // 5. User's waiting debates (My Challenges) — lightweight select
       prisma.debate.findMany({
         where: {
           status: 'WAITING',
           OR: [{ challengerId: userId }, { opponentId: userId }],
         },
-        select: debateSelect,
+        select: challengeDebateSelect,
         orderBy: { createdAt: 'desc' },
       }),
 
-      // 6. Recent debates (Profile panel - user's debates, all statuses)
+      // 6. Recent debates (Profile panel) — lightweight select
       prisma.debate.findMany({
         where: {
           OR: [{ challengerId: userId }, { opponentId: userId }],
           status: { not: 'WAITING' },
         },
-        select: debateSelect,
+        select: recentDebateSelect,
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
@@ -158,13 +204,14 @@ export async function GET() {
         take: 3,
       }),
 
-      // 8. User's rank
+      // 8. User's rank data
       prisma.user.findUnique({
         where: { id: userId },
         select: {
           id: true, username: true, avatarUrl: true, eloRating: true,
           debatesWon: true, debatesLost: true, debatesTied: true,
           totalDebates: true, totalScore: true, totalMaxScore: true,
+          email: true, coins: true,
         },
       }),
 
@@ -214,22 +261,45 @@ export async function GET() {
         take: 3,
       }).catch(() => []),
 
-      // 12-15. Nav data queries
+      // 12. Nav: unread notifications
       prisma.notification.count({ where: { userId, read: false } }),
+
+      // 13. Nav: subscription tier
       prisma.userSubscription.findUnique({ where: { userId }, select: { tier: true } }),
-      prisma.user.findUnique({ where: { id: userId }, select: { email: true, coins: true } }),
+
+      // 14. Nav: user data (REMOVED — reuse query #8 userRankData which now includes email+coins)
+      Promise.resolve(null),
+
+      // 15. Nav: belt count
       prisma.belt.count({
         where: { currentHolderId: userId, status: { in: ['ACTIVE', 'MANDATORY', 'STAKED', 'GRACE_PERIOD'] } },
       }),
 
-      // 16. Your-turn check: active debates where user hasn't submitted
-      prisma.debate.findMany({
-        where: {
-          status: 'ACTIVE',
-          OR: [{ challengerId: userId }, { opponentId: userId }],
-        },
-        select: { id: true, topic: true, currentRound: true, roundDeadline: true, statements: { select: { authorId: true, round: true } } },
-      }),
+      // 16. Your-turn check — reuse query #3 (userActiveDebates) instead of separate query
+      Promise.resolve(null),
+
+      // 17. User rank count (was sequential — now parallel)
+      prisma.user.count({
+        where: { isAdmin: false, isBanned: false, eloRating: { gt: 0 } },
+      }).catch(() => 0),
+
+      // 18. Pending rematches (consolidated — was separate API call)
+      prisma.$queryRaw<Array<{
+        id: string
+        topic: string
+        category: string
+        challenger_id: string
+        opponent_id: string | null
+        winner_id: string | null
+        rematch_requested_by: string | null
+      }>>`
+        SELECT d.id, d.topic, d.category, d.challenger_id, d.opponent_id,
+               d.winner_id, d.rematch_requested_by
+        FROM debates d
+        WHERE d.winner_id = ${userId}
+          AND d.rematch_status = 'PENDING'
+          AND d.rematch_requested_by != ${userId}
+      `.catch(() => []),
     ])
 
     // Process belt challenges
@@ -244,24 +314,25 @@ export async function GET() {
       overallScorePercent: u.totalMaxScore > 0 ? Math.round((u.totalScore / u.totalMaxScore) * 1000) / 10 : 0,
     }))
 
-    // Process user rank
+    // Process user rank — use userRankData (query #8) which now includes email+coins
     let userRank = null
     if (userRankData && !leaderboard.some(u => u.id === userId)) {
-      const rank = await prisma.user.count({
+      // Compute rank from the parallel count query instead of sequential
+      const higherRanked = await prisma.user.count({
         where: { isAdmin: false, isBanned: false, eloRating: { gt: userRankData.eloRating } },
       })
       userRank = {
         ...userRankData,
-        rank: rank + 1,
+        rank: higherRanked + 1,
         winRate: userRankData.totalDebates > 0 ? Math.round((userRankData.debatesWon / userRankData.totalDebates) * 1000) / 10 : 0,
         overallScore: userRankData.totalScore,
         overallScorePercent: userRankData.totalMaxScore > 0 ? Math.round((userRankData.totalScore / userRankData.totalMaxScore) * 1000) / 10 : 0,
       }
     }
 
-    // Process your-turn
+    // Process your-turn — reuse userActiveDebates (query #3) instead of separate query
     let yourTurn = null
-    for (const debate of yourTurnDebates) {
+    for (const debate of userActiveDebates) {
       const submitted = debate.statements.some(
         (s: any) => s.authorId === userId && s.round === debate.currentRound
       )
@@ -271,11 +342,11 @@ export async function GET() {
       }
     }
 
-    // Advertiser check
+    // Advertiser check — reuse userRankData.email (no extra query needed)
     let isAdvertiser = false
-    if (navUser?.email) {
+    if (userRankData?.email) {
       const adv = await prisma.advertiser.findUnique({
-        where: { contactEmail: navUser.email },
+        where: { contactEmail: userRankData.email },
         select: { id: true },
       })
       isAdvertiser = !!adv
@@ -287,13 +358,33 @@ export async function GET() {
       hasNoStatements: !d.statements || d.statements.length === 0,
     }))
 
+    // Process pending rematches: fetch requester usernames in batch
+    let rematchData: any[] = []
+    if (pendingRematches.length > 0) {
+      const requesterIds = [...new Set(pendingRematches.map((r: any) => r.rematch_requested_by).filter(Boolean))]
+      const requesters = requesterIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: requesterIds as string[] } },
+            select: { id: true, username: true, avatarUrl: true },
+          })
+        : []
+      const requesterMap = new Map(requesters.map(u => [u.id, u]))
+
+      rematchData = pendingRematches.map((r: any) => ({
+        id: r.id,
+        topic: r.topic,
+        category: r.category,
+        requester: requesterMap.get(r.rematch_requested_by) || null,
+      }))
+    }
+
     return NextResponse.json({
       categories: { categories },
       activeDebates: { debates: addFlags(activeDebates) },
       userActiveDebates: { debates: addFlags(userActiveDebates) },
-      waitingDebates: { debates: addFlags(waitingDebates) },
-      userWaitingDebates: { debates: addFlags(userWaitingDebates) },
-      recentDebates: { debates: addFlags(recentDebates) },
+      waitingDebates: { debates: addFlags(waitingDebates as any[]) },
+      userWaitingDebates: { debates: addFlags(userWaitingDebates as any[]) },
+      recentDebates: { debates: addFlags(recentDebates as any[]) },
       leaderboard: { leaderboard, userRank },
       belts: { currentBelts: userBelts, challengesToMyBelts, challengesMade },
       tournaments: { tournaments },
@@ -302,9 +393,10 @@ export async function GET() {
         tier: navSubscription?.tier || 'FREE',
         isAdvertiser,
         beltCount: navBeltCount,
-        coinBalance: navUser?.coins || 0,
+        coinBalance: userRankData?.coins || 0,
       },
       yourTurn: yourTurn ? { hasTurn: true, ...yourTurn } : { hasTurn: false },
+      pendingRematches: rematchData,
     })
   } catch (error) {
     console.error('[dashboard-data] Error:', error)

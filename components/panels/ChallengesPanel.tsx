@@ -43,12 +43,14 @@ interface ChallengesPanelProps {
   initialWaitingDebates?: any
   initialUserWaitingDebates?: any
   initialBeltChallenges?: any
+  initialPendingRematches?: any[]
 }
 
 export const ChallengesPanel = memo(function ChallengesPanel({
   initialWaitingDebates,
   initialUserWaitingDebates,
   initialBeltChallenges,
+  initialPendingRematches,
 }: ChallengesPanelProps) {
   const [challenges, setChallenges] = useState<any[]>([])
   const [myChallenges, setMyChallenges] = useState<any[]>([])
@@ -525,13 +527,16 @@ export const ChallengesPanel = memo(function ChallengesPanel({
     }
   }
 
-  const [pendingRematches, setPendingRematches] = useState<any[]>([])
+  const [pendingRematches, setPendingRematches] = useState<any[]>(initialPendingRematches || [])
 
+  // Use consolidated data when available, fetch independently only as fallback
   useEffect(() => {
-    if (user) {
+    if (initialPendingRematches) {
+      setPendingRematches(initialPendingRematches)
+    } else if (user) {
       fetchPendingRematches()
     }
-  }, [user])
+  }, [initialPendingRematches, user])
 
   const fetchPendingRematches = async () => {
     if (!user) {
