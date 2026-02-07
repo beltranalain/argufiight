@@ -277,24 +277,28 @@ export default function SettingsTab() {
 
   const handleFixSiteUrl = async (correctUrl: string) => {
     try {
-      await fetch('/api/admin/seo', {
+      const response = await fetch('/api/admin/seo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gsc_site_url: correctUrl }),
+        body: JSON.stringify({ settings: { gsc_site_url: correctUrl } }),
       })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.error || 'Save failed')
+      }
       setGscSiteUrl(correctUrl)
       showToast({
         type: 'success',
         title: 'Site URL Updated',
         description: `Updated to ${correctUrl}`,
       })
-      // Re-run test
-      await handleTestGsc()
-    } catch {
+      // Re-run test after a brief delay to ensure DB write is committed
+      setTimeout(() => handleTestGsc(), 500)
+    } catch (err) {
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Failed to update site URL',
+        description: err instanceof Error ? err.message : 'Failed to update site URL',
       })
     }
   }
