@@ -112,7 +112,8 @@ export default function SearchConsoleTab({
         setData(result)
         setError(null)
       } else {
-        setError(result.error || 'Failed to fetch data')
+        const debugInfo = result.debugSiteUrl ? ` (using site: ${result.debugSiteUrl})` : ''
+        setError((result.error || 'Failed to fetch data') + debugInfo)
         // Still set connected status if available
         if (result.connected === false) {
           setData({ connected: false })

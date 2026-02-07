@@ -70,10 +70,19 @@ export async function POST(request: NextRequest) {
       })
       imageUrl = blob.url
     } catch (blobError) {
-      // Fallback: Store as base64 data URL (not ideal but works)
-      console.warn('Vercel Blob Storage not available, using base64 fallback:', blobError)
-      const base64 = buffer.toString('base64')
-      imageUrl = `data:${file.type};base64,${base64}`
+      console.error('Vercel Blob Storage error:', blobError)
+      // If file is small enough, fall back to base64
+      if (file.size <= 1 * 1024 * 1024) {
+        const base64 = buffer.toString('base64')
+        imageUrl = `data:${file.type};base64,${base64}`
+      } else {
+        return NextResponse.json(
+          {
+            error: 'Image upload failed. Vercel Blob Storage is not available and the file is too large for fallback storage. Please check BLOB_READ_WRITE_TOKEN configuration.',
+          },
+          { status: 500 }
+        )
+      }
     }
 
     // Save to media library

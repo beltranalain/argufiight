@@ -4,6 +4,7 @@ import {
   isGSCConnected,
   getSearchAnalytics,
   getSitemapStatus,
+  getGSCSiteUrl,
 } from '@/lib/seo/search-console'
 
 export async function GET(request: NextRequest) {
@@ -40,7 +41,12 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching GSC data:', error)
     const message =
       error instanceof Error ? error.message : 'Failed to fetch Search Console data'
-    return NextResponse.json({ error: message }, { status: 500 })
+    // Include the site URL being used for debugging
+    const siteUrl = await getGSCSiteUrl().catch(() => null)
+    return NextResponse.json(
+      { error: message, debugSiteUrl: siteUrl },
+      { status: 500 }
+    )
   }
 }
 

@@ -253,8 +253,10 @@ export function BlogPostEditor({
         keywords,
         ogImage,
         status,
-        // Automatically set publishedAt to now when status is PUBLISHED
-        publishedAt: status === 'PUBLISHED' ? new Date().toISOString() : null,
+        // Only set publishedAt when first publishing (not on subsequent edits)
+        publishedAt: status === 'PUBLISHED'
+          ? (post?.publishedAt || new Date().toISOString())
+          : null,
         featuredImageId,
         categoryIds: selectedCategoryIds,
         tagIds: selectedTagIds,
@@ -575,15 +577,16 @@ export function BlogPostEditor({
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-4 pt-4 border-t border-bg-tertiary">
-          <Button variant="secondary" onClick={onClose} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Saving...' : post ? 'Update Post' : 'Create Post'}
-          </Button>
-        </div>
+      </div>
+
+      {/* Actions - sticky at bottom, outside scroll area */}
+      <div className="flex justify-end gap-4 pt-4 border-t border-bg-tertiary sticky bottom-0 bg-bg-secondary px-1 pb-1">
+        <Button variant="secondary" onClick={onClose} disabled={isSaving}>
+          Cancel
+        </Button>
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? 'Saving...' : post ? 'Update Post' : 'Create Post'}
+        </Button>
       </div>
 
       {/* Media Library Modal */}
@@ -760,12 +763,19 @@ function MediaLibrarySelector({
           description: 'Image added to media library',
         })
         onUpload()
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        showToast({
+          type: 'error',
+          title: 'Upload Failed',
+          description: errorData.error || `Upload failed (${response.status})`,
+        })
       }
     } catch (error) {
       showToast({
         type: 'error',
         title: 'Upload Failed',
-        description: 'Failed to upload image',
+        description: 'Network error uploading image',
       })
     } finally {
       setIsUploading(false)
