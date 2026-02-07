@@ -32,6 +32,9 @@ const PERSONALITIES = [
 ]
 
 const DELAY_OPTIONS = [
+  { value: 180000, label: '3 minutes' }, // 3 min
+  { value: 300000, label: '5 minutes' }, // 5 min
+  { value: 420000, label: '7 minutes' }, // 7 min
   { value: 600000, label: '10 minutes' }, // 10 min
   { value: 1800000, label: '30 minutes' }, // 30 min
   { value: 3600000, label: '1 hour' }, // 1 hour
