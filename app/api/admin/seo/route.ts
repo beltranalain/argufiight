@@ -19,11 +19,16 @@ export async function GET() {
       },
     })
 
-    // Convert to object
+    // Convert to object, masking encrypted values
     const settings: Record<string, string> = {}
     seoSettings.forEach((setting) => {
       const key = setting.key.replace('seo_', '')
-      settings[key] = setting.value || ''
+      if (setting.encrypted && setting.value) {
+        // Show only last 4 chars for encrypted fields
+        settings[key] = '••••••••' + setting.value.slice(-4)
+      } else {
+        settings[key] = setting.value || ''
+      }
     })
 
     return NextResponse.json({ settings })
@@ -47,18 +52,27 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const settings = body.settings || body
 
+    // Keys that should be marked as encrypted
+    const encryptedKeys = new Set(['gsc_client_secret'])
+
     // Save each setting
     for (const [key, value] of Object.entries(settings)) {
+      const strValue = String(value || '')
+      // Skip masked values (they haven't been changed)
+      if (strValue.startsWith('••••')) continue
+
+      const dbKey = `seo_${key}`
       await prisma.adminSetting.upsert({
-        where: {
-          key: `seo_${key}`,
-        },
+        where: { key: dbKey },
         update: {
-          value: String(value || ''),
+          value: strValue,
+          updatedBy: userId,
         },
         create: {
-          key: `seo_${key}`,
-          value: String(value || ''),
+          key: dbKey,
+          value: strValue,
+          category: 'seo',
+          encrypted: encryptedKeys.has(key),
         },
       })
     }

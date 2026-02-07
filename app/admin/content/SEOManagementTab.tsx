@@ -149,6 +149,24 @@ export default function SEOManagementTab() {
 
   return (
     <div className="space-y-6">
+      {/* Banner linking to full SEO & GEO dashboard */}
+      <a
+        href="/admin/seo-geo"
+        className="block p-4 bg-electric-blue/10 border border-electric-blue/30 rounded-lg hover:bg-electric-blue/20 transition-colors"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-white font-medium">Full SEO & GEO Dashboard Available</p>
+            <p className="text-text-secondary text-sm mt-0.5">
+              Access audit scores, GEO optimization, recommendations, and more in the dedicated SEO & GEO page.
+            </p>
+          </div>
+          <svg className="w-5 h-5 text-electric-blue flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </a>
+
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-white mb-2">SEO Settings</h2>
         <p className="text-text-secondary">Manage global SEO settings and structured data</p>
