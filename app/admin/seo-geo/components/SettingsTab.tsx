@@ -287,6 +287,8 @@ export default function SettingsTab() {
         throw new Error(err.error || 'Save failed')
       }
       setGscSiteUrl(correctUrl)
+      // Also update the settings state so "Save All Settings" won't revert this
+      setSettings(prev => ({ ...prev, gsc_site_url: correctUrl }))
       showToast({
         type: 'success',
         title: 'Site URL Updated',
@@ -306,10 +308,15 @@ export default function SettingsTab() {
   const handleSave = async () => {
     setIsSaving(true)
     try {
+      // Filter out GSC credential keys - those are managed by their own save functions
+      const gscKeys = ['gsc_client_id', 'gsc_client_secret', 'gsc_refresh_token', 'gsc_site_url']
+      const filteredSettings = Object.fromEntries(
+        Object.entries(settings).filter(([key]) => !gscKeys.includes(key))
+      )
       const response = await fetch('/api/admin/seo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(filteredSettings),
       })
 
       if (response.ok) {
