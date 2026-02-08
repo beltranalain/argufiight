@@ -661,6 +661,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Trigger AI auto-accept after the response is sent (for OPEN challenges)
+    if (challengeType === 'OPEN') {
+      after(async () => {
+        try {
+          const { triggerAIAutoAccept } = await import('@/lib/ai/trigger-ai-accept')
+          await triggerAIAutoAccept()
+        } catch {
+          // Background task failure is non-critical
+        }
+      })
+    }
+
     // Update belt if staked
     if (beltId && belt && debate) {
       try {

@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
+
+export const dynamic = 'force-dynamic'
 
 // Full select for debates that need all details (active battles, user's active, recent)
 const fullDebateSelect = {
@@ -109,6 +111,16 @@ const recentDebateSelect = {
 
 // GET /api/dashboard-data — single endpoint for all dashboard panel data
 export async function GET() {
+  // Trigger AI auto-accept and expired debate processing after response is sent
+  after(async () => {
+    try {
+      const { triggerAIAutoAccept } = await import('@/lib/ai/trigger-ai-accept')
+      await triggerAIAutoAccept()
+    } catch {
+      // Background task failure is non-critical
+    }
+  })
+
   try {
     const session = await verifySession()
     const userId = session ? getUserIdFromSession(session) : null
