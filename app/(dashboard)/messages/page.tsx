@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Card, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { TopNav } from '@/components/layout/TopNav'
+import { useVisibleInterval } from '@/lib/hooks/useVisibleInterval'
 import Link from 'next/link'
 
 interface Conversation {
@@ -68,18 +69,16 @@ export default function MessagesPage() {
 
   useEffect(() => {
     fetchConversations()
-    
-    // Poll for updates every 30 seconds
-    const interval = setInterval(() => {
-      if (selectedConversation) {
-        fetchMessages(selectedConversation.id)
-      } else {
-        fetchConversations()
-      }
-    }, 30000)
-    
-    return () => clearInterval(interval)
-  }, [selectedConversation])
+  }, [])
+
+  // Visibility-aware polling — pauses when tab is backgrounded
+  useVisibleInterval(() => {
+    if (selectedConversation) {
+      fetchMessages(selectedConversation.id)
+    } else {
+      fetchConversations()
+    }
+  }, 30000)
 
   useEffect(() => {
     if (viewMode === 'following') {
@@ -126,11 +125,6 @@ export default function MessagesPage() {
   useEffect(() => {
     if (selectedConversation) {
       fetchMessages(selectedConversation.id)
-      // Poll for new messages every 15 seconds
-      const interval = setInterval(() => {
-        fetchMessages(selectedConversation.id, true)
-      }, 15000)
-      return () => clearInterval(interval)
     }
   }, [selectedConversation])
 

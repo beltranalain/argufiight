@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
+export const revalidate = 86400
+
 export const metadata: Metadata = {
   title: 'Argument Checker | Argufight - Analyze and Improve Your Arguments',
   description: 'Use Argufight as an argument checker to analyze your debate arguments. Get AI feedback on logical consistency, evidence quality, and persuasive power.',

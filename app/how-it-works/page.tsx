@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getStaticPage } from '@/lib/content/static-pages'
 
+export const revalidate = 86400
+
 export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
   const page = await getStaticPage('how-it-works')

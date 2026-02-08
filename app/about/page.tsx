@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
+export const revalidate = 86400
+
 export const metadata: Metadata = {
   title: 'About Us - Argufight | AI-Judged Debate Platform',
   description: 'Learn about Argufight, the world\'s first AI-judged debate platform. Our mission is to improve critical thinking and argumentation skills through structured debates with AI judges.',

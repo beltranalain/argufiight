@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
-import { cache } from '@/lib/utils/cache'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,8 +51,8 @@ export async function PATCH(
       },
     })
 
-    // Clear homepage cache when section is updated
-    cache.delete('homepage:sections')
+    // Invalidate the unstable_cache used by the homepage
+    revalidateTag('homepage-sections')
 
     return NextResponse.json({ section })
   } catch (error) {

@@ -3,7 +3,6 @@ import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
-export const dynamic = 'force-dynamic'
 
 // GET /api/admin/creator-taxes - Get all creator tax information
 export async function GET(request: NextRequest) {

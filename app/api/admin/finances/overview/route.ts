@@ -4,7 +4,6 @@ import { prisma } from '@/lib/db/prisma'
 import { createStripeClient, getStripeKeys } from '@/lib/stripe/stripe-client'
 import Stripe from 'stripe'
 
-export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {

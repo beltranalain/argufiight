@@ -32,7 +32,7 @@ const getCachedHomepageSections = unstable_cache(
     })
   },
   ['homepage-sections'],
-  { revalidate: 300 }
+  { revalidate: 300, tags: ['homepage-sections'] }
 )
 
 export async function generateMetadata(): Promise<Metadata> {

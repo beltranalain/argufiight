@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { RichTextContent } from '@/components/legal/RichTextContent'
 import { PublicFooter } from '@/components/homepage/PublicFooter'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 86400
 
 export const metadata: Metadata = {
   title: 'Privacy Policy - Argu Fight',

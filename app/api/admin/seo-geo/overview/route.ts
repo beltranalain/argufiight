@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { verifyAdmin } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 
-export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {

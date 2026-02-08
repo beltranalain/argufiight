@@ -10,7 +10,7 @@ import { NotificationsModal } from '@/components/notifications/NotificationsModa
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { NAV_POLL_INTERVAL_MS } from '@/lib/constants'
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher'
-import { AnimatePresence } from 'framer-motion'
+import { useVisibleInterval } from '@/lib/hooks/useVisibleInterval'
 
 interface TopNavProps {
   currentPanel: string
@@ -124,13 +124,15 @@ export function TopNav({ currentPanel, initialNavData }: TopNavProps) {
       if (!initialNavData) {
         fetchNavData()
       }
-      // Poll for notification count
-      const interval = currentPanel !== 'ADVERTISER'
-        ? setInterval(fetchUnreadCount, NAV_POLL_INTERVAL_MS)
-        : null
-      return () => { if (interval) clearInterval(interval) }
     }
   }, [user, isMounted, currentPanel])
+
+  // Visibility-aware polling for notification count — pauses when tab is backgrounded
+  useVisibleInterval(() => {
+    if (user && currentPanel !== 'ADVERTISER') {
+      fetchUnreadCount()
+    }
+  }, NAV_POLL_INTERVAL_MS)
 
   const menuItems = isAdvertiser ? [
     {
@@ -335,16 +337,14 @@ export function TopNav({ currentPanel, initialNavData }: TopNavProps) {
       )}
 
       {/* Account Switcher Modal */}
-      <AnimatePresence>
-        {isAccountSwitcherOpen && user && (
-          <AccountSwitcher
-            onClose={() => {
-              setIsAccountSwitcherOpen(false)
-              fetchNavData()
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {isAccountSwitcherOpen && user && (
+        <AccountSwitcher
+          onClose={() => {
+            setIsAccountSwitcherOpen(false)
+            fetchNavData()
+          }}
+        />
+      )}
     </nav>
   )
 }

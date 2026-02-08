@@ -1,9 +1,17 @@
 import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
 import Script from 'next/script'
 import './globals.css'
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+})
 import { ToastProvider } from '@/components/ui/Toast'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ThemeProvider } from '@/lib/contexts/ThemeContext'
+import { AuthProvider } from '@/lib/contexts/AuthContext'
 import { ChallengeProvider } from '@/lib/contexts/ChallengeContext'
 import { ChallengeModal } from '@/components/challenge/ChallengeModal'
 import { LazyNotifications } from '@/components/notifications/LazyNotifications'
@@ -44,7 +52,7 @@ export default function RootLayout({
   const gscVerification = process.env.GOOGLE_SEARCH_CONSOLE_VERIFICATION || ''
 
   return (
-    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+    <html lang="en" className={inter.variable} suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         {/* RSS Feed Autodiscovery */}
         <link rel="alternate" type="application/rss+xml" title="ArguFight RSS Feed" href="/feed.xml" />
@@ -96,15 +104,17 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning>
         <ThemeProvider>
-          <ChallengeProvider>
-            <ErrorBoundary>
-              <ToastProvider>
-                {children}
-                <ChallengeModal />
-                <LazyNotifications />
-              </ToastProvider>
-            </ErrorBoundary>
-          </ChallengeProvider>
+          <AuthProvider>
+            <ChallengeProvider>
+              <ErrorBoundary>
+                <ToastProvider>
+                  {children}
+                  <ChallengeModal />
+                  <LazyNotifications />
+                </ToastProvider>
+              </ErrorBoundary>
+            </ChallengeProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

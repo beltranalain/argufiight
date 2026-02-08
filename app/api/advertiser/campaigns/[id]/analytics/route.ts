@@ -40,62 +40,66 @@ export async function GET(
       return NextResponse.json({ error: 'Advertiser account not found' }, { status: 404 })
     }
 
-    // Get campaign
-    const campaign = await prisma.campaign.findUnique({
-      where: {
-        id,
-        advertiserId: advertiser.id,
-      },
-      include: {
-        contracts: {
-          include: {
-            creator: {
-              select: {
-                id: true,
-                username: true,
+    // Get campaign with contracts (but NOT impressions/clicks — aggregate those separately)
+    const [campaign, impressionCount, clickCount, impressionsByDay, clicksByDay] = await Promise.all([
+      prisma.campaign.findUnique({
+        where: {
+          id,
+          advertiserId: advertiser.id,
+        },
+        include: {
+          contracts: {
+            include: {
+              creator: {
+                select: {
+                  id: true,
+                  username: true,
+                },
               },
             },
           },
         },
-        impressions: {
-          select: {
-            id: true,
-            timestamp: true,
-          },
-          orderBy: {
-            timestamp: 'asc',
-          },
-        },
-        clicks: {
-          select: {
-            id: true,
-            timestamp: true,
-          },
-          orderBy: {
-            timestamp: 'asc',
-          },
-        },
-      },
-    })
+      }),
+
+      // Count impressions (instead of loading all into memory)
+      prisma.impression.count({ where: { campaignId: id } }),
+
+      // Count clicks (instead of loading all into memory)
+      prisma.click.count({ where: { campaignId: id } }),
+
+      // Aggregate impressions by day using raw SQL
+      prisma.$queryRaw<Array<{ date: string; count: bigint }>>`
+        SELECT DATE("timestamp") as date, COUNT(*) as count
+        FROM ad_impressions
+        WHERE campaign_id = ${id}
+        GROUP BY DATE("timestamp")
+        ORDER BY date ASC
+      `.catch(() => []),
+
+      // Aggregate clicks by day using raw SQL
+      prisma.$queryRaw<Array<{ date: string; count: bigint }>>`
+        SELECT DATE("timestamp") as date, COUNT(*) as count
+        FROM ad_clicks
+        WHERE campaign_id = ${id}
+        GROUP BY DATE("timestamp")
+        ORDER BY date ASC
+      `.catch(() => []),
+    ])
 
     if (!campaign) {
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
-    // Calculate metrics
-    const impressions = campaign.impressions.length
-    const clicks = campaign.clicks.length
+    // Calculate metrics using counts (not array.length)
+    const impressions = impressionCount
+    const clicks = clickCount
     const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0
 
     // Calculate spent
-    // For PLATFORM_ADS: spent is the budget (already paid upfront)
-    // For CREATOR_SPONSORSHIP/TOURNAMENT_SPONSORSHIP: spent is sum of contract amounts
     let spent = 0
     if (campaign.type === 'PLATFORM_ADS') {
-      // Platform Ads are paid upfront, so spent = budget if payment is complete
       spent = campaign.paymentStatus === 'PAID' ? Number(campaign.budget) : 0
     } else {
-      // Creator/Tournament Sponsorship: sum of contract amounts
       spent = campaign.contracts.reduce(
         (sum, contract) => sum + Number(contract.totalAmount),
         0
@@ -109,38 +113,33 @@ export async function GET(
     const endDate = new Date(campaign.endDate)
     const today = new Date()
     const chartEndDate = endDate > today ? today : endDate
-    
-    // Create date range
-    const dateRange: Date[] = []
-    const currentDate = new Date(startDate)
-    while (currentDate <= chartEndDate) {
-      dateRange.push(new Date(currentDate))
-      currentDate.setDate(currentDate.getDate() + 1)
-    }
 
-    // Aggregate impressions and clicks by date
+    // Build lookup maps from aggregated data
     const impressionsByDate = new Map<string, number>()
     const clicksByDate = new Map<string, number>()
 
-    campaign.impressions.forEach((impression) => {
-      const dateKey = impression.timestamp.toISOString().split('T')[0]
-      impressionsByDate.set(dateKey, (impressionsByDate.get(dateKey) || 0) + 1)
-    })
+    for (const row of impressionsByDay) {
+      const dateKey = new Date(row.date).toISOString().split('T')[0]
+      impressionsByDate.set(dateKey, Number(row.count))
+    }
 
-    campaign.clicks.forEach((click) => {
-      const dateKey = click.timestamp.toISOString().split('T')[0]
-      clicksByDate.set(dateKey, (clicksByDate.get(dateKey) || 0) + 1)
-    })
+    for (const row of clicksByDay) {
+      const dateKey = new Date(row.date).toISOString().split('T')[0]
+      clicksByDate.set(dateKey, Number(row.count))
+    }
 
-    // Build chart data
-    const chartData = dateRange.map((date) => {
-      const dateKey = date.toISOString().split('T')[0]
-      return {
-        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    // Create date range and build chart data
+    const chartData: Array<{ date: string; impressions: number; clicks: number }> = []
+    const currentDate = new Date(startDate)
+    while (currentDate <= chartEndDate) {
+      const dateKey = currentDate.toISOString().split('T')[0]
+      chartData.push({
+        date: currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         impressions: impressionsByDate.get(dateKey) || 0,
         clicks: clicksByDate.get(dateKey) || 0,
-      }
-    })
+      })
+      currentDate.setDate(currentDate.getDate() + 1)
+    }
 
     const analytics = {
       id: campaign.id,
@@ -155,7 +154,7 @@ export async function GET(
       spent,
       remaining,
       chartData,
-      type: campaign.type, // Include campaign type for frontend filtering
+      type: campaign.type,
       contracts: campaign.contracts.map((contract) => ({
         id: contract.id,
         creator: contract.creator,
@@ -174,4 +173,3 @@ export async function GET(
     )
   }
 }
-

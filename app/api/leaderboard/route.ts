@@ -1,155 +1,122 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { unstable_cache } from 'next/cache'
 import { prisma } from '@/lib/db/prisma'
-import { cache } from '@/lib/utils/cache'
+
+const leaderboardSelect = {
+  id: true,
+  username: true,
+  avatarUrl: true,
+  eloRating: true,
+  debatesWon: true,
+  debatesLost: true,
+  debatesTied: true,
+  totalDebates: true,
+  totalScore: true,
+  totalMaxScore: true,
+} as const
+
+function addRankAndStats(users: any[], startRank: number) {
+  return users.map((user, index) => {
+    const winRate = user.totalDebates > 0
+      ? ((user.debatesWon / user.totalDebates) * 100).toFixed(1)
+      : '0.0'
+    const overallScore = user.totalMaxScore > 0
+      ? `${user.totalScore}/${user.totalMaxScore}`
+      : '0/0'
+    const overallScorePercent = user.totalMaxScore > 0
+      ? ((user.totalScore / user.totalMaxScore) * 100).toFixed(1)
+      : '0.0'
+    return {
+      rank: startRank + index + 1,
+      ...user,
+      winRate: parseFloat(winRate),
+      overallScore,
+      overallScorePercent: parseFloat(overallScorePercent),
+    }
+  })
+}
+
+// Cache first page of leaderboard for 10 minutes (survives Vercel cold starts)
+const getCachedLeaderboardPage1 = unstable_cache(
+  async () => {
+    const where = { isAdmin: false, isBanned: false }
+    const [total, leaderboard] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        select: leaderboardSelect,
+        orderBy: { eloRating: 'desc' },
+        take: 25,
+      }),
+    ])
+    return {
+      leaderboard: addRankAndStats(leaderboard, 0),
+      pagination: { page: 1, limit: 25, total, totalPages: Math.ceil(total / 25) },
+      userRank: null,
+    }
+  },
+  ['leaderboard-page1'],
+  { revalidate: 600, tags: ['leaderboard'] }
+)
 
 // GET /api/leaderboard - Get ELO leaderboard
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = Math.min(parseInt(searchParams.get('limit') || '25'), 100) // Max 100 per page, default 25
+    const limit = Math.min(parseInt(searchParams.get('limit') || '25'), 100)
     const skip = (page - 1) * limit
-    const category = searchParams.get('category') // Optional: filter by category
-    const userId = searchParams.get('userId') // Optional: get rank for specific user
-
-    const where: any = {
-      isAdmin: false, // Exclude admins/employees
-      isBanned: false, // Exclude banned users
-      // Include all users (eloRating has a default value of 1200, so it's never null)
-    }
-
-    // Cache leaderboard for 10 minutes (only for first page, no userId filter)
-    // Skip cache if cache-busting parameter is present
+    const category = searchParams.get('category')
+    const userId = searchParams.get('userId')
     const skipCache = searchParams.get('t') !== null
-    const cacheKey = !skipCache && page === 1 && !userId && !category 
-      ? `leaderboard:elo:page1` 
-      : null
-    let cachedData = cacheKey ? cache.get(cacheKey) : null
 
-    if (cachedData) {
-      return NextResponse.json(cachedData)
+    // Use cached data for default first page request
+    if (!skipCache && page === 1 && limit === 25 && !userId && !category) {
+      const cached = await getCachedLeaderboardPage1()
+      return NextResponse.json(cached)
     }
 
-    // Get total count for pagination
-    const total = await prisma.user.count({ where })
+    const where: any = { isAdmin: false, isBanned: false }
 
-    // Get top users by ELO rating
-    const leaderboard = await prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        username: true,
-        avatarUrl: true,
-        eloRating: true,
-        debatesWon: true,
-        debatesLost: true,
-        debatesTied: true,
-        totalDebates: true,
-        totalScore: true,
-        totalMaxScore: true,
-      },
-      orderBy: {
-        eloRating: 'desc',
-      },
-      skip,
-      take: limit,
-    })
+    const [total, leaderboard] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        select: leaderboardSelect,
+        orderBy: { eloRating: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ])
 
-    // Calculate win rates, overall scores, and add rank
-    const leaderboardWithRank = leaderboard.map((user, index) => {
-      const winRate = user.totalDebates > 0
-        ? ((user.debatesWon / user.totalDebates) * 100).toFixed(1)
-        : '0.0'
-      
-      const overallScore = user.totalMaxScore > 0
-        ? `${user.totalScore}/${user.totalMaxScore}`
-        : '0/0'
-      
-      const overallScorePercent = user.totalMaxScore > 0
-        ? ((user.totalScore / user.totalMaxScore) * 100).toFixed(1)
-        : '0.0'
-
-      return {
-        rank: skip + index + 1, // Global rank based on pagination
-        ...user,
-        winRate: parseFloat(winRate),
-        overallScore,
-        overallScorePercent: parseFloat(overallScorePercent),
-      }
-    })
+    const leaderboardWithRank = addRankAndStats(leaderboard, skip)
 
     // If userId is provided, get that user's rank
     let userRank: any = null
     if (userId) {
       const targetUser = await prisma.user.findUnique({
         where: { id: userId },
-        select: {
-          id: true,
-          username: true,
-          avatarUrl: true,
-          eloRating: true,
-          debatesWon: true,
-          debatesLost: true,
-          debatesTied: true,
-          totalDebates: true,
-          totalScore: true,
-          totalMaxScore: true,
-          isBanned: true,
-          isAdmin: true,
-        },
+        select: { ...leaderboardSelect, isBanned: true, isAdmin: true },
       })
 
       if (targetUser && !targetUser.isBanned && !targetUser.isAdmin && targetUser.eloRating !== null && targetUser.eloRating !== undefined) {
-        // Count how many users have higher ELO (rank = count + 1)
         const rankCount = await prisma.user.count({
           where: {
             isAdmin: false,
             isBanned: false,
-            eloRating: {
-              gt: targetUser.eloRating,
-            },
+            eloRating: { gt: targetUser.eloRating },
           },
         })
-
-        const winRate = targetUser.totalDebates > 0
-          ? ((targetUser.debatesWon / targetUser.totalDebates) * 100).toFixed(1)
-          : '0.0'
-        
-        const overallScore = targetUser.totalMaxScore > 0
-          ? `${targetUser.totalScore}/${targetUser.totalMaxScore}`
-          : '0/0'
-        
-        const overallScorePercent = targetUser.totalMaxScore > 0
-          ? ((targetUser.totalScore / targetUser.totalMaxScore) * 100).toFixed(1)
-          : '0.0'
-
-        userRank = {
-          rank: rankCount + 1,
-          ...targetUser,
-          winRate: parseFloat(winRate),
-          overallScore,
-          overallScorePercent: parseFloat(overallScorePercent),
-        }
+        const ranked = addRankAndStats([targetUser], rankCount - 1)
+        userRank = ranked[0]
       }
     }
 
-    const response = {
+    return NextResponse.json({
       leaderboard: leaderboardWithRank,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-      userRank, // Include user's rank if userId was provided
-    }
-
-    // Cache first page results for 10 minutes
-    if (cacheKey) {
-      cache.set(cacheKey, response, 600)
-    }
-
-    return NextResponse.json(response)
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      userRank,
+    })
   } catch (error) {
     console.error('Failed to fetch leaderboard:', error)
     return NextResponse.json(
@@ -158,4 +125,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-

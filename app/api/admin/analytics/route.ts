@@ -4,7 +4,6 @@ import { prisma } from '@/lib/db/prisma'
 import { getGoogleAnalyticsData, formatGA4Data } from '@/lib/analytics/google-analytics'
 import { formatDateForGA } from '@/lib/utils/timezone'
 
-export const dynamic = 'force-dynamic'
 
 /**
  * Get Eastern Time offset in minutes from UTC

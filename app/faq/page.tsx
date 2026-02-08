@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
+export const revalidate = 86400
+
 export const metadata: Metadata = {
   title: 'FAQ - Argufight | Frequently Asked Questions',
   description: 'Get answers to frequently asked questions about Argufight, the AI-judged debate platform. Learn about how debates work, ELO rankings, tournaments, and more.',

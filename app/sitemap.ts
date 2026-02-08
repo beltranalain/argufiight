@@ -114,14 +114,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ]
 
-  // Get public debates (no limit - include all public debates for SEO)
+  // Get public debates (limited to 5000 most recent for performance)
   let publicDebates: MetadataRoute.Sitemap = []
   try {
     publicDebates = await prisma.debate.findMany({
       where: {
         visibility: 'PUBLIC',
         status: {
-          in: ['COMPLETED', 'ACTIVE'], // Include both completed and active debates
+          in: ['COMPLETED', 'ACTIVE'],
         },
       },
       select: {
@@ -133,7 +133,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       orderBy: {
         updatedAt: 'desc',
       },
-      // No take limit - include all public debates
+      take: 5000,
     }).then(debates => debates.map(debate => ({
       url: `${baseUrl}/debates/${debate.slug || debate.id}`,
       lastModified: debate.updatedAt,
@@ -159,7 +159,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       },
     })
 
-    // Get all published blog posts (no limit)
+    // Get published blog posts (limited to 1000 for performance)
     blogPosts = await prisma.blogPost.findMany({
       where: {
         status: 'PUBLISHED',
@@ -175,6 +175,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       orderBy: {
         publishedAt: 'desc',
       },
+      take: 1000,
     }).then(posts => posts.map(post => ({
       url: `${baseUrl}/blog/${post.slug}`,
       lastModified: post.updatedAt,
@@ -244,6 +245,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       orderBy: {
         startDate: 'desc',
       },
+      take: 500,
     }).then(tourneys => tourneys.map(tournament => ({
       url: `${baseUrl}/tournaments/${tournament.id}`,
       lastModified: tournament.updatedAt,

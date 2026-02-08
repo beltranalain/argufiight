@@ -4,7 +4,6 @@ import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { generate1099PDF } from '@/lib/taxes/generate1099'
 
-export const dynamic = 'force-dynamic'
 
 // GET /api/admin/creator-taxes/[creatorId]/1099/[taxYear]/download - Download 1099 PDF
 export async function GET(

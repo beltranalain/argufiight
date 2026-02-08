@@ -148,9 +148,9 @@ export async function DELETE(
     
     console.log('Image deleted from database:', id)
 
-    // Clear homepage cache when image is deleted
-    const { cache } = await import('@/lib/utils/cache')
-    cache.delete('homepage:sections')
+    // Invalidate the unstable_cache used by the homepage
+    const { revalidateTag } = await import('next/cache')
+    revalidateTag('homepage-sections')
 
     console.log('Image deleted successfully:', id)
 

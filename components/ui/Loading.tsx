@@ -1,6 +1,4 @@
 import React from 'react'
-import { motion } from 'framer-motion'
-import { fadeIn, pulse } from '@/lib/animations'
 import { cn } from '@/lib/utils'
 
 interface LoadingSpinnerProps {
@@ -16,11 +14,9 @@ export function LoadingSpinner({ size = 'md', className }: LoadingSpinnerProps) 
   }
 
   return (
-    <motion.div
-      animate={{ rotate: 360 }}
-      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+    <div
       className={cn(
-        'inline-block rounded-full border-electric-blue border-t-transparent',
+        'inline-block rounded-full border-electric-blue border-t-transparent animate-spin',
         sizes[size],
         className
       )}
@@ -34,29 +30,14 @@ interface LoadingOverlayProps {
 
 export function LoadingOverlay({ message = 'Loading...' }: LoadingOverlayProps) {
   return (
-    <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={fadeIn}
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50"
-    >
-      <motion.div
-        variants={pulse}
-        initial="hidden"
-        animate="visible"
-        className="text-center"
-      >
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
+      <div className="text-center">
         <LoadingSpinner size="lg" />
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="mt-4 text-white font-medium"
-        >
+        <p className="mt-4 text-white font-medium animate-fadeIn" style={{ animationDelay: '0.2s' }}>
           {message}
-        </motion.p>
-      </motion.div>
-    </motion.div>
+        </p>
+      </div>
+    </div>
   )
 }
 
@@ -74,4 +55,3 @@ export function LoadingCard({ lines = 3 }: LoadingCardProps) {
     </div>
   )
 }
-

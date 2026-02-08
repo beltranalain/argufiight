@@ -13,6 +13,7 @@ import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { POLL_INTERVAL_MS, BLINK_DURATION_MS, BELT_BLINK_DURATION_MS } from '@/lib/constants'
+import { useVisibleInterval } from '@/lib/hooks/useVisibleInterval'
 
 export function DashboardHomePage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -65,17 +66,16 @@ export function DashboardHomePage() {
     window.addEventListener('debate-created', handleUpdate)
     window.addEventListener('belt-challenge-accepted', handleUpdate)
 
-    // Poll for updates
-    const interval = setInterval(fetchDashboardData, POLL_INTERVAL_MS)
-
     return () => {
-      clearInterval(interval)
       window.removeEventListener('debate-updated', handleUpdate)
       window.removeEventListener('statement-submitted', handleUpdate)
       window.removeEventListener('debate-created', handleUpdate)
       window.removeEventListener('belt-challenge-accepted', handleUpdate)
     }
   }, [fetchDashboardData])
+
+  // Visibility-aware polling — pauses when tab is backgrounded
+  useVisibleInterval(fetchDashboardData, POLL_INTERVAL_MS)
 
   return (
     <div className={`min-h-screen bg-bg-primary relative ${showBlink ? 'slow-blink-orange' : ''}`}>

@@ -4,9 +4,15 @@ export { middleware } from '@/lib/auth/middleware'
 export const config = {
   matcher: [
     '/admin/:path*',
-    '/advertiser/:path*', // Include advertiser routes to set pathname header
-    // Profile is handled by (dashboard)/layout.tsx, so we don't need middleware here
-    // '/profile/:path*',
+    '/advertiser/:path*',
+    '/creator/:path*',
+    '/profile/:path*',
+    '/settings/:path*',
+    '/messages/:path*',
+    '/tournaments/create',
+    '/debates/saved',
+    '/upgrade',
+    '/belts/room',
   ],
 }
 

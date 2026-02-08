@@ -1,39 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { unstable_cache } from 'next/cache'
 import { prisma } from '@/lib/db/prisma'
+
+// Cache categories for 30 minutes (they don't change often)
+const getCachedCategories = unstable_cache(
+  async () => {
+    return prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        label: true,
+        description: true,
+        color: true,
+        icon: true,
+        sortOrder: true,
+      },
+    })
+  },
+  ['categories-all'],
+  { revalidate: 1800, tags: ['categories'] }
+)
 
 // GET /api/categories - Get all active categories (public endpoint)
 export async function GET(request: NextRequest) {
   try {
-    // Cache categories for 30 minutes (they don't change often)
-    const { cache } = await import('@/lib/utils/cache')
-    const cacheKey = 'categories:all'
-    let categories = cache.get(cacheKey)
-    
-    if (!categories) {
-      categories = await prisma.category.findMany({
-        where: {
-          isActive: true,
-        },
-        orderBy: {
-          sortOrder: 'asc',
-        },
-        select: {
-          id: true,
-          name: true,
-          label: true,
-          description: true,
-          color: true,
-          icon: true,
-          sortOrder: true,
-        },
-      })
-      cache.set(cacheKey, categories, 1800) // Cache for 30 minutes
-    }
-
+    const categories = await getCachedCategories()
     return NextResponse.json({ categories })
   } catch (error) {
     console.error('Failed to fetch categories:', error)
-    // Return default categories as fallback
     return NextResponse.json({
       categories: [
         { id: '1', name: 'SPORTS', label: 'Sports', sortOrder: 0 },
@@ -46,13 +42,3 @@ export async function GET(request: NextRequest) {
     })
   }
 }
-
-
-
-
-
-
-
-
-
-

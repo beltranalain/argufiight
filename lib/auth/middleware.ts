@@ -13,16 +13,10 @@ export async function middleware(req: NextRequest) {
     // Use lightweight Edge-safe verification (JWT only, no database)
     const session = await verifySessionEdge()
 
-    // Protected routes - only check session, admin check is done in layout
-    if (req.nextUrl.pathname.startsWith('/admin')) {
-      if (!session) {
-        return NextResponse.redirect(new URL('/login', req.url))
-      }
-      // Admin check is handled in app/admin/layout.tsx (Node.js runtime)
+    // Redirect unauthenticated users at the edge — saves serverless function invocations
+    if (!session) {
+      return NextResponse.redirect(new URL('/login', req.url))
     }
-
-    // Profile routes are handled by (dashboard)/layout.tsx which requires authentication
-    // No need to check here as the layout will handle it
 
     const response = NextResponse.next({
       request: {

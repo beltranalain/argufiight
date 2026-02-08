@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState } from 'react'
-import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 interface Tab {
@@ -21,7 +20,7 @@ interface TabsProps {
 
 export function Tabs({ tabs, defaultTab, activeTab: controlledActiveTab, onTabChange, onChange }: TabsProps) {
   const [internalActiveTab, setInternalActiveTab] = useState(defaultTab || tabs[0]?.id)
-  
+
   // Use controlled activeTab if provided, otherwise use internal state
   const activeTab = controlledActiveTab !== undefined ? controlledActiveTab : internalActiveTab
 
@@ -54,13 +53,9 @@ export function Tabs({ tabs, defaultTab, activeTab: controlledActiveTab, onTabCh
               >
                 {tab.icon}
                 {tab.label}
-                
+
                 {activeTab === tab.id && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-electric-blue"
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  />
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-electric-blue transition-all duration-300" />
                 )}
               </button>
             ))}
@@ -77,4 +72,3 @@ export function Tabs({ tabs, defaultTab, activeTab: controlledActiveTab, onTabCh
     </div>
   )
 }
-

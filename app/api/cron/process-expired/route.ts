@@ -21,31 +21,17 @@ export async function GET(request: NextRequest) {
 
     // --- WAITING debates older than 7 days or with an opponent (should have started) ---
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    const expiredWaitingDebates = await prisma.$queryRaw<Array<{ id: string }>>`
-      SELECT id
-      FROM debates
+    let cancelledCount = Number(await prisma.$executeRaw`
+      UPDATE debates
+      SET status = 'CANCELLED'::"DebateStatus", ended_at = ${now}
       WHERE status = 'WAITING'
         AND (
           created_at <= ${sevenDaysAgo}
           OR opponent_id IS NOT NULL
         )
-    `
+    `)
 
-    console.log(`[Cron] Found ${expiredWaitingDebates.length} WAITING debates to cancel`)
-
-    let cancelledCount = 0
-    for (const debate of expiredWaitingDebates) {
-      try {
-        await prisma.$executeRaw`
-          UPDATE debates
-          SET status = ${'CANCELLED'}::"DebateStatus", ended_at = ${now}
-          WHERE id = ${debate.id}
-        `
-        cancelledCount++
-      } catch (error) {
-        console.error(`[Cron] Failed to cancel WAITING debate ${debate.id}:`, error)
-      }
-    }
+    console.log(`[Cron] Bulk cancelled ${cancelledCount} WAITING debates`)
 
     // --- ACTIVE debates with expired round deadlines ---
     const expiredDebatesRaw = await prisma.$queryRaw<Array<{
