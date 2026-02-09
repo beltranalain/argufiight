@@ -59,18 +59,13 @@ export function DebateInteractions({ debateId }: DebateInteractionsProps) {
 
     const fetchState = async () => {
       try {
-        const [debateRes, likeRes, saveRes, viewRes] = await Promise.all([
-          fetch(`/api/debates/${debateId}`),
+        const [viewRes, likeRes, saveRes] = await Promise.all([
+          fetch(`/api/debates/${debateId}/view`),
           user ? fetch(`/api/debates/${debateId}/like`) : Promise.resolve(null),
           user ? fetch(`/api/debates/${debateId}/save`) : Promise.resolve(null),
-          fetch(`/api/debates/${debateId}/view`),
         ])
 
-        // Get view count from debate data
-        if (debateRes?.ok) {
-          const debateData = await debateRes.json()
-          setViewCount(debateData.viewCount || 0)
-        } else if (viewRes?.ok) {
+        if (viewRes?.ok) {
           const viewData = await viewRes.json()
           setViewCount(viewData.viewCount || 0)
         }
@@ -173,7 +168,7 @@ export function DebateInteractions({ debateId }: DebateInteractionsProps) {
   const handleShare = async () => {
     try {
       // Try to get slug from debate data if available
-      const shareUrl = `${window.location.origin}/debates/${debateId}`
+      const shareUrl = `${window.location.origin}/debate/${debateId}`
       
       // Try Web Share API first (mobile)
       if (navigator.share) {
@@ -324,7 +319,7 @@ export function DebateInteractions({ debateId }: DebateInteractionsProps) {
           <div className="flex items-center gap-2 ml-2">
             <button
               onClick={async () => {
-                const shareUrl = `${window.location.origin}/debates/${debateId}`
+                const shareUrl = `${window.location.origin}/debate/${debateId}`
                 const text = encodeURIComponent(`Check out this debate on Argu Fight!`)
                 window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(shareUrl)}`, '_blank', 'width=550,height=420')
                 await fetch(`/api/debates/${debateId}/share`, {
@@ -342,7 +337,7 @@ export function DebateInteractions({ debateId }: DebateInteractionsProps) {
             </button>
             <button
               onClick={async () => {
-                const shareUrl = `${window.location.origin}/debates/${debateId}`
+                const shareUrl = `${window.location.origin}/debate/${debateId}`
                 window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank', 'width=550,height=420')
                 await fetch(`/api/debates/${debateId}/share`, {
                   method: 'POST',
@@ -359,7 +354,7 @@ export function DebateInteractions({ debateId }: DebateInteractionsProps) {
             </button>
             <button
               onClick={async () => {
-                const shareUrl = `${window.location.origin}/debates/${debateId}`
+                const shareUrl = `${window.location.origin}/debate/${debateId}`
                 const title = encodeURIComponent(document.title || 'Debate on Argu Fight')
                 window.open(`https://reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${title}`, '_blank', 'width=550,height=420')
                 await fetch(`/api/debates/${debateId}/share`, {

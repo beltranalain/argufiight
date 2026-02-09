@@ -52,9 +52,13 @@ export function CommentsSection({ debateId }: CommentsSectionProps) {
   }, [])
 
   useEffect(() => {
-    if (commentsEnabled) {
-      fetchComments()
-    }
+    if (!commentsEnabled) return
+
+    fetchComments()
+
+    // Poll for new comments every 10 seconds
+    const interval = setInterval(fetchComments, 10000)
+    return () => clearInterval(interval)
   }, [debateId, commentsEnabled])
 
   useEffect(() => {
@@ -64,14 +68,13 @@ export function CommentsSection({ debateId }: CommentsSectionProps) {
 
   const fetchComments = async () => {
     try {
-      setIsLoading(true)
       const response = await fetch(`/api/debates/${debateId}/comments`, { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
         setComments(data)
       }
-    } catch (error) {
-      console.error('Failed to fetch comments:', error)
+    } catch {
+      // Silently handle — polling will retry
     } finally {
       setIsLoading(false)
     }

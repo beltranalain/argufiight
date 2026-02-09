@@ -112,12 +112,8 @@ export function LiveChat({ debateId }: LiveChatProps) {
         // Keep retrying; when session is valid, we'll get messages.
         // Only stop polling if we explicitly want to - we don't, to allow retries.
       }
-    } catch (error) {
-      // Silently handle network errors; don't clear messages
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current)
-        pollIntervalRef.current = null
-      }
+    } catch {
+      // Silently handle network errors — keep polling so chat recovers
     } finally {
       setIsLoading(false)
     }
