@@ -15,7 +15,8 @@ export async function triggerAIAutoAccept(): Promise<number> {
 
     if (aiUsers.length === 0) return 0
 
-    const [allOpenChallenges, activeDebateCounts] = await Promise.all([
+    const aiUserIds = aiUsers.map(u => u.id)
+    const [allOpenChallenges, activeDebateCounts, totalDebateCounts] = await Promise.all([
       prisma.debate.findMany({
         where: {
           status: 'WAITING',
@@ -33,7 +34,15 @@ export async function triggerAIAutoAccept(): Promise<number> {
         by: ['opponentId'],
         where: {
           status: 'ACTIVE',
-          opponentId: { in: aiUsers.map(u => u.id) },
+          opponentId: { in: aiUserIds },
+        },
+        _count: true,
+      }),
+      // Count ALL debates per AI user (as opponent) for fair tiebreaking
+      prisma.debate.groupBy({
+        by: ['opponentId'],
+        where: {
+          opponentId: { in: aiUserIds },
         },
         _count: true,
       }),
@@ -47,9 +56,17 @@ export async function triggerAIAutoAccept(): Promise<number> {
       if (entry.opponentId) loadMap.set(entry.opponentId, entry._count)
     }
 
-    // Sort AI users by fewest active debates (least loaded first)
+    // Build total debates map for tiebreaking
+    const totalMap = new Map<string, number>()
+    for (const entry of totalDebateCounts) {
+      if (entry.opponentId) totalMap.set(entry.opponentId, entry._count)
+    }
+
+    // Sort AI users by: 1) fewest active debates, 2) fewest total debates (tiebreaker)
     const sortedAiUsers = [...aiUsers].sort((a, b) => {
-      return (loadMap.get(a.id) || 0) - (loadMap.get(b.id) || 0)
+      const activeDiff = (loadMap.get(a.id) || 0) - (loadMap.get(b.id) || 0)
+      if (activeDiff !== 0) return activeDiff
+      return (totalMap.get(a.id) || 0) - (totalMap.get(b.id) || 0)
     })
 
     // Build per-user eligible challenge lists (respecting each user's delay)

@@ -11,8 +11,18 @@ interface DailyRewardStatus {
   totalLoginDays: number
 }
 
+const STORAGE_KEY = 'daily-login-reward-date'
+
 /**
- * Hook to automatically claim daily login reward when user is authenticated
+ * Get today's date string in UTC (YYYY-MM-DD)
+ */
+function getTodayUTC(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
+/**
+ * Hook to automatically claim daily login reward when user is authenticated.
+ * Uses localStorage to avoid spamming the API on every page navigation.
  */
 export function useDailyLoginReward() {
   const { user, isAuthenticated } = useAuth()
@@ -21,14 +31,18 @@ export function useDailyLoginReward() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Only claim if user is authenticated
     if (!isAuthenticated || !user) {
       return
     }
 
-    // Claim daily reward
+    // Check localStorage to see if we already claimed today (avoids unnecessary API calls)
+    const lastClaimDate = localStorage.getItem(STORAGE_KEY)
+    const today = getTodayUTC()
+    if (lastClaimDate === today) {
+      return
+    }
+
     const claimReward = async () => {
-      // Prevent multiple simultaneous claims
       if (isClaiming) {
         return
       }
@@ -37,24 +51,18 @@ export function useDailyLoginReward() {
       setError(null)
 
       try {
-        console.log('[useDailyLoginReward] Claiming daily reward for user:', user.id)
         const response = await fetch('/api/rewards/daily-login', {
           method: 'POST',
           credentials: 'include',
         })
 
-        console.log('[useDailyLoginReward] Response status:', response.status)
-
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-          console.error('[useDailyLoginReward] Error response:', errorData)
           throw new Error(errorData.error || 'Failed to claim daily reward')
         }
 
         const data = await response.json()
-        console.log('[useDailyLoginReward] Reward data:', JSON.stringify(data, null, 2))
-        console.log('[useDailyLoginReward] Rewarded?', data.rewarded, 'Amount:', data.rewardAmount)
-        
+
         setStatus({
           rewarded: data.rewarded || false,
           rewardAmount: data.rewardAmount || 0,
@@ -63,12 +71,12 @@ export function useDailyLoginReward() {
           totalLoginDays: data.totalLoginDays || 0,
         })
 
-        // If rewarded, refresh user data to update coin balance
+        // Mark today as claimed in localStorage (even if already rewarded server-side)
+        localStorage.setItem(STORAGE_KEY, today)
+
+        // If rewarded, refresh user data to update coin balance in UI
         if (data.rewarded && data.rewardAmount > 0) {
-          console.log('[useDailyLoginReward] Reward claimed! Refreshing user data...')
-          // Trigger a refresh of user data
           window.dispatchEvent(new Event('user-logged-in'))
-          // Also trigger storage event for cross-tab sync
           localStorage.setItem('auth-refresh', Date.now().toString())
         }
       } catch (err) {
@@ -82,10 +90,10 @@ export function useDailyLoginReward() {
     // Small delay to ensure session is fully established
     const timer = setTimeout(() => {
       claimReward()
-    }, 500)
+    }, 1000)
 
     return () => clearTimeout(timer)
-  }, [isAuthenticated, user?.id]) // Only run when auth state changes
+  }, [isAuthenticated, user?.id])
 
   return {
     status,

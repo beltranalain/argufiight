@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { LoadingSpinner } from '@/components/ui/Loading'
@@ -54,6 +55,7 @@ interface BlogPost {
 
 export default function BlogManagementTab() {
   const { showToast } = useToast()
+  const searchParams = useSearchParams()
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null)
@@ -62,6 +64,38 @@ export default function BlogManagementTab() {
   const [isLoadingPost, setIsLoadingPost] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
+  const [editParamHandled, setEditParamHandled] = useState(false)
+
+  // Auto-open editor when ?edit=<postId> is in the URL
+  useEffect(() => {
+    const editId = searchParams.get('edit')
+    if (editId && !editParamHandled && !isEditModalOpen) {
+      setEditParamHandled(true)
+      setIsLoadingPost(true)
+      fetch(`/api/admin/blog/${editId}`)
+        .then(res => {
+          if (res.ok) return res.json()
+          throw new Error('Post not found')
+        })
+        .then(data => {
+          setSelectedPost({
+            ...data.post,
+            categoryIds: data.post.categories?.map((c: any) => c.id) || [],
+            tagIds: data.post.tags?.map((t: any) => t.id) || [],
+          })
+          setIsEditModalOpen(true)
+        })
+        .catch(error => {
+          console.error('Failed to load post from edit param:', error)
+          showToast({
+            type: 'error',
+            title: 'Post Not Found',
+            description: 'Could not find the blog post to edit',
+          })
+        })
+        .finally(() => setIsLoadingPost(false))
+    }
+  }, [searchParams, editParamHandled, isEditModalOpen])
 
   useEffect(() => {
     fetchPosts()

@@ -45,19 +45,43 @@ async function getRewardSettings(): Promise<DailyLoginRewardSettings> {
  */
 export async function checkAndRewardDailyLogin(userId: string): Promise<number | null> {
   try {
-    // Simple daily reward without streak tracking for now
+    // Check if user was already rewarded today (UTC day boundary)
+    const todayStart = new Date()
+    todayStart.setUTCHours(0, 0, 0, 0)
+
+    const existingReward = await prisma.coinTransaction.findFirst({
+      where: {
+        userId,
+        type: 'DAILY_LOGIN_REWARD',
+        createdAt: { gte: todayStart },
+      },
+    })
+
+    if (existingReward) {
+      return 0 // Already rewarded today
+    }
+
     const settings = await getRewardSettings()
     const dailyReward = settings.baseReward
 
     // Update user in a transaction
     const updatedUser = await prisma.$transaction(async (tx) => {
-      // Get current user to check if they exist and get current coins
+      // Double-check inside transaction to prevent race conditions
+      const alreadyRewarded = await tx.coinTransaction.findFirst({
+        where: {
+          userId,
+          type: 'DAILY_LOGIN_REWARD',
+          createdAt: { gte: todayStart },
+        },
+      })
+
+      if (alreadyRewarded) {
+        return { coins: 0, alreadyRewarded: true }
+      }
+
       const user = await tx.user.findUnique({
         where: { id: userId },
-        select: {
-          id: true,
-          coins: true,
-        },
+        select: { id: true, coins: true },
       })
 
       if (!user) {
@@ -71,9 +95,7 @@ export async function checkAndRewardDailyLogin(userId: string): Promise<number |
         data: {
           coins: { increment: dailyReward },
         },
-        select: {
-          coins: true,
-        },
+        select: { coins: true },
       })
 
       // Create transaction record
@@ -92,18 +114,18 @@ export async function checkAndRewardDailyLogin(userId: string): Promise<number |
         },
       })
 
-      return { coins: updated.coins }
+      return { coins: updated.coins, alreadyRewarded: false }
     })
 
     if (!updatedUser) {
       return null
     }
 
+    if (updatedUser.alreadyRewarded) {
+      return 0
+    }
+
     console.log(`[DailyLoginReward] User ${userId} rewarded ${dailyReward} coins`)
-    
-    // Streak functionality is disabled for now
-    // await awardMilestoneBonus(userId, 1)
-    
     return dailyReward
   } catch (error) {
     console.error(`[DailyLoginReward] Error rewarding user ${userId}:`, error)

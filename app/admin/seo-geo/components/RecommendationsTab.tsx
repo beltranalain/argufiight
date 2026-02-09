@@ -5,6 +5,7 @@ import { Card, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
+import { Modal } from '@/components/ui/Modal'
 
 interface Recommendation {
   id: string
@@ -17,6 +18,15 @@ interface Recommendation {
   status: string
   pageUrl: string | null
   createdAt: string
+}
+
+interface AffectedPost {
+  id: string
+  title: string
+  slug: string
+  wordCount?: number
+  status: string
+  publishedAt: string | null
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -44,6 +54,19 @@ const EFFORT_STYLES: Record<string, string> = {
   hard: 'text-red-400',
 }
 
+// Map recommendation titles to API query types
+function getAffectedPostsType(rec: Recommendation): string | null {
+  const title = rec.title.toLowerCase()
+  if (title.includes('thin content')) return 'thin_content'
+  if (title.includes('without og or featured')) return 'missing_images'
+  if (title.includes('without categories')) return 'missing_categories'
+  if (title.includes('duplicate') && title.includes('title')) return 'duplicate_titles'
+  if (title.includes('missing meta title')) return 'missing_meta_titles'
+  if (title.includes('missing meta description')) return 'missing_meta_descriptions'
+  if (title.includes('without featured image')) return 'missing_featured_images'
+  return null
+}
+
 export default function RecommendationsTab() {
   const { showToast } = useToast()
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
@@ -52,6 +75,13 @@ export default function RecommendationsTab() {
   const [filterCategory, setFilterCategory] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+
+  // Details modal state
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
+  const [detailsRec, setDetailsRec] = useState<Recommendation | null>(null)
+  const [affectedPosts, setAffectedPosts] = useState<AffectedPost[]>([])
+  const [affectedDescription, setAffectedDescription] = useState('')
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false)
 
   useEffect(() => {
     fetchRecommendations()
@@ -102,6 +132,42 @@ export default function RecommendationsTab() {
     } finally {
       setUpdatingId(null)
     }
+  }
+
+  const handleViewDetails = async (rec: Recommendation) => {
+    const type = getAffectedPostsType(rec)
+    if (!type) {
+      setDetailsRec(rec)
+      setAffectedPosts([])
+      setAffectedDescription(rec.description)
+      setDetailsModalOpen(true)
+      return
+    }
+
+    setDetailsRec(rec)
+    setDetailsModalOpen(true)
+    setIsLoadingDetails(true)
+    setAffectedPosts([])
+
+    try {
+      const response = await fetch(`/api/admin/seo-geo/recommendations/affected-posts?type=${type}`)
+      if (response.ok) {
+        const data = await response.json()
+        setAffectedPosts(data.posts || [])
+        setAffectedDescription(data.description || rec.description)
+      }
+    } catch (error) {
+      console.error('Failed to fetch affected posts:', error)
+      setAffectedDescription(rec.description)
+    } finally {
+      setIsLoadingDetails(false)
+    }
+  }
+
+  const closeDetailsModal = () => {
+    setDetailsModalOpen(false)
+    setDetailsRec(null)
+    setAffectedPosts([])
   }
 
   const handleCopyAll = () => {
@@ -303,40 +369,198 @@ export default function RecommendationsTab() {
                     )}
                   </div>
 
-                  {rec.status === 'pending' && (
-                    <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-2 flex-shrink-0">
+                    {getAffectedPostsType(rec) && (
                       <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => handleUpdateStatus(rec.id, 'implemented')}
-                        disabled={updatingId === rec.id}
+                        onClick={() => handleViewDetails(rec)}
                       >
-                        Done
+                        View Details
                       </Button>
+                    )}
+
+                    {rec.status === 'pending' && (
+                      <>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleUpdateStatus(rec.id, 'implemented')}
+                          disabled={updatingId === rec.id}
+                        >
+                          Done
+                        </Button>
+                        <button
+                          onClick={() => handleUpdateStatus(rec.id, 'dismissed')}
+                          disabled={updatingId === rec.id}
+                          className="px-3 py-1 text-xs text-text-secondary hover:text-white transition-colors"
+                        >
+                          Dismiss
+                        </button>
+                      </>
+                    )}
+
+                    {rec.status !== 'pending' && (
                       <button
-                        onClick={() => handleUpdateStatus(rec.id, 'dismissed')}
+                        onClick={() => handleUpdateStatus(rec.id, 'pending')}
                         disabled={updatingId === rec.id}
                         className="px-3 py-1 text-xs text-text-secondary hover:text-white transition-colors"
                       >
-                        Dismiss
+                        Reopen
                       </button>
-                    </div>
-                  )}
-
-                  {rec.status !== 'pending' && (
-                    <button
-                      onClick={() => handleUpdateStatus(rec.id, 'pending')}
-                      disabled={updatingId === rec.id}
-                      className="px-3 py-1 text-xs text-text-secondary hover:text-white transition-colors flex-shrink-0"
-                    >
-                      Reopen
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </div>
               </CardBody>
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Affected Posts Detail Modal */}
+      {detailsModalOpen && detailsRec && (
+        <Modal
+          isOpen={true}
+          onClose={closeDetailsModal}
+          title={detailsRec.title}
+          size="lg"
+        >
+          <div className="space-y-4">
+            {/* Severity + category badges */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`px-2 py-0.5 rounded text-xs font-medium border ${
+                  SEVERITY_STYLES[detailsRec.severity] || SEVERITY_STYLES.info
+                }`}
+              >
+                {detailsRec.severity}
+              </span>
+              <span className="px-2 py-0.5 rounded text-xs font-medium bg-bg-tertiary text-text-secondary">
+                {CATEGORY_LABELS[detailsRec.category] || detailsRec.category}
+              </span>
+              {detailsRec.impact && (
+                <span className={`text-xs ${IMPACT_STYLES[detailsRec.impact] || ''}`}>
+                  Impact: {detailsRec.impact}
+                </span>
+              )}
+              {detailsRec.effort && (
+                <span className={`text-xs ${EFFORT_STYLES[detailsRec.effort] || ''}`}>
+                  Effort: {detailsRec.effort}
+                </span>
+              )}
+            </div>
+
+            {/* Description */}
+            <p className="text-text-secondary text-sm">{affectedDescription}</p>
+
+            {/* Loading state */}
+            {isLoadingDetails && (
+              <div className="flex items-center justify-center py-8">
+                <LoadingSpinner size="md" />
+              </div>
+            )}
+
+            {/* Affected posts list */}
+            {!isLoadingDetails && affectedPosts.length > 0 && (
+              <div className="border border-bg-tertiary rounded-lg overflow-hidden">
+                {/* Table header */}
+                <div
+                  className={`grid gap-4 px-4 py-2.5 bg-bg-tertiary/50 text-xs font-semibold text-text-secondary uppercase tracking-wide ${
+                    affectedPosts[0]?.wordCount !== undefined
+                      ? 'grid-cols-[1fr_60px_auto]'
+                      : 'grid-cols-[1fr_auto]'
+                  }`}
+                >
+                  <span>Blog Post</span>
+                  {affectedPosts[0]?.wordCount !== undefined && <span>Words</span>}
+                  <span>Action</span>
+                </div>
+
+                {/* Post rows */}
+                {affectedPosts.map((post) => (
+                  <div
+                    key={post.id}
+                    className={`grid gap-4 items-center px-4 py-3 border-t border-bg-tertiary hover:bg-bg-tertiary/30 transition-colors ${
+                      post.wordCount !== undefined
+                        ? 'grid-cols-[1fr_60px_auto]'
+                        : 'grid-cols-[1fr_auto]'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{post.title}</p>
+                      <p className="text-text-secondary text-xs truncate">/{post.slug}</p>
+                    </div>
+
+                    {post.wordCount !== undefined && (
+                      <span
+                        className={`text-sm font-mono font-bold tabular-nums text-right ${
+                          post.wordCount < 300
+                            ? 'text-red-400'
+                            : post.wordCount < 500
+                            ? 'text-orange-400'
+                            : 'text-cyber-green'
+                        }`}
+                      >
+                        {post.wordCount}
+                      </span>
+                    )}
+
+                    <div className="flex gap-2">
+                      <a
+                        href={`/admin/content?tab=blog&edit=${post.id}`}
+                        className="px-3 py-1.5 text-xs font-semibold rounded bg-electric-blue/10 text-electric-blue border border-electric-blue/20 hover:bg-electric-blue/20 transition-colors whitespace-nowrap"
+                      >
+                        Edit
+                      </a>
+                      <a
+                        href={`/blog/${post.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 text-xs font-semibold rounded bg-bg-tertiary text-text-secondary hover:text-white transition-colors whitespace-nowrap"
+                      >
+                        View
+                      </a>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Summary footer */}
+                <div className="px-4 py-2.5 bg-bg-tertiary/30 border-t border-bg-tertiary text-xs text-text-secondary">
+                  {affectedPosts.length} affected post{affectedPosts.length !== 1 ? 's' : ''}
+                  {affectedPosts[0]?.wordCount !== undefined && (
+                    <> &middot; Target: 500+ words per post</>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* No affected posts */}
+            {!isLoadingDetails && affectedPosts.length === 0 && (
+              <div className="text-center py-6 border border-bg-tertiary rounded-lg">
+                <p className="text-text-secondary text-sm">
+                  No affected blog posts found. This issue may have already been resolved.
+                </p>
+              </div>
+            )}
+
+            {/* Footer actions */}
+            <div className="pt-2 flex justify-between items-center border-t border-bg-tertiary pt-4">
+              <a
+                href="/admin/content?tab=blog"
+                className="text-electric-blue text-sm hover:underline"
+              >
+                Go to Blog Manager
+              </a>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={closeDetailsModal}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   )

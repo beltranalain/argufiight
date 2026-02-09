@@ -1,87 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db/prisma'
 import { verifyCronAuth } from '@/lib/auth/cron-auth'
+import { triggerAIAutoAccept } from '@/lib/ai/trigger-ai-accept'
 
 // Cron job to auto-accept open challenges for AI users
+// Delegates to the shared triggerAIAutoAccept function for consistent round-robin distribution
 export async function GET(request: NextRequest) {
   try {
     const authError = verifyCronAuth(request)
     if (authError) return authError
 
-    // Get all active, non-paused AI users
-    const aiUsers = await prisma.user.findMany({
-      where: {
-        isAI: true,
-        aiPaused: false,
-      },
-      select: {
-        id: true,
-        username: true,
-        aiResponseDelay: true,
-      },
-    })
-
-    if (aiUsers.length === 0) {
-      return NextResponse.json({ message: 'No active AI users', accepted: 0 })
-    }
-
-    let acceptedCount = 0
-
-    for (const aiUser of aiUsers) {
-      const delayMs = aiUser.aiResponseDelay || 3600000 // Default 1 hour
-      const cutoffTime = new Date(Date.now() - delayMs)
-
-      const openChallenges = await prisma.debate.findMany({
-        where: {
-          status: 'WAITING',
-          challengeType: 'OPEN',
-          createdAt: { lte: cutoffTime },
-          challengerId: { not: aiUser.id },
-          opponentId: null,
-          // Only accept challenges from humans (prevent AI-to-AI)
-          challenger: { isAI: false },
-        },
-        include: {
-          challenger: {
-            select: { id: true, username: true },
-          },
-        },
-        take: 5,
-      })
-
-      for (const challenge of openChallenges) {
-        try {
-          await prisma.debate.update({
-            where: { id: challenge.id },
-            data: {
-              opponentId: aiUser.id,
-              status: 'ACTIVE',
-              startedAt: new Date(),
-              roundDeadline: new Date(Date.now() + challenge.roundDuration),
-            },
-          })
-
-          acceptedCount++
-
-          await prisma.notification.create({
-            data: {
-              userId: challenge.challengerId,
-              type: 'DEBATE_ACCEPTED',
-              title: 'Challenge Accepted',
-              message: `${aiUser.username} accepted your challenge: "${challenge.topic}"`,
-              debateId: challenge.id,
-            },
-          })
-        } catch (error: any) {
-          console.error(`[AI Auto-Accept] Failed to accept challenge ${challenge.id}:`, error.message)
-        }
-      }
-    }
+    const accepted = await triggerAIAutoAccept()
 
     return NextResponse.json({
       message: 'Auto-accept completed',
-      accepted: acceptedCount,
-      aiUsersChecked: aiUsers.length,
+      accepted,
     })
   } catch (error: any) {
     console.error('[AI Auto-Accept] Error:', error.message)

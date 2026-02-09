@@ -15,6 +15,7 @@ import { AuthProvider } from '@/lib/contexts/AuthContext'
 import { ChallengeProvider } from '@/lib/contexts/ChallengeContext'
 import { ChallengeModal } from '@/components/challenge/ChallengeModal'
 import { LazyNotifications } from '@/components/notifications/LazyNotifications'
+import { DailyLoginReward } from '@/components/DailyLoginReward'
 import { OrganizationSchema, WebsiteSearchSchema } from '@/components/seo/StructuredData'
 
 export const metadata: Metadata = {
@@ -111,6 +112,7 @@ export default function RootLayout({
                   {children}
                   <ChallengeModal />
                   <LazyNotifications />
+                  <DailyLoginReward />
                 </ToastProvider>
               </ErrorBoundary>
             </ChallengeProvider>

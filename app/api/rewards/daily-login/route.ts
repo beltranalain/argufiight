@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifySessionWithDb } from '@/lib/auth/session-verify'
 import { checkAndRewardDailyLogin } from '@/lib/rewards/daily-login'
+import { prisma } from '@/lib/db/prisma'
 
 /**
  * POST /api/rewards/daily-login
@@ -71,10 +72,20 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Since we don't have the reward tracking fields in the database,
-    // we'll return default values for now
+    // Check if user has a DAILY_LOGIN_REWARD transaction today
+    const todayStart = new Date()
+    todayStart.setUTCHours(0, 0, 0, 0)
+
+    const todayReward = await prisma.coinTransaction.findFirst({
+      where: {
+        userId: session.userId,
+        type: 'DAILY_LOGIN_REWARD',
+        createdAt: { gte: todayStart },
+      },
+    })
+
     return NextResponse.json({
-      rewardedToday: false,
+      rewardedToday: !!todayReward,
       streak: 0,
       longestStreak: 0,
       totalLoginDays: 0,
