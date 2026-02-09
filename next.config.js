@@ -112,11 +112,6 @@ const nextConfig = {
           {
             key: 'Permissions-Policy',
             value: 'camera=(self), microphone=(self), geolocation=()'
-          },
-          // Performance headers
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=3600, stale-while-revalidate=86400'
           }
         ]
       },
