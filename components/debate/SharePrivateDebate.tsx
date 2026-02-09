@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
 
@@ -14,13 +14,15 @@ export function SharePrivateDebate({ debateId, shareToken, isPrivate }: SharePri
   const { showToast } = useToast()
   const [copied, setCopied] = useState(false)
 
+  const [shareUrl, setShareUrl] = useState('')
+
+  useEffect(() => {
+    setShareUrl(`${window.location.origin}/debate/${debateId}?shareToken=${shareToken}`)
+  }, [debateId, shareToken])
+
   if (!isPrivate || !shareToken) {
     return null
   }
-
-  const shareUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/debate/${debateId}?shareToken=${shareToken}`
-    : ''
 
   const handleCopy = async () => {
     try {
