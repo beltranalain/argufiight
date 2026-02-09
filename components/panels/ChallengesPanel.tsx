@@ -64,7 +64,7 @@ export const ChallengesPanel = memo(function ChallengesPanel({
   const { showToast } = useToast()
   const router = useRouter()
 
-  // Process initial data from consolidated endpoint
+  // Process initial "All Challenges" data from consolidated endpoint
   useEffect(() => {
     if (initialWaitingDebates?.debates && user) {
       const allData = initialWaitingDebates.debates || []
@@ -107,34 +107,42 @@ export const ChallengesPanel = memo(function ChallengesPanel({
         return true
       })
       setChallenges(filtered)
+    }
+  }, [initialWaitingDebates, initialBeltChallenges, user])
 
-      // Process user's waiting debates
-      if (initialUserWaitingDebates?.debates) {
-        let myData = initialUserWaitingDebates.debates.filter((d: any) => d.challengerId === user.id)
-        const acceptedBeltChallenges = challengesToMyBelts
-          .filter((bc: any) => bc.status === 'ACCEPTED')
-          .map((bc: any) => ({
-            id: `belt-accepted-${bc.id}`,
-            topic: bc.debateTopic || `Challenge for ${bc.belt.name}`,
-            description: bc.debateDescription,
-            category: bc.belt.category || bc.debateCategory,
-            challengerId: bc.challengerId,
-            challenger: bc.challenger,
-            challengeType: 'BELT',
-            isBeltChallenge: true,
-            beltChallengeId: bc.id,
-            belt: bc.belt,
-            status: bc.status,
-            debateId: bc.debateId,
-            createdAt: bc.createdAt,
-          }))
-        myData = [...myData, ...acceptedBeltChallenges]
-        setMyChallenges(myData)
-      }
+  // Process "My Challenges" independently — not nested inside All Challenges gate
+  useEffect(() => {
+    if (initialUserWaitingDebates?.debates && user) {
+      const challengesToMyBelts = initialBeltChallenges?.challengesToMyBelts || []
+      let myData = initialUserWaitingDebates.debates.filter(
+        (d: any) => d.challengerId === user.id || d.opponentId === user.id
+      )
+      const acceptedBeltChallenges = challengesToMyBelts
+        .filter((bc: any) => bc.status === 'ACCEPTED')
+        .map((bc: any) => ({
+          id: `belt-accepted-${bc.id}`,
+          topic: bc.debateTopic || `Challenge for ${bc.belt.name}`,
+          description: bc.debateDescription,
+          category: bc.belt.category || bc.debateCategory,
+          challengerId: bc.challengerId,
+          challenger: bc.challenger,
+          challengeType: 'BELT',
+          isBeltChallenge: true,
+          beltChallengeId: bc.id,
+          belt: bc.belt,
+          status: bc.status,
+          debateId: bc.debateId,
+          createdAt: bc.createdAt,
+        }))
+      myData = [...myData, ...acceptedBeltChallenges]
+      setMyChallenges(myData)
+    }
 
+    // Resolve loading when either data source is available
+    if ((initialWaitingDebates?.debates || initialUserWaitingDebates?.debates) && user) {
       setIsLoading(false)
     }
-  }, [initialWaitingDebates, initialUserWaitingDebates, initialBeltChallenges, user])
+  }, [initialUserWaitingDebates, initialWaitingDebates, initialBeltChallenges, user])
 
   // Fallback: fetch independently when no initial data
   useEffect(() => {
@@ -256,7 +264,7 @@ export const ChallengesPanel = memo(function ChallengesPanel({
       if (user && myResponse && myResponse.ok) {
         const responseData = await myResponse.json()
         const debates = responseData.debates || (Array.isArray(responseData) ? responseData : [])
-        let myData = debates.filter((d: any) => d.challengerId === user.id)
+        let myData = debates.filter((d: any) => d.challengerId === user.id || d.opponentId === user.id)
 
         // Add ACCEPTED belt challenges to "My Challenges" (reuse same belt data)
         const acceptedBeltChallenges = challengesToMyBelts
