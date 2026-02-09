@@ -79,7 +79,7 @@ export async function triggerAIResponseForDebate(debateId: string): Promise<bool
     if (!shouldRespond) return false
 
     // Enforce response delay so AI doesn't reply instantly
-    const delayMs = aiUser.aiResponseDelay || 150000 // Default 2.5 minutes
+    const delayMs = aiUser.aiResponseDelay || 45000 // Default 45 seconds
     let referenceTime: Date | null = null
 
     if (isChallenger) {

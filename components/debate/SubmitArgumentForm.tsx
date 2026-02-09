@@ -84,21 +84,33 @@ export function SubmitArgumentForm({
 
       const data = await response.json()
 
+      const debateCompleted = data.debate?.status === 'COMPLETED'
+      const roundAdvanced = data.debate?.currentRound > currentRound
+
       showToast({
         title: 'Argument Submitted!',
-        description: data.debate.status === 'COMPLETED' 
-          ? 'Debate completed! Waiting for AI verdicts...'
+        description: debateCompleted
+          ? 'Debate completed! AI judges are deliberating...'
+          : roundAdvanced
+          ? `Round ${data.debate.currentRound} started!`
           : 'Waiting for opponent to respond...',
         type: 'success',
       })
 
       setContent('')
-      
-      // Dispatch event to notify other components (e.g., homepage blink effect)
+
+      // Dispatch statement-submitted for immediate refresh
       window.dispatchEvent(new CustomEvent('statement-submitted', {
         detail: { debateId, round: currentRound }
       }))
-      
+
+      // Dispatch debate-updated if debate completed or round advanced
+      if (debateCompleted || roundAdvanced) {
+        window.dispatchEvent(new CustomEvent('debate-updated', {
+          detail: { debateId, status: data.debate?.status, round: data.debate?.currentRound }
+        }))
+      }
+
       onSuccess?.()
     } catch (error: any) {
       showToast({

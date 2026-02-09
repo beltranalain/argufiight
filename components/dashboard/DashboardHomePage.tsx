@@ -62,15 +62,19 @@ export function DashboardHomePage() {
     // Refresh on events
     const handleUpdate = () => fetchDashboardData()
     window.addEventListener('debate-updated', handleUpdate)
+    window.addEventListener('debate-accepted', handleUpdate)
     window.addEventListener('statement-submitted', handleUpdate)
     window.addEventListener('debate-created', handleUpdate)
     window.addEventListener('belt-challenge-accepted', handleUpdate)
+    window.addEventListener('verdict-ready', handleUpdate)
 
     return () => {
       window.removeEventListener('debate-updated', handleUpdate)
+      window.removeEventListener('debate-accepted', handleUpdate)
       window.removeEventListener('statement-submitted', handleUpdate)
       window.removeEventListener('debate-created', handleUpdate)
       window.removeEventListener('belt-challenge-accepted', handleUpdate)
+      window.removeEventListener('verdict-ready', handleUpdate)
     }
   }, [fetchDashboardData])
 

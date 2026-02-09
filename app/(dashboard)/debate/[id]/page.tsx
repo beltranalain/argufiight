@@ -21,6 +21,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { AdDisplay } from '@/components/ads/AdDisplay'
 import { BeltTransferAnimation } from '@/components/debate/BeltTransferAnimation'
+import { DEBATE_ACTIVE_POLL_MS, DEBATE_WAITING_POLL_MS, DEBATE_VERDICT_POLL_MS } from '@/lib/constants'
 
 interface Statement {
   id: string
@@ -225,24 +226,25 @@ export default function DebatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id])
 
-  // Auto-refresh if debate is WAITING (in case someone accepts it)
+  // Auto-refresh based on debate status
   useEffect(() => {
-    if (!debate || debate.status !== 'WAITING' || !user) return
+    if (!debate || !user) return
+
+    let intervalMs: number | null = null
+    if (debate.status === 'WAITING') {
+      intervalMs = DEBATE_WAITING_POLL_MS
+    } else if (debate.status === 'ACTIVE') {
+      intervalMs = DEBATE_ACTIVE_POLL_MS
+    } else if (debate.status === 'COMPLETED') {
+      // Fast poll while waiting for AI verdicts
+      intervalMs = DEBATE_VERDICT_POLL_MS
+    }
+
+    if (!intervalMs) return
 
     const interval = setInterval(() => {
-      fetchDebate(false) // Don't show loading spinner on auto-refresh
-    }, 15000) // Check every 15 seconds
-
-    return () => clearInterval(interval)
-  }, [debate?.status, debate?.id, user])
-
-  // Auto-refresh if debate is ACTIVE (to catch round advancements)
-  useEffect(() => {
-    if (!debate || debate.status !== 'ACTIVE' || !user) return
-
-    const interval = setInterval(() => {
-      fetchDebate(false) // Don't show loading spinner on auto-refresh
-    }, 30000) // Check every 30 seconds for active debates
+      fetchDebate(false)
+    }, intervalMs)
 
     return () => clearInterval(interval)
   }, [debate?.status, debate?.id, user])
@@ -253,7 +255,7 @@ export default function DebatePage() {
       // Small delay to ensure backend has processed the submission
       setTimeout(() => {
         fetchDebate(false)
-      }, 1000)
+      }, 500)
     }
 
     window.addEventListener('statement-submitted', handleStatementSubmitted)
@@ -294,10 +296,32 @@ export default function DebatePage() {
       if (response.ok) {
         const data = await response.json()
         const previousStatus = debate?.status
+        const previousRound = debate?.currentRound
         const previousWinnerId = debate?.winnerId
-        
+
         setDebate(data)
-        
+
+        // Dispatch events on status transitions so dashboard stays in sync
+        if (previousStatus && previousStatus !== data.status) {
+          if (data.status === 'COMPLETED' || data.status === 'VERDICT_READY') {
+            window.dispatchEvent(new CustomEvent('debate-updated', {
+              detail: { debateId: data.id, status: data.status }
+            }))
+          }
+          if (data.status === 'VERDICT_READY') {
+            window.dispatchEvent(new CustomEvent('verdict-ready', {
+              detail: { debateId: data.id }
+            }))
+          }
+        }
+
+        // Dispatch on round advancement
+        if (previousRound && previousRound !== data.currentRound) {
+          window.dispatchEvent(new CustomEvent('debate-updated', {
+            detail: { debateId: data.id, round: data.currentRound }
+          }))
+        }
+
         // If status changed from WAITING to ACTIVE, show a message
         if (data.status === 'ACTIVE' && previousStatus === 'WAITING') {
           showToast({
@@ -872,9 +896,15 @@ export default function DebatePage() {
           {debate.status === 'COMPLETED' && (
             <Card>
               <CardBody>
-                <p className="text-text-secondary text-center py-4">
-                  Debate completed! AI judges are generating verdicts...
-                </p>
+                <div className="flex flex-col items-center py-6 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-electric-blue rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <div className="w-2 h-2 bg-electric-blue rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <div className="w-2 h-2 bg-electric-blue rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                  <p className="text-electric-blue font-semibold">AI Judges are deliberating...</p>
+                  <p className="text-text-secondary text-sm">Verdicts will appear automatically in a few moments</p>
+                </div>
               </CardBody>
             </Card>
           )}

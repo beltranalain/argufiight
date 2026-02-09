@@ -72,7 +72,7 @@ export async function triggerAIAutoAccept(): Promise<number> {
     // Build per-user eligible challenge lists (respecting each user's delay)
     const perUserEligible = new Map<string, Set<string>>()
     for (const aiUser of sortedAiUsers) {
-      const delayMs = Math.min(aiUser.aiResponseDelay || 150000, 300000)
+      const delayMs = Math.min(aiUser.aiResponseDelay || 45000, 300000)
       const cutoffTime = new Date(Date.now() - delayMs)
       const ids = new Set(
         allOpenChallenges

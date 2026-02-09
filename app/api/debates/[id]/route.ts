@@ -21,6 +21,15 @@ export async function GET(
         // AI trigger failure is non-critical
       }
     })
+
+    // Inline round advancement: if deadline expired, advance now instead of waiting for cron
+    try {
+      const { checkDebateRound } = await import('@/lib/debates/round-advancement')
+      await checkDebateRound(id)
+    } catch {
+      // Round advancement failure is non-critical — continue serving data
+    }
+
     const { searchParams } = new URL(request.url)
     const shareToken = searchParams.get('shareToken') // For accessing private debates
     

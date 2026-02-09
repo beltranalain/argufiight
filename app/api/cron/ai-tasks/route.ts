@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       // Build per-user eligible challenge lists (respecting each user's delay)
       const perUserEligible = new Map<string, Set<string>>()
       for (const aiUser of sortedAiUsers) {
-        const delayMs = Math.min(aiUser.aiResponseDelay || 150000, 300000)
+        const delayMs = Math.min(aiUser.aiResponseDelay || 45000, 300000)
         const cutoffTime = new Date(Date.now() - delayMs)
         const ids = new Set(
           allOpenChallenges
@@ -225,7 +225,7 @@ export async function GET(request: NextRequest) {
             if (!isAITurn) continue
 
             const now = new Date()
-            const delayMs = aiUser.aiResponseDelay || 150000
+            const delayMs = aiUser.aiResponseDelay || 45000
             const isChallenger = debate.challengerId === aiUser.id
 
             // Use already-loaded statements instead of separate DB queries
