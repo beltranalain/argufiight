@@ -38,6 +38,7 @@ export function AppealButton({
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState<string>('')
+  const [appealExpired, setAppealExpired] = useState(false)
   const [appealReason, setAppealReason] = useState<string>('')
   const [selectedVerdicts, setSelectedVerdicts] = useState<Set<string>>(new Set())
   const [appealLimit, setAppealLimit] = useState<{ remaining: number; limit: number } | null>(null)
@@ -76,10 +77,12 @@ export function AppealButton({
 
       if (hoursRemaining <= 0) {
         setTimeRemaining('Expired')
+        setAppealExpired(true)
       } else {
         const hours = Math.floor(hoursRemaining)
         const minutes = Math.floor((hoursRemaining - hours) * 60)
         setTimeRemaining(`${hours}h ${minutes}m`)
+        setAppealExpired(false)
       }
     }
 
@@ -128,13 +131,9 @@ export function AppealButton({
     return null
   }
 
-  // Check if appeal window expired
-  if (verdictDate) {
-    const verdictTime = new Date(verdictDate).getTime()
-    const hoursSinceVerdict = (Date.now() - verdictTime) / (1000 * 60 * 60)
-    if (hoursSinceVerdict > 48) {
-      return null
-    }
+  // Check if appeal window expired (computed in useEffect to avoid hydration mismatch)
+  if (appealExpired) {
+    return null
   }
 
   const handleAppeal = async (e?: React.FormEvent) => {

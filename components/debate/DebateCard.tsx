@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { cardHover, cardTap } from '@/lib/animations'
@@ -66,14 +67,23 @@ interface DebateCardProps {
 
 export function DebateCard({ debate }: DebateCardProps) {
   // For tournament debates, use tournament round number; otherwise use debate round
-  const displayRound = debate.tournamentMatch 
-    ? debate.tournamentMatch.round.roundNumber 
+  const displayRound = debate.tournamentMatch
+    ? debate.tournamentMatch.round.roundNumber
     : debate.currentRound
-  const displayTotalRounds = debate.tournamentMatch 
-    ? debate.tournamentMatch.tournament.totalRounds 
+  const displayTotalRounds = debate.tournamentMatch
+    ? debate.tournamentMatch.tournament.totalRounds
     : debate.totalRounds
   const progress = (displayRound / displayTotalRounds) * 100
-  const timeLeft = calculateTimeLeft(debate.roundDeadline)
+
+  // Defer time calculation to client to avoid hydration mismatch (new Date() differs server vs client)
+  const [timeLeft, setTimeLeft] = useState('—')
+  useEffect(() => {
+    setTimeLeft(calculateTimeLeft(debate.roundDeadline))
+    const interval = setInterval(() => {
+      setTimeLeft(calculateTimeLeft(debate.roundDeadline))
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [debate.roundDeadline])
   
   // Check if this is a GROUP debate (King of the Hill)
   const isGroupDebate = debate.challengeType === 'GROUP' || (debate.participants && debate.participants.length > 2)
