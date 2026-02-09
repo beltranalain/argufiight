@@ -134,7 +134,7 @@ export const ChallengesPanel = memo(function ChallengesPanel({
 
       setIsLoading(false)
     }
-  }, [initialWaitingDebates, initialUserWaitingDebates, initialBeltChallenges])
+  }, [initialWaitingDebates, initialUserWaitingDebates, initialBeltChallenges, user])
 
   // Fallback: fetch independently when no initial data
   useEffect(() => {

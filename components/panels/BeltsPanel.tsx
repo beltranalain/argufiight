@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, memo } from 'react'
+import { useState, useEffect, useRef, memo } from 'react'
 import Link from 'next/link'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Button } from '@/components/ui/Button'
@@ -63,22 +63,36 @@ export const BeltsPanel = memo(function BeltsPanel({ initialData }: { initialDat
   const [isCreatingChallenge, setIsCreatingChallenge] = useState<string | null>(null)
   const [challengeModalOpen, setChallengeModalOpen] = useState(false)
   const [selectedBeltForChallenge, setSelectedBeltForChallenge] = useState<Belt | null>(null)
+  const allBeltsFetchedRef = useRef(false)
+  const prevInitialDataRef = useRef<string>('')
 
   // Use initial data from consolidated endpoint when available
   useEffect(() => {
-    if (initialData) {
-      const newBelts = initialData.currentBelts || []
-      setCurrentBelts(newBelts)
-      const newChallengesToMyBelts = (initialData.challengesToMyBelts || [])
-        .filter((c: any) => c.status !== 'COMPLETED' && c.status !== 'DECLINED')
-      const newChallengesMade = (initialData.challengesMade || [])
-        .filter((c: any) => c.status !== 'COMPLETED' && c.status !== 'DECLINED')
-      setChallengesToMyBelts(newChallengesToMyBelts)
-      setChallengesMade(newChallengesMade)
-      setIsLoading(false)
-      setIsInitialLoad(false)
-      // If no belts or challenges, fetch all belts for display
-      if (newBelts.length === 0 && newChallengesToMyBelts.length === 0 && newChallengesMade.length === 0) {
+    if (!initialData) return
+
+    // Fingerprint the data to skip processing if nothing changed
+    const beltIds = (initialData.currentBelts || []).map((b: any) => b.id + b.status).join(',')
+    const challengeToIds = (initialData.challengesToMyBelts || []).map((c: any) => c.id + c.status).join(',')
+    const challengeMadeIds = (initialData.challengesMade || []).map((c: any) => c.id + c.status).join(',')
+    const fingerprint = `${beltIds}|${challengeToIds}|${challengeMadeIds}`
+
+    if (fingerprint === prevInitialDataRef.current) return
+    prevInitialDataRef.current = fingerprint
+
+    const newBelts = initialData.currentBelts || []
+    setCurrentBelts(newBelts)
+    const newChallengesToMyBelts = (initialData.challengesToMyBelts || [])
+      .filter((c: any) => c.status !== 'COMPLETED' && c.status !== 'DECLINED')
+    const newChallengesMade = (initialData.challengesMade || [])
+      .filter((c: any) => c.status !== 'COMPLETED' && c.status !== 'DECLINED')
+    setChallengesToMyBelts(newChallengesToMyBelts)
+    setChallengesMade(newChallengesMade)
+    setIsLoading(false)
+    setIsInitialLoad(false)
+    // If no belts or challenges, fetch all belts once for display
+    if (newBelts.length === 0 && newChallengesToMyBelts.length === 0 && newChallengesMade.length === 0) {
+      if (!allBeltsFetchedRef.current) {
+        allBeltsFetchedRef.current = true
         fetchAllBelts()
       }
     }
@@ -126,10 +140,12 @@ export const BeltsPanel = memo(function BeltsPanel({ initialData }: { initialDat
   // Fetch all belts when user has no belts or challenges (only when self-fetching)
   useEffect(() => {
     if (initialData) return // Already handled in initialData useEffect
+    if (allBeltsFetchedRef.current) return // Already fetched
     if (user && !isLoading && isInitialLoad === false) {
       const hasBelts = currentBelts.length > 0
       const hasChallenges = challengesToMyBelts.length > 0 || challengesMade.length > 0
       if (!hasBelts && !hasChallenges) {
+        allBeltsFetchedRef.current = true
         fetchAllBelts()
       }
     }
@@ -203,8 +219,9 @@ export const BeltsPanel = memo(function BeltsPanel({ initialData }: { initialDat
         setBeltSystemEnabled(false)
       }
       
-      // After fetching, if user has no belts or challenges, fetch all belts
-      if (isInitial && !hasCurrentBelts && !hasChallenges) {
+      // After fetching, if user has no belts or challenges, fetch all belts once
+      if (isInitial && !hasCurrentBelts && !hasChallenges && !allBeltsFetchedRef.current) {
+        allBeltsFetchedRef.current = true
         fetchAllBelts()
       }
     } catch (error) {
