@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +23,11 @@ export function Modal({
 }: ModalProps) {
   const backdropRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // Close on Escape key
   useEffect(() => {
@@ -62,7 +67,7 @@ export function Modal({
     large: 'max-w-[95vw] md:max-w-4xl',
   }
 
-  if (typeof window === 'undefined') return null
+  if (!isMounted) return null
 
   return createPortal(
     <div

@@ -1570,7 +1570,7 @@ export default function AdminSettingsPage() {
                             <ul className="text-xs text-text-secondary space-y-1 list-disc list-inside">
                               <li>If you don't see a notification, check <strong>Windows Focus Assist</strong> (Press Windows Key + A, turn off Focus Assist)</li>
                               <li>Try <strong>closing this tab</strong> and sending another test notification</li>
-                              <li>Check browser notification settings: {typeof window !== 'undefined' && 'chrome' in window ? 'chrome://settings/content/notifications' : 'edge://settings/content/notifications'}</li>
+                              <li>Check browser notification settings in your browser's settings under Notifications</li>
                               <li>Open DevTools (F12) → Application → Service Workers to check service worker status</li>
                               <li>See <a href="/PUSH_NOTIFICATION_TROUBLESHOOTING.md" target="_blank" className="underline text-electric-blue">full troubleshooting guide</a> for more help</li>
                             </ul>

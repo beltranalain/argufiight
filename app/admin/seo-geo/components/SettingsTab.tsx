@@ -618,7 +618,7 @@ export default function SettingsTab() {
                 <p className="text-text-secondary text-xs">
                   <strong className="text-white">Redirect URI:</strong>{' '}
                   <code className="text-electric-blue bg-bg-primary px-1 rounded">
-                    {typeof window !== 'undefined' ? window.location.origin : 'https://www.argufight.com'}/api/admin/seo-geo/search-console/auth
+                    https://www.argufight.com/api/admin/seo-geo/search-console/auth
                   </code>
                 </p>
               </div>
