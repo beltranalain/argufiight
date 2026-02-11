@@ -9,7 +9,7 @@ interface ModalProps {
   onClose: () => void
   title?: string
   children: React.ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'large'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'large'
   showClose?: boolean
 }
 
@@ -64,6 +64,7 @@ export function Modal({
     md: 'max-w-[95vw] md:max-w-lg',
     lg: 'max-w-[95vw] md:max-w-2xl',
     xl: 'max-w-[95vw] md:max-w-4xl',
+    '2xl': 'max-w-[95vw] md:max-w-6xl',
     large: 'max-w-[95vw] md:max-w-4xl',
   }
 

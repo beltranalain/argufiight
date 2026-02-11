@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { RichTextEditor } from '@/components/admin/RichTextEditor'
+import { SeoScoreWidget } from '@/components/admin/SeoScoreWidget'
 import { useToast } from '@/components/ui/Toast'
+import { generateSlug } from '@/lib/utils/slug'
+import { calculateSeoScore } from '@/lib/utils/seo-score'
 import Image from 'next/image'
 
 interface BlogPost {
@@ -63,6 +66,8 @@ export function BlogPostEditor({
   const { showToast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [activeTab, setActiveTab] = useState<'content' | 'seo'>('content')
   const editorRef = useRef<any>(null)
 
   // Form fields
@@ -88,6 +93,12 @@ export function BlogPostEditor({
   const [showCategoryModal, setShowCategoryModal] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryDescription, setNewCategoryDescription] = useState('')
+
+  // Derived SEO score
+  const slug = useMemo(() => generateSlug(title), [title])
+  const seoAnalysis = useMemo(() => calculateSeoScore({
+    title, content, excerpt, metaTitle, metaDescription, keywords, slug,
+  }), [title, content, excerpt, metaTitle, metaDescription, keywords, slug])
 
   useEffect(() => {
     if (post) {
@@ -145,13 +156,77 @@ export function BlogPostEditor({
     }
   }
 
+  const handleGenerateWithAI = async () => {
+    if (!title.trim()) {
+      showToast({ type: 'error', title: 'Title Required', description: 'Enter a title before generating with AI.' })
+      return
+    }
+
+    // Confirm if content already exists
+    if (content.trim() && !window.confirm('This will replace your current content. Continue?')) {
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const response = await fetch('/api/admin/blog/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      })
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.error || 'Generation failed')
+      }
+
+      const data = await response.json()
+      const gen = data.generated
+
+      setContent(gen.content || '')
+      setExcerpt(gen.excerpt || '')
+      setMetaDescription(gen.metaDescription || '')
+      setKeywords(gen.keywords || '')
+
+      // Auto-select matching tags from suggestions
+      if (gen.suggestedTags?.length && tags.length) {
+        const matchedIds: string[] = []
+        const unmatched: string[] = []
+
+        for (const suggested of gen.suggestedTags) {
+          const match = tags.find(t => t.name.toLowerCase() === suggested.toLowerCase())
+          if (match) {
+            if (!selectedTagIds.includes(match.id)) {
+              matchedIds.push(match.id)
+            }
+          } else {
+            unmatched.push(suggested)
+          }
+        }
+
+        if (matchedIds.length) {
+          setSelectedTagIds(prev => [...prev, ...matchedIds])
+        }
+        if (unmatched.length) {
+          showToast({
+            type: 'info',
+            title: 'Tag Suggestions',
+            description: `Consider creating: ${unmatched.join(', ')}`,
+          })
+        }
+      }
+
+      showToast({ type: 'success', title: 'Content Generated', description: 'AI has generated your blog post content.' })
+    } catch (error: any) {
+      showToast({ type: 'error', title: 'Generation Failed', description: error.message || 'Failed to generate content.' })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Category name is required',
-      })
+      showToast({ type: 'error', title: 'Error', description: 'Category name is required' })
       return
     }
 
@@ -159,10 +234,7 @@ export function BlogPostEditor({
       const response = await fetch('/api/admin/blog/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newCategoryName,
-          description: newCategoryDescription,
-        }),
+        body: JSON.stringify({ name: newCategoryName, description: newCategoryDescription }),
       })
 
       if (response.ok) {
@@ -172,30 +244,18 @@ export function BlogPostEditor({
         setNewCategoryName('')
         setNewCategoryDescription('')
         setShowCategoryModal(false)
-        showToast({
-          type: 'success',
-          title: 'Category Created',
-          description: 'Category created successfully',
-        })
+        showToast({ type: 'success', title: 'Category Created', description: 'Category created successfully' })
       } else {
         throw new Error('Failed to create category')
       }
     } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to create category',
-      })
+      showToast({ type: 'error', title: 'Error', description: 'Failed to create category' })
     }
   }
 
   const handleCreateTag = async () => {
     if (!newTagName.trim()) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Tag name is required',
-      })
+      showToast({ type: 'error', title: 'Error', description: 'Tag name is required' })
       return
     }
 
@@ -216,30 +276,18 @@ export function BlogPostEditor({
           setSelectedTagIds([...selectedTagIds, data.tag.id])
         }
         setNewTagName('')
-        showToast({
-          type: 'success',
-          title: 'Tag Created',
-          description: 'Tag created successfully',
-        })
+        showToast({ type: 'success', title: 'Tag Created', description: 'Tag created successfully' })
       } else {
         throw new Error('Failed to create tag')
       }
     } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to create tag',
-      })
+      showToast({ type: 'error', title: 'Error', description: 'Failed to create tag' })
     }
   }
 
   const handleSave = async () => {
     if (!title.trim() || !content.trim()) {
-      showToast({
-        type: 'error',
-        title: 'Validation Error',
-        description: 'Title and content are required',
-      })
+      showToast({ type: 'error', title: 'Validation Error', description: 'Title and content are required' })
       return
     }
 
@@ -254,7 +302,6 @@ export function BlogPostEditor({
         keywords,
         ogImage,
         status,
-        // Only set publishedAt when first publishing (not on subsequent edits)
         publishedAt: status === 'PUBLISHED'
           ? (post?.publishedAt || new Date().toISOString())
           : null,
@@ -285,11 +332,7 @@ export function BlogPostEditor({
         throw new Error(error.error || 'Failed to save')
       }
     } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Save Failed',
-        description: error.message || 'Failed to save blog post',
-      })
+      showToast({ type: 'error', title: 'Save Failed', description: error.message || 'Failed to save blog post' })
     } finally {
       setIsSaving(false)
     }
@@ -308,253 +351,227 @@ export function BlogPostEditor({
     setShowImageSelector(false)
   }
 
+  const inputClass = 'w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue'
+
   return (
     <Modal
       isOpen={true}
       onClose={onClose}
       title={post ? 'Edit Blog Post' : 'Create New Blog Post'}
-      size="xl"
+      size="2xl"
     >
-      <div className="space-y-6 max-h-[80vh] overflow-y-auto p-1">
-        {/* Title */}
-        <div>
-          <label className="block text-sm font-medium text-white mb-2">
-            Title <span className="text-red-400">*</span>
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
-            placeholder="Blog post title"
-          />
-        </div>
-
-        {/* Excerpt */}
-        <div>
-          <label className="block text-sm font-medium text-white mb-2">Excerpt</label>
-          <textarea
-            value={excerpt}
-            onChange={(e) => setExcerpt(e.target.value)}
-            rows={3}
-            className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
-            placeholder="Short description for listings (optional)"
-          />
-        </div>
-
-        {/* Content */}
-        <div>
-          <label className="block text-sm font-medium text-white mb-2">
-            Content <span className="text-red-400">*</span>
-          </label>
-          <div className="bg-bg-tertiary rounded-lg p-4">
-              <RichTextEditor
-                ref={editorRef}
-                value={content}
-                onChange={setContent}
-                onImageSelect={handleImageSelect}
-                placeholder="Write your blog post content..."
-              />
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* ===== MAIN CONTENT AREA ===== */}
+        <div className="flex-1 min-w-0">
+          {/* Tabs */}
+          <div className="flex gap-1 mb-5 border-b border-bg-tertiary">
+            <button
+              onClick={() => setActiveTab('content')}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                activeTab === 'content'
+                  ? 'text-electric-blue'
+                  : 'text-text-secondary hover:text-white'
+              }`}
+            >
+              Content
+              {activeTab === 'content' && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-electric-blue" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('seo')}
+              className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                activeTab === 'seo'
+                  ? 'text-electric-blue'
+                  : 'text-text-secondary hover:text-white'
+              }`}
+            >
+              SEO
+              {activeTab === 'seo' && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-electric-blue" />
+              )}
+            </button>
           </div>
-        </div>
 
-        {/* Featured Image */}
-        <div>
-          <label className="block text-sm font-medium text-white mb-2">Featured Image</label>
-          <div className="flex gap-4">
-            {selectedFeaturedImage && (
-              <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-bg-tertiary">
-                {selectedFeaturedImage.url.startsWith('data:') || selectedFeaturedImage.url.includes('blob.vercel-storage.com') ? (
-                  <img
-                    src={selectedFeaturedImage.url}
-                    alt={selectedFeaturedImage.alt || ''}
-                    className="w-full h-full object-cover"
+          {/* ===== CONTENT TAB ===== */}
+          {activeTab === 'content' && (
+            <div className="space-y-5">
+              {/* Title + Generate with AI */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Title <span className="text-red-400">*</span>
+                </label>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className={`${inputClass} flex-1`}
+                    placeholder="Blog post title"
                   />
-                ) : (
-                  <Image
-                    src={selectedFeaturedImage.url}
-                    alt={selectedFeaturedImage.alt || ''}
-                    fill
-                    className="object-cover"
-                  />
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleGenerateWithAI}
+                    disabled={!title.trim() || isGenerating}
+                    isLoading={isGenerating}
+                    className="whitespace-nowrap flex-shrink-0"
+                  >
+                    {isGenerating ? 'Generating...' : 'Generate with AI'}
+                  </Button>
+                </div>
+                {/* Slug preview */}
+                {title.trim() && (
+                  <p className="text-xs text-text-secondary mt-1.5">
+                    Slug: <span className="text-electric-blue font-mono">/blog/{slug}</span>
+                  </p>
                 )}
               </div>
-            )}
-            <div className="flex-1">
-              <Button
-                variant="secondary"
-                onClick={() => setShowMediaLibrary(true)}
-              >
-                {selectedFeaturedImage ? 'Change Image' : 'Select Featured Image'}
-              </Button>
-              {selectedFeaturedImage && (
-                <Button
-                  variant="secondary"
-                  onClick={() => setFeaturedImageId(null)}
-                  className="ml-2"
-                >
-                  Remove
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
 
-        {/* Categories */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-white">Categories</label>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowCategoryModal(true)}
-            >
-              + New Category
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <label
-                key={category.id}
-                className="flex items-center gap-2 px-3 py-1.5 bg-bg-tertiary rounded-lg cursor-pointer hover:bg-bg-tertiary/80"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedCategoryIds.includes(category.id)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedCategoryIds([...selectedCategoryIds, category.id])
-                    } else {
-                      setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== category.id))
-                    }
-                  }}
-                  className="w-4 h-4 text-electric-blue"
+              {/* Excerpt */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Excerpt</label>
+                <textarea
+                  value={excerpt}
+                  onChange={(e) => setExcerpt(e.target.value)}
+                  rows={2}
+                  className={inputClass}
+                  placeholder="Short description for listings (optional)"
                 />
-                <span className="text-white text-sm">{category.name}</span>
-              </label>
-            ))}
-          </div>
-        </div>
+              </div>
 
-        {/* Tags */}
-        <div>
-          <label className="block text-sm font-medium text-white mb-2">Tags</label>
-          <div className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={newTagName}
-              onChange={(e) => setNewTagName(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  handleCreateTag()
-                }
-              }}
-              placeholder="Type tag name and press Enter"
-              className="flex-1 px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
-            />
-            <Button variant="secondary" onClick={handleCreateTag}>
-              Add Tag
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <label
-                key={tag.id}
-                className="flex items-center gap-2 px-3 py-1.5 bg-bg-tertiary rounded-lg cursor-pointer hover:bg-bg-tertiary/80"
-              >
+              {/* Content */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Content <span className="text-red-400">*</span>
+                </label>
+                <div className="bg-bg-tertiary rounded-lg p-4">
+                  <RichTextEditor
+                    ref={editorRef}
+                    value={content}
+                    onChange={setContent}
+                    onImageSelect={handleImageSelect}
+                    placeholder="Write your blog post content..."
+                  />
+                </div>
+              </div>
+
+              {/* Featured Image */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Featured Image</label>
+                <div className="flex gap-4">
+                  {selectedFeaturedImage && (
+                    <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-bg-tertiary">
+                      {selectedFeaturedImage.url.startsWith('data:') || selectedFeaturedImage.url.includes('blob.vercel-storage.com') ? (
+                        <img
+                          src={selectedFeaturedImage.url}
+                          alt={selectedFeaturedImage.alt || ''}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Image
+                          src={selectedFeaturedImage.url}
+                          alt={selectedFeaturedImage.alt || ''}
+                          fill
+                          className="object-cover"
+                        />
+                      )}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <Button variant="secondary" onClick={() => setShowMediaLibrary(true)}>
+                      {selectedFeaturedImage ? 'Change Image' : 'Select Featured Image'}
+                    </Button>
+                    {selectedFeaturedImage && (
+                      <Button variant="secondary" onClick={() => setFeaturedImageId(null)} className="ml-2">
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ===== SEO TAB ===== */}
+          {activeTab === 'seo' && (
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Meta Title
+                  <span className="text-text-secondary text-xs ml-2">
+                    ({metaTitle.length || title.length}/60)
+                  </span>
+                </label>
                 <input
-                  type="checkbox"
-                  checked={selectedTagIds.includes(tag.id)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedTagIds([...selectedTagIds, tag.id])
-                    } else {
-                      setSelectedTagIds(selectedTagIds.filter(id => id !== tag.id))
-                    }
-                  }}
-                  className="w-4 h-4 text-electric-blue"
+                  type="text"
+                  value={metaTitle}
+                  onChange={(e) => setMetaTitle(e.target.value)}
+                  maxLength={60}
+                  className={inputClass}
+                  placeholder={title || 'SEO title (defaults to post title)'}
                 />
-                <span className="text-white text-sm">{tag.name}</span>
-              </label>
-            ))}
-          </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Meta Description
+                  <span className={`text-xs ml-2 ${metaDescription.length > 160 ? 'text-red-400' : 'text-text-secondary'}`}>
+                    ({metaDescription.length}/160)
+                  </span>
+                </label>
+                <textarea
+                  value={metaDescription}
+                  onChange={(e) => setMetaDescription(e.target.value)}
+                  maxLength={160}
+                  rows={3}
+                  className={inputClass}
+                  placeholder="SEO description (recommended: 120-160 characters)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Keywords</label>
+                <input
+                  type="text"
+                  value={keywords}
+                  onChange={(e) => setKeywords(e.target.value)}
+                  className={inputClass}
+                  placeholder="Comma-separated keywords"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">OG Image URL</label>
+                <input
+                  type="text"
+                  value={ogImage}
+                  onChange={(e) => setOgImage(e.target.value)}
+                  className={inputClass}
+                  placeholder="Open Graph image URL (optional)"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* SEO Section */}
-        <div className="border-t border-bg-tertiary pt-4">
-          <h3 className="text-lg font-semibold text-white mb-4">SEO Settings</h3>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                Meta Title
-                <span className="text-text-secondary text-xs ml-2">
-                  ({metaTitle.length || title.length}/60)
-                </span>
-              </label>
-              <input
-                type="text"
-                value={metaTitle}
-                onChange={(e) => setMetaTitle(e.target.value)}
-                maxLength={60}
-                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
-                placeholder={title || 'SEO title (defaults to post title)'}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                Meta Description
-                <span className="text-text-secondary text-xs ml-2">
-                  ({metaDescription.length}/160)
-                </span>
-              </label>
-              <textarea
-                value={metaDescription}
-                onChange={(e) => setMetaDescription(e.target.value)}
-                maxLength={160}
-                rows={3}
-                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
-                placeholder="SEO description (recommended: 150-160 characters)"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">Keywords</label>
-              <input
-                type="text"
-                value={keywords}
-                onChange={(e) => setKeywords(e.target.value)}
-                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
-                placeholder="Comma-separated keywords"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">OG Image URL</label>
-              <input
-                type="text"
-                value={ogImage}
-                onChange={(e) => setOgImage(e.target.value)}
-                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
-                placeholder="Open Graph image URL (optional)"
-              />
-            </div>
+        {/* ===== SIDEBAR ===== */}
+        <div className="w-full md:w-[280px] flex-shrink-0 space-y-5">
+          {/* SEO Score */}
+          <div className="bg-bg-tertiary/50 rounded-xl p-4">
+            <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3">SEO Score</p>
+            <SeoScoreWidget analysis={seoAnalysis} />
           </div>
-        </div>
 
-        {/* Publishing Settings */}
-        <div className="border-t border-bg-tertiary pt-4">
-          <h3 className="text-lg font-semibold text-white mb-4">Publishing Settings</h3>
-          
-          <div className="space-y-4">
+          {/* Post Settings */}
+          <div className="bg-bg-tertiary/50 rounded-xl p-4 space-y-3">
+            <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Post Settings</p>
             <div>
-              <label className="block text-sm font-medium text-white mb-2">Status</label>
+              <label className="block text-xs text-text-secondary mb-1">Status</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as any)}
-                className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-electric-blue"
+                className="w-full px-3 py-1.5 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-electric-blue"
               >
                 <option value="DRAFT">Draft</option>
                 <option value="PUBLISHED">Published</option>
@@ -562,26 +579,111 @@ export function BlogPostEditor({
                 <option value="ARCHIVED">Archived</option>
               </select>
             </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={featured}
+                onChange={(e) => setFeatured(e.target.checked)}
+                className="w-4 h-4 text-electric-blue"
+              />
+              <span className="text-white text-sm">Featured</span>
+            </label>
+          </div>
 
+          {/* Categories */}
+          <div className="bg-bg-tertiary/50 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Categories</p>
+              <button
+                onClick={() => setShowCategoryModal(true)}
+                className="text-xs text-electric-blue hover:text-[#00B8E6]"
+              >
+                + New
+              </button>
+            </div>
+            <div className="space-y-1.5 max-h-32 overflow-y-auto">
+              {categories.map((category) => (
+                <label
+                  key={category.id}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedCategoryIds.includes(category.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedCategoryIds([...selectedCategoryIds, category.id])
+                      } else {
+                        setSelectedCategoryIds(selectedCategoryIds.filter(id => id !== category.id))
+                      }
+                    }}
+                    className="w-3.5 h-3.5 text-electric-blue"
+                  />
+                  <span className="text-white text-sm">{category.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
-            <div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={featured}
-                  onChange={(e) => setFeatured(e.target.checked)}
-                  className="w-4 h-4 text-electric-blue"
-                />
-                <span className="text-white text-sm">Feature this post</span>
-              </label>
+          {/* Tags */}
+          <div className="bg-bg-tertiary/50 rounded-xl p-4">
+            <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">Tags</p>
+            <div className="flex gap-1.5 mb-2">
+              <input
+                type="text"
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleCreateTag()
+                  }
+                }}
+                placeholder="Type + Enter"
+                className="flex-1 min-w-0 px-2.5 py-1.5 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-electric-blue"
+              />
+              <button
+                onClick={handleCreateTag}
+                className="text-xs text-electric-blue hover:text-[#00B8E6] px-2 flex-shrink-0"
+              >
+                Add
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+              {tags.map((tag) => (
+                <label
+                  key={tag.id}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs cursor-pointer transition-colors ${
+                    selectedTagIds.includes(tag.id)
+                      ? 'bg-electric-blue/20 text-electric-blue border border-electric-blue/30'
+                      : 'bg-bg-tertiary text-text-secondary hover:text-white border border-transparent'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedTagIds.includes(tag.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedTagIds([...selectedTagIds, tag.id])
+                      } else {
+                        setSelectedTagIds(selectedTagIds.filter(id => id !== tag.id))
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  {tag.name}
+                  {selectedTagIds.includes(tag.id) && (
+                    <span className="text-electric-blue/60 hover:text-electric-blue">×</span>
+                  )}
+                </label>
+              ))}
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* Actions - sticky at bottom, outside scroll area */}
-      <div className="flex justify-end gap-4 pt-4 border-t border-bg-tertiary sticky bottom-0 bg-bg-secondary px-1 pb-1">
+      {/* Actions */}
+      <div className="flex justify-end gap-4 pt-4 border-t border-bg-tertiary mt-5">
         <Button variant="secondary" onClick={onClose} disabled={isSaving}>
           Cancel
         </Button>
