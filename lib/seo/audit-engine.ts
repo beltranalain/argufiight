@@ -138,16 +138,18 @@ async function runTechnicalChecks(): Promise<AuditCategoryResult> {
     })
   }
 
-  // Check: Google Search Console verification
-  const hasGSC = !!seoSettings['seo_googleSearchConsoleVerification']?.trim()
+  // Check: Google Search Console verification (meta tag OR active OAuth connection)
+  const hasGSCVerification = !!seoSettings['seo_googleSearchConsoleVerification']?.trim()
+  const hasGSCOAuth = !!seoSettings['seo_gsc_refresh_token']?.trim()
+  const hasGSC = hasGSCVerification || hasGSCOAuth
   checks.push({ name: 'Google Search Console verified', passed: hasGSC })
   if (!hasGSC) {
     issues.push({
       category: 'technical_seo',
       severity: 'info',
       title: 'Google Search Console not verified',
-      description: 'No Search Console verification code is configured.',
-      recommendation: 'Add your GSC verification meta tag to enable search performance data.',
+      description: 'No Search Console connection or verification code is configured.',
+      recommendation: 'Connect your Google Search Console via OAuth in Settings, or add your GSC verification meta tag.',
     })
   }
 
