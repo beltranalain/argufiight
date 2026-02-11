@@ -50,8 +50,8 @@ export function LiveChat({ debateId }: LiveChatProps) {
     // Poll for new messages every 3 seconds
     pollIntervalRef.current = setInterval(fetchMessages, 3000) as any as number
     
-    // Poll for typing status every 1 second
-    typingPollIntervalRef.current = setInterval(fetchTypingStatus, 1000) as any as number
+    // Poll for typing status every 5 seconds (reduced from 1s to lower API load)
+    typingPollIntervalRef.current = setInterval(fetchTypingStatus, 5000) as any as number
 
     return () => {
       if (pollIntervalRef.current) {

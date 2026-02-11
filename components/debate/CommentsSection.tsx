@@ -21,9 +21,10 @@ interface Comment {
 
 interface CommentsSectionProps {
   debateId: string
+  commentsEnabled?: boolean
 }
 
-export function CommentsSection({ debateId }: CommentsSectionProps) {
+export function CommentsSection({ debateId, commentsEnabled = true }: CommentsSectionProps) {
   const { user } = useAuth()
   const { showToast } = useToast()
   const [comments, setComments] = useState<Comment[]>([])
@@ -32,25 +33,8 @@ export function CommentsSection({ debateId }: CommentsSectionProps) {
   const [newComment, setNewComment] = useState('')
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyContent, setReplyContent] = useState('')
-  const [commentsEnabled, setCommentsEnabled] = useState(true)
   const commentsEndRef = useRef<HTMLDivElement>(null)
   const shouldScrollRef = useRef(false)
-
-  // Check if comments are enabled
-  useEffect(() => {
-    const checkFeatures = async () => {
-      try {
-        const response = await fetch('/api/features')
-        if (response.ok) {
-          const flags = await response.json()
-          setCommentsEnabled(flags.FEATURE_COMMENTS_ENABLED !== false)
-        }
-      } catch (error) {
-        console.error('Failed to fetch feature flags:', error)
-      }
-    }
-    checkFeatures()
-  }, [])
 
   useEffect(() => {
     if (!commentsEnabled) return
