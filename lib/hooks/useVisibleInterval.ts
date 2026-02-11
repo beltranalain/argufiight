@@ -4,10 +4,11 @@ import { useEffect, useRef } from 'react'
 
 /**
  * Like setInterval, but only fires when the tab is visible.
- * Also triggers an immediate callback when the tab regains focus.
+ * Triggers an immediate callback when the tab returns from being hidden.
  */
 export function useVisibleInterval(callback: () => void, ms: number) {
   const savedCallback = useRef(callback)
+  const wasHiddenRef = useRef(false)
 
   useEffect(() => {
     savedCallback.current = callback
@@ -20,16 +21,22 @@ export function useVisibleInterval(callback: () => void, ms: number) {
       }
     }
 
-    const onFocus = () => {
-      savedCallback.current()
+    // Track when tab is hidden so we only refetch on actual tab-switch, not every click
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        wasHiddenRef.current = true
+      } else if (document.visibilityState === 'visible' && wasHiddenRef.current) {
+        wasHiddenRef.current = false
+        savedCallback.current()
+      }
     }
 
     const id = setInterval(tick, ms)
-    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       clearInterval(id)
-      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [ms])
 }

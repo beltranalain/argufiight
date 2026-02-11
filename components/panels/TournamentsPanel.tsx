@@ -33,7 +33,12 @@ export const TournamentsPanel = memo(function TournamentsPanel({ initialData }: 
           t.status === 'REGISTRATION_OPEN' ||
           t.status === 'IN_PROGRESS'
       )
-      setTournaments(activeTournaments.slice(0, 3))
+      const next = activeTournaments.slice(0, 3)
+      setTournaments(prev => {
+        if (prev.length !== next.length) return next
+        const same = prev.every((t, i) => t.id === next[i]?.id && t.status === next[i]?.status && t.participantCount === next[i]?.participantCount)
+        return same ? prev : next
+      })
       setIsFeatureEnabled(true)
       setIsLoading(false)
     }
@@ -120,7 +125,12 @@ export const TournamentsPanel = memo(function TournamentsPanel({ initialData }: 
             t.status === 'IN_PROGRESS'
         )
 
-        setTournaments(activeTournaments.slice(0, 3))
+        const next = activeTournaments.slice(0, 3)
+        setTournaments(prev => {
+          if (prev.length !== next.length) return next
+          const same = prev.every((t, i) => t.id === next[i]?.id && t.status === next[i]?.status && t.participantCount === next[i]?.participantCount)
+          return same ? prev : next
+        })
       } else if (response.status === 403) {
         setIsFeatureEnabled(false)
       } else {
