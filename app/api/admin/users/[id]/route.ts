@@ -277,15 +277,15 @@ export async function DELETE(
       console.warn(`[ADMIN] Admin user being deleted: ${user.username} (${user.email}) by ${isSuperAdmin ? 'super admin' : 'admin'} ${userId}`)
     }
 
-    // Manually delete related records that don't have cascade delete
-    // First, find all tournament participant IDs for this user
+    // Manually delete/update ALL related records without onDelete: Cascade
+
+    // 1. Tournament cleanup — must delete matches before participants
     const userParticipants = await prisma.tournamentParticipant.findMany({
       where: { userId: id },
       select: { id: true },
     })
     const participantIds = userParticipants.map(p => p.id)
 
-    // Delete tournament matches that reference this user's participants
     if (participantIds.length > 0) {
       await prisma.tournamentMatch.deleteMany({
         where: {
@@ -298,52 +298,63 @@ export async function DELETE(
       })
     }
 
-    // Now safe to delete tournament participants
-    await prisma.tournamentParticipant.deleteMany({
-      where: {
-        userId: id,
-      },
+    await prisma.tournamentParticipant.deleteMany({ where: { userId: id } })
+    await prisma.tournamentSubscription.deleteMany({ where: { userId: id } })
+
+    // Clear tournament winner references before deleting tournaments
+    await prisma.tournament.updateMany({
+      where: { winnerId: id },
+      data: { winnerId: null },
     })
 
-    await prisma.tournamentSubscription.deleteMany({
-      where: {
-        userId: id,
-      },
+    // Delete tournaments created by this user (cascade handles their matches/participants/rounds)
+    const userTournaments = await prisma.tournament.findMany({
+      where: { creatorId: id },
+      select: { id: true },
     })
+    if (userTournaments.length > 0) {
+      const tournamentIds = userTournaments.map(t => t.id)
+      // Delete child records first to avoid FK issues within tournaments
+      await prisma.tournamentMatch.deleteMany({ where: { tournamentId: { in: tournamentIds } } })
+      await prisma.tournamentParticipant.deleteMany({ where: { tournamentId: { in: tournamentIds } } })
+      await prisma.tournamentRound.deleteMany({ where: { tournamentId: { in: tournamentIds } } })
+      await prisma.tournament.deleteMany({ where: { creatorId: id } })
+    }
 
-    // Delete belt-related records (BeltChallenge doesn't have cascade delete on user relations)
+    // 2. Belt cleanup
     await prisma.beltChallenge.deleteMany({
-      where: {
-        OR: [
-          { challengerId: id },
-          { beltHolderId: id },
-        ],
-      },
+      where: { OR: [{ challengerId: id }, { beltHolderId: id }] },
     })
-
-    // Delete belt history records
     await prisma.beltHistory.deleteMany({
-      where: {
-        OR: [
-          { fromUserId: id },
-          { toUserId: id },
-        ],
-      },
+      where: { OR: [{ fromUserId: id }, { toUserId: id }] },
     })
-
-    // Handle belts currently held by this user (set to VACANT)
     await prisma.belt.updateMany({
-      where: {
-        currentHolderId: id,
-      },
-      data: {
-        currentHolderId: null,
-        status: 'VACANT',
-        acquiredAt: null,
-      },
+      where: { currentHolderId: id },
+      data: { currentHolderId: null, status: 'VACANT', acquiredAt: null },
     })
 
-    // Delete user (cascade will handle other related records)
+    // 3. Nullify other non-cascade optional references
+    await prisma.debate.updateMany({
+      where: { opponentId: id },
+      data: { opponentId: null },
+    })
+    await prisma.supportTicket.updateMany({
+      where: { assignedToId: id },
+      data: { assignedToId: null },
+    })
+    await prisma.modelVersion.updateMany({
+      where: { createdBy: id },
+      data: { createdBy: null },
+    })
+    await prisma.apiUsage.updateMany({
+      where: { userId: id },
+      data: { userId: null },
+    })
+    await prisma.blogPost.deleteMany({
+      where: { authorId: id },
+    })
+
+    // Delete user (cascade handles remaining related records)
     await prisma.user.delete({
       where: { id },
     })
