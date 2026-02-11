@@ -14,13 +14,13 @@ interface CategoryData {
 }
 
 const FALLBACK_CATEGORIES: CategoryData[] = [
-  { id: '1', name: 'SPORTS', label: 'Sports', icon: '🏆', color: '#FF6B35' },
-  { id: '2', name: 'POLITICS', label: 'Politics', icon: '🏛️', color: '#4ECDC4' },
-  { id: '3', name: 'TECH', label: 'Tech', icon: '💻', color: '#00D4FF' },
-  { id: '4', name: 'ENTERTAINMENT', label: 'Entertainment', icon: '🎬', color: '#FF6ECB' },
-  { id: '5', name: 'SCIENCE', label: 'Science', icon: '🔬', color: '#7B68EE' },
-  { id: '6', name: 'MUSIC', label: 'Music', icon: '🎵', color: '#FFD700' },
-  { id: '7', name: 'OTHER', label: 'Other', icon: '💡', color: '#FF4444' },
+  { id: '1', name: 'SPORTS', label: 'Sports', color: '#FF6B35' },
+  { id: '2', name: 'POLITICS', label: 'Politics', color: '#4ECDC4' },
+  { id: '3', name: 'TECH', label: 'Tech', color: '#00D4FF' },
+  { id: '4', name: 'ENTERTAINMENT', label: 'Entertainment', color: '#FF6ECB' },
+  { id: '5', name: 'SCIENCE', label: 'Science', color: '#7B68EE' },
+  { id: '6', name: 'MUSIC', label: 'Music', color: '#FFD700' },
+  { id: '7', name: 'OTHER', label: 'Other', color: '#FF4444' },
 ]
 
 type Step = 'category' | 'topic' | 'side' | 'creating'
@@ -35,6 +35,7 @@ export function OnboardingFlow() {
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState('')
   const [isSkipping, setIsSkipping] = useState(false)
+  const [customTopic, setCustomTopic] = useState('')
 
   useEffect(() => {
     fetch('/api/categories')
@@ -46,7 +47,6 @@ export function OnboardingFlow() {
             const fallback = FALLBACK_CATEGORIES.find(f => f.name === cat.name)
             return {
               ...cat,
-              icon: cat.icon || fallback?.icon || '💬',
               color: cat.color || fallback?.color || '#00D4FF',
             }
           })
@@ -70,6 +70,18 @@ export function OnboardingFlow() {
   }
 
   const handleTopicSelect = (topic: OnboardingTopic) => {
+    setSelectedTopic(topic)
+    setSelectedPosition(null)
+    setStep('side')
+  }
+
+  const handleCustomTopicSubmit = () => {
+    if (!customTopic.trim()) return
+    const topic: OnboardingTopic = {
+      topic: customTopic.trim(),
+      forLabel: 'For',
+      againstLabel: 'Against',
+    }
     setSelectedTopic(topic)
     setSelectedPosition(null)
     setStep('side')
@@ -182,8 +194,7 @@ export function OnboardingFlow() {
                   onClick={() => handleCategorySelect(cat)}
                   className="group relative bg-bg-secondary border border-bg-tertiary rounded-xl p-5 text-center transition-all duration-200 hover:border-electric-blue hover:shadow-[0_0_20px_rgba(0,212,255,0.15)]"
                 >
-                  <div className="text-3xl mb-2">{cat.icon}</div>
-                  <div className="text-white font-semibold text-sm">{cat.label}</div>
+                  <div className="text-white font-semibold">{cat.label}</div>
                 </button>
               ))}
             </div>
@@ -193,12 +204,11 @@ export function OnboardingFlow() {
         {step === 'topic' && selectedCategory && (
           <div className="w-full max-w-xl animate-fadeIn">
             <div className="text-center mb-8">
-              <div className="text-3xl mb-2">{selectedCategory.icon}</div>
               <h2 className="text-2xl font-bold text-white mb-2">
                 {selectedCategory.label}
               </h2>
               <p className="text-text-secondary">
-                Pick a topic to debate
+                Pick a topic or submit your own
               </p>
             </div>
             <div className="flex flex-col gap-3">
@@ -211,6 +221,28 @@ export function OnboardingFlow() {
                   <div className="text-white font-medium">{topic.topic}</div>
                 </button>
               ))}
+
+              <div className="relative mt-2">
+                <div className="text-center text-text-secondary text-xs mb-2">or write your own</div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customTopic}
+                    onChange={(e) => setCustomTopic(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCustomTopicSubmit()}
+                    placeholder="Type your own debate topic..."
+                    maxLength={200}
+                    className="flex-1 bg-bg-secondary border border-bg-tertiary rounded-xl px-4 py-3 text-white placeholder-text-secondary text-sm focus:outline-none focus:border-electric-blue transition-colors"
+                  />
+                  <button
+                    onClick={handleCustomTopicSubmit}
+                    disabled={!customTopic.trim()}
+                    className="px-5 py-3 bg-electric-blue/10 border border-electric-blue/30 rounded-xl text-electric-blue font-semibold text-sm transition-all hover:bg-electric-blue/20 hover:border-electric-blue disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Go
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

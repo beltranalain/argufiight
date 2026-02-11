@@ -180,48 +180,8 @@ export default function DebatePage() {
   const [showBeltTransfer, setShowBeltTransfer] = useState(false)
   const [showOnboardingCongrats, setShowOnboardingCongrats] = useState(false)
   const onboardingCongratsShownRef = useRef(false)
+  // Scroll position ref — only used for initial load restore, not poll updates
   const scrollPositionRef = useRef<number>(0)
-  const isRestoringScrollRef = useRef<boolean>(false)
-
-  // Preserve scroll position on re-renders
-  useEffect(() => {
-    // Save scroll position before any state changes
-    const saveScrollPosition = () => {
-      if (!isRestoringScrollRef.current) {
-        scrollPositionRef.current = window.scrollY || window.pageYOffset || document.documentElement.scrollTop
-      }
-    }
-
-    // Save on scroll
-    window.addEventListener('scroll', saveScrollPosition, { passive: true })
-    
-    // Save before unload
-    window.addEventListener('beforeunload', saveScrollPosition)
-
-    return () => {
-      window.removeEventListener('scroll', saveScrollPosition)
-      window.removeEventListener('beforeunload', saveScrollPosition)
-    }
-  }, [])
-
-  // Restore scroll position after state updates
-  useEffect(() => {
-    if (scrollPositionRef.current > 0 && !isLoading) {
-      isRestoringScrollRef.current = true
-      
-      // Use requestAnimationFrame to restore after render
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' })
-        document.documentElement.scrollTop = scrollPositionRef.current
-        document.body.scrollTop = scrollPositionRef.current
-        
-        // Release lock after a brief delay
-        setTimeout(() => {
-          isRestoringScrollRef.current = false
-        }, 100)
-      })
-    }
-  }, [debate, isLoading])
 
   useEffect(() => {
     if (params.id) {
@@ -604,10 +564,10 @@ export default function DebatePage() {
               <div className="mt-4 pt-4 border-t border-bg-tertiary">
                 <DebateInteractions debateId={debate.id} />
               </div>
-              {/* Share Private Debate Link */}
-              {debate.isPrivate && debate.shareToken && (
+              {/* Share Private Debate Link — hide for onboarding debates */}
+              {debate.isPrivate && debate.shareToken && !debate.isOnboardingDebate && (
                 <div className="mt-4 pt-4 border-t border-bg-tertiary">
-                  <SharePrivateDebate 
+                  <SharePrivateDebate
                     debateId={debate.id}
                     shareToken={debate.shareToken}
                     isPrivate={debate.isPrivate}

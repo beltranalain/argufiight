@@ -320,6 +320,7 @@ export async function POST(
     } else {
       // For 2-person debates, notify opponent it's their turn
       // For GROUP debates, all participants can submit simultaneously, so no turn notifications needed
+      // Skip notifications for AI opponents — they don't need them
       if (debate.challengeType !== 'GROUP' && debate.opponentId) {
         const opponentId =
           userId === debate.challengerId
@@ -327,23 +328,33 @@ export async function POST(
             : debate.challengerId
 
         if (opponentId) {
-          // Create in-app notification
-          await prisma.notification.create({
-            data: {
-              userId: opponentId,
-              type: 'DEBATE_TURN',
-              title: 'Your Turn to Argue',
-              message: `It's your turn in "${debate.topic}"`,
-              debateId: debate.id,
-            },
+          // Check if opponent is AI — skip notifications entirely
+          const opponent = await prisma.user.findUnique({
+            where: { id: opponentId },
+            select: { isAI: true },
           })
 
-          // Send push notification (non-blocking)
-          const { sendYourTurnPushNotification } = await import('@/lib/notifications/push-notifications')
-          sendYourTurnPushNotification(opponentId, debate.id, debate.topic).catch((error) => {
-            console.error('[Submit] Failed to send turn push notification:', error)
-            // Don't throw - push notifications are optional
-          })
+          if (!opponent?.isAI) {
+            // Create in-app notification (non-blocking)
+            prisma.notification.create({
+              data: {
+                userId: opponentId,
+                type: 'DEBATE_TURN',
+                title: 'Your Turn to Argue',
+                message: `It's your turn in "${debate.topic}"`,
+                debateId: debate.id,
+              },
+            }).catch((error) => {
+              console.error('[Submit] Failed to create turn notification:', error)
+            })
+
+            // Send push notification (non-blocking)
+            import('@/lib/notifications/push-notifications').then(({ sendYourTurnPushNotification }) => {
+              sendYourTurnPushNotification(opponentId, debate.id, debate.topic).catch((error) => {
+                console.error('[Submit] Failed to send turn push notification:', error)
+              })
+            }).catch(() => {})
+          }
         }
       }
     }
