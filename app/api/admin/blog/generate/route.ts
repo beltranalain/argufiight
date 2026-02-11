@@ -37,6 +37,8 @@ Requirements:
 - Keywords: 5-8 comma-separated relevant keywords
 - Suggested Tags: 3-5 short tag names relevant to the content
 - Tone: Professional but approachable, conversational
+- Internal links: Include 2-3 links to ArguFight pages using relative URLs like <a href="/debates">explore debates</a>, <a href="/signup">join ArguFight</a>, <a href="/blog">read more articles</a>
+- External links: Include 1-2 links to reputable external sources (studies, articles, Wikipedia) relevant to the topic to add credibility
 - Include a call-to-action encouraging readers to start a debate on ArguFight
 
 Respond ONLY with valid JSON (no markdown code blocks):
