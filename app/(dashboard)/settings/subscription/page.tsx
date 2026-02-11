@@ -1,102 +1,52 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/Toast'
 import { LoadingSpinner } from '@/components/ui/Loading'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Modal } from '@/components/ui/Modal'
-
-interface UserSubscription {
-  id: string
-  tier: string
-  billingCycle: string | null
-  status: string
-  currentPeriodStart: string | null
-  currentPeriodEnd: string | null
-  cancelAtPeriodEnd: boolean
-  cancelledAt: string | null
-}
+import { useSubscription, useUsage } from '@/lib/hooks/queries/useSubscription'
+import { fetchClient } from '@/lib/api/fetchClient'
 
 export default function SubscriptionPage() {
   const router = useRouter()
   const { showToast } = useToast()
-  const [subscription, setSubscription] = useState<UserSubscription | null>(null)
-  const [usage, setUsage] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isCancelling, setIsCancelling] = useState(false)
-  const [isUpgrading, setIsUpgrading] = useState(false)
+  const queryClient = useQueryClient()
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
 
-  useEffect(() => {
-    fetchSubscription()
-    fetchUsage()
-  }, [])
+  const { data: subscription, isLoading, isError, refetch } = useSubscription()
+  const { data: usageData } = useUsage()
 
-  const fetchSubscription = async () => {
-    try {
-      const response = await fetch('/api/subscriptions')
-      if (response.ok) {
-        const data = await response.json()
-        setSubscription(data.subscription)
-      }
-    } catch (error) {
-      console.error('Failed to fetch subscription:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const fetchUsage = async () => {
-    try {
-      const response = await fetch('/api/subscriptions/usage')
-      if (response.ok) {
-        const data = await response.json()
-        setUsage(data.usage)
-      }
-    } catch (error) {
-      console.error('Failed to fetch usage:', error)
-    }
-  }
-
-  const handleUpgrade = () => {
-    router.push('/signup/payment?tier=PRO&cycle=MONTHLY')
-  }
-
-  const handleCancel = async () => {
-    setIsCancelling(true)
-    try {
-      const response = await fetch('/api/subscriptions/cancel', {
+  const cancelMutation = useMutation({
+    mutationFn: (atPeriodEnd: boolean) =>
+      fetchClient('/api/subscriptions/cancel', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ atPeriodEnd: true }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to cancel subscription')
-      }
-
+        body: JSON.stringify({ atPeriodEnd }),
+      }),
+    onSuccess: (_data, atPeriodEnd) => {
       showToast({
         type: 'success',
-        title: 'Subscription Cancelled',
-        description: 'Your subscription will remain active until the end of the current billing period.',
+        title: atPeriodEnd ? 'Subscription Cancelled' : 'Subscription Reactivated',
+        description: atPeriodEnd
+          ? 'Your subscription will remain active until the end of the current billing period.'
+          : 'Your subscription has been reactivated.',
       })
-
       setCancelModalOpen(false)
-      fetchSubscription()
-    } catch (error: any) {
+      queryClient.invalidateQueries({ queryKey: ['subscription'] })
+    },
+    onError: (error: any) => {
       showToast({
         type: 'error',
         title: 'Error',
-        description: error.message || 'Failed to cancel subscription',
+        description: error.message || 'Failed to update subscription',
       })
-    } finally {
-      setIsCancelling(false)
-    }
-  }
+    },
+  })
 
   if (isLoading) {
     return (
@@ -106,9 +56,14 @@ export default function SubscriptionPage() {
     )
   }
 
+  if (isError) {
+    return <ErrorDisplay title="Failed to load subscription" onRetry={() => refetch()} />
+  }
+
   const isPro = subscription?.tier === 'PRO'
   const isActive = subscription?.status === 'ACTIVE'
   const willCancel = subscription?.cancelAtPeriodEnd
+  const usage = usageData?.usage
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -135,7 +90,7 @@ export default function SubscriptionPage() {
           </div>
         </CardHeader>
         <CardBody className="space-y-6">
-          {isPro && isActive && (
+          {isPro && isActive && subscription && (
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -178,39 +133,15 @@ export default function SubscriptionPage() {
 
               <div className="flex gap-3 pt-4 border-t border-bg-tertiary">
                 {!willCancel && (
-                  <Button
-                    variant="danger"
-                    onClick={() => setCancelModalOpen(true)}
-                  >
+                  <Button variant="danger" onClick={() => setCancelModalOpen(true)}>
                     Cancel Subscription
                   </Button>
                 )}
                 {willCancel && (
                   <Button
                     variant="secondary"
-                    onClick={async () => {
-                      try {
-                        const response = await fetch('/api/subscriptions/cancel', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ atPeriodEnd: false }),
-                        })
-                        if (response.ok) {
-                          showToast({
-                            type: 'success',
-                            title: 'Subscription Reactivated',
-                            description: 'Your subscription has been reactivated.',
-                          })
-                          fetchSubscription()
-                        }
-                      } catch (error: any) {
-                        showToast({
-                          type: 'error',
-                          title: 'Error',
-                          description: 'Failed to reactivate subscription',
-                        })
-                      }
-                    }}
+                    onClick={() => cancelMutation.mutate(false)}
+                    isLoading={cancelMutation.isPending}
                   >
                     Reactivate Subscription
                   </Button>
@@ -230,7 +161,7 @@ export default function SubscriptionPage() {
               <p className="text-text-secondary mb-4">
                 Upgrade to Pro to unlock advanced features, unlimited speed debates, and more.
               </p>
-              <Button variant="primary" onClick={handleUpgrade}>
+              <Button variant="primary" onClick={() => router.push('/signup/payment?tier=PRO&cycle=MONTHLY')}>
                 Upgrade to Pro
               </Button>
             </div>
@@ -252,7 +183,7 @@ export default function SubscriptionPage() {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-text-primary">"That's The One"</span>
+                <span className="text-text-primary">&quot;That&apos;s The One&quot;</span>
                 <span className="text-white font-semibold">
                   {usage.thatsTheOne?.current || 0} {usage.thatsTheOne?.limit === -1 ? '(Unlimited)' : `/ ${usage.thatsTheOne?.limit || 10}`}
                 </span>
@@ -275,13 +206,13 @@ export default function SubscriptionPage() {
       >
         <div className="space-y-4">
           <p className="text-text-primary">
-            Are you sure you want to cancel your subscription? You'll continue to have access to Pro features until the end of your current billing period.
+            Are you sure you want to cancel your subscription? You&apos;ll continue to have access to Pro features until the end of your current billing period.
           </p>
           <div className="flex gap-3 justify-end">
             <Button variant="secondary" onClick={() => setCancelModalOpen(false)}>
               Keep Subscription
             </Button>
-            <Button variant="danger" onClick={handleCancel} isLoading={isCancelling}>
+            <Button variant="danger" onClick={() => cancelMutation.mutate(true)} isLoading={cancelMutation.isPending}>
               Cancel Subscription
             </Button>
           </div>
@@ -290,4 +221,3 @@ export default function SubscriptionPage() {
     </div>
   )
 }
-

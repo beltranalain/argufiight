@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
@@ -24,95 +27,121 @@ interface Tournament {
   }
 }
 
+interface AdminSettings {
+  TOURNAMENTS_ENABLED?: string
+  FREE_TOURNAMENT_LIMIT?: string
+  [key: string]: string | undefined
+}
+
 export default function TournamentsPage() {
   const { showToast } = useToast()
-  const [tournaments, setTournaments] = useState<Tournament[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isFeatureEnabled, setIsFeatureEnabled] = useState(false)
+  const queryClient = useQueryClient()
   const [freeTournamentLimit, setFreeTournamentLimit] = useState('1')
-  const [isSavingLimit, setIsSavingLimit] = useState(false)
 
-  useEffect(() => {
-    fetchFeatureStatus()
-    fetchTournaments()
-  }, [])
-
-  const fetchFeatureStatus = async () => {
-    try {
-      const response = await fetch('/api/admin/settings')
-      if (response.ok) {
-        const data = await response.json()
-        setIsFeatureEnabled(data.TOURNAMENTS_ENABLED === 'true')
-        setFreeTournamentLimit(data.FREE_TOURNAMENT_LIMIT || '1')
+  // Fetch admin settings (feature status + limit)
+  const {
+    data: settings,
+    isLoading: isLoadingSettings,
+  } = useQuery<AdminSettings>({
+    queryKey: ['admin-settings'],
+    queryFn: async () => {
+      const data = await fetchClient<AdminSettings>('/api/admin/settings')
+      // Sync local state for the editable input
+      if (data.FREE_TOURNAMENT_LIMIT) {
+        setFreeTournamentLimit(data.FREE_TOURNAMENT_LIMIT)
       }
-    } catch (error) {
-      console.error('Failed to fetch feature status:', error)
-    }
-  }
+      return data
+    },
+    staleTime: 60_000,
+  })
 
-  const fetchTournaments = async () => {
-    try {
-      setIsLoading(true)
-      console.log('[Admin Tournaments] Fetching tournaments...')
-      const response = await fetch('/api/admin/tournaments')
-      console.log('[Admin Tournaments] Response status:', response.status)
-      
-      if (response.ok) {
-        const data = await response.json()
-        console.log('[Admin Tournaments] Response data:', data)
-        console.log('[Admin Tournaments] Is array?', Array.isArray(data))
-        console.log('[Admin Tournaments] Data length:', Array.isArray(data) ? data.length : 'not an array')
-        
-        const tournamentsList = Array.isArray(data) ? data : (data?.tournaments || [])
-        console.log('[Admin Tournaments] Setting tournaments:', tournamentsList.length)
-        setTournaments(tournamentsList)
-      } else {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        console.error('[Admin Tournaments] API error:', response.status, errorData)
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: errorData.error || `Failed to load tournaments (${response.status})`,
-        })
-      }
-    } catch (error) {
-      console.error('[Admin Tournaments] Failed to fetch tournaments:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to load tournaments',
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const isFeatureEnabled = settings?.TOURNAMENTS_ENABLED === 'true'
 
-  const toggleFeature = async () => {
-    try {
-      const response = await fetch('/api/admin/settings', {
+  // Fetch tournaments
+  const {
+    data: tournaments = [],
+    isLoading: isLoadingTournaments,
+    isError,
+    refetch: refetchTournaments,
+  } = useQuery<Tournament[]>({
+    queryKey: ['admin-tournaments'],
+    queryFn: async () => {
+      const data = await fetchClient<Tournament[] | { tournaments: Tournament[] }>('/api/admin/tournaments')
+      return Array.isArray(data) ? data : (data?.tournaments || [])
+    },
+    staleTime: 60_000,
+  })
+
+  const isLoading = isLoadingSettings || isLoadingTournaments
+
+  // Toggle feature mutation
+  const toggleFeatureMutation = useMutation({
+    mutationFn: (enabled: boolean) =>
+      fetchClient('/api/admin/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          TOURNAMENTS_ENABLED: (!isFeatureEnabled).toString(),
-        }),
+        body: JSON.stringify({ TOURNAMENTS_ENABLED: enabled.toString() }),
+      }),
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Feature Updated',
+        description: `Tournaments ${!isFeatureEnabled ? 'enabled' : 'disabled'}`,
       })
-
-      if (response.ok) {
-        setIsFeatureEnabled(!isFeatureEnabled)
-        showToast({
-          type: 'success',
-          title: 'Feature Updated',
-          description: `Tournaments ${!isFeatureEnabled ? 'enabled' : 'disabled'}`,
-        })
-      }
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
+    },
+    onError: () => {
       showToast({
         type: 'error',
         title: 'Error',
         description: 'Failed to update feature status',
       })
-    }
-  }
+    },
+  })
+
+  // Save free tournament limit mutation
+  const saveLimitMutation = useMutation({
+    mutationFn: (limit: string) =>
+      fetchClient('/api/admin/settings', {
+        method: 'POST',
+        body: JSON.stringify({ FREE_TOURNAMENT_LIMIT: limit }),
+      }),
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Limit Updated',
+        description: `Free tournament limit set to ${freeTournamentLimit} per month`,
+      })
+      queryClient.invalidateQueries({ queryKey: ['admin-settings'] })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to update free tournament limit',
+      })
+    },
+  })
+
+  // Delete tournament mutation
+  const deleteMutation = useMutation({
+    mutationFn: (tournamentId: string) =>
+      fetchClient(`/api/admin/tournaments/${tournamentId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Deleted',
+        description: 'Tournament deleted successfully',
+      })
+      queryClient.invalidateQueries({ queryKey: ['admin-tournaments'] })
+    },
+    onError: (error: any) => {
+      showToast({
+        type: 'error',
+        title: 'Delete Failed',
+        description: error.message || 'Failed to delete tournament',
+      })
+    },
+  })
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -131,35 +160,11 @@ export default function TournamentsPage() {
     }
   }
 
-  const handleDelete = async (tournamentId: string, tournamentName: string) => {
+  const handleDelete = (tournamentId: string, tournamentName: string) => {
     if (!confirm(`Are you sure you want to delete "${tournamentName}"? This action cannot be undone and will delete all associated data (matches, rounds, participants, etc.).`)) {
       return
     }
-
-    try {
-      const response = await fetch(`/api/admin/tournaments/${tournamentId}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Deleted',
-          description: 'Tournament deleted successfully',
-        })
-        fetchTournaments()
-      } else {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || 'Failed to delete tournament')
-      }
-    } catch (error: any) {
-      console.error('Failed to delete tournament:', error)
-      showToast({
-        type: 'error',
-        title: 'Delete Failed',
-        description: error.message || 'Failed to delete tournament',
-      })
-    }
+    deleteMutation.mutate(tournamentId)
   }
 
   if (isLoading) {
@@ -167,6 +172,16 @@ export default function TournamentsPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <ErrorDisplay
+        title="Failed to load tournaments"
+        message="Something went wrong while loading tournaments. Please try again."
+        onRetry={() => refetchTournaments()}
+      />
     )
   }
 
@@ -181,7 +196,7 @@ export default function TournamentsPage() {
           <div className="flex items-center gap-3">
             <span className="text-white font-medium">Tournaments Feature:</span>
             <button
-              onClick={toggleFeature}
+              onClick={() => toggleFeatureMutation.mutate(!isFeatureEnabled)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                 isFeatureEnabled ? 'bg-electric-blue' : 'bg-gray-600'
               }`}
@@ -241,40 +256,12 @@ export default function TournamentsPage() {
                       className="w-20 px-3 py-2 bg-bg-secondary border border-bg-tertiary rounded text-white focus:outline-none focus:border-electric-blue"
                     />
                     <Button
-                      onClick={async () => {
-                        setIsSavingLimit(true)
-                        try {
-                          const response = await fetch('/api/admin/settings', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              FREE_TOURNAMENT_LIMIT: freeTournamentLimit,
-                            }),
-                          })
-                          if (response.ok) {
-                            showToast({
-                              type: 'success',
-                              title: 'Limit Updated',
-                              description: `Free tournament limit set to ${freeTournamentLimit} per month`,
-                            })
-                          } else {
-                            throw new Error('Failed to save')
-                          }
-                        } catch (error) {
-                          showToast({
-                            type: 'error',
-                            title: 'Error',
-                            description: 'Failed to update free tournament limit',
-                          })
-                        } finally {
-                          setIsSavingLimit(false)
-                        }
-                      }}
+                      onClick={() => saveLimitMutation.mutate(freeTournamentLimit)}
                       variant="secondary"
                       size="sm"
-                      disabled={isSavingLimit}
+                      disabled={saveLimitMutation.isPending}
                     >
-                      {isSavingLimit ? 'Saving...' : 'Save'}
+                      {saveLimitMutation.isPending ? 'Saving...' : 'Save'}
                     </Button>
                   </div>
                 </div>
@@ -289,7 +276,7 @@ export default function TournamentsPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-white">All Tournaments</h2>
-            <Button onClick={fetchTournaments} variant="secondary" size="sm">
+            <Button onClick={() => refetchTournaments()} variant="secondary" size="sm">
               Refresh
             </Button>
           </div>
@@ -366,6 +353,3 @@ export default function TournamentsPage() {
     </div>
   )
 }
-
-
-

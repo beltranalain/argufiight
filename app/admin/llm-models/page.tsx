@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { Button } from '@/components/ui/Button'
@@ -38,28 +41,12 @@ interface AppealAnalytics {
 }
 
 export default function LLMModelsPage() {
-  const [analytics, setAnalytics] = useState<AppealAnalytics | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
 
-  useEffect(() => {
-    fetchAnalytics()
-  }, [])
-
-  const fetchAnalytics = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch('/api/admin/llm-models/analytics')
-      if (response.ok) {
-        const data = await response.json()
-        setAnalytics(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch analytics:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const { data: analytics, isLoading, error, refetch } = useQuery<AppealAnalytics>({
+    queryKey: ['admin', 'llm-models', 'analytics'],
+    queryFn: () => fetchClient<AppealAnalytics>('/api/admin/llm-models/analytics'),
+  })
 
   const handleExportData = async (format: 'csv' | 'json') => {
     try {
@@ -75,8 +62,8 @@ export default function LLMModelsPage() {
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
       }
-    } catch (error) {
-      console.error('Failed to export data:', error)
+    } catch {
+      // Export failed silently - file download errors are visible to the user
     }
   }
 
@@ -85,6 +72,16 @@ export default function LLMModelsPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorDisplay
+        title="Failed to load LLM analytics"
+        message={error instanceof Error ? error.message : 'Something went wrong. Please try again.'}
+        onRetry={() => refetch()}
+      />
     )
   }
 
@@ -298,8 +295,7 @@ export default function LLMModelsPage() {
 
 // Model Versions Tab Component
 function ModelVersionsTab() {
-  const [versions, setVersions] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingVersion, setEditingVersion] = useState<any | null>(null)
   const [formData, setFormData] = useState({
@@ -311,43 +307,57 @@ function ModelVersionsTab() {
     isActive: false,
     isDefault: false,
   })
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const { showToast } = useToast()
 
-  useEffect(() => {
-    fetchVersions()
-  }, [])
+  const { data, isLoading, error, refetch } = useQuery<{ versions: any[] }>({
+    queryKey: ['admin', 'llm-models', 'versions'],
+    queryFn: () => fetchClient<{ versions: any[] }>('/api/admin/llm-models/versions'),
+  })
 
-  const fetchVersions = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch('/api/admin/llm-models/versions')
-      if (response.ok) {
-        const data = await response.json()
-        setVersions(data.versions)
-      }
-    } catch (error) {
-      console.error('Failed to fetch versions:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const versions = data?.versions ?? []
+
+  const saveVersionMutation = useMutation({
+    mutationFn: async (params: { editingId?: string; payload: any }) => {
+      const url = params.editingId
+        ? `/api/admin/llm-models/versions/${params.editingId}`
+        : '/api/admin/llm-models/versions'
+      const method = params.editingId ? 'PUT' : 'POST'
+      return fetchClient<any>(url, {
+        method,
+        body: JSON.stringify(params.payload),
+      })
+    },
+    onSuccess: (_data, variables) => {
+      showToast({
+        title: 'Success',
+        description: variables.editingId ? 'Model version updated' : 'Model version created',
+        type: 'success',
+      })
+      handleCloseModal()
+      queryClient.invalidateQueries({ queryKey: ['admin', 'llm-models', 'versions'] })
+    },
+    onError: (error: any) => {
+      showToast({
+        title: 'Error',
+        description: error.message || 'Failed to save model version',
+        type: 'error',
+      })
+    },
+  })
 
   const handleOpenModal = (version?: any) => {
     if (version) {
       setEditingVersion(version)
-      // Parse config back to settings if it exists
       let settings = ''
       if (version.config) {
         try {
           const configObj = typeof version.config === 'string' ? JSON.parse(version.config) : version.config
-          // Extract a user-friendly description from config
           settings = configObj.description || configObj.notes || ''
         } catch {
           settings = ''
         }
       }
-      
+
       setFormData({
         name: version.name,
         version: version.version,
@@ -388,7 +398,7 @@ function ModelVersionsTab() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.name || !formData.version || !formData.modelType) {
       showToast({
         title: 'Error',
@@ -398,63 +408,27 @@ function ModelVersionsTab() {
       return
     }
 
-    setIsSubmitting(true)
-
-    try {
-      // Convert settings description to JSON config
-      let config = null
-      if (formData.settings.trim()) {
-        config = {
-          description: formData.settings.trim(),
-          notes: formData.settings.trim(),
-          createdAt: new Date().toISOString(),
-        }
+    let config = null
+    if (formData.settings.trim()) {
+      config = {
+        description: formData.settings.trim(),
+        notes: formData.settings.trim(),
+        createdAt: new Date().toISOString(),
       }
+    }
 
-      const url = editingVersion
-        ? `/api/admin/llm-models/versions/${editingVersion.id}`
-        : '/api/admin/llm-models/versions'
-      
-      const method = editingVersion ? 'PUT' : 'POST'
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          version: formData.version.trim(),
+    saveVersionMutation.mutate({
+      editingId: editingVersion?.id,
+      payload: {
+        name: formData.name.trim(),
+        version: formData.version.trim(),
         description: formData.description.trim() || null,
         modelType: formData.modelType,
         config: config ? JSON.stringify(config) : null,
         isActive: formData.isActive,
         isDefault: formData.isDefault,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to save model version')
-      }
-
-      showToast({
-        title: 'Success',
-        description: editingVersion ? 'Model version updated' : 'Model version created',
-        type: 'success',
-      })
-
-      handleCloseModal()
-      fetchVersions()
-    } catch (error: any) {
-      showToast({
-        title: 'Error',
-        description: error.message || 'Failed to save model version',
-        type: 'error',
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
+      },
+    })
   }
 
   if (isLoading) {
@@ -462,6 +436,16 @@ function ModelVersionsTab() {
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorDisplay
+        title="Failed to load model versions"
+        message={error instanceof Error ? error.message : 'Something went wrong. Please try again.'}
+        onRetry={() => refetch()}
+      />
     )
   }
 
@@ -626,10 +610,10 @@ function ModelVersionsTab() {
           </div>
 
           <ModalFooter>
-            <Button type="button" variant="ghost" onClick={handleCloseModal} disabled={isSubmitting}>
+            <Button type="button" variant="ghost" onClick={handleCloseModal} disabled={saveVersionMutation.isPending}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" isLoading={isSubmitting}>
+            <Button type="submit" variant="primary" isLoading={saveVersionMutation.isPending}>
               {editingVersion ? 'Update' : 'Create'}
             </Button>
           </ModalFooter>
@@ -641,9 +625,7 @@ function ModelVersionsTab() {
 
 // A/B Tests Tab Component
 function ABTestsTab() {
-  const [tests, setTests] = useState<any[]>([])
-  const [versions, setVersions] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -654,46 +636,60 @@ function ABTestsTab() {
     startDate: new Date().toISOString().split('T')[0],
     status: 'draft',
   })
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const { showToast } = useToast()
 
-  useEffect(() => {
-    fetchTests()
-    fetchVersions()
-  }, [])
+  const { data: testsData, isLoading: isLoadingTests, error: testsError, refetch: refetchTests } = useQuery<{ tests: any[] }>({
+    queryKey: ['admin', 'llm-models', 'ab-tests'],
+    queryFn: () => fetchClient<{ tests: any[] }>('/api/admin/llm-models/ab-tests'),
+  })
 
-  const fetchVersions = async () => {
-    try {
-      const response = await fetch('/api/admin/llm-models/versions')
-      if (response.ok) {
-        const data = await response.json()
-        setVersions(data.versions)
-      }
-    } catch (error) {
-      console.error('Failed to fetch versions:', error)
-    }
-  }
+  const { data: versionsData } = useQuery<{ versions: any[] }>({
+    queryKey: ['admin', 'llm-models', 'versions'],
+    queryFn: () => fetchClient<{ versions: any[] }>('/api/admin/llm-models/versions'),
+  })
 
-  const fetchTests = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch('/api/admin/llm-models/ab-tests')
-      if (response.ok) {
-        const data = await response.json()
-        setTests(data.tests)
-      }
-    } catch (error) {
-      console.error('Failed to fetch A/B tests:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const tests = testsData?.tests ?? []
+  const versions = versionsData?.versions ?? []
 
-  if (isLoading) {
+  const createTestMutation = useMutation({
+    mutationFn: (payload: any) =>
+      fetchClient<any>('/api/admin/llm-models/ab-tests', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      showToast({
+        title: 'Success',
+        description: 'A/B test created successfully',
+        type: 'success',
+      })
+      handleCloseModal()
+      queryClient.invalidateQueries({ queryKey: ['admin', 'llm-models', 'ab-tests'] })
+    },
+    onError: (error: any) => {
+      showToast({
+        title: 'Error',
+        description: error.message || 'Failed to create A/B test',
+        type: 'error',
+      })
+    },
+  })
+
+  if (isLoadingTests) {
     return (
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (testsError) {
+    return (
+      <ErrorDisplay
+        title="Failed to load A/B tests"
+        message={testsError instanceof Error ? testsError.message : 'Something went wrong. Please try again.'}
+        onRetry={() => refetchTests()}
+      />
     )
   }
 
@@ -725,7 +721,7 @@ function ABTestsTab() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.name || !formData.modelVersionAId || !formData.modelVersionBId) {
       showToast({
         title: 'Error',
@@ -744,47 +740,15 @@ function ABTestsTab() {
       return
     }
 
-    setIsSubmitting(true)
-
-    try {
-      const response = await fetch('/api/admin/llm-models/ab-tests', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          description: formData.description.trim() || null,
-          modelVersionAId: formData.modelVersionAId,
-          modelVersionBId: formData.modelVersionBId,
-          trafficSplit: formData.trafficSplit,
-          startDate: new Date(formData.startDate).toISOString(),
-          status: formData.status,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to create A/B test')
-      }
-
-      showToast({
-        title: 'Success',
-        description: 'A/B test created successfully',
-        type: 'success',
-      })
-
-      handleCloseModal()
-      fetchTests()
-    } catch (error: any) {
-      showToast({
-        title: 'Error',
-        description: error.message || 'Failed to create A/B test',
-        type: 'error',
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
+    createTestMutation.mutate({
+      name: formData.name.trim(),
+      description: formData.description.trim() || null,
+      modelVersionAId: formData.modelVersionAId,
+      modelVersionBId: formData.modelVersionBId,
+      trafficSplit: formData.trafficSplit,
+      startDate: new Date(formData.startDate).toISOString(),
+      status: formData.status,
+    })
   }
 
   return (
@@ -987,10 +951,10 @@ function ABTestsTab() {
           </div>
 
           <ModalFooter>
-            <Button type="button" variant="ghost" onClick={handleCloseModal} disabled={isSubmitting}>
+            <Button type="button" variant="ghost" onClick={handleCloseModal} disabled={createTestMutation.isPending}>
               Cancel
             </Button>
-            <Button type="submit" variant="primary" isLoading={isSubmitting}>
+            <Button type="submit" variant="primary" isLoading={createTestMutation.isPending}>
               Create Test
             </Button>
           </ModalFooter>
@@ -1002,37 +966,35 @@ function ABTestsTab() {
 
 // Metrics Tab Component
 function MetricsTab() {
-  const [metrics, setMetrics] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [selectedVersion, setSelectedVersion] = useState<string>('')
 
-  useEffect(() => {
-    fetchMetrics()
-  }, [selectedVersion])
-
-  const fetchMetrics = async () => {
-    try {
-      setIsLoading(true)
+  const { data, isLoading, error, refetch } = useQuery<{ metrics: any[] }>({
+    queryKey: ['admin', 'llm-models', 'metrics', selectedVersion],
+    queryFn: () => {
       const url = selectedVersion
         ? `/api/admin/llm-models/metrics?modelVersionId=${selectedVersion}`
         : '/api/admin/llm-models/metrics'
-      const response = await fetch(url)
-      if (response.ok) {
-        const data = await response.json()
-        setMetrics(data.metrics)
-      }
-    } catch (error) {
-      console.error('Failed to fetch metrics:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+      return fetchClient<{ metrics: any[] }>(url)
+    },
+  })
+
+  const metrics = data?.metrics ?? []
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorDisplay
+        title="Failed to load metrics"
+        message={error instanceof Error ? error.message : 'Something went wrong. Please try again.'}
+        onRetry={() => refetch()}
+      />
     )
   }
 
@@ -1080,4 +1042,3 @@ function MetricsTab() {
     </div>
   )
 }
-

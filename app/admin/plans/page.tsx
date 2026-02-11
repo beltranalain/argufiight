@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { LoadingSpinner } from '@/components/ui/Loading'
@@ -87,11 +90,18 @@ interface CardLabel {
   createdAt: string
 }
 
+interface BoardsResponse {
+  boards: Board[]
+}
+
+interface BoardResponse {
+  board: Board
+}
+
 export default function PlansPage() {
   const { showToast } = useToast()
-  const [boards, setBoards] = useState<Board[]>([])
-  const [selectedBoard, setSelectedBoard] = useState<Board | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null)
   const [isCreateBoardModalOpen, setIsCreateBoardModalOpen] = useState(false)
   const [isCreateListModalOpen, setIsCreateListModalOpen] = useState(false)
   const [isCardModalOpen, setIsCardModalOpen] = useState(false)
@@ -106,54 +116,262 @@ export default function PlansPage() {
   const [cardStartDate, setCardStartDate] = useState('')
   const [cardReminderDate, setCardReminderDate] = useState('')
   const [cardLocation, setCardLocation] = useState('')
+  const [tempListId, setTempListId] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchBoards()
-  }, [])
+  // --- Queries ---
 
-  const fetchBoards = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch('/api/admin/boards')
-      if (response.ok) {
-        const data = await response.json()
-        setBoards(data.boards || [])
-        if (data.boards && data.boards.length > 0 && !selectedBoard) {
-          setSelectedBoard(data.boards[0])
-        }
-      } else if (response.status === 503) {
-        // Migration required
-        const data = await response.json().catch(() => ({}))
-        showToast({
-          type: 'error',
-          title: 'Database Migration Required',
-          description: data.error || 'Please run the database migration to use Plans board',
-        })
-        setBoards([])
-      }
-    } catch (error) {
-      console.error('Failed to fetch boards:', error)
-      setBoards([])
-    } finally {
-      setIsLoading(false)
-    }
+  const {
+    data: boardsData,
+    isLoading,
+    error: boardsError,
+    refetch: refetchBoards,
+  } = useQuery({
+    queryKey: ['admin', 'boards'],
+    queryFn: () => fetchClient<BoardsResponse>('/api/admin/boards'),
+  })
+
+  const boards = boardsData?.boards || []
+
+  // Auto-select first board if none selected
+  const selectedBoard = boards.find(b => b.id === selectedBoardId) || boards[0] || null
+  if (selectedBoard && selectedBoardId !== selectedBoard.id) {
+    // Sync the local state (will re-render)
+    setTimeout(() => setSelectedBoardId(selectedBoard.id), 0)
   }
 
-  const fetchBoard = async (boardId: string) => {
-    try {
-      const response = await fetch(`/api/admin/boards/${boardId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setSelectedBoard(data.board)
-        // Update in boards array
-        setBoards(boards.map(b => b.id === boardId ? data.board : b))
-      }
-    } catch (error) {
-      console.error('Failed to fetch board:', error)
-    }
-  }
+  // --- Mutations ---
 
-  const handleCreateBoard = async () => {
+  const createBoardMutation = useMutation({
+    mutationFn: (name: string) =>
+      fetchClient<{ board: Board }>('/api/admin/boards', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+      setSelectedBoardId(data.board.id)
+      setNewBoardName('')
+      setIsCreateBoardModalOpen(false)
+      showToast({
+        type: 'success',
+        title: 'Board Created',
+        description: 'New board created successfully',
+      })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to create board',
+      })
+    },
+  })
+
+  const deleteBoardMutation = useMutation({
+    mutationFn: (boardId: string) =>
+      fetchClient<void>(`/api/admin/boards/${boardId}`, { method: 'DELETE' }),
+    onSuccess: (_, boardId) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+      if (selectedBoardId === boardId) {
+        setSelectedBoardId(null)
+      }
+      showToast({
+        type: 'success',
+        title: 'Board Deleted',
+        description: 'Board deleted successfully',
+      })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to delete board',
+      })
+    },
+  })
+
+  const createListMutation = useMutation({
+    mutationFn: (params: { boardId: string; name: string }) =>
+      fetchClient<{ list: List }>('/api/admin/lists', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+      setNewListName('')
+      setIsCreateListModalOpen(false)
+      showToast({
+        type: 'success',
+        title: 'List Created',
+        description: 'New list created successfully',
+      })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to create list',
+      })
+    },
+  })
+
+  const deleteListMutation = useMutation({
+    mutationFn: (listId: string) =>
+      fetchClient<void>(`/api/admin/lists/${listId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+      showToast({
+        type: 'success',
+        title: 'List Deleted',
+        description: 'List deleted successfully',
+      })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to delete list',
+      })
+    },
+  })
+
+  const createCardMutation = useMutation({
+    mutationFn: (params: { listId: string; title: string; description: string | null }) =>
+      fetchClient<{ card: Card }>('/api/admin/cards', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+      setCardTitle('')
+      setCardDescription('')
+      setIsCardModalOpen(false)
+      setTempListId(null)
+      showToast({
+        type: 'success',
+        title: 'Card Created',
+        description: 'New card created successfully',
+      })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to create card',
+      })
+    },
+  })
+
+  const updateCardMutation = useMutation({
+    mutationFn: (params: {
+      cardId: string
+      title: string
+      description: string | null
+      dueDate: string | null
+      startDate: string | null
+      reminderDate: string | null
+      location: string | null
+    }) =>
+      fetchClient<{ card: Card }>(`/api/admin/cards/${params.cardId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title: params.title,
+          description: params.description,
+          dueDate: params.dueDate,
+          startDate: params.startDate,
+          reminderDate: params.reminderDate,
+          location: params.location,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+      setIsCardModalOpen(false)
+      setSelectedCard(null)
+      showToast({
+        type: 'success',
+        title: 'Card Updated',
+        description: 'Card updated successfully',
+      })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to update card',
+      })
+    },
+  })
+
+  const deleteCardMutation = useMutation({
+    mutationFn: (cardId: string) =>
+      fetchClient<void>(`/api/admin/cards/${cardId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+      showToast({
+        type: 'success',
+        title: 'Card Deleted',
+        description: 'Card deleted successfully',
+      })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to delete card',
+      })
+    },
+  })
+
+  const reorderCardMutation = useMutation({
+    mutationFn: (params: {
+      cardId: string
+      newListId: string
+      newPosition: number
+      oldListId: string
+      oldPosition: number
+    }) =>
+      fetchClient<void>('/api/admin/cards/reorder', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to reorder card',
+      })
+    },
+  })
+
+  const reorderListMutation = useMutation({
+    mutationFn: (params: {
+      listId: string
+      newPosition: number
+      oldPosition: number
+      boardId: string
+    }) =>
+      fetchClient<void>('/api/admin/lists/reorder', {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to reorder list',
+      })
+    },
+  })
+
+  // --- Handlers ---
+
+  const handleCreateBoard = () => {
     if (!newBoardName.trim()) {
       showToast({
         type: 'error',
@@ -162,36 +380,10 @@ export default function PlansPage() {
       })
       return
     }
-
-    try {
-      const response = await fetch('/api/admin/boards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newBoardName }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setBoards([...boards, data.board])
-        setSelectedBoard(data.board)
-        setNewBoardName('')
-        setIsCreateBoardModalOpen(false)
-        showToast({
-          type: 'success',
-          title: 'Board Created',
-          description: 'New board created successfully',
-        })
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to create board',
-      })
-    }
+    createBoardMutation.mutate(newBoardName)
   }
 
-  const handleCreateList = async () => {
+  const handleCreateList = () => {
     if (!newListName.trim() || !selectedBoard) {
       showToast({
         type: 'error',
@@ -200,38 +392,13 @@ export default function PlansPage() {
       })
       return
     }
-
-    try {
-      const response = await fetch('/api/admin/lists', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          boardId: selectedBoard.id,
-          name: newListName,
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        await fetchBoard(selectedBoard.id)
-        setNewListName('')
-        setIsCreateListModalOpen(false)
-        showToast({
-          type: 'success',
-          title: 'List Created',
-          description: 'New list created successfully',
-        })
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to create list',
-      })
-    }
+    createListMutation.mutate({
+      boardId: selectedBoard.id,
+      name: newListName,
+    })
   }
 
-  const handleCreateCard = async (listId: string) => {
+  const handleCreateCard = (listId: string) => {
     if (!cardTitle.trim()) {
       showToast({
         type: 'error',
@@ -240,162 +407,39 @@ export default function PlansPage() {
       })
       return
     }
-
-    try {
-      const response = await fetch('/api/admin/cards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          listId,
-          title: cardTitle,
-          description: cardDescription || null,
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (selectedBoard) {
-          await fetchBoard(selectedBoard.id)
-        }
-        setCardTitle('')
-        setCardDescription('')
-        setIsCardModalOpen(false)
-        showToast({
-          type: 'success',
-          title: 'Card Created',
-          description: 'New card created successfully',
-        })
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to create card',
-      })
-    }
+    createCardMutation.mutate({
+      listId,
+      title: cardTitle,
+      description: cardDescription || null,
+    })
   }
 
-  const handleUpdateCard = async () => {
-    if (!selectedCard || !cardTitle.trim()) {
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/admin/cards/${selectedCard.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: cardTitle,
-          description: cardDescription || null,
-          dueDate: cardDueDate || null,
-          startDate: cardStartDate || null,
-          reminderDate: cardReminderDate || null,
-          location: cardLocation || null,
-        }),
-      })
-
-      if (response.ok) {
-        if (selectedBoard) {
-          await fetchBoard(selectedBoard.id)
-        }
-        setIsCardModalOpen(false)
-        setSelectedCard(null)
-        showToast({
-          type: 'success',
-          title: 'Card Updated',
-          description: 'Card updated successfully',
-        })
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to update card',
-      })
-    }
+  const handleUpdateCard = () => {
+    if (!selectedCard || !cardTitle.trim()) return
+    updateCardMutation.mutate({
+      cardId: selectedCard.id,
+      title: cardTitle,
+      description: cardDescription || null,
+      dueDate: cardDueDate || null,
+      startDate: cardStartDate || null,
+      reminderDate: cardReminderDate || null,
+      location: cardLocation || null,
+    })
   }
 
-  const handleDeleteCard = async (cardId: string) => {
+  const handleDeleteCard = (cardId: string) => {
     if (!confirm('Are you sure you want to delete this card?')) return
-
-    try {
-      const response = await fetch(`/api/admin/cards/${cardId}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        if (selectedBoard) {
-          await fetchBoard(selectedBoard.id)
-        }
-        showToast({
-          type: 'success',
-          title: 'Card Deleted',
-          description: 'Card deleted successfully',
-        })
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to delete card',
-      })
-    }
+    deleteCardMutation.mutate(cardId)
   }
 
-  const handleDeleteList = async (listId: string) => {
+  const handleDeleteList = (listId: string) => {
     if (!confirm('Are you sure you want to delete this list? All cards will be deleted.')) return
-
-    try {
-      const response = await fetch(`/api/admin/lists/${listId}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        if (selectedBoard) {
-          await fetchBoard(selectedBoard.id)
-        }
-        showToast({
-          type: 'success',
-          title: 'List Deleted',
-          description: 'List deleted successfully',
-        })
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to delete list',
-      })
-    }
+    deleteListMutation.mutate(listId)
   }
 
-  const handleDeleteBoard = async (boardId: string) => {
+  const handleDeleteBoard = (boardId: string) => {
     if (!confirm('Are you sure you want to delete this board? All lists and cards will be permanently deleted.')) return
-
-    try {
-      const response = await fetch(`/api/admin/boards/${boardId}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        const updatedBoards = boards.filter(b => b.id !== boardId)
-        setBoards(updatedBoards)
-        if (selectedBoard?.id === boardId) {
-          setSelectedBoard(updatedBoards.length > 0 ? updatedBoards[0] : null)
-        }
-        showToast({
-          type: 'success',
-          title: 'Board Deleted',
-          description: 'Board deleted successfully',
-        })
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to delete board',
-      })
-    }
+    deleteBoardMutation.mutate(boardId)
   }
 
   // Drag and drop handlers
@@ -403,7 +447,7 @@ export default function PlansPage() {
     setDraggedCard(card)
   }
 
-  const handleCardDragEnd = async (targetListId: string, targetPosition: number) => {
+  const handleCardDragEnd = (targetListId: string, targetPosition: number) => {
     if (!draggedCard || !selectedBoard) return
 
     const sourceList = selectedBoard.lists.find(l => l.id === draggedCard.listId)
@@ -412,94 +456,42 @@ export default function PlansPage() {
     const oldPosition = draggedCard.position
     const oldListId = draggedCard.listId
 
-    // If same list and position, do nothing
     if (oldListId === targetListId && oldPosition === targetPosition) {
       setDraggedCard(null)
       return
     }
 
-    try {
-      const response = await fetch('/api/admin/cards/reorder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cardId: draggedCard.id,
-          newListId: targetListId,
-          newPosition: targetPosition,
-          oldListId,
-          oldPosition,
-        }),
-      })
-
-      if (response.ok) {
-        await fetchBoard(selectedBoard.id)
-      } else {
-        const error = await response.json().catch(() => ({ error: 'Failed to reorder' }))
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: error.error || 'Failed to reorder card',
-        })
-      }
-    } catch (error) {
-      console.error('Failed to reorder card:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to reorder card',
-      })
-    } finally {
-      setDraggedCard(null)
-    }
+    reorderCardMutation.mutate({
+      cardId: draggedCard.id,
+      newListId: targetListId,
+      newPosition: targetPosition,
+      oldListId,
+      oldPosition,
+    })
+    setDraggedCard(null)
   }
 
   const handleListDragStart = (list: List) => {
     setDraggedList(list)
   }
 
-  const handleListDragEnd = async (newPosition: number) => {
+  const handleListDragEnd = (newPosition: number) => {
     if (!draggedList || !selectedBoard) return
 
     const oldPosition = draggedList.position
 
-    // If same position, do nothing
     if (oldPosition === newPosition) {
       setDraggedList(null)
       return
     }
 
-    try {
-      const response = await fetch('/api/admin/lists/reorder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          listId: draggedList.id,
-          newPosition,
-          oldPosition,
-          boardId: selectedBoard.id,
-        }),
-      })
-
-      if (response.ok) {
-        await fetchBoard(selectedBoard.id)
-      } else {
-        const error = await response.json().catch(() => ({ error: 'Failed to reorder' }))
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: error.error || 'Failed to reorder list',
-        })
-      }
-    } catch (error) {
-      console.error('Failed to reorder list:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to reorder list',
-      })
-    } finally {
-      setDraggedList(null)
-    }
+    reorderListMutation.mutate({
+      listId: draggedList.id,
+      newPosition,
+      oldPosition,
+      boardId: selectedBoard.id,
+    })
+    setDraggedList(null)
   }
 
   const openCardModal = (card?: Card, listId?: string) => {
@@ -511,6 +503,7 @@ export default function PlansPage() {
       setCardStartDate(card.startDate ? new Date(card.startDate).toISOString().split('T')[0] : '')
       setCardReminderDate(card.reminderDate ? new Date(card.reminderDate).toISOString().slice(0, 16) : '')
       setCardLocation(card.location || '')
+      setTempListId(null)
     } else {
       setSelectedCard(null)
       setCardTitle('')
@@ -520,8 +513,7 @@ export default function PlansPage() {
       setCardReminderDate('')
       setCardLocation('')
       if (listId) {
-        // Store listId for creating new card
-        (window as any).__tempListId = listId
+        setTempListId(listId)
       }
     }
     setIsCardModalOpen(true)
@@ -532,6 +524,16 @@ export default function PlansPage() {
       <div className="flex items-center justify-center h-64">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (boardsError) {
+    return (
+      <ErrorDisplay
+        title="Failed to load boards"
+        message={boardsError instanceof Error ? boardsError.message : 'Something went wrong loading your boards.'}
+        onRetry={() => refetchBoards()}
+      />
     )
   }
 
@@ -547,8 +549,7 @@ export default function PlansPage() {
             <select
               value={selectedBoard?.id || ''}
               onChange={(e) => {
-                const board = boards.find(b => b.id === e.target.value)
-                setSelectedBoard(board || null)
+                setSelectedBoardId(e.target.value || null)
               }}
               className="px-4 py-2 bg-bg-secondary border border-bg-tertiary rounded-lg text-white"
             >
@@ -667,7 +668,9 @@ export default function PlansPage() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleCreateBoard}>Create</Button>
+              <Button onClick={handleCreateBoard} disabled={createBoardMutation.isPending}>
+                {createBoardMutation.isPending ? 'Creating...' : 'Create'}
+              </Button>
             </div>
           </div>
         </Modal>
@@ -709,7 +712,9 @@ export default function PlansPage() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleCreateList}>Create</Button>
+              <Button onClick={handleCreateList} disabled={createListMutation.isPending}>
+                {createListMutation.isPending ? 'Creating...' : 'Create'}
+              </Button>
             </div>
           </div>
         </Modal>
@@ -734,11 +739,8 @@ export default function PlansPage() {
           onSave={() => {
             if (selectedCard) {
               handleUpdateCard()
-            } else {
-              const listId = (window as any).__tempListId
-              if (listId) {
-                handleCreateCard(listId)
-              }
+            } else if (tempListId) {
+              handleCreateCard(tempListId)
             }
           }}
           onClose={() => {
@@ -750,12 +752,10 @@ export default function PlansPage() {
             setCardStartDate('')
             setCardReminderDate('')
             setCardLocation('')
-            delete (window as any).__tempListId
+            setTempListId(null)
           }}
           onRefresh={() => {
-            if (selectedBoard) {
-              fetchBoard(selectedBoard.id)
-            }
+            queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
           }}
         />
       )}
@@ -793,51 +793,53 @@ function ListColumn({
   const [listName, setListName] = useState(list.name)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
 
-  const handleUpdateListName = async () => {
-    if (!listName.trim()) {
-      setListName(list.name)
-      setIsEditingName(false)
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/admin/lists/${list.id}`, {
+  const updateListNameMutation = useMutation({
+    mutationFn: (name: string) =>
+      fetchClient<void>(`/api/admin/lists/${list.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: listName }),
+        body: JSON.stringify({ name }),
+      }),
+    onSuccess: () => {
+      setIsEditingName(false)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+      showToast({
+        type: 'success',
+        title: 'List Updated',
+        description: 'List name updated successfully',
       })
-
-      if (response.ok) {
-        setIsEditingName(false)
-        showToast({
-          type: 'success',
-          title: 'List Updated',
-          description: 'List name updated successfully',
-        })
-        window.location.reload() // Refresh to get updated data
-      }
-    } catch (error) {
+    },
+    onError: () => {
       showToast({
         type: 'error',
         title: 'Error',
         description: 'Failed to update list name',
       })
+    },
+  })
+
+  const handleUpdateListName = () => {
+    if (!listName.trim()) {
+      setListName(list.name)
+      setIsEditingName(false)
+      return
     }
+    updateListNameMutation.mutate(listName)
   }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDraggingOver(false)
-    
+
     if (draggedCard) {
       const rect = (e.currentTarget as HTMLElement).querySelector('.cards-container')?.getBoundingClientRect()
       if (!rect) return
-      
+
       const y = e.clientY - rect.top
       const cardHeight = 120 // Approximate card height with spacing
       let position = Math.max(0, Math.floor(y / cardHeight))
-      
+
       // Ensure position doesn't exceed list length
       if (draggedCard.listId === list.id) {
         // Same list - adjust position if needed
@@ -847,7 +849,7 @@ function ListColumn({
         // Different list - position can be at the end
         position = Math.min(position, list.cards.length)
       }
-      
+
       onCardDragEnd(position)
     }
   }
@@ -1049,6 +1051,7 @@ function CardModal({
   const [newLabelName, setNewLabelName] = useState('')
   const [newLabelColor, setNewLabelColor] = useState('#61bd4f')
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
 
   const labelColors = [
     '#61bd4f', '#f2d600', '#ff9f1a', '#eb5a46',
@@ -1056,61 +1059,81 @@ function CardModal({
     '#ff78cb', '#344563',
   ]
 
-  const handleAddLabel = async () => {
-    if (!card || !newLabelName.trim()) return
-
-    try {
-      const response = await fetch(`/api/admin/cards/${card.id}/labels`, {
+  const addLabelMutation = useMutation({
+    mutationFn: (params: { name: string; color: string }) =>
+      fetchClient<{ label: CardLabel }>(`/api/admin/cards/${card!.id}/labels`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newLabelName,
-          color: newLabelColor,
-        }),
+        body: JSON.stringify(params),
+      }),
+    onSuccess: (data) => {
+      setLabels([...labels, data.label])
+      setNewLabelName('')
+      showToast({
+        type: 'success',
+        title: 'Label Added',
+        description: 'Label added to card',
       })
-
-      if (response.ok) {
-        const data = await response.json()
-        setLabels([...labels, data.label])
-        setNewLabelName('')
-        showToast({
-          type: 'success',
-          title: 'Label Added',
-          description: 'Label added to card',
-        })
-      }
-    } catch (error) {
+    },
+    onError: () => {
       showToast({
         type: 'error',
         title: 'Error',
         description: 'Failed to add label',
       })
-    }
-  }
+    },
+  })
 
-  const handleRemoveLabel = async (labelId: string) => {
-    if (!card) return
-
-    try {
-      const response = await fetch(`/api/admin/cards/${card.id}/labels/${labelId}`, {
+  const removeLabelMutation = useMutation({
+    mutationFn: (labelId: string) =>
+      fetchClient<void>(`/api/admin/cards/${card!.id}/labels/${labelId}`, {
         method: 'DELETE',
+      }),
+    onSuccess: (_, labelId) => {
+      setLabels(labels.filter(l => l.id !== labelId))
+      showToast({
+        type: 'success',
+        title: 'Label Removed',
+        description: 'Label removed from card',
       })
-
-      if (response.ok) {
-        setLabels(labels.filter(l => l.id !== labelId))
-        showToast({
-          type: 'success',
-          title: 'Label Removed',
-          description: 'Label removed from card',
-        })
-      }
-    } catch (error) {
+    },
+    onError: () => {
       showToast({
         type: 'error',
         title: 'Error',
         description: 'Failed to remove label',
       })
-    }
+    },
+  })
+
+  const deleteCardInModalMutation = useMutation({
+    mutationFn: () =>
+      fetchClient<void>(`/api/admin/cards/${card!.id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'boards'] })
+      showToast({
+        type: 'success',
+        title: 'Card Deleted',
+        description: 'Card deleted successfully',
+      })
+      onClose()
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to delete card',
+      })
+    },
+  })
+
+  const handleAddLabel = () => {
+    if (!card || !newLabelName.trim()) return
+    addLabelMutation.mutate({ name: newLabelName, color: newLabelColor })
+  }
+
+  const handleRemoveLabel = (labelId: string) => {
+    if (!card) return
+    removeLabelMutation.mutate(labelId)
   }
 
   return (
@@ -1207,28 +1230,9 @@ function CardModal({
         <div className="flex justify-between items-center pt-4 border-t border-bg-tertiary">
           {card && (
             <button
-              onClick={async () => {
+              onClick={() => {
                 if (confirm('Are you sure you want to delete this card? This action cannot be undone.')) {
-                  try {
-                    const response = await fetch(`/api/admin/cards/${card.id}`, {
-                      method: 'DELETE',
-                    })
-                    if (response.ok) {
-                      showToast({
-                        type: 'success',
-                        title: 'Card Deleted',
-                        description: 'Card deleted successfully',
-                      })
-                      onClose()
-                      window.location.reload()
-                    }
-                  } catch (error) {
-                    showToast({
-                      type: 'error',
-                      title: 'Error',
-                      description: 'Failed to delete card',
-                    })
-                  }
+                  deleteCardInModalMutation.mutate()
                 }
               }}
               className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors text-sm font-medium"
@@ -1249,4 +1253,3 @@ function CardModal({
     </Modal>
   )
 }
-

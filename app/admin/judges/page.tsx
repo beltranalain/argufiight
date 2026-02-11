@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Modal, ModalFooter } from '@/components/ui/Modal'
@@ -54,14 +57,9 @@ interface Verdict {
 
 export default function JudgesPage() {
   const { showToast } = useToast()
-  const [judges, setJudges] = useState<Judge[]>([])
+  const queryClient = useQueryClient()
   const [selectedJudgeId, setSelectedJudgeId] = useState<string | null>(null)
-  const [verdicts, setVerdicts] = useState<Record<string, Verdict[]>>({})
-  const [isLoading, setIsLoading] = useState(true)
-  const [isLoadingVerdicts, setIsLoadingVerdicts] = useState<Record<string, boolean>>({})
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [isSeeding, setIsSeeding] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     personality: '',
@@ -69,100 +67,100 @@ export default function JudgesPage() {
     systemPrompt: '',
   })
 
-  useEffect(() => {
-    fetchJudges()
-  }, [])
-
-  useEffect(() => {
-    if (selectedJudgeId && !verdicts[selectedJudgeId]) {
-      fetchVerdicts(selectedJudgeId)
-    }
-  }, [selectedJudgeId])
-
-  const fetchJudges = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch('/api/admin/judges')
-      if (response.ok) {
-        const data = await response.json()
-        setJudges(data.judges)
-        if (data.judges.length > 0 && !selectedJudgeId) {
-          setSelectedJudgeId(data.judges[0].id)
-        }
+  // Fetch judges
+  const {
+    data: judges = [],
+    isLoading,
+    isError,
+    refetch: refetchJudges,
+  } = useQuery<Judge[]>({
+    queryKey: ['admin-judges'],
+    queryFn: async () => {
+      const data = await fetchClient<{ judges: Judge[] }>('/api/admin/judges')
+      const list = data.judges || []
+      // Auto-select first judge if none selected
+      if (list.length > 0 && !selectedJudgeId) {
+        setSelectedJudgeId(list[0].id)
       }
-    } catch (error) {
-      console.error('Failed to fetch judges:', error)
+      return list
+    },
+    staleTime: 60_000,
+  })
+
+  // Fetch verdicts for the selected judge
+  const {
+    data: selectedVerdicts = [],
+    isLoading: isLoadingSelectedVerdicts,
+  } = useQuery<Verdict[]>({
+    queryKey: ['admin-judge-verdicts', selectedJudgeId],
+    queryFn: async () => {
+      const data = await fetchClient<{ verdicts: Verdict[] }>(
+        `/api/admin/judges/${selectedJudgeId}/verdicts`
+      )
+      return data.verdicts || []
+    },
+    enabled: !!selectedJudgeId,
+    staleTime: 60_000,
+  })
+
+  // Seed database mutation
+  const seedMutation = useMutation({
+    mutationFn: () =>
+      fetchClient<{ results: { categories: number; judges: number; homepageSections: number; legalPages: number } }>(
+        '/api/admin/seed',
+        { method: 'POST' }
+      ),
+    onSuccess: (data) => {
+      showToast({
+        type: 'success',
+        title: 'Database Seeded',
+        description: `Seeded ${data.results.categories} categories, ${data.results.judges} judges, ${data.results.homepageSections} sections, and ${data.results.legalPages} legal pages.`,
+      })
+      queryClient.invalidateQueries({ queryKey: ['admin-judges'] })
+    },
+    onError: (error: any) => {
+      showToast({
+        type: 'error',
+        title: 'Seed Failed',
+        description: error.message || 'Failed to seed database',
+      })
+    },
+  })
+
+  // Add judge mutation
+  const addJudgeMutation = useMutation({
+    mutationFn: (body: typeof formData) =>
+      fetchClient('/api/admin/judges', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: 'Judge created successfully',
+      })
+      setIsAddModalOpen(false)
+      setFormData({ name: '', personality: '', description: '', systemPrompt: '' })
+      queryClient.invalidateQueries({ queryKey: ['admin-judges'] })
+    },
+    onError: (error: any) => {
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Failed to load judges',
+        description: error.message || 'Failed to create judge',
       })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+    },
+  })
 
-  const fetchVerdicts = async (judgeId: string) => {
-    try {
-      setIsLoadingVerdicts(prev => ({ ...prev, [judgeId]: true }))
-      const response = await fetch(`/api/admin/judges/${judgeId}/verdicts`)
-      if (response.ok) {
-        const data = await response.json()
-        setVerdicts(prev => ({ ...prev, [judgeId]: data.verdicts }))
-      }
-    } catch (error) {
-      console.error('Failed to fetch verdicts:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to load verdicts',
-      })
-    } finally {
-      setIsLoadingVerdicts(prev => ({ ...prev, [judgeId]: false }))
-    }
-  }
-
-  const handleSeedDatabase = async () => {
+  const handleSeedDatabase = () => {
     if (!confirm('This will seed the database with initial data (Categories, Judges, Homepage Sections, Legal Pages). Continue?')) {
       return
     }
-
-    setIsSeeding(true)
-    try {
-      const response = await fetch('/api/admin/seed', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Database Seeded',
-          description: `Seeded ${data.results.categories} categories, ${data.results.judges} judges, ${data.results.homepageSections} sections, and ${data.results.legalPages} legal pages.`,
-        })
-        // Refresh judges list
-        fetchJudges()
-      } else {
-        showToast({
-          type: 'error',
-          title: 'Seed Failed',
-          description: data.error || 'Failed to seed database',
-        })
-      }
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to seed database',
-      })
-    } finally {
-      setIsSeeding(false)
-    }
+    seedMutation.mutate()
   }
 
-  const handleAddJudge = async () => {
+  const handleAddJudge = () => {
     if (!formData.name || !formData.personality || !formData.description || !formData.systemPrompt) {
       showToast({
         type: 'error',
@@ -171,42 +169,7 @@ export default function JudgesPage() {
       })
       return
     }
-
-    setIsSaving(true)
-    try {
-      const response = await fetch('/api/admin/judges', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Judge created successfully',
-        })
-        setIsAddModalOpen(false)
-        setFormData({
-          name: '',
-          personality: '',
-          description: '',
-          systemPrompt: '',
-        })
-        fetchJudges()
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to create judge')
-      }
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to create judge',
-      })
-    } finally {
-      setIsSaving(false)
-    }
+    addJudgeMutation.mutate(formData)
   }
 
   const getDecisionBadge = (decision: string) => {
@@ -230,9 +193,17 @@ export default function JudgesPage() {
     )
   }
 
+  if (isError) {
+    return (
+      <ErrorDisplay
+        title="Failed to load judges"
+        message="Something went wrong while loading judges. Please try again."
+        onRetry={() => refetchJudges()}
+      />
+    )
+  }
+
   const selectedJudge = judges.find(j => j.id === selectedJudgeId)
-  const selectedVerdicts = selectedJudgeId ? verdicts[selectedJudgeId] || [] : []
-  const isLoadingSelectedVerdicts = selectedJudgeId ? isLoadingVerdicts[selectedJudgeId] : false
 
   return (
     <div className="space-y-6">
@@ -247,11 +218,11 @@ export default function JudgesPage() {
         <div className="flex items-center gap-3">
           <Button
             onClick={handleSeedDatabase}
-            disabled={isSeeding}
+            disabled={seedMutation.isPending}
             variant="secondary"
             className="bg-cyber-green text-black hover:bg-cyber-green/90 disabled:opacity-50"
           >
-            {isSeeding ? 'Seeding...' : '🌱 Seed Database'}
+            {seedMutation.isPending ? 'Seeding...' : '🌱 Seed Database'}
           </Button>
           <Button onClick={() => setIsAddModalOpen(true)}>
             Add Judge
@@ -451,13 +422,13 @@ export default function JudgesPage() {
             <Button
               variant="secondary"
               onClick={() => setIsAddModalOpen(false)}
-              disabled={isSaving}
+              disabled={addJudgeMutation.isPending}
             >
               Cancel
             </Button>
             <Button
               onClick={handleAddJudge}
-              isLoading={isSaving}
+              isLoading={addJudgeMutation.isPending}
             >
               Create Judge
             </Button>
@@ -467,4 +438,3 @@ export default function JudgesPage() {
     </div>
   )
 }
-

@@ -13,6 +13,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ThemeProvider } from '@/lib/contexts/ThemeContext'
 import { AuthProvider } from '@/lib/contexts/AuthContext'
 import { ChallengeProvider } from '@/lib/contexts/ChallengeContext'
+import { QueryProvider } from '@/lib/providers/QueryProvider'
 import { ChallengeModal } from '@/components/challenge/ChallengeModal'
 import { LazyNotifications } from '@/components/notifications/LazyNotifications'
 import { DailyLoginReward } from '@/components/DailyLoginReward'
@@ -104,20 +105,22 @@ export default function RootLayout({
         />
       </head>
       <body suppressHydrationWarning>
-        <ThemeProvider>
-          <AuthProvider>
-            <ChallengeProvider>
-              <ErrorBoundary>
-                <ToastProvider>
-                  {children}
-                  <ChallengeModal />
-                  <LazyNotifications />
-                  <DailyLoginReward />
-                </ToastProvider>
-              </ErrorBoundary>
-            </ChallengeProvider>
-          </AuthProvider>
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <ChallengeProvider>
+                <ErrorBoundary>
+                  <ToastProvider>
+                    {children}
+                    <ChallengeModal />
+                    <LazyNotifications />
+                    <DailyLoginReward />
+                  </ToastProvider>
+                </ErrorBoundary>
+              </ChallengeProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   )

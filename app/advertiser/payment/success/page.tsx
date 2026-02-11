@@ -2,7 +2,8 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import { useMutation } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
@@ -12,71 +13,50 @@ function SuccessPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { showToast } = useToast()
-  const [isLoading, setIsLoading] = useState(true)
-  const [isProcessing, setIsProcessing] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const sessionId = searchParams.get('session_id')
-    if (!sessionId) {
-      // If no session_id, still show success message but redirect to dashboard
-      setError('No session ID found. If payment was successful, please check your dashboard.')
-      setTimeout(() => {
-        // Use window.location to ensure a full page reload and session refresh
-        window.location.href = '/advertiser/dashboard'
-      }, 5000)
-      setIsLoading(false)
-      return
-    }
-
-    // Verify and process the payment
-    verifyPayment(sessionId)
-  }, [searchParams, router])
-
-  const verifyPayment = async (sessionId: string) => {
-    setIsProcessing(true)
-    try {
-      const response = await fetch('/api/advertiser/payment/verify', {
+  const verifyPaymentMutation = useMutation({
+    mutationFn: (sessionId: string) =>
+      fetchClient<{ success: boolean }>('/api/advertiser/payment/verify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to verify payment')
-      }
-
-      const data = await response.json()
+      }),
+    onSuccess: () => {
       setSuccess(true)
-      
       showToast({
         type: 'success',
         title: 'Payment Successful',
         description: 'Your payment has been processed and held in escrow.',
       })
-
-      // Redirect to dashboard after 2 seconds (reduced from 3)
       setTimeout(() => {
-        // Use window.location to ensure a full page reload and session refresh
         window.location.href = '/advertiser/dashboard'
       }, 2000)
-    } catch (error: any) {
-      console.error('Payment verification error:', error)
-      setError(error.message || 'Failed to verify payment')
+    },
+    onError: (err: Error) => {
+      setError(err.message || 'Failed to verify payment')
       showToast({
         type: 'error',
         title: 'Payment Verification Failed',
-        description: error.message || 'Please contact support if you were charged.',
+        description: err.message || 'Please contact support if you were charged.',
       })
-    } finally {
-      setIsProcessing(false)
-      setIsLoading(false)
-    }
-  }
+    },
+  })
 
-  if (isLoading || isProcessing) {
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id')
+    if (!sessionId) {
+      setError('No session ID found. If payment was successful, please check your dashboard.')
+      setTimeout(() => {
+        window.location.href = '/advertiser/dashboard'
+      }, 5000)
+      return
+    }
+
+    verifyPaymentMutation.mutate(sessionId)
+  }, [searchParams])
+
+  if (verifyPaymentMutation.isPending) {
     return (
       <div className="min-h-screen bg-bg-primary flex items-center justify-center">
         <div className="text-center">
@@ -102,7 +82,6 @@ function SuccessPageContent() {
               <Button
                 variant="primary"
                 onClick={() => {
-                  // Use window.location to ensure a full page reload and session refresh
                   window.location.href = '/advertiser/dashboard'
                 }}
                 className="flex-1"
@@ -140,7 +119,6 @@ function SuccessPageContent() {
             <Button
               variant="primary"
               onClick={() => {
-                // Use window.location to ensure a full page reload and session refresh
                 window.location.href = '/advertiser/dashboard'
               }}
               className="w-full"
@@ -167,4 +145,3 @@ export default function AdvertiserPaymentSuccessPage() {
     </Suspense>
   )
 }
-

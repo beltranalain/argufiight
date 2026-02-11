@@ -1,106 +1,41 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useAuth } from '@/lib/hooks/useAuth'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/hooks/useAuth'
 import { TopNav } from '@/components/layout/TopNav'
-import { Card, CardHeader, CardBody } from '@/components/ui/Card'
+import { Card, CardBody } from '@/components/ui/Card'
 import { DebateCard } from '@/components/debate/DebateCard'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { Badge } from '@/components/ui/Badge'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Tabs } from '@/components/ui/Tabs'
 import { AdDisplay } from '@/components/ads/AdDisplay'
+import { useDebates } from '@/lib/hooks/queries/useDebates'
 
-interface Debate {
-  id: string
-  topic: string
-  description: string | null
-  category: string
-  challenger: {
-    id: string
-    username: string
-    avatarUrl: string | null
-  }
-  opponent: {
-    id: string
-    username: string
-    avatarUrl: string | null
-  } | null
-  challengerPosition: string
-  opponentPosition: string
-  currentRound: number
-  totalRounds: number
-  status: string
-  roundDeadline: Date | string | null
-  spectatorCount: number
-  winnerId: string | null
-  endedAt: Date | string | null
+const STATUS_MAP: Record<string, string | undefined> = {
+  all: undefined,
+  active: 'ACTIVE',
+  completed: 'COMPLETED,VERDICT_READY',
+  waiting: 'WAITING',
+}
+
+const EMPTY_MESSAGES: Record<string, { title: string; description: string }> = {
+  all: { title: 'No Debates Yet', description: "You haven't participated in any debates yet" },
+  active: { title: 'No Active Debates', description: "You don't have any active debates right now" },
+  completed: { title: 'No Completed Debates', description: 'Complete a debate to see it here' },
+  waiting: { title: 'No Waiting Debates', description: "You don't have any debates waiting for opponents" },
 }
 
 export default function DebatesHistoryPage() {
   const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
-  const [debates, setDebates] = useState<Debate[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('all')
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login')
-    }
-  }, [user, authLoading, router])
-
-  useEffect(() => {
-    if (user) {
-      fetchDebates()
-    }
-  }, [user, activeTab])
-
-  // Update activeTab when tab changes
-  const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId)
-  }
-
-  const fetchDebates = async () => {
-    try {
-      setIsLoading(true)
-      const params = new URLSearchParams()
-      params.append('userId', user?.id || '')
-      
-      if (activeTab === 'completed') {
-        params.append('status', 'COMPLETED,VERDICT_READY')
-      } else if (activeTab === 'active') {
-        params.append('status', 'ACTIVE')
-      } else if (activeTab === 'waiting') {
-        params.append('status', 'WAITING')
-      }
-      // 'all' tab shows all debates (no status filter - includes WAITING, ACTIVE, COMPLETED, etc.)
-
-      const response = await fetch(`/api/debates?${params.toString()}`)
-      if (response.ok) {
-        const data = await response.json()
-        const debates = data.debates || data || []
-        // Ensure we have an array and sort by most recent first
-        const sortedDebates = Array.isArray(debates) 
-          ? debates.sort((a: any, b: any) => {
-              const dateA = new Date(a.createdAt || 0).getTime()
-              const dateB = new Date(b.createdAt || 0).getTime()
-              return dateB - dateA
-            })
-          : []
-        setDebates(sortedDebates)
-      } else {
-        console.error('Failed to fetch debates:', response.status, await response.text())
-        setDebates([])
-      }
-    } catch (error) {
-      console.error('Failed to fetch debates:', error)
-      setDebates([])
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const { data, isLoading, isError, refetch } = useDebates({
+    userId: user?.id,
+    status: STATUS_MAP[activeTab],
+  })
 
   if (authLoading) {
     return (
@@ -114,8 +49,11 @@ export default function DebatesHistoryPage() {
   }
 
   if (!user) {
+    router.push('/login')
     return null
   }
+
+  const debates = data?.debates || []
 
   const renderContent = () => {
     if (isLoading) {
@@ -126,131 +64,62 @@ export default function DebatesHistoryPage() {
       )
     }
 
-    if (debates.length === 0) {
-      let emptyState
-      if (activeTab === 'all') {
-        emptyState = (
-          <EmptyState
-            icon={
-              <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            }
-            title="No Debates Yet"
-            description="You haven't participated in any debates yet"
-            action={{
-              label: 'Create Debate',
-              onClick: () => router.push('/'),
-            }}
-          />
-        )
-      } else if (activeTab === 'active') {
-        emptyState = (
-          <EmptyState
-            icon={
-              <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            }
-            title="No Active Debates"
-            description="You don't have any active debates right now"
-          />
-        )
-      } else if (activeTab === 'completed') {
-        emptyState = (
-          <EmptyState
-            icon={
-              <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            }
-            title="No Completed Debates"
-            description="Complete a debate to see it here"
-          />
-        )
-      } else {
-        emptyState = (
-          <EmptyState
-            icon={
-              <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            }
-            title="No Waiting Debates"
-            description="You don't have any debates waiting for opponents"
-          />
-        )
-      }
-      return <div className="py-12">{emptyState}</div>
+    if (isError) {
+      return <ErrorDisplay title="Failed to load debates" onRetry={() => refetch()} />
     }
 
-    const items: React.ReactElement[] = []
-    
-    debates.forEach((debate, index) => {
-      // Add debate card
-      items.push(
-        <DebateCard key={debate.id} debate={debate} />
+    if (debates.length === 0) {
+      const msg = EMPTY_MESSAGES[activeTab] || EMPTY_MESSAGES.all
+      return (
+        <div className="py-12">
+          <EmptyState
+            title={msg.title}
+            description={msg.description}
+            action={activeTab === 'all' ? { label: 'Create Debate', onClick: () => router.push('/') } : undefined}
+          />
+        </div>
       )
-      
-      // Add IN_FEED ad every 7th debate (after the 7th, 14th, 21st, etc.)
-      if ((index + 1) % 7 === 0) {
-        items.push(
-          <div key={`ad-${index}`} className="col-span-1 md:col-span-2 lg:col-span-3 my-6">
-            <AdDisplay placement="IN_FEED" context="debates-history" />
-          </div>
-        )
-      }
-    })
+    }
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {items}
+        {debates.map((debate, index) => (
+          <div key={debate.id}>
+            <DebateCard debate={debate} />
+            {(index + 1) % 10 === 0 && (
+              <div className="col-span-1 md:col-span-2 lg:col-span-3 my-6">
+                <AdDisplay placement="IN_FEED" context="debates-history" />
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     )
   }
 
-  const tabs = [
-    {
-      id: 'all',
-      label: 'All Debates',
-      content: <div className="mt-6">{renderContent()}</div>,
-    },
-    {
-      id: 'active',
-      label: 'Active',
-      content: <div className="mt-6">{renderContent()}</div>,
-    },
-    {
-      id: 'completed',
-      label: 'Completed',
-      content: <div className="mt-6">{renderContent()}</div>,
-    },
-    {
-      id: 'waiting',
-      label: 'Waiting',
-      content: <div className="mt-6">{renderContent()}</div>,
-    },
-  ]
+  const tabs = ['all', 'active', 'completed', 'waiting'].map((id) => ({
+    id,
+    label: id === 'all' ? 'All Debates' : id.charAt(0).toUpperCase() + id.slice(1),
+    content: <div className="mt-6">{renderContent()}</div>,
+  }))
 
   return (
     <div className="min-h-screen bg-bg-primary">
       <TopNav currentPanel="DEBATE HISTORY" />
-      
+
       <div className="pt-20 px-4 md:px-8 pb-8">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-text-primary mb-2">Debate History</h1>
             <p className="text-text-secondary">View all your debates and their outcomes</p>
           </div>
 
-          {/* Tabs */}
           <Card>
             <CardBody className="p-0">
-              <Tabs 
-                tabs={tabs} 
+              <Tabs
+                tabs={tabs}
                 defaultTab={activeTab}
-                onChange={(tabId) => setActiveTab(tabId)}
+                onChange={setActiveTab}
               />
             </CardBody>
           </Card>
@@ -259,4 +128,3 @@ export default function DebatesHistoryPage() {
     </div>
   )
 }
-

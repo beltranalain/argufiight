@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
@@ -104,7 +107,7 @@ const NOTIFICATION_TYPES = [
     label: 'Rematch Declined',
     description: 'Sent when a rematch request is declined',
     category: 'Challenges',
-    defaultEnabled: false, // Usually not needed
+    defaultEnabled: false,
   },
   {
     type: 'NEW_MESSAGE',
@@ -115,93 +118,62 @@ const NOTIFICATION_TYPES = [
   },
 ]
 
-interface NotificationPreference {
-  type: string
-  enabled: boolean
+interface PreferencesResponse {
+  preferences: Record<string, boolean>
+}
+
+function getDefaults(): Record<string, boolean> {
+  const defaults: Record<string, boolean> = {}
+  NOTIFICATION_TYPES.forEach((nt) => {
+    defaults[nt.type] = nt.defaultEnabled
+  })
+  return defaults
 }
 
 export default function NotificationManagementPage() {
   const { showToast } = useToast()
-  const [preferences, setPreferences] = useState<Record<string, boolean>>({})
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
+  const [preferences, setPreferences] = useState<Record<string, boolean>>(getDefaults())
 
-  useEffect(() => {
-    fetchPreferences()
-  }, [])
-
-  const fetchPreferences = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch('/api/admin/notifications/preferences')
-      if (response.ok) {
-        const data = await response.json()
-        // Merge with defaults
-        const merged: Record<string, boolean> = {}
-        NOTIFICATION_TYPES.forEach((nt) => {
-          merged[nt.type] = data.preferences?.[nt.type] ?? nt.defaultEnabled
-        })
-        setPreferences(merged)
-      } else {
-        // Use defaults if API fails
-        const defaults: Record<string, boolean> = {}
-        NOTIFICATION_TYPES.forEach((nt) => {
-          defaults[nt.type] = nt.defaultEnabled
-        })
-        setPreferences(defaults)
-      }
-    } catch (error) {
-      console.error('Failed to fetch notification preferences:', error)
-      // Use defaults on error
-      const defaults: Record<string, boolean> = {}
+  const { isLoading, error, refetch } = useQuery({
+    queryKey: ['admin', 'notifications', 'preferences'],
+    queryFn: () => fetchClient<PreferencesResponse>('/api/admin/notifications/preferences'),
+    select: (data) => {
+      const merged: Record<string, boolean> = {}
       NOTIFICATION_TYPES.forEach((nt) => {
-        defaults[nt.type] = nt.defaultEnabled
+        merged[nt.type] = data.preferences?.[nt.type] ?? nt.defaultEnabled
       })
-      setPreferences(defaults)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+      setPreferences(merged)
+      return merged
+    },
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: (prefs: Record<string, boolean>) =>
+      fetchClient<void>('/api/admin/notifications/preferences', {
+        method: 'POST',
+        body: JSON.stringify({ preferences: prefs }),
+      }),
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Preferences Saved',
+        description: 'Notification preferences have been updated successfully',
+      })
+    },
+    onError: (error: Error) => {
+      showToast({
+        type: 'error',
+        title: 'Save Failed',
+        description: error.message || 'Failed to save notification preferences',
+      })
+    },
+  })
 
   const handleToggle = (type: string) => {
     setPreferences((prev) => ({
       ...prev,
       [type]: !prev[type],
     }))
-  }
-
-  const handleSave = async () => {
-    try {
-      setIsSaving(true)
-      const response = await fetch('/api/admin/notifications/preferences', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ preferences }),
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Preferences Saved',
-          description: 'Notification preferences have been updated successfully',
-        })
-      } else {
-        const data = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Save Failed',
-          description: data.error || 'Failed to save notification preferences',
-        })
-      }
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Save Failed',
-        description: error.message || 'Failed to save notification preferences',
-      })
-    } finally {
-      setIsSaving(false)
-    }
   }
 
   const handleEnableAll = () => {
@@ -221,11 +193,7 @@ export default function NotificationManagementPage() {
   }
 
   const handleResetDefaults = () => {
-    const defaults: Record<string, boolean> = {}
-    NOTIFICATION_TYPES.forEach((nt) => {
-      defaults[nt.type] = nt.defaultEnabled
-    })
-    setPreferences(defaults)
+    setPreferences(getDefaults())
   }
 
   // Group by category
@@ -242,6 +210,16 @@ export default function NotificationManagementPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorDisplay
+        title="Failed to load notification preferences"
+        message={error.message}
+        onRetry={() => refetch()}
+      />
     )
   }
 
@@ -264,7 +242,7 @@ export default function NotificationManagementPage() {
           <Button variant="secondary" onClick={handleResetDefaults}>
             Reset Defaults
           </Button>
-          <Button variant="primary" onClick={handleSave} isLoading={isSaving}>
+          <Button variant="primary" onClick={() => saveMutation.mutate(preferences)} isLoading={saveMutation.isPending}>
             Save Changes
           </Button>
         </div>
@@ -335,4 +313,3 @@ export default function NotificationManagementPage() {
     </div>
   )
 }
-

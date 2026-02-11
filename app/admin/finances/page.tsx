@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
@@ -44,23 +47,12 @@ interface FinanceOverview {
 
 export default function FinancesPage() {
   const { showToast } = useToast()
-  const [isLoading, setIsLoading] = useState(true)
-  const [isTestMode, setIsTestMode] = useState(false)
-  const [overview, setOverview] = useState<FinanceOverview | null>(null)
   const [selectedPeriod, setSelectedPeriod] = useState(30)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
   const [useCustomRange, setUseCustomRange] = useState(false)
   const datePickerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    fetchStripeMode()
-  }, [])
-
-  useEffect(() => {
-    fetchOverview()
-  }, [selectedPeriod, useCustomRange, customStartDate, customEndDate])
 
   // Close date picker when clicking outside
   useEffect(() => {
@@ -79,44 +71,38 @@ export default function FinancesPage() {
     }
   }, [showDatePicker])
 
-  const fetchStripeMode = async () => {
-    try {
-      const response = await fetch('/api/admin/finances/stripe-mode')
-      if (response.ok) {
-        const data = await response.json()
-        setIsTestMode(data.isTestMode)
-      }
-    } catch (error) {
-      console.error('Failed to fetch Stripe mode:', error)
+  // --- Queries ---
+
+  const {
+    data: stripeModeData,
+  } = useQuery({
+    queryKey: ['admin', 'finances', 'stripe-mode'],
+    queryFn: () => fetchClient<{ isTestMode: boolean }>('/api/admin/finances/stripe-mode'),
+  })
+
+  const isTestMode = stripeModeData?.isTestMode ?? false
+
+  const buildOverviewUrl = () => {
+    let url = '/api/admin/finances/overview?'
+    if (useCustomRange && customStartDate && customEndDate) {
+      url += `startDate=${customStartDate}&endDate=${customEndDate}`
+    } else {
+      url += `days=${selectedPeriod}`
     }
+    return url
   }
 
-  const fetchOverview = async () => {
-    setIsLoading(true)
-    try {
-      let url = `/api/admin/finances/overview?`
-      if (useCustomRange && customStartDate && customEndDate) {
-        url += `startDate=${customStartDate}&endDate=${customEndDate}`
-      } else {
-        url += `days=${selectedPeriod}`
-      }
-      
-      const response = await fetch(url)
-      if (!response.ok) {
-        throw new Error('Failed to fetch finances overview')
-      }
-      const data = await response.json()
-      setOverview(data)
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to load finances',
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const {
+    data: overview,
+    isLoading,
+    error: overviewError,
+    refetch: refetchOverview,
+  } = useQuery({
+    queryKey: ['admin', 'finances', 'overview', selectedPeriod, useCustomRange, customStartDate, customEndDate],
+    queryFn: () => fetchClient<FinanceOverview>(buildOverviewUrl()),
+  })
+
+  // --- Handlers ---
 
   const handleQuickFilter = (days: number) => {
     setUseCustomRange(false)
@@ -149,6 +135,8 @@ export default function FinancesPage() {
     setShowDatePicker(false)
   }
 
+  // --- Helpers ---
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -169,6 +157,16 @@ export default function FinancesPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner />
       </div>
+    )
+  }
+
+  if (overviewError) {
+    return (
+      <ErrorDisplay
+        title="Failed to load finances"
+        message={(overviewError as Error).message || 'Could not load financial data.'}
+        onRetry={() => refetchOverview()}
+      />
     )
   }
 
@@ -202,7 +200,7 @@ export default function FinancesPage() {
                 </Button>
               ))}
             </div>
-            
+
             <div className="relative" ref={datePickerRef}>
               <Button
                 variant={useCustomRange ? 'primary' : 'secondary'}
@@ -211,7 +209,7 @@ export default function FinancesPage() {
               >
                 Custom Range
               </Button>
-              
+
               {showDatePicker && (
                 <div className="absolute top-full left-0 mt-2 bg-bg-secondary border border-bg-tertiary rounded-lg p-4 shadow-lg z-50 min-w-[300px]">
                   <div className="space-y-4">
@@ -548,7 +546,7 @@ export default function FinancesPage() {
                                 >
                                   <div>
                                     <p className="font-semibold text-text-primary">
-                                      {tx.type === 'subscription' 
+                                      {tx.type === 'subscription'
                                         ? `Subscription - ${tx.user?.username || tx.user?.email || 'Unknown'}`
                                         : `Ad - ${tx.campaign?.name || 'Campaign'}`}
                                     </p>
@@ -583,4 +581,3 @@ export default function FinancesPage() {
     </div>
   )
 }
-

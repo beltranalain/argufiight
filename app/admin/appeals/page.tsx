@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -32,194 +35,111 @@ interface AppealStatistics {
   totalUsers: number
 }
 
+interface AppealDataResponse {
+  appealLimits: AppealLimit[]
+  statistics: AppealStatistics | null
+}
+
+interface AppealSettingsResponse {
+  defaultMonthlyLimit: number
+}
+
 export default function AppealsManagementPage() {
   const { showToast } = useToast()
-  const [appealLimits, setAppealLimits] = useState<AppealLimit[]>([])
-  const [statistics, setStatistics] = useState<AppealStatistics | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedUser, setSelectedUser] = useState<AppealLimit | null>(null)
   const [adjustmentValue, setAdjustmentValue] = useState(0)
   const [newLimit, setNewLimit] = useState(4)
   const [defaultLimit, setDefaultLimit] = useState(4)
-  const [isSaving, setIsSaving] = useState(false)
 
-  useEffect(() => {
-    fetchAppealData()
-    fetchSettings()
-  }, [])
+  const {
+    data: appealData,
+    isLoading: isLoadingAppeals,
+    error: appealsError,
+  } = useQuery({
+    queryKey: ['admin', 'appeals'],
+    queryFn: () => fetchClient<AppealDataResponse>('/api/admin/appeals'),
+  })
 
-  const fetchAppealData = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch('/api/admin/appeals')
-      if (response.ok) {
-        const data = await response.json()
-        setAppealLimits(data.appealLimits || [])
-        setStatistics(data.statistics || null)
+  const {
+    data: settingsData,
+    isLoading: isLoadingSettings,
+    error: settingsError,
+  } = useQuery({
+    queryKey: ['admin', 'appeals', 'settings'],
+    queryFn: () => fetchClient<AppealSettingsResponse>('/api/admin/appeals/settings'),
+    select: (data) => {
+      if (data?.defaultMonthlyLimit !== undefined) {
+        setDefaultLimit(data.defaultMonthlyLimit)
       }
-    } catch (error) {
-      console.error('Failed to fetch appeal data:', error)
+      return data
+    },
+  })
+
+  const appealActionMutation = useMutation({
+    mutationFn: (payload: { userId: string; action: string; value?: number }) =>
+      fetchClient<void>('/api/admin/appeals', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'appeals'] })
+      if (variables.action === 'adjust') {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: `Appeal count ${(variables.value ?? 0) > 0 ? 'increased' : 'decreased'} by ${Math.abs(variables.value ?? 0)}`,
+        })
+      } else if (variables.action === 'setLimit') {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: `Monthly limit set to ${variables.value}`,
+        })
+      } else if (variables.action === 'reset') {
+        showToast({
+          type: 'success',
+          title: 'Success',
+          description: 'Appeal count reset to 0',
+        })
+      }
+    },
+    onError: (error: Error) => {
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Failed to load appeal data',
+        description: error.message || 'Failed to perform action',
       })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+    },
+  })
 
-  const fetchSettings = async () => {
-    try {
-      const response = await fetch('/api/admin/appeals/settings')
-      if (response.ok) {
-        const data = await response.json()
-        setDefaultLimit(data.defaultMonthlyLimit || 4)
-      }
-    } catch (error) {
-      console.error('Failed to fetch settings:', error)
-    }
-  }
-
-  const handleAdjustCount = async (userId: string, adjustment: number) => {
-    try {
-      setIsSaving(true)
-      const response = await fetch('/api/admin/appeals', {
+  const saveDefaultLimitMutation = useMutation({
+    mutationFn: (limit: number) =>
+      fetchClient<void>('/api/admin/appeals/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          action: 'adjust',
-          value: adjustment,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to adjust appeal count')
-      }
-
-      showToast({
-        type: 'success',
-        title: 'Success',
-        description: `Appeal count ${adjustment > 0 ? 'increased' : 'decreased'} by ${Math.abs(adjustment)}`,
-      })
-
-      fetchAppealData()
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to adjust appeal count',
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleSetLimit = async (userId: string, limit: number) => {
-    try {
-      setIsSaving(true)
-      const response = await fetch('/api/admin/appeals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          action: 'setLimit',
-          value: limit,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to set limit')
-      }
-
-      showToast({
-        type: 'success',
-        title: 'Success',
-        description: `Monthly limit set to ${limit}`,
-      })
-
-      fetchAppealData()
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to set limit',
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleReset = async (userId: string) => {
-    try {
-      setIsSaving(true)
-      const response = await fetch('/api/admin/appeals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          action: 'reset',
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to reset appeal count')
-      }
-
-      showToast({
-        type: 'success',
-        title: 'Success',
-        description: 'Appeal count reset to 0',
-      })
-
-      fetchAppealData()
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to reset appeal count',
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleSaveDefaultLimit = async () => {
-    try {
-      setIsSaving(true)
-      const response = await fetch('/api/admin/appeals/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          defaultMonthlyLimit: defaultLimit,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to save settings')
-      }
-
+        body: JSON.stringify({ defaultMonthlyLimit: limit }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'appeals', 'settings'] })
       showToast({
         type: 'success',
         title: 'Success',
         description: 'Default appeal limit updated',
       })
-    } catch (error: any) {
+    },
+    onError: (error: Error) => {
       showToast({
         type: 'error',
         title: 'Error',
         description: error.message || 'Failed to save settings',
       })
-    } finally {
-      setIsSaving(false)
-    }
-  }
+    },
+  })
+
+  const isSaving = appealActionMutation.isPending || saveDefaultLimitMutation.isPending
+
+  const appealLimits = appealData?.appealLimits || []
+  const statistics = appealData?.statistics || null
 
   const filteredLimits = appealLimits.filter(limit =>
     limit.user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -230,12 +150,29 @@ export default function AppealsManagementPage() {
     return Math.max(0, limit.monthlyLimit - limit.currentCount)
   }
 
+  const isLoading = isLoadingAppeals || isLoadingSettings
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-bg-primary">
         <TopNav currentPanel="ADMIN" />
         <div className="flex items-center justify-center min-h-[60vh]">
           <LoadingSpinner size="lg" />
+        </div>
+      </div>
+    )
+  }
+
+  if (appealsError) {
+    return (
+      <div className="min-h-screen bg-bg-primary">
+        <TopNav currentPanel="ADMIN" />
+        <div className="pt-20 px-4 md:px-8 pb-8">
+          <ErrorDisplay
+            title="Failed to load appeal data"
+            message={appealsError.message}
+            onRetry={() => queryClient.invalidateQueries({ queryKey: ['admin', 'appeals'] })}
+          />
         </div>
       </div>
     )
@@ -304,8 +241,8 @@ export default function AppealsManagementPage() {
                 </div>
                 <Button
                   variant="primary"
-                  onClick={handleSaveDefaultLimit}
-                  isLoading={isSaving}
+                  onClick={() => saveDefaultLimitMutation.mutate(defaultLimit)}
+                  isLoading={saveDefaultLimitMutation.isPending}
                   className="mt-6"
                 >
                   Save Default Limit
@@ -392,7 +329,7 @@ export default function AppealsManagementPage() {
                             <Button
                               variant="secondary"
                               size="sm"
-                              onClick={() => handleAdjustCount(limit.userId, -1)}
+                              onClick={() => appealActionMutation.mutate({ userId: limit.userId, action: 'adjust', value: -1 })}
                               disabled={isSaving || limit.currentCount === 0}
                             >
                               -1
@@ -400,7 +337,7 @@ export default function AppealsManagementPage() {
                             <Button
                               variant="secondary"
                               size="sm"
-                              onClick={() => handleAdjustCount(limit.userId, 1)}
+                              onClick={() => appealActionMutation.mutate({ userId: limit.userId, action: 'adjust', value: 1 })}
                               disabled={isSaving}
                             >
                               +1
@@ -419,7 +356,7 @@ export default function AppealsManagementPage() {
                               size="sm"
                               onClick={() => {
                                 if (adjustmentValue !== 0) {
-                                  handleAdjustCount(limit.userId, adjustmentValue)
+                                  appealActionMutation.mutate({ userId: limit.userId, action: 'adjust', value: adjustmentValue })
                                   setAdjustmentValue(0)
                                 }
                               }}
@@ -440,7 +377,7 @@ export default function AppealsManagementPage() {
                             <Button
                               variant="secondary"
                               size="sm"
-                              onClick={() => handleSetLimit(limit.userId, newLimit)}
+                              onClick={() => appealActionMutation.mutate({ userId: limit.userId, action: 'setLimit', value: newLimit })}
                               disabled={isSaving}
                             >
                               Set Limit
@@ -449,7 +386,7 @@ export default function AppealsManagementPage() {
                           <Button
                             variant="secondary"
                             size="sm"
-                            onClick={() => handleReset(limit.userId)}
+                            onClick={() => appealActionMutation.mutate({ userId: limit.userId, action: 'reset' })}
                             disabled={isSaving}
                           >
                             Reset Count
@@ -471,4 +408,3 @@ export default function AppealsManagementPage() {
     </div>
   )
 }
-

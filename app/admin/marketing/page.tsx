@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -29,15 +32,13 @@ interface MarketingStrategy {
 
 export default function MarketingDashboardPage() {
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
   const searchParams = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as 'strategy' | 'calendar' | 'posts' | 'analytics' | null
   const [activeTab, setActiveTab] = useState<'strategy' | 'calendar' | 'posts' | 'analytics'>(
     tabFromUrl || 'strategy'
   )
-  const [strategies, setStrategies] = useState<MarketingStrategy[]>([])
-  const [isLoadingStrategies, setIsLoadingStrategies] = useState(false)
-  const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false)
-  
+
   // Strategy generation form
   const [strategyName, setStrategyName] = useState('')
   const [strategyStartDate, setStrategyStartDate] = useState('')
@@ -46,60 +47,31 @@ export default function MarketingDashboardPage() {
   const [strategyPlatforms, setStrategyPlatforms] = useState('Instagram, LinkedIn, Twitter')
 
   useEffect(() => {
-    fetchStrategies()
-  }, [])
-
-  useEffect(() => {
     if (tabFromUrl && ['strategy', 'calendar', 'posts', 'analytics'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl)
     }
   }, [tabFromUrl])
 
-  const fetchStrategies = async () => {
-    try {
-      setIsLoadingStrategies(true)
-      const response = await fetch('/api/admin/marketing/strategy')
-      if (response.ok) {
-        const data = await response.json()
-        setStrategies(data.strategies || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch strategies:', error)
-    } finally {
-      setIsLoadingStrategies(false)
-    }
-  }
+  const { data: strategiesData, isLoading: isLoadingStrategies, error: strategiesError, refetch: refetchStrategies } = useQuery<{ strategies: MarketingStrategy[] }>({
+    queryKey: ['admin', 'marketing', 'strategies'],
+    queryFn: () => fetchClient<{ strategies: MarketingStrategy[] }>('/api/admin/marketing/strategy'),
+  })
 
-  const handleGenerateStrategy = async () => {
-    if (!strategyName || !strategyStartDate || !strategyEndDate) {
-      showToast({
-        type: 'error',
-        title: 'Missing Fields',
-        description: 'Please fill in name, start date, and end date',
-      })
-      return
-    }
+  const strategies = strategiesData?.strategies ?? []
 
-    try {
-      setIsGeneratingStrategy(true)
-      const response = await fetch('/api/admin/marketing/strategy/generate', {
+  const generateStrategyMutation = useMutation({
+    mutationFn: (payload: {
+      name: string
+      startDate: string
+      endDate: string
+      goals?: string
+      platforms?: string
+    }) =>
+      fetchClient<{ strategy: MarketingStrategy }>('/api/admin/marketing/strategy/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: strategyName,
-          startDate: strategyStartDate,
-          endDate: strategyEndDate,
-          goals: strategyGoals || undefined,
-          platforms: strategyPlatforms || undefined,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to generate strategy')
-      }
-
-      const data = await response.json()
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: (data) => {
       showToast({
         type: 'success',
         title: 'Strategy Generated!',
@@ -114,16 +86,34 @@ export default function MarketingDashboardPage() {
       setStrategyPlatforms('Instagram, LinkedIn, Twitter')
 
       // Refresh strategies
-      fetchStrategies()
-    } catch (error: any) {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'marketing', 'strategies'] })
+    },
+    onError: (error: any) => {
       showToast({
         type: 'error',
         title: 'Generation Failed',
         description: error.message || 'Failed to generate marketing strategy',
       })
-    } finally {
-      setIsGeneratingStrategy(false)
+    },
+  })
+
+  const handleGenerateStrategy = () => {
+    if (!strategyName || !strategyStartDate || !strategyEndDate) {
+      showToast({
+        type: 'error',
+        title: 'Missing Fields',
+        description: 'Please fill in name, start date, and end date',
+      })
+      return
     }
+
+    generateStrategyMutation.mutate({
+      name: strategyName,
+      startDate: strategyStartDate,
+      endDate: strategyEndDate,
+      goals: strategyGoals || undefined,
+      platforms: strategyPlatforms || undefined,
+    })
   }
 
   return (
@@ -233,7 +223,7 @@ export default function MarketingDashboardPage() {
                 <Button
                   variant="primary"
                   onClick={handleGenerateStrategy}
-                  isLoading={isGeneratingStrategy}
+                  isLoading={generateStrategyMutation.isPending}
                   disabled={!strategyName || !strategyStartDate || !strategyEndDate}
                 >
                   Generate Strategy
@@ -252,6 +242,12 @@ export default function MarketingDashboardPage() {
                 <div className="flex items-center justify-center py-8">
                   <LoadingSpinner size="lg" />
                 </div>
+              ) : strategiesError ? (
+                <ErrorDisplay
+                  title="Failed to load strategies"
+                  message={strategiesError instanceof Error ? strategiesError.message : 'Something went wrong.'}
+                  onRetry={() => refetchStrategies()}
+                />
               ) : strategies.length === 0 ? (
                 <p className="text-text-secondary text-center py-8">
                   No strategies yet. Generate your first one above!
@@ -312,7 +308,7 @@ export default function MarketingDashboardPage() {
                                     )
                                   }
                                 }
-                                
+
                                 // If it's an object with platform, frequency, content_mix
                                 if (platformData && typeof platformData === 'object' && platformData.platform) {
                                   return (
@@ -333,7 +329,7 @@ export default function MarketingDashboardPage() {
                                     </div>
                                   )
                                 }
-                                
+
                                 // Fallback for simple string platforms
                                 return (
                                   <Badge key={idx} className="bg-electric-blue/20 text-electric-blue text-xs">
@@ -377,4 +373,3 @@ export default function MarketingDashboardPage() {
     </div>
   )
 }
-

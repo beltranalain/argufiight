@@ -2,10 +2,13 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Badge } from '@/components/ui/Badge'
 import { Tabs } from '@/components/ui/Tabs'
 import Link from 'next/link'
@@ -44,32 +47,58 @@ interface Offer {
   }
 }
 
+interface DashboardData {
+  activeContracts: Contract[]
+  pendingOffers: Offer[]
+  earnings: {
+    totalEarned: number
+    pendingPayout: number
+    thisMonth: number
+  }
+  creatorInfo: any
+  eligibility: {
+    minELO: number
+    minDebates: number
+    minAgeMonths: number
+  } | null
+  platformFees: {
+    BRONZE: number
+    SILVER: number
+    GOLD: number
+    PLATINUM: number
+  } | null
+}
+
+async function fetchDashboardData(): Promise<DashboardData> {
+  const [contractsData, offersData, earningsData, profileData, eligibilityData, feesData] = await Promise.all([
+    fetchClient<{ contracts: Contract[] }>('/api/creator/contracts').catch(() => ({ contracts: [] })),
+    fetchClient<{ offers: Offer[] }>('/api/creator/offers?status=PENDING').catch(() => ({ offers: [] })),
+    fetchClient<{ totalEarned: number; pendingPayout: number; thisMonth: number }>('/api/creator/earnings').catch(() => ({ totalEarned: 0, pendingPayout: 0, thisMonth: 0 })),
+    fetchClient<any>('/api/creator/profile').catch(() => null),
+    fetchClient<{ minELO: number; minDebates: number; minAgeMonths: number }>('/api/creator/eligibility').catch(() => null),
+    fetchClient<{ BRONZE: number; SILVER: number; GOLD: number; PLATINUM: number }>('/api/creator/platform-fees').catch(() => null),
+  ])
+
+  const activeAndScheduled = (contractsData.contracts || []).filter(
+    (c: Contract) => c.status === 'ACTIVE' || c.status === 'SCHEDULED'
+  )
+
+  return {
+    activeContracts: activeAndScheduled,
+    pendingOffers: offersData.offers || [],
+    earnings: earningsData,
+    creatorInfo: profileData,
+    eligibility: eligibilityData,
+    platformFees: feesData,
+  }
+}
+
 function CreatorDashboardContent() {
   const searchParams = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as 'overview' | 'offers' | 'earnings' | 'settings' | 'tax-documents' | 'how-it-works' | null
   const [activeTab, setActiveTab] = useState<'overview' | 'offers' | 'earnings' | 'settings' | 'tax-documents' | 'how-it-works'>(
     tabFromUrl || 'overview'
   )
-  const [isLoading, setIsLoading] = useState(true)
-  const [earnings, setEarnings] = useState({
-    totalEarned: 0,
-    pendingPayout: 0,
-    thisMonth: 0,
-  })
-  const [activeContracts, setActiveContracts] = useState<Contract[]>([])
-  const [pendingOffers, setPendingOffers] = useState<Offer[]>([])
-  const [creatorInfo, setCreatorInfo] = useState<any>(null)
-  const [eligibility, setEligibility] = useState<{
-    minELO: number
-    minDebates: number
-    minAgeMonths: number
-  } | null>(null)
-  const [platformFees, setPlatformFees] = useState<{
-    BRONZE: number
-    SILVER: number
-    GOLD: number
-    PLATINUM: number
-  } | null>(null)
 
   useEffect(() => {
     if (tabFromUrl && ['overview', 'offers', 'earnings', 'settings', 'tax-documents', 'how-it-works'].includes(tabFromUrl)) {
@@ -77,70 +106,10 @@ function CreatorDashboardContent() {
     }
   }, [tabFromUrl])
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const fetchData = async () => {
-    try {
-      setIsLoading(true)
-      const [contractsRes, offersRes, earningsRes, profileRes, eligibilityRes, feesRes] = await Promise.all([
-        // Fetch all contracts and filter for ACTIVE and SCHEDULED on frontend
-        fetch('/api/creator/contracts'),
-        fetch('/api/creator/offers?status=PENDING'),
-        fetch('/api/creator/earnings'),
-        fetch('/api/creator/profile'),
-        fetch('/api/creator/eligibility'),
-        fetch('/api/creator/platform-fees'),
-      ])
-
-      if (contractsRes.ok) {
-        const data = await contractsRes.json()
-        console.log('[Creator Dashboard] Contracts API response:', data)
-        console.log('[Creator Dashboard] All contracts:', data.contracts)
-        console.log('[Creator Dashboard] Contract statuses:', data.contracts?.map((c: Contract) => c.status))
-        // Filter to show ACTIVE and SCHEDULED contracts (exclude CANCELLED and COMPLETED)
-        const activeAndScheduled = (data.contracts || []).filter(
-          (c: Contract) => c.status === 'ACTIVE' || c.status === 'SCHEDULED'
-        )
-        console.log('[Creator Dashboard] Filtered contracts:', activeAndScheduled)
-        setActiveContracts(activeAndScheduled)
-      } else {
-        console.error('[Creator Dashboard] Contracts API failed:', contractsRes.status, contractsRes.statusText)
-        const errorData = await contractsRes.json().catch(() => ({}))
-        console.error('[Creator Dashboard] Error data:', errorData)
-      }
-
-      if (offersRes.ok) {
-        const data = await offersRes.json()
-        setPendingOffers(data.offers || [])
-      }
-
-      if (earningsRes.ok) {
-        const data = await earningsRes.json()
-        setEarnings(data)
-      }
-
-      if (profileRes.ok) {
-        const data = await profileRes.json()
-        setCreatorInfo(data)
-      }
-
-      if (eligibilityRes.ok) {
-        const data = await eligibilityRes.json()
-        setEligibility(data)
-      }
-
-      if (feesRes.ok) {
-        const data = await feesRes.json()
-        setPlatformFees(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['creator', 'dashboard'],
+    queryFn: fetchDashboardData,
+  })
 
   if (isLoading) {
     return (
@@ -152,6 +121,23 @@ function CreatorDashboardContent() {
       </div>
     )
   }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-bg-primary">
+        <TopNav currentPanel="CREATOR" />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <ErrorDisplay
+            title="Failed to load dashboard"
+            message={error instanceof Error ? error.message : 'Something went wrong. Please try again.'}
+            onRetry={() => refetch()}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  const { activeContracts, pendingOffers, earnings, creatorInfo, eligibility, platformFees } = data!
 
   // Overview Tab Content
   const OverviewTab = () => (
@@ -527,4 +513,3 @@ export default function CreatorDashboardPage() {
     </Suspense>
   )
 }
-

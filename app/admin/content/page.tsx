@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 // AdminLayout is provided by app/admin/layout.tsx
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -53,20 +56,16 @@ interface SocialMediaLink {
 
 export default function ContentManagerPage() {
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
   const searchParams = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as 'homepage' | 'blog' | 'seo' | 'legal' | null
   const [activeTab, setActiveTab] = useState<'homepage' | 'blog' | 'seo' | 'legal'>(
     tabFromUrl || 'homepage'
   )
-  const [sections, setSections] = useState<HomepageSection[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [selectedSection, setSelectedSection] = useState<HomepageSection | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
   const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false)
-  const [mediaLibrary, setMediaLibrary] = useState<any[]>([])
-  const [socialLinks, setSocialLinks] = useState<SocialMediaLink[]>([])
-  const [isLoadingSocial, setIsLoadingSocial] = useState(true)
 
   useEffect(() => {
     if (tabFromUrl && ['homepage', 'blog', 'seo', 'legal'].includes(tabFromUrl)) {
@@ -74,168 +73,125 @@ export default function ContentManagerPage() {
     }
   }, [tabFromUrl])
 
-  useEffect(() => {
-    fetchSections()
-    fetchMediaLibrary()
-    fetchSocialLinks()
-  }, [])
+  const { data: sectionsData, isLoading, error: sectionsError, refetch: refetchSections } = useQuery<{ sections: HomepageSection[] }>({
+    queryKey: ['admin', 'content', 'sections'],
+    queryFn: async () => {
+      const data = await fetchClient<any>('/api/admin/content/sections')
+      const sections = Array.isArray(data.sections)
+        ? data.sections
+        : (Array.isArray(data) ? data : [])
+      return { sections }
+    },
+  })
 
-  const fetchSections = async (showLoading = true) => {
-    try {
-      if (showLoading) setIsLoading(true)
-      const response = await fetch('/api/admin/content/sections', {
-        cache: 'no-store', // Prevent stale data
-      })
-      if (response.ok) {
-        const data = await response.json()
-        // Ensure sections is always an array
-        const sections = Array.isArray(data.sections) 
-          ? data.sections 
-          : (Array.isArray(data) ? data : [])
-        setSections(sections)
-      } else {
-        setSections([])
-      }
-    } catch (error) {
-      console.error('Failed to fetch sections:', error)
-      setSections([])
-    } finally {
-      if (showLoading) setIsLoading(false)
-    }
-  }
+  const sections = sectionsData?.sections ?? []
 
-  const fetchMediaLibrary = async () => {
-    try {
-      const response = await fetch('/api/admin/content/media')
-      if (response.ok) {
-        const data = await response.json()
-        setMediaLibrary(data.media || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch media library:', error)
-    }
-  }
+  const { data: mediaData, refetch: refetchMedia } = useQuery<{ media: any[] }>({
+    queryKey: ['admin', 'content', 'media'],
+    queryFn: () => fetchClient<{ media: any[] }>('/api/admin/content/media'),
+  })
 
-  const fetchSocialLinks = async () => {
-    try {
-      setIsLoadingSocial(true)
-      const response = await fetch('/api/admin/content/social-media')
-      if (response.ok) {
-        const data = await response.json()
-        setSocialLinks(data.links || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch social media links:', error)
-    } finally {
-      setIsLoadingSocial(false)
-    }
-  }
+  const mediaLibrary = mediaData?.media ?? []
 
-  const handleSaveSocialLink = async (platform: string, url: string, order: number) => {
-    try {
-      const response = await fetch('/api/admin/content/social-media', {
+  const { data: socialData, isLoading: isLoadingSocial } = useQuery<{ links: SocialMediaLink[] }>({
+    queryKey: ['admin', 'content', 'social-media'],
+    queryFn: () => fetchClient<{ links: SocialMediaLink[] }>('/api/admin/content/social-media'),
+  })
+
+  const socialLinks = socialData?.links ?? []
+
+  const saveSocialLinkMutation = useMutation({
+    mutationFn: (payload: { platform: string; url: string; order: number }) =>
+      fetchClient<any>('/api/admin/content/social-media', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform, url, order, isActive: true }),
+        body: JSON.stringify({ ...payload, isActive: true }),
+      }),
+    onSuccess: (_data, variables) => {
+      showToast({
+        type: 'success',
+        title: 'Social Link Saved',
+        description: `${variables.platform} link updated successfully`,
       })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Social Link Saved',
-          description: `${platform} link updated successfully`,
-        })
-        fetchSocialLinks()
-      } else {
-        throw new Error('Failed to save')
-      }
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'content', 'social-media'] })
+    },
+    onError: () => {
       showToast({
         type: 'error',
         title: 'Save Failed',
         description: 'Failed to save social media link',
       })
-    }
-  }
+    },
+  })
 
-  const handleDeleteSocialLink = async (platform: string) => {
-    try {
-      const response = await fetch(`/api/admin/content/social-media?platform=${platform}`, {
+  const deleteSocialLinkMutation = useMutation({
+    mutationFn: (platform: string) =>
+      fetchClient<any>(`/api/admin/content/social-media?platform=${platform}`, {
         method: 'DELETE',
+      }),
+    onSuccess: (_data, platform) => {
+      showToast({
+        type: 'success',
+        title: 'Link Deleted',
+        description: `${platform} link removed`,
       })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Link Deleted',
-          description: `${platform} link removed`,
-        })
-        fetchSocialLinks()
-      }
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'content', 'social-media'] })
+    },
+    onError: () => {
       showToast({
         type: 'error',
         title: 'Delete Failed',
         description: 'Failed to delete social media link',
       })
-    }
-  }
+    },
+  })
 
-  const handleToggleVisibility = async (sectionId: string, currentVisibility: boolean) => {
-    const newVisibility = !currentVisibility
-    console.log('[Content Manager] Toggling visibility:', {
-      sectionId,
-      currentVisibility,
-      newVisibility,
-    })
-
-    try {
-      const response = await fetch(`/api/admin/content/sections/${sectionId}`, {
+  const toggleVisibilityMutation = useMutation({
+    mutationFn: async ({ sectionId, newVisibility }: { sectionId: string; newVisibility: boolean }) =>
+      fetchClient<any>(`/api/admin/content/sections/${sectionId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isVisible: newVisibility }),
-      })
-
-      console.log('[Content Manager] Toggle response status:', response.status)
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Update failed' }))
-        throw new Error(errorData.error || 'Update failed')
-      }
-
-      const result = await response.json()
-      console.log('[Content Manager] Toggle response data:', result)
-
-      // Update the section in local state immediately
-      setSections(prevSections =>
-        prevSections.map(s =>
-          s.id === sectionId
-            ? { ...s, isVisible: newVisibility }
-            : s
-        )
+      }),
+    onSuccess: (_data, variables) => {
+      // Update sections cache optimistically
+      queryClient.setQueryData<{ sections: HomepageSection[] }>(
+        ['admin', 'content', 'sections'],
+        (old) => {
+          if (!old) return old
+          return {
+            sections: old.sections.map(s =>
+              s.id === variables.sectionId
+                ? { ...s, isVisible: variables.newVisibility }
+                : s
+            ),
+          }
+        }
       )
 
       // Also update selectedSection if it's the one being toggled
-      if (selectedSection?.id === sectionId) {
-        setSelectedSection(prev => prev ? { ...prev, isVisible: newVisibility } : null)
+      if (selectedSection?.id === variables.sectionId) {
+        setSelectedSection(prev => prev ? { ...prev, isVisible: variables.newVisibility } : null)
       }
 
       showToast({
         type: 'success',
         title: 'Section Updated',
-        description: `Section ${newVisibility ? 'shown' : 'hidden'} successfully`,
+        description: `Section ${variables.newVisibility ? 'shown' : 'hidden'} successfully`,
       })
 
       // Refresh sections to ensure consistency
-      await fetchSections()
-    } catch (error: any) {
-      console.error('[Content Manager] Toggle visibility error:', error)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'content', 'sections'] })
+    },
+    onError: (error: any) => {
       showToast({
         type: 'error',
         title: 'Update Failed',
         description: error.message || 'Failed to update section visibility',
       })
-    }
+    },
+  })
+
+  const handleToggleVisibility = (sectionId: string, currentVisibility: boolean) => {
+    toggleVisibilityMutation.mutate({ sectionId, newVisibility: !currentVisibility })
   }
 
   const handleEditSection = (section: HomepageSection) => {
@@ -246,28 +202,15 @@ export default function ContentManagerPage() {
   const handleSaveSection = async (sectionData: Partial<HomepageSection>) => {
     if (!selectedSection) return
 
-    console.log('[Content Manager] Saving section:', {
-      sectionId: selectedSection.id,
-      sectionKey: selectedSection.key,
-      data: sectionData,
-    })
-
     try {
-      const response = await fetch(`/api/admin/content/sections/${selectedSection.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sectionData),
-      })
+      const result = await fetchClient<{ section: HomepageSection }>(
+        `/api/admin/content/sections/${selectedSection.id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(sectionData),
+        }
+      )
 
-      console.log('[Content Manager] Save response status:', response.status, response.statusText)
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Save failed' }))
-        throw new Error(errorData.error || 'Save failed')
-      }
-
-      const result = await response.json()
-      
       // Update selected section immediately with response data (optimistic update)
       if (result.section) {
         const updatedSection = {
@@ -276,36 +219,43 @@ export default function ContentManagerPage() {
           buttons: result.section.buttons || [],
         }
         setSelectedSection(updatedSection)
-        
-        // Update sections list optimistically (update the section in the list)
-        setSections(prevSections => 
-          prevSections.map(s => s.id === updatedSection.id ? updatedSection : s)
+
+        // Update sections list optimistically
+        queryClient.setQueryData<{ sections: HomepageSection[] }>(
+          ['admin', 'content', 'sections'],
+          (old) => {
+            if (!old) return old
+            return {
+              sections: old.sections.map(s => s.id === updatedSection.id ? updatedSection : s),
+            }
+          }
         )
       }
-      
+
       showToast({
         type: 'success',
         title: 'Section Saved',
         description: 'Homepage section updated successfully',
       })
       // Keep modal open - don't close it
-      
+
       // Refresh sections list in background (non-blocking)
-      fetchSections().catch(err => console.error('Background refresh failed:', err))
+      queryClient.invalidateQueries({ queryKey: ['admin', 'content', 'sections'] })
     } catch (error: any) {
-      console.error('[Content Manager] Save error:', error)
-      console.error('[Content Manager] Error details:', {
-        message: error.message,
-        stack: error.stack,
-        sectionId: selectedSection?.id,
-        sectionData: sectionData,
-      })
       showToast({
         type: 'error',
         title: 'Save Failed',
         description: error.message || 'Failed to save section. Please try again.',
       })
     }
+  }
+
+  const handleSaveSocialLink = (platform: string, url: string, order: number) => {
+    saveSocialLinkMutation.mutate({ platform, url, order })
+  }
+
+  const handleDeleteSocialLink = (platform: string) => {
+    deleteSocialLinkMutation.mutate(platform)
   }
 
   if (isLoading) {
@@ -316,7 +266,17 @@ export default function ContentManagerPage() {
     )
   }
 
-  const sortedSections = Array.isArray(sections) 
+  if (sectionsError) {
+    return (
+      <ErrorDisplay
+        title="Failed to load content"
+        message={sectionsError instanceof Error ? sectionsError.message : 'Something went wrong. Please try again.'}
+        onRetry={() => refetchSections()}
+      />
+    )
+  }
+
+  const sortedSections = Array.isArray(sections)
     ? [...sections].sort((a, b) => a.order - b.order)
     : []
 
@@ -401,27 +361,24 @@ export default function ContentManagerPage() {
               setSelectedSection(null)
             }}
             onSave={handleSaveSection}
-            onMediaUpload={fetchMediaLibrary}
+            onMediaUpload={() => refetchMedia()}
             onSectionsUpdate={async () => {
-              await fetchSections()
+              await refetchSections()
               // Also refresh the selected section if it exists
               if (selectedSection) {
                 try {
-                  const response = await fetch('/api/admin/content/sections')
-                  if (response.ok) {
-                    const data = await response.json()
-                    const sections = Array.isArray(data.sections) ? data.sections : []
-                    const updatedSection = sections.find((s: HomepageSection) => s.id === selectedSection.id)
-                    if (updatedSection) {
-                      setSelectedSection({
-                        ...updatedSection,
-                        images: updatedSection.images || [],
-                        buttons: updatedSection.buttons || [],
-                      })
-                    }
+                  const data = await fetchClient<any>('/api/admin/content/sections')
+                  const fetchedSections = Array.isArray(data.sections) ? data.sections : []
+                  const updatedSection = fetchedSections.find((s: HomepageSection) => s.id === selectedSection.id)
+                  if (updatedSection) {
+                    setSelectedSection({
+                      ...updatedSection,
+                      images: updatedSection.images || [],
+                      buttons: updatedSection.buttons || [],
+                    })
                   }
-                } catch (error) {
-                  console.error('Failed to refresh selected section:', error)
+                } catch {
+                  // Silently fail on background refresh
                 }
               }
             }}
@@ -433,7 +390,7 @@ export default function ContentManagerPage() {
           <MediaLibraryModal
             media={mediaLibrary}
             onClose={() => setIsMediaModalOpen(false)}
-            onUpload={fetchMediaLibrary}
+            onUpload={() => refetchMedia()}
           />
         )}
 
@@ -442,7 +399,7 @@ export default function ContentManagerPage() {
           <AddSectionModal
             onClose={() => setIsAddSectionModalOpen(false)}
             onSave={async () => {
-              await fetchSections()
+              await refetchSections()
               setIsAddSectionModalOpen(false)
             }}
           />
@@ -453,8 +410,8 @@ export default function ContentManagerPage() {
           <div className="bg-bg-tertiary rounded-lg p-4 mb-6">
             <h3 className="text-lg font-semibold text-white mb-2">SEO Management</h3>
             <p className="text-text-secondary text-sm">
-              Each section has <strong>Meta Title</strong> and <strong>Meta Description</strong> fields for SEO. 
-              The <strong>Hero</strong> section's meta fields are used for the homepage's primary SEO tags. 
+              Each section has <strong>Meta Title</strong> and <strong>Meta Description</strong> fields for SEO.
+              The <strong>Hero</strong> section's meta fields are used for the homepage's primary SEO tags.
               Edit any section and use the Meta Title and Meta Description fields to optimize SEO.
             </p>
           </div>
@@ -510,8 +467,7 @@ export default function ContentManagerPage() {
 // Static Pages Manager Component
 function StaticPagesManager() {
   const { showToast } = useToast()
-  const [pages, setPages] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [editingPage, setEditingPage] = useState<any | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [formData, setFormData] = useState({
@@ -523,24 +479,69 @@ function StaticPagesManager() {
     isVisible: true,
   })
 
-  useEffect(() => {
-    fetchPages()
-  }, [])
+  const { data, isLoading, error, refetch } = useQuery<{ pages: any[] }>({
+    queryKey: ['admin', 'static-pages'],
+    queryFn: () => fetchClient<{ pages: any[] }>('/api/admin/static-pages'),
+  })
 
-  const fetchPages = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch('/api/admin/static-pages')
-      if (response.ok) {
-        const data = await response.json()
-        setPages(data.pages || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch static pages:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const pages = data?.pages ?? []
+
+  const savePageMutation = useMutation({
+    mutationFn: async (params: { editingPage: any | null; formData: any }) => {
+      const url = params.editingPage
+        ? `/api/admin/static-pages/${params.editingPage.id}`
+        : '/api/admin/static-pages'
+      const method = params.editingPage ? 'PATCH' : 'POST'
+      const body = params.editingPage
+        ? params.formData
+        : { ...params.formData, slug: getSlugFromTitle(params.formData.title) }
+
+      return fetchClient<any>(url, {
+        method,
+        body: JSON.stringify(body),
+      })
+    },
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Page Saved',
+        description: `Static page ${editingPage ? 'updated' : 'created'} successfully`,
+      })
+      setIsModalOpen(false)
+      setEditingPage(null)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'static-pages'] })
+    },
+    onError: (error: any) => {
+      showToast({
+        type: 'error',
+        title: 'Save Failed',
+        description: error.message || 'Failed to save page',
+      })
+    },
+  })
+
+  const togglePageVisibilityMutation = useMutation({
+    mutationFn: (page: any) =>
+      fetchClient<any>(`/api/admin/static-pages/${page.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isVisible: !page.isVisible }),
+      }),
+    onSuccess: (_data, page) => {
+      showToast({
+        type: 'success',
+        title: 'Visibility Updated',
+        description: `Page is now ${!page.isVisible ? 'visible' : 'hidden'}`,
+      })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'static-pages'] })
+    },
+    onError: (error: any) => {
+      showToast({
+        type: 'error',
+        title: 'Update Failed',
+        description: error.message || 'Failed to update visibility',
+      })
+    },
+  })
 
   const handleEdit = (page: any) => {
     setEditingPage(page)
@@ -555,72 +556,12 @@ function StaticPagesManager() {
     setIsModalOpen(true)
   }
 
-  const handleSave = async () => {
-    try {
-      const url = editingPage
-        ? `/api/admin/static-pages/${editingPage.id}`
-        : '/api/admin/static-pages'
-      
-      const method = editingPage ? 'PATCH' : 'POST'
-      const body = editingPage
-        ? formData
-        : { ...formData, slug: getSlugFromTitle(formData.title) }
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Save failed' }))
-        throw new Error(error.error || 'Save failed')
-      }
-
-      showToast({
-        type: 'success',
-        title: 'Page Saved',
-        description: `Static page ${editingPage ? 'updated' : 'created'} successfully`,
-      })
-      
-      setIsModalOpen(false)
-      setEditingPage(null)
-      fetchPages()
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Save Failed',
-        description: error.message || 'Failed to save page',
-      })
-    }
+  const handleSave = () => {
+    savePageMutation.mutate({ editingPage, formData })
   }
 
-  const handleToggleVisibility = async (page: any) => {
-    try {
-      const response = await fetch(`/api/admin/static-pages/${page.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isVisible: !page.isVisible }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to toggle visibility')
-      }
-
-      showToast({
-        type: 'success',
-        title: 'Visibility Updated',
-        description: `Page is now ${!page.isVisible ? 'visible' : 'hidden'}`,
-      })
-
-      fetchPages()
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Update Failed',
-        description: error.message || 'Failed to update visibility',
-      })
-    }
+  const handleToggleVisibility = (page: any) => {
+    togglePageVisibilityMutation.mutate(page)
   }
 
   const getSlugFromTitle = (title: string) => {
@@ -639,6 +580,16 @@ function StaticPagesManager() {
       <div className="flex items-center justify-center py-8">
         <LoadingSpinner size="sm" />
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorDisplay
+        title="Failed to load static pages"
+        message={error instanceof Error ? error.message : 'Something went wrong.'}
+        onRetry={() => refetch()}
+      />
     )
   }
 
@@ -811,7 +762,7 @@ function StaticPagesManager() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleSave}>Save</Button>
+              <Button onClick={handleSave} isLoading={savePageMutation.isPending}>Save</Button>
             </div>
           </div>
         </Modal>
@@ -929,7 +880,7 @@ function EditSectionModal({
       const saveData: Partial<HomepageSection> = {
         order,
       }
-      
+
       // Only include fields that have values or are explicitly set
       if (title !== undefined) saveData.title = title || null
       if (content !== undefined) saveData.content = content || null
@@ -938,11 +889,10 @@ function EditSectionModal({
       if (section.key === 'footer' && contactEmail !== undefined) {
         saveData.contactEmail = contactEmail || null
       }
-      
-      console.log('[EditSectionModal] Saving with data:', saveData)
+
       await onSave(saveData)
-    } catch (error) {
-      console.error('[EditSectionModal] Save error:', error)
+    } catch {
+      // Error handled by parent
     } finally {
       setIsSaving(false)
     }
@@ -1058,25 +1008,20 @@ function EditSectionModal({
             await onMediaUpload()
             // Refresh section data optimistically - fetch only this section
             try {
-              const response = await fetch(`/api/admin/content/sections/${section.id}`, {
-                cache: 'no-store',
-              })
-              if (response.ok) {
-                const data = await response.json()
-                if (data.section) {
-                  const updatedSection = {
-                    ...data.section,
-                    images: data.section.images || [],
-                    buttons: data.section.buttons || [],
-                  }
-                  setSection(updatedSection)
+              const data = await fetchClient<any>(`/api/admin/content/sections/${section.id}`)
+              if (data.section) {
+                const updatedSection = {
+                  ...data.section,
+                  images: data.section.images || [],
+                  buttons: data.section.buttons || [],
                 }
+                setSection(updatedSection)
               }
-            } catch (error) {
-              console.error('Failed to refresh section:', error)
+            } catch {
+              // Silently fail on background refresh
             }
             // Refresh sections list in background (non-blocking)
-            onSectionsUpdate().catch(err => console.error('Background refresh failed:', err))
+            onSectionsUpdate().catch(() => {})
           }}
         />
 
@@ -1145,6 +1090,8 @@ function SectionImagesManager({
       formData.append('sectionId', sectionId)
       formData.append('imagePosition', imagePosition)
 
+      // Note: Using raw fetch here because fetchClient sets Content-Type to application/json
+      // but FormData needs multipart/form-data with auto-generated boundary
       const response = await fetch('/api/admin/content/images', {
         method: 'POST',
         body: formData,
@@ -1155,19 +1102,15 @@ function SectionImagesManager({
         throw new Error(error.error || 'Upload failed')
       }
 
-      const data = await response.json()
-      console.log('[SectionImagesManager] Image upload response:', data)
-      
       // Refresh sections to get updated image data
       await onUpdate()
-      
+
       showToast({
         type: 'success',
         title: 'Image Uploaded',
         description: 'Image added to section successfully',
       })
     } catch (error: any) {
-      console.error('Image upload error:', error)
       showToast({
         type: 'error',
         title: 'Upload Failed',
@@ -1255,22 +1198,18 @@ function SectionButtonsManager({
 
   const handleButtonChange = async (buttonId: string, field: string, value: string | boolean) => {
     try {
-      const response = await fetch(`/api/admin/content/buttons/${buttonId}`, {
+      const response = await fetchClient<{ button: any }>(`/api/admin/content/buttons/${buttonId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [field]: value }),
       })
 
-      if (response.ok) {
-        const updatedButton = await response.json()
-        setLocalButtons(localButtons.map(btn => btn.id === buttonId ? updatedButton.button : btn))
-        showToast({
-          type: 'success',
-          title: 'Button Updated',
-          description: 'Button saved successfully',
-        })
-      }
-    } catch (error) {
+      setLocalButtons(localButtons.map(btn => btn.id === buttonId ? response.button : btn))
+      showToast({
+        type: 'success',
+        title: 'Button Updated',
+        description: 'Button saved successfully',
+      })
+    } catch {
       showToast({
         type: 'error',
         title: 'Update Failed',
@@ -1281,9 +1220,8 @@ function SectionButtonsManager({
 
   const handleCreateButton = async () => {
     try {
-      const response = await fetch('/api/admin/content/buttons', {
+      const response = await fetchClient<{ button: any }>('/api/admin/content/buttons', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sectionId,
           text: 'New Button',
@@ -1294,16 +1232,13 @@ function SectionButtonsManager({
         }),
       })
 
-      if (response.ok) {
-        const newButton = await response.json()
-        setLocalButtons([...localButtons, newButton.button])
-        showToast({
-          type: 'success',
-          title: 'Button Created',
-          description: 'New button added successfully',
-        })
-      }
-    } catch (error) {
+      setLocalButtons([...localButtons, response.button])
+      showToast({
+        type: 'success',
+        title: 'Button Created',
+        description: 'New button added successfully',
+      })
+    } catch {
       showToast({
         type: 'error',
         title: 'Create Failed',
@@ -1314,19 +1249,17 @@ function SectionButtonsManager({
 
   const handleDeleteButton = async (buttonId: string) => {
     try {
-      const response = await fetch(`/api/admin/content/buttons/${buttonId}`, {
+      await fetchClient<any>(`/api/admin/content/buttons/${buttonId}`, {
         method: 'DELETE',
       })
 
-      if (response.ok) {
-        setLocalButtons(localButtons.filter(btn => btn.id !== buttonId))
-        showToast({
-          type: 'success',
-          title: 'Button Deleted',
-          description: 'Button removed successfully',
-        })
-      }
-    } catch (error) {
+      setLocalButtons(localButtons.filter(btn => btn.id !== buttonId))
+      showToast({
+        type: 'success',
+        title: 'Button Deleted',
+        description: 'Button removed successfully',
+      })
+    } catch {
       showToast({
         type: 'error',
         title: 'Delete Failed',
@@ -1419,6 +1352,8 @@ function MediaLibraryModal({
       const formData = new FormData()
       formData.append('file', file)
 
+      // Note: Using raw fetch here because fetchClient sets Content-Type to application/json
+      // but FormData needs multipart/form-data with auto-generated boundary
       const response = await fetch('/api/admin/content/media', {
         method: 'POST',
         body: formData,
@@ -1439,7 +1374,7 @@ function MediaLibraryModal({
           description: errorData.error || `Upload failed (${response.status})`,
         })
       }
-    } catch (error) {
+    } catch {
       showToast({
         type: 'error',
         title: 'Upload Failed',
@@ -1514,23 +1449,19 @@ function MediaLibraryModal({
                   size="sm"
                   onClick={async () => {
                     if (!confirm('Are you sure you want to delete this image?')) return
-                    
+
                     try {
-                      const response = await fetch(`/api/admin/content/media/${item.id}`, {
+                      await fetchClient<any>(`/api/admin/content/media/${item.id}`, {
                         method: 'DELETE',
                       })
 
-                      if (response.ok) {
-                        showToast({
-                          type: 'success',
-                          title: 'Image Deleted',
-                          description: 'Image removed from media library',
-                        })
-                        onUpload()
-                      } else {
-                        throw new Error('Delete failed')
-                      }
-                    } catch (error) {
+                      showToast({
+                        type: 'success',
+                        title: 'Image Deleted',
+                        description: 'Image removed from media library',
+                      })
+                      onUpload()
+                    } catch {
                       showToast({
                         type: 'error',
                         title: 'Delete Failed',
@@ -1575,9 +1506,8 @@ function ImageItemComponent({
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const response = await fetch(`/api/admin/content/images/${image.id}`, {
+      const result = await fetchClient<{ image?: any }>(`/api/admin/content/images/${image.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           alt: altText,
           caption,
@@ -1585,14 +1515,7 @@ function ImageItemComponent({
         }),
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to update image')
-      }
-
-      const result = await response.json()
-      
       // Update local state immediately with saved values
-      // This ensures the UI reflects the saved data even before refresh
       setAltText(result.image?.alt || altText)
       setCaption(result.image?.caption || caption)
       setPosition(result.image?.imagePosition || position)
@@ -1602,7 +1525,7 @@ function ImageItemComponent({
         title: 'Image Updated',
         description: 'Image details saved successfully',
       })
-      
+
       // Refresh section data to ensure everything is in sync
       await onUpdate()
     } catch (error: any) {
@@ -1621,23 +1544,10 @@ function ImageItemComponent({
       return
     }
 
-    console.log('[ImageItemComponent] Deleting image:', image.id)
-
     try {
-      const response = await fetch(`/api/admin/content/images/${image.id}`, {
+      await fetchClient<any>(`/api/admin/content/images/${image.id}`, {
         method: 'DELETE',
       })
-
-      console.log('[ImageItemComponent] Delete response status:', response.status)
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Delete failed' }))
-        console.error('[ImageItemComponent] Delete error response:', errorData)
-        throw new Error(errorData.error || 'Failed to delete image')
-      }
-
-      const result = await response.json()
-      console.log('[ImageItemComponent] Delete success:', result)
 
       showToast({
         type: 'success',
@@ -1648,7 +1558,6 @@ function ImageItemComponent({
       // Refresh section data
       await onUpdate()
     } catch (error: any) {
-      console.error('[ImageItemComponent] Delete image error:', error)
       showToast({
         type: 'error',
         title: 'Delete Failed',
@@ -1720,9 +1629,31 @@ function AddSectionModal({
   const [content, setContent] = useState('')
   const [order, setOrder] = useState<number | ''>('')
   const [isVisible, setIsVisible] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
 
-  const handleSave = async () => {
+  const createSectionMutation = useMutation({
+    mutationFn: (payload: any) =>
+      fetchClient<any>('/api/admin/content/sections', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: async () => {
+      showToast({
+        type: 'success',
+        title: 'Section Created',
+        description: 'New section added successfully',
+      })
+      await onSave()
+    },
+    onError: (error: any) => {
+      showToast({
+        type: 'error',
+        title: 'Creation Failed',
+        description: error.message || 'Failed to create section',
+      })
+    },
+  })
+
+  const handleSave = () => {
     if (!key.trim()) {
       showToast({
         type: 'error',
@@ -1732,40 +1663,13 @@ function AddSectionModal({
       return
     }
 
-    setIsSaving(true)
-    try {
-      const response = await fetch('/api/admin/content/sections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          key: key.trim().toLowerCase().replace(/\s+/g, '-'),
-          title: title || null,
-          content: content || null,
-          order: order !== '' ? Number(order) : undefined,
-          isVisible,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Failed to create section' }))
-        throw new Error(error.error || 'Failed to create section')
-      }
-
-      showToast({
-        type: 'success',
-        title: 'Section Created',
-        description: 'New section added successfully',
-      })
-      await onSave()
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Creation Failed',
-        description: error.message || 'Failed to create section',
-      })
-    } finally {
-      setIsSaving(false)
-    }
+    createSectionMutation.mutate({
+      key: key.trim().toLowerCase().replace(/\s+/g, '-'),
+      title: title || null,
+      content: content || null,
+      order: order !== '' ? Number(order) : undefined,
+      isVisible,
+    })
   }
 
   return (
@@ -1839,7 +1743,7 @@ function AddSectionModal({
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} isLoading={isSaving}>
+          <Button onClick={handleSave} isLoading={createSectionMutation.isPending}>
             Create Section
           </Button>
         </div>
@@ -1847,4 +1751,3 @@ function AddSectionModal({
     </Modal>
   )
 }
-

@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
-import Link from 'next/link'
 
 interface CreatorTaxInfo {
   id: string
@@ -39,170 +40,122 @@ interface TaxForm1099 {
   filedAt: string | null
 }
 
+interface CreatorTaxResponse {
+  creators: CreatorTaxInfo[]
+}
+
 export default function CreatorTaxesPage() {
   const { showToast } = useToast()
-  const [creators, setCreators] = useState<CreatorTaxInfo[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear() - 1)
   const [filterStatus, setFilterStatus] = useState<'all' | 'w9-missing' | 'needs-1099' | '1099-pending'>('all')
 
-  useEffect(() => {
-    fetchCreators()
-  }, [])
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin', 'creator-taxes'],
+    queryFn: () => fetchClient<CreatorTaxResponse>('/api/admin/creator-taxes'),
+  })
 
-  const fetchCreators = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch('/api/admin/creator-taxes', {
-        credentials: 'include',
-      })
+  const creators = data?.creators || []
 
-      if (response.ok) {
-        const data = await response.json()
-        setCreators(data.creators || [])
-      } else {
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: 'Failed to load creator tax information',
-        })
-      }
-    } catch (error) {
-      console.error('Failed to fetch creators:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to load creator tax information',
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const generate1099 = async (creatorId: string, taxYear: number) => {
-    try {
-      const response = await fetch(`/api/admin/creator-taxes/${creatorId}/1099/${taxYear}/generate`, {
+  const generate1099Mutation = useMutation({
+    mutationFn: ({ creatorId, taxYear }: { creatorId: string; taxYear: number }) =>
+      fetchClient<void>(`/api/admin/creator-taxes/${creatorId}/1099/${taxYear}/generate`, {
         method: 'POST',
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to generate 1099')
-      }
-
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'creator-taxes'] })
       showToast({
         type: 'success',
         title: 'Success',
         description: '1099 form generated successfully',
       })
-
-      await fetchCreators()
-    } catch (error: any) {
+    },
+    onError: (error: Error) => {
       showToast({
         type: 'error',
         title: 'Error',
         description: error.message || 'Failed to generate 1099',
       })
-    }
-  }
+    },
+  })
 
-  const markAsSent = async (creatorId: string, taxYear: number) => {
-    try {
-      const response = await fetch(`/api/admin/creator-taxes/${creatorId}/1099/${taxYear}/mark-sent`, {
+  const markAsSentMutation = useMutation({
+    mutationFn: ({ creatorId, taxYear }: { creatorId: string; taxYear: number }) =>
+      fetchClient<void>(`/api/admin/creator-taxes/${creatorId}/1099/${taxYear}/mark-sent`, {
         method: 'POST',
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to mark as sent')
-      }
-
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'creator-taxes'] })
       showToast({
         type: 'success',
         title: 'Success',
         description: 'Marked as sent to creator',
       })
-
-      await fetchCreators()
-    } catch (error: any) {
+    },
+    onError: (error: Error) => {
       showToast({
         type: 'error',
         title: 'Error',
         description: error.message || 'Failed to update status',
       })
-    }
-  }
+    },
+  })
 
-  const markAsFiled = async (creatorId: string, taxYear: number) => {
-    try {
-      const response = await fetch(`/api/admin/creator-taxes/${creatorId}/1099/${taxYear}/mark-filed`, {
+  const markAsFiledMutation = useMutation({
+    mutationFn: ({ creatorId, taxYear }: { creatorId: string; taxYear: number }) =>
+      fetchClient<void>(`/api/admin/creator-taxes/${creatorId}/1099/${taxYear}/mark-filed`, {
         method: 'POST',
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to mark as filed')
-      }
-
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'creator-taxes'] })
       showToast({
         type: 'success',
         title: 'Success',
         description: 'Marked as filed with IRS',
       })
-
-      await fetchCreators()
-    } catch (error: any) {
+    },
+    onError: (error: Error) => {
       showToast({
         type: 'error',
         title: 'Error',
         description: error.message || 'Failed to update status',
       })
-    }
-  }
+    },
+  })
 
-  const bulkGenerate1099 = async () => {
-    if (!confirm(`Generate 1099 forms for ALL qualifying creators for ${selectedYear}? This will generate forms for creators with W-9 submitted and earnings >= $600.`)) {
-      return
-    }
-
-    try {
-      showToast({
-        type: 'info',
-        title: 'Processing',
-        description: 'Generating 1099 forms... This may take a moment.',
-      })
-
-      const response = await fetch('/api/admin/creator-taxes/bulk-generate-1099', {
+  const bulkGenerate1099Mutation = useMutation({
+    mutationFn: (taxYear: number) =>
+      fetchClient<{ results: { generated: number; skipped: number; errors: string[] } }>('/api/admin/creator-taxes/bulk-generate-1099', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ taxYear: selectedYear }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to bulk generate 1099s')
-      }
-
-      const result = await response.json()
-
+        body: JSON.stringify({ taxYear }),
+      }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'creator-taxes'] })
       showToast({
         type: 'success',
         title: 'Bulk Generation Complete',
-        description: `Generated ${result.results.generated} forms, skipped ${result.results.skipped}, ${result.results.errors.length} errors`,
+        description: `Generated ${data.results.generated} forms, skipped ${data.results.skipped}, ${data.results.errors.length} errors`,
       })
-
-      await fetchCreators()
-    } catch (error: any) {
+    },
+    onError: (error: Error) => {
       showToast({
         type: 'error',
         title: 'Error',
         description: error.message || 'Failed to bulk generate 1099 forms',
       })
+    },
+  })
+
+  const handleBulkGenerate = () => {
+    if (!confirm(`Generate 1099 forms for ALL qualifying creators for ${selectedYear}? This will generate forms for creators with W-9 submitted and earnings >= $600.`)) {
+      return
     }
+    showToast({
+      type: 'info',
+      title: 'Processing',
+      description: 'Generating 1099 forms... This may take a moment.',
+    })
+    bulkGenerate1099Mutation.mutate(selectedYear)
   }
 
   const filteredCreators = creators.filter((creator) => {
@@ -224,6 +177,20 @@ export default function CreatorTaxesPage() {
       <div className="min-h-screen bg-bg-primary">
         <div className="flex items-center justify-center min-h-[60vh]">
           <LoadingSpinner size="lg" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-bg-primary">
+        <div className="pt-20 px-4 md:px-8 pb-8">
+          <ErrorDisplay
+            title="Failed to load creator tax information"
+            message={error.message}
+            onRetry={() => queryClient.invalidateQueries({ queryKey: ['admin', 'creator-taxes'] })}
+          />
         </div>
       </div>
     )
@@ -271,7 +238,8 @@ export default function CreatorTaxesPage() {
                 <div className="flex items-end">
                   <Button
                     variant="primary"
-                    onClick={bulkGenerate1099}
+                    onClick={handleBulkGenerate}
+                    isLoading={bulkGenerate1099Mutation.isPending}
                     className="mt-6"
                   >
                     Generate All 1099s ({selectedYear})
@@ -380,7 +348,8 @@ export default function CreatorTaxesPage() {
                             <Button
                               variant="primary"
                               size="sm"
-                              onClick={() => generate1099(creator.creatorId, selectedYear)}
+                              onClick={() => generate1099Mutation.mutate({ creatorId: creator.creatorId, taxYear: selectedYear })}
+                              isLoading={generate1099Mutation.isPending}
                             >
                               Generate 1099 ({selectedYear})
                             </Button>
@@ -389,7 +358,8 @@ export default function CreatorTaxesPage() {
                             <Button
                               variant="secondary"
                               size="sm"
-                              onClick={() => markAsSent(creator.creatorId, selectedYear)}
+                              onClick={() => markAsSentMutation.mutate({ creatorId: creator.creatorId, taxYear: selectedYear })}
+                              isLoading={markAsSentMutation.isPending}
                             >
                               Mark as Sent
                             </Button>
@@ -398,7 +368,8 @@ export default function CreatorTaxesPage() {
                             <Button
                               variant="secondary"
                               size="sm"
-                              onClick={() => markAsFiled(creator.creatorId, selectedYear)}
+                              onClick={() => markAsFiledMutation.mutate({ creatorId: creator.creatorId, taxYear: selectedYear })}
+                              isLoading={markAsFiledMutation.isPending}
                             >
                               Mark as Filed
                             </Button>

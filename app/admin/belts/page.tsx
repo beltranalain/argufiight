@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -54,8 +57,7 @@ interface BeltSettings {
 
 export default function BeltsAdminPage() {
   const { showToast } = useToast()
-  const [belts, setBelts] = useState<Belt[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [deletingBeltId, setDeletingBeltId] = useState<string | null>(null)
   const [filters, setFilters] = useState({
@@ -64,133 +66,51 @@ export default function BeltsAdminPage() {
     category: '',
   })
   const [showChallengeRules, setShowChallengeRules] = useState(false)
-  const [beltSettings, setBeltSettings] = useState<BeltSettings[]>([])
   const [editingSettings, setEditingSettings] = useState<Partial<BeltSettings>>({})
-  const [isSavingRules, setIsSavingRules] = useState(false)
 
-  const fetchBelts = async () => {
-    try {
-      setIsLoading(true)
+  // Fetch belts
+  const {
+    data: belts = [],
+    isLoading,
+    isError,
+    refetch: refetchBelts,
+  } = useQuery<Belt[]>({
+    queryKey: ['admin-belts', filters],
+    queryFn: async () => {
       const params = new URLSearchParams()
       if (filters.status) params.append('status', filters.status)
       if (filters.type) params.append('type', filters.type)
       if (filters.category) params.append('category', filters.category)
-      // Add cache busting to ensure fresh data
-      params.append('t', Date.now().toString())
+      const data = await fetchClient<{ belts: Belt[] }>(`/api/belts?${params.toString()}`)
+      return data.belts || []
+    },
+    staleTime: 30_000,
+  })
 
-      const response = await fetch(`/api/belts?${params.toString()}`, {
-        cache: 'no-store',
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setBelts(data.belts || [])
-      } else {
-        const error = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: error.error || 'Failed to load belts',
-        })
-      }
-    } catch (error) {
-      console.error('Failed to fetch belts:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to load belts',
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchBelts()
-    fetchBeltSettings()
-  }, [filters])
-
-  const fetchBeltSettings = async () => {
-    try {
-      const response = await fetch('/api/admin/belts/settings')
-      if (response.ok) {
-        const data = await response.json()
-        setBeltSettings(data.settings || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch belt settings:', error)
-    }
-  }
-
-  const handleSaveChallengeRules = async () => {
-    try {
-      setIsSavingRules(true)
-      
-      // Update all belt types with the same rules (or you could make it per-type)
-      const updates = editingSettings
-      const beltType = updates.beltType || beltSettings[0]?.beltType
-
-      if (!beltType) {
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: 'No belt type found',
-        })
-        return
-      }
-
-      const response = await fetch('/api/admin/belts/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          beltType,
-          ...updates,
-        }),
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Challenge rules updated successfully',
-        })
-        setEditingSettings({})
-        fetchBeltSettings()
-        // Optionally refresh belts to show updated info
-        fetchBelts()
-      } else {
-        const error = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: error.error || 'Failed to update challenge rules',
-        })
-      }
-    } catch (error) {
-      console.error('Failed to save challenge rules:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to update challenge rules',
-      })
-    } finally {
-      setIsSavingRules(false)
-    }
-  }
+  // Fetch belt settings
+  const {
+    data: beltSettings = [],
+  } = useQuery<BeltSettings[]>({
+    queryKey: ['admin-belt-settings'],
+    queryFn: async () => {
+      const data = await fetchClient<{ settings: BeltSettings[] }>('/api/admin/belts/settings')
+      return data.settings || []
+    },
+    staleTime: 60_000,
+  })
 
   // Refresh belts when page becomes visible (user navigates back from details page)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // Small delay to ensure any navigation is complete
         setTimeout(() => {
-          fetchBelts()
+          refetchBelts()
         }, 100)
       }
     }
     const handleFocus = () => {
-      // Also refresh when window regains focus
       setTimeout(() => {
-        fetchBelts()
+        refetchBelts()
       }, 100)
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -199,7 +119,72 @@ export default function BeltsAdminPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
     }
-  }, [])
+  }, [refetchBelts])
+
+  // Save challenge rules mutation
+  const saveRulesMutation = useMutation({
+    mutationFn: (updates: Partial<BeltSettings>) => {
+      const beltType = updates.beltType || beltSettings[0]?.beltType
+      return fetchClient('/api/admin/belts/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ beltType, ...updates }),
+      })
+    },
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: 'Challenge rules updated successfully',
+      })
+      setEditingSettings({})
+      queryClient.invalidateQueries({ queryKey: ['admin-belt-settings'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-belts'] })
+    },
+    onError: (error: any) => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to update challenge rules',
+      })
+    },
+  })
+
+  // Delete belt mutation
+  const deleteBeltMutation = useMutation({
+    mutationFn: (beltId: string) =>
+      fetchClient(`/api/admin/belts/${beltId}`, { method: 'DELETE' }),
+    onSuccess: (_data, beltId) => {
+      const belt = belts.find(b => b.id === beltId)
+      showToast({
+        type: 'success',
+        title: 'Belt Deleted',
+        description: `"${belt?.name || 'Belt'}" has been deleted successfully.`,
+      })
+      setDeletingBeltId(null)
+      queryClient.invalidateQueries({ queryKey: ['admin-belts'] })
+    },
+    onError: (error: any) => {
+      setDeletingBeltId(null)
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to delete belt',
+      })
+    },
+  })
+
+  const handleSaveChallengeRules = () => {
+    const beltType = editingSettings.beltType || beltSettings[0]?.beltType
+    if (!beltType) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'No belt type found',
+      })
+      return
+    }
+    saveRulesMutation.mutate(editingSettings)
+  }
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -242,43 +227,22 @@ export default function BeltsAdminPage() {
     }
   }
 
-  const handleDeleteBelt = async (beltId: string, beltName: string) => {
+  const handleDeleteBelt = (beltId: string, beltName: string) => {
     if (!confirm(`Are you sure you want to delete "${beltName}"?\n\nThis action cannot be undone. All belt history and challenges will be permanently deleted.`)) {
       return
     }
+    setDeletingBeltId(beltId)
+    deleteBeltMutation.mutate(beltId)
+  }
 
-    try {
-      setDeletingBeltId(beltId)
-      const response = await fetch(`/api/admin/belts/${beltId}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Belt Deleted',
-          description: `"${beltName}" has been deleted successfully.`,
-        })
-        // Refresh the list
-        fetchBelts()
-      } else {
-        const error = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: error.error || 'Failed to delete belt',
-        })
-      }
-    } catch (error) {
-      console.error('Failed to delete belt:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to delete belt',
-      })
-    } finally {
-      setDeletingBeltId(null)
-    }
+  if (isError) {
+    return (
+      <ErrorDisplay
+        title="Failed to load belts"
+        message="Something went wrong while loading belts. Please try again."
+        onRetry={() => refetchBelts()}
+      />
+    )
   }
 
   return (
@@ -502,16 +466,16 @@ export default function BeltsAdminPage() {
                         setShowChallengeRules(false)
                       }}
                       variant="secondary"
-                      disabled={isSavingRules}
+                      disabled={saveRulesMutation.isPending}
                     >
                       Cancel
                     </Button>
                     <Button
                       onClick={handleSaveChallengeRules}
                       variant="primary"
-                      disabled={isSavingRules}
+                      disabled={saveRulesMutation.isPending}
                     >
-                      {isSavingRules ? 'Saving...' : 'Save Challenge Rules'}
+                      {saveRulesMutation.isPending ? 'Saving...' : 'Save Challenge Rules'}
                     </Button>
                   </div>
                 </div>
@@ -591,7 +555,7 @@ export default function BeltsAdminPage() {
                 Create Belt
               </Button>
               <Button
-                onClick={fetchBelts}
+                onClick={() => refetchBelts()}
                 variant="secondary"
               >
                 Refresh
@@ -641,7 +605,7 @@ export default function BeltsAdminPage() {
                         </svg>
                       </div>
                     )}
-                    
+
                     {/* Belt Info on Right */}
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
@@ -658,7 +622,7 @@ export default function BeltsAdminPage() {
                           </span>
                         )}
                       </div>
-                      
+
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <p className="text-text-secondary">Current Holder</p>
@@ -743,7 +707,7 @@ export default function BeltsAdminPage() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={() => {
-          fetchBelts()
+          queryClient.invalidateQueries({ queryKey: ['admin-belts'] })
         }}
       />
     </div>

@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/Loading'
@@ -39,61 +41,63 @@ interface CampaignAnalytics {
   }>
 }
 
+const formatStatus = (status: string) => {
+  return status
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'ACTIVE':
+      return 'bg-cyber-green/20 text-cyber-green'
+    case 'SCHEDULED':
+      return 'bg-electric-blue/20 text-electric-blue'
+    case 'PAUSED':
+      return 'bg-neon-orange/20 text-neon-orange'
+    case 'PENDING_REVIEW':
+      return 'bg-yellow-500/20 text-yellow-500'
+    case 'COMPLETED':
+      return 'bg-gray-500/20 text-gray-400'
+    default:
+      return 'bg-gray-500/20 text-gray-400'
+  }
+}
+
 export default function CampaignAnalyticsPage() {
   const params = useParams()
   const campaignId = params.id as string
-  const [analytics, setAnalytics] = useState<CampaignAnalytics | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    fetchAnalytics()
-  }, [campaignId])
+  const analyticsQuery = useQuery({
+    queryKey: ['advertiser', 'campaign', campaignId, 'analytics'],
+    queryFn: () => fetchClient<{ analytics: CampaignAnalytics }>(`/api/advertiser/campaigns/${campaignId}/analytics`),
+    enabled: !!campaignId,
+  })
 
-  const fetchAnalytics = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch(`/api/advertiser/campaigns/${campaignId}/analytics`)
-      if (response.ok) {
-        const data = await response.json()
-        setAnalytics(data.analytics)
-      }
-    } catch (error) {
-      console.error('Failed to fetch analytics:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const analytics = analyticsQuery.data?.analytics ?? null
 
-  const formatStatus = (status: string) => {
-    return status
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(' ')
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'bg-cyber-green/20 text-cyber-green'
-      case 'SCHEDULED':
-        return 'bg-electric-blue/20 text-electric-blue'
-      case 'PAUSED':
-        return 'bg-neon-orange/20 text-neon-orange'
-      case 'PENDING_REVIEW':
-        return 'bg-yellow-500/20 text-yellow-500'
-      case 'COMPLETED':
-        return 'bg-gray-500/20 text-gray-400'
-      default:
-        return 'bg-gray-500/20 text-gray-400'
-    }
-  }
-
-  if (isLoading) {
+  if (analyticsQuery.isLoading) {
     return (
       <div className="min-h-screen bg-bg-primary">
         <TopNav currentPanel="ADVERTISER" />
         <div className="flex items-center justify-center min-h-[60vh]">
           <LoadingSpinner size="lg" />
+        </div>
+      </div>
+    )
+  }
+
+  if (analyticsQuery.isError) {
+    return (
+      <div className="min-h-screen bg-bg-primary">
+        <TopNav currentPanel="ADVERTISER" />
+        <div className="pt-20 px-4 md:px-8 pb-8">
+          <ErrorDisplay
+            title="Failed to load analytics"
+            message="Could not load campaign analytics. Please try again."
+            onRetry={() => analyticsQuery.refetch()}
+          />
         </div>
       </div>
     )
@@ -182,39 +186,39 @@ export default function CampaignAnalyticsPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={analytics.chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                      <XAxis 
-                        dataKey="date" 
+                      <XAxis
+                        dataKey="date"
                         stroke="#9CA3AF"
                         style={{ fontSize: '12px' }}
                       />
-                      <YAxis 
+                      <YAxis
                         stroke="#9CA3AF"
                         style={{ fontSize: '12px' }}
                       />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: '#1F2937', 
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: '#1F2937',
                           border: '1px solid #374151',
                           borderRadius: '8px',
                           color: '#F9FAFB'
                         }}
                         labelStyle={{ color: '#F9FAFB' }}
                       />
-                      <Legend 
+                      <Legend
                         wrapperStyle={{ color: '#F9FAFB' }}
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="impressions" 
-                        stroke="#00D9FF" 
+                      <Line
+                        type="monotone"
+                        dataKey="impressions"
+                        stroke="#00D9FF"
                         strokeWidth={2}
                         name="Impressions"
                         dot={{ fill: '#00D9FF', r: 4 }}
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="clicks" 
-                        stroke="#10B981" 
+                      <Line
+                        type="monotone"
+                        dataKey="clicks"
+                        stroke="#10B981"
                         strokeWidth={2}
                         name="Clicks"
                         dot={{ fill: '#10B981', r: 4 }}
@@ -275,4 +279,3 @@ export default function CampaignAnalyticsPage() {
     </div>
   )
 }
-

@@ -1,295 +1,65 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { Card, CardBody } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/Toast'
 import { LoadingSpinner } from '@/components/ui/Loading'
-import { Avatar } from '@/components/ui/Avatar'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { TopNav } from '@/components/layout/TopNav'
-import { useVisibleInterval } from '@/lib/hooks/useVisibleInterval'
-import Link from 'next/link'
-
-interface Conversation {
-  id: string
-  user1Id?: string
-  user2Id?: string
-  user1: { id: string; username: string; avatarUrl: string | null }
-  user2: { id: string; username: string; avatarUrl: string | null }
-  lastMessageAt: string | null
-  unreadCount: number
-  otherUser: { id: string; username: string; avatarUrl: string | null }
-  messages: Array<{
-    id: string
-    content: string
-    createdAt: string
-  }>
-}
-
-interface Message {
-  id: string
-  content: string
-  senderId: string
-  receiverId: string
-  isRead: boolean
-  createdAt: string
-  sender: { id: string; username: string; avatarUrl: string | null }
-  receiver: { id: string; username: string; avatarUrl: string | null }
-}
-
-interface User {
-  id: string
-  username: string
-  avatarUrl: string | null
-  eloRating?: number
-}
+import { useConversations } from '@/lib/hooks/queries/useMessages'
+import { useStartConversation } from '@/lib/hooks/mutations/useSendMessage'
+import { ConversationList } from '@/components/messages/ConversationList'
+import { MessageThread } from '@/components/messages/MessageThread'
+import { UserSearch } from '@/components/messages/UserSearch'
+import { FollowingList } from '@/components/messages/FollowingList'
+import type { Conversation } from '@/lib/hooks/queries/useMessages'
 
 type ViewMode = 'conversations' | 'following' | 'new'
 
 export default function MessagesPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
-  const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [messageContent, setMessageContent] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
-  const [isSending, setIsSending] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('conversations')
-  const [following, setFollowing] = useState<User[]>([])
-  const [isLoadingFollowing, setIsLoadingFollowing] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<User[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    fetchConversations()
+  const { data: conversations = [], isLoading } = useConversations()
+  const startConversation = useStartConversation()
+
+  const handleOpenConversation = useCallback((conv: Conversation) => {
+    setSelectedConversation(conv)
+    setViewMode('conversations')
   }, [])
 
-  // Visibility-aware polling — pauses when tab is backgrounded
-  useVisibleInterval(() => {
-    if (selectedConversation) {
-      fetchMessages(selectedConversation.id)
-    } else {
-      fetchConversations()
-    }
-  }, 30000)
-
-  useEffect(() => {
-    if (viewMode === 'following') {
-      fetchFollowing()
-    }
-  }, [viewMode])
-
-  useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-
-    if (!searchQuery.trim()) {
-      setSearchResults([])
-      setIsSearching(false)
-      return
-    }
-
-    setIsSearching(true)
-    searchTimeoutRef.current = setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/users/search?q=${encodeURIComponent(searchQuery.trim())}`)
-        if (!response.ok) throw new Error('Search failed')
-        
-        const data = await response.json()
-        // Extract users array from paginated response
-        const users = Array.isArray(data) ? data : (data.users || [])
-        setSearchResults(users)
-      } catch (error) {
-        console.error('User search error:', error)
-        setSearchResults([])
-      } finally {
-        setIsSearching(false)
+  const handleStartConversation = useCallback((otherUserId: string) => {
+    startConversation.mutate(
+      { otherUserId },
+      {
+        onSuccess: (data) => {
+          const conv = data.conversation
+          const otherUser = conv.user1Id === user?.id ? conv.user2 : conv.user1
+          setSelectedConversation({
+            ...conv,
+            otherUser,
+            unreadCount: 0,
+            messages: [],
+          })
+          setViewMode('conversations')
+          showToast({
+            type: 'success',
+            title: 'Conversation started',
+            description: `You can now message ${otherUser.username}`,
+          })
+        },
+        onError: (error: any) => {
+          showToast({
+            type: 'error',
+            title: 'Error',
+            description: error.message || 'Failed to start conversation',
+          })
+        },
       }
-    }, 300)
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
-    }
-  }, [searchQuery])
-
-  useEffect(() => {
-    if (selectedConversation) {
-      fetchMessages(selectedConversation.id)
-    }
-  }, [selectedConversation])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const fetchConversations = async () => {
-    setIsLoading(true)
-    try {
-      const response = await fetch('/api/messages/conversations')
-      if (response.ok) {
-        const data = await response.json()
-        setConversations(data.conversations || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch conversations:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to load conversations',
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const fetchMessages = async (conversationId: string, silent = false) => {
-    if (!silent) setIsLoadingMessages(true)
-    try {
-      const response = await fetch(`/api/messages/conversations/${conversationId}/messages`)
-      if (response.ok) {
-        const data = await response.json()
-        const newMessages = data.messages || []
-        
-        // Check for new messages (if polling silently)
-        if (silent && messages.length > 0 && newMessages.length > messages.length) {
-          const latestMessage = newMessages[newMessages.length - 1]
-          // Only show notification if it's not from the current user
-          if (latestMessage.senderId !== user?.id) {
-            showToast({
-              type: 'info',
-              title: 'New Message',
-              description: `${latestMessage.sender.username}: ${latestMessage.content.substring(0, 50)}${latestMessage.content.length > 50 ? '...' : ''}`,
-            })
-            // Scroll to bottom
-            setTimeout(() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-            }, 100)
-          }
-        }
-        
-        setMessages(newMessages)
-        if (!silent) {
-          // Update unread count in conversations list
-          setConversations(prev => prev.map(conv => 
-            conv.id === conversationId 
-              ? { ...conv, unreadCount: 0 }
-              : conv
-          ))
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch messages:', error)
-      if (!silent) {
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: 'Failed to load messages',
-        })
-      }
-    } finally {
-      if (!silent) setIsLoadingMessages(false)
-    }
-  }
-
-  const handleSendMessage = async () => {
-    if (!selectedConversation || !messageContent.trim()) return
-
-    setIsSending(true)
-    try {
-      const response = await fetch(`/api/messages/conversations/${selectedConversation.id}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: messageContent.trim(),
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setMessages([...messages, data.message])
-        setMessageContent('')
-        fetchConversations() // Refresh conversations to update last message
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to send message')
-      }
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to send message',
-      })
-    } finally {
-      setIsSending(false)
-    }
-  }
-
-  const fetchFollowing = async () => {
-    if (!user?.id) return
-    
-    setIsLoadingFollowing(true)
-    try {
-      const response = await fetch(`/api/users/following?userId=${user.id}`)
-      if (response.ok) {
-        const data = await response.json()
-        setFollowing(data || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch following:', error)
-    } finally {
-      setIsLoadingFollowing(false)
-    }
-  }
-
-  const handleStartConversation = async (otherUserId: string) => {
-    try {
-      const response = await fetch('/api/messages/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otherUserId }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const newConversation = {
-          ...data.conversation,
-          otherUser: data.conversation.user1Id === user?.id 
-            ? data.conversation.user2 
-            : data.conversation.user1,
-          unreadCount: 0,
-          messages: [],
-        }
-        setSelectedConversation(newConversation)
-        setViewMode('conversations')
-        fetchConversations()
-        showToast({
-          type: 'success',
-          title: 'Conversation started',
-          description: `You can now message ${newConversation.otherUser.username}`,
-        })
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to start conversation')
-      }
-    } catch (error: any) {
-      console.error('Failed to start conversation:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to start conversation',
-      })
-    }
-  }
+    )
+  }, [startConversation, user?.id, showToast])
 
   if (isLoading) {
     return (
@@ -307,365 +77,78 @@ export default function MessagesPage() {
       <TopNav currentPanel="THE ARENA" />
       <div className="pt-20 pb-20">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Direct Messages</h1>
-          <p className="text-text-secondary">Chat with other users</p>
-        </div>
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-white mb-2">Direct Messages</h1>
+            <p className="text-text-secondary">Chat with other users</p>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-12rem)]">
-          {/* Left Sidebar */}
-          <Card className="lg:col-span-1 overflow-hidden flex flex-col">
-            {/* Tabs */}
-            <div className="border-b border-bg-tertiary flex">
-              <button
-                onClick={() => setViewMode('conversations')}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                  viewMode === 'conversations'
-                    ? 'bg-bg-secondary text-white border-b-2 border-electric-blue'
-                    : 'text-text-secondary hover:text-white hover:bg-bg-secondary'
-                }`}
-              >
-                Conversations
-              </button>
-              <button
-                onClick={() => setViewMode('following')}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                  viewMode === 'following'
-                    ? 'bg-bg-secondary text-white border-b-2 border-electric-blue'
-                    : 'text-text-secondary hover:text-white hover:bg-bg-secondary'
-                }`}
-              >
-                Following
-              </button>
-              <button
-                onClick={() => setViewMode('new')}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                  viewMode === 'new'
-                    ? 'bg-bg-secondary text-white border-b-2 border-electric-blue'
-                    : 'text-text-secondary hover:text-white hover:bg-bg-secondary'
-                }`}
-              >
-                New Message
-              </button>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-12rem)]">
+            {/* Left Sidebar */}
+            <Card className="lg:col-span-1 overflow-hidden flex flex-col">
+              {/* Tabs */}
+              <div className="border-b border-bg-tertiary flex">
+                {(['conversations', 'following', 'new'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                      viewMode === mode
+                        ? 'bg-bg-secondary text-white border-b-2 border-electric-blue'
+                        : 'text-text-secondary hover:text-white hover:bg-bg-secondary'
+                    }`}
+                  >
+                    {mode === 'conversations' ? 'Conversations' : mode === 'following' ? 'Following' : 'New Message'}
+                  </button>
+                ))}
+              </div>
 
-            <CardBody className="flex-1 overflow-y-auto p-0">
-              {/* Conversations View */}
-              {viewMode === 'conversations' && (
-                <>
-                  {conversations.length === 0 ? (
-                    <div className="p-4 text-center text-text-secondary">
-                      <p>No conversations yet</p>
-                      <p className="text-sm mt-2">Start a conversation from Following or New Message</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-bg-tertiary">
-                      {conversations.map((conv) => (
-                        <button
-                          key={conv.id}
-                          onClick={() => setSelectedConversation(conv)}
-                          className={`w-full p-4 text-left hover:bg-bg-secondary transition-colors ${
-                            selectedConversation?.id === conv.id ? 'bg-bg-secondary' : ''
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Avatar
-                              src={conv.otherUser.avatarUrl}
-                              username={conv.otherUser.username}
-                              size="md"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1">
-                                <p className="font-semibold text-white truncate">
-                                  {conv.otherUser.username}
-                                </p>
-                                {conv.unreadCount > 0 && (
-                                  <span className="bg-electric-blue text-black text-xs font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
-                                    {conv.unreadCount}
-                                  </span>
-                                )}
-                              </div>
-                              {conv.messages.length > 0 && (
-                                <p className="text-sm text-text-secondary truncate">
-                                  {conv.messages[0].content}
-                                </p>
-                              )}
-                              {conv.lastMessageAt && (
-                                <p className="text-xs text-text-muted mt-1">
-                                  {new Date(conv.lastMessageAt).toLocaleDateString()}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Following View */}
-              {viewMode === 'following' && (
-                <>
-                  {isLoadingFollowing ? (
-                    <div className="p-4 flex items-center justify-center">
-                      <LoadingSpinner />
-                    </div>
-                  ) : following.length === 0 ? (
-                    <div className="p-4 text-center text-text-secondary">
-                      <p>You're not following anyone yet</p>
-                      <p className="text-sm mt-2">Follow users from their profiles to message them</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-bg-tertiary">
-                      {following.map((user) => {
-                        // Check if conversation already exists
-                        const existingConv = conversations.find(
-                          conv => conv.otherUser.id === user.id
-                        )
-                        return (
-                          <div
-                            key={user.id}
-                            className="p-4 hover:bg-bg-secondary transition-colors"
-                          >
-                            <div className="flex items-center gap-3">
-                              <Avatar
-                                src={user.avatarUrl}
-                                username={user.username}
-                                size="md"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-white truncate">
-                                  {user.username}
-                                </p>
-                                {user.eloRating !== undefined && (
-                                  <p className="text-sm text-text-secondary">
-                                    ELO: {user.eloRating}
-                                  </p>
-                                )}
-                              </div>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => {
-                                  if (existingConv) {
-                                    setSelectedConversation(existingConv)
-                                    setViewMode('conversations')
-                                  } else {
-                                    handleStartConversation(user.id)
-                                  }
-                                }}
-                              >
-                                {existingConv ? 'Open' : 'Message'}
-                              </Button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* New Message View */}
-              {viewMode === 'new' && (
-                <div className="p-4">
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search for users..."
-                    className="mb-4"
+              <CardBody className="flex-1 overflow-y-auto p-0">
+                {viewMode === 'conversations' && (
+                  <ConversationList
+                    conversations={conversations}
+                    selectedId={selectedConversation?.id}
+                    onSelect={handleOpenConversation}
                   />
-                  {isSearching ? (
-                    <div className="flex items-center justify-center py-8">
-                      <LoadingSpinner />
-                    </div>
-                  ) : searchResults.length === 0 && searchQuery.trim() ? (
-                    <div className="text-center text-text-secondary py-8">
-                      <p>No users found</p>
-                    </div>
-                  ) : searchResults.length > 0 ? (
-                    <div className="space-y-2">
-                      {searchResults.map((user) => {
-                        // Check if conversation already exists
-                        const existingConv = conversations.find(
-                          conv => conv.otherUser.id === user.id
-                        )
-                        // Check if user is already in following list
-                        const isFollowing = following.some(f => f.id === user.id)
-                        return (
-                          <div
-                            key={user.id}
-                            className="p-3 rounded-lg bg-bg-secondary hover:bg-bg-tertiary transition-colors"
-                          >
-                            <div className="flex items-center gap-3">
-                              <Avatar
-                                src={user.avatarUrl}
-                                username={user.username}
-                                size="md"
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="font-semibold text-white truncate">
-                                    {user.username}
-                                  </p>
-                                  {isFollowing && (
-                                    <span className="text-xs text-electric-blue">Following</span>
-                                  )}
-                                </div>
-                                {user.eloRating !== undefined && (
-                                  <p className="text-sm text-text-secondary">
-                                    ELO: {user.eloRating}
-                                  </p>
-                                )}
-                              </div>
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => {
-                                  if (existingConv) {
-                                    setSelectedConversation(existingConv)
-                                    setViewMode('conversations')
-                                  } else {
-                                    handleStartConversation(user.id)
-                                  }
-                                }}
-                              >
-                                {existingConv ? 'Open' : 'Message'}
-                              </Button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-center text-text-secondary py-8">
-                      <p>Search for users to start a conversation</p>
-                      <p className="text-sm mt-2">Type at least 2 characters</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardBody>
-          </Card>
+                )}
 
-          {/* Messages Area */}
-          <Card className="lg:col-span-2 flex flex-col overflow-hidden">
-            {selectedConversation ? (
-              <>
-                {/* Chat Header */}
-                <div className="border-b border-bg-tertiary p-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar
-                      src={selectedConversation.otherUser.avatarUrl}
-                      username={selectedConversation.otherUser.username}
-                      size="md"
-                    />
-                    <div>
-                      <p className="font-semibold text-white">
-                        {selectedConversation.otherUser.username}
-                      </p>
-                      <Link
-                        href={`/${selectedConversation.otherUser.username}`}
-                        className="text-sm text-electric-blue hover:underline"
-                      >
-                        View Profile
-                      </Link>
-                    </div>
-                  </div>
-                </div>
+                {viewMode === 'following' && user && (
+                  <FollowingList
+                    userId={user.id}
+                    conversations={conversations}
+                    onOpenConversation={handleOpenConversation}
+                    onStartConversation={handleStartConversation}
+                  />
+                )}
 
-                {/* Messages */}
-                <CardBody className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {isLoadingMessages ? (
-                    <div className="flex items-center justify-center py-8">
-                      <LoadingSpinner />
-                    </div>
-                  ) : messages.length === 0 ? (
-                    <div className="text-center text-text-secondary py-8">
-                      <p>No messages yet. Start the conversation!</p>
-                    </div>
-                  ) : (
-                    messages.map((message) => {
-                      const isOwn = message.senderId === user?.id
-                      return (
-                        <div
-                          key={message.id}
-                          className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div className={`max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
-                            {!isOwn && (
-                              <div className="flex items-center gap-2 mb-1">
-                                <Avatar
-                                  src={message.sender.avatarUrl}
-                                  username={message.sender.username}
-                                  size="xs"
-                                />
-                                <span className="text-xs text-text-secondary">
-                                  {message.sender.username}
-                                </span>
-                              </div>
-                            )}
-                            <div
-                              className={`rounded-lg px-4 py-2 ${
-                                isOwn
-                                  ? 'bg-electric-blue text-black'
-                                  : 'bg-bg-tertiary text-white'
-                              }`}
-                            >
-                              <p className="whitespace-pre-wrap">{message.content}</p>
-                              <p className={`text-xs mt-1 ${
-                                isOwn ? 'text-black/70' : 'text-text-secondary'
-                              }`}>
-                                {new Date(message.createdAt).toLocaleTimeString()}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })
-                  )}
-                  <div ref={messagesEndRef} />
-                </CardBody>
-
-                {/* Message Input */}
-                <div className="border-t border-bg-tertiary p-4">
-                  <div className="flex gap-2">
-                    <Input
-                      value={messageContent}
-                      onChange={(e) => setMessageContent(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleSendMessage()
-                        }
-                      }}
-                      placeholder="Type a message..."
-                      className="flex-1"
-                    />
-                    <Button
-                      onClick={handleSendMessage}
-                      isLoading={isSending}
-                      disabled={!messageContent.trim()}
-                    >
-                      Send
-                    </Button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <CardBody className="flex items-center justify-center h-full">
-                <div className="text-center text-text-secondary">
-                  <p className="text-lg mb-2">Select a conversation</p>
-                  <p className="text-sm">Choose a conversation from the list to start messaging</p>
-                </div>
+                {viewMode === 'new' && (
+                  <UserSearch
+                    conversations={conversations}
+                    onOpenConversation={handleOpenConversation}
+                    onStartConversation={handleStartConversation}
+                  />
+                )}
               </CardBody>
-            )}
-          </Card>
-        </div>
+            </Card>
+
+            {/* Messages Area */}
+            <Card className="lg:col-span-2 flex flex-col overflow-hidden">
+              {selectedConversation && user ? (
+                <MessageThread
+                  conversation={selectedConversation}
+                  userId={user.id}
+                />
+              ) : (
+                <CardBody className="flex items-center justify-center h-full">
+                  <div className="text-center text-text-secondary">
+                    <p className="text-lg mb-2">Select a conversation</p>
+                    <p className="text-sm">Choose a conversation from the list to start messaging</p>
+                  </div>
+                </CardBody>
+              )}
+            </Card>
+          </div>
         </div>
       </div>
     </div>
   )
 }
-

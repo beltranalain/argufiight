@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -33,24 +36,19 @@ interface PromoCode {
 
 export default function SubscriptionsPage() {
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
   const searchParams = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as 'pricing' | 'promo-codes' | 'overview' | null
   const [activeTab, setActiveTab] = useState<'pricing' | 'promo-codes' | 'overview'>(
     tabFromUrl || 'pricing'
   )
-  
-  // Pricing state
-  const [pricing, setPricing] = useState<Pricing>({ monthly: 9.99, yearly: 89.0 })
-  const [isLoadingPricing, setIsLoadingPricing] = useState(true)
-  const [isSavingPricing, setIsSavingPricing] = useState(false)
+
   const [formData, setFormData] = useState({
     monthly: '9.99',
     yearly: '89.00',
   })
 
-  // Promo codes state
-  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([])
-  const [isLoadingPromoCodes, setIsLoadingPromoCodes] = useState(true)
+  // Promo codes form state
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCode, setEditingCode] = useState<PromoCode | null>(null)
   const [code, setCode] = useState('')
@@ -62,11 +60,6 @@ export default function SubscriptionsPage() {
   const [validUntil, setValidUntil] = useState('')
   const [applicableTo, setApplicableTo] = useState<'FREE' | 'PRO' | 'BOTH'>('PRO')
   const [billingCycles, setBillingCycles] = useState<string[]>([])
-  const [isSavingPromo, setIsSavingPromo] = useState(false)
-
-  // Overview state
-  const [overview, setOverview] = useState<any>(null)
-  const [isLoadingOverview, setIsLoadingOverview] = useState(true)
 
   useEffect(() => {
     if (tabFromUrl && ['pricing', 'promo-codes', 'overview'].includes(tabFromUrl)) {
@@ -74,41 +67,154 @@ export default function SubscriptionsPage() {
     }
   }, [tabFromUrl])
 
-  useEffect(() => {
-    if (activeTab === 'pricing') {
-      fetchPricing()
-    } else if (activeTab === 'promo-codes') {
-      fetchPromoCodes()
-    } else if (activeTab === 'overview') {
-      fetchOverview()
-    }
-  }, [activeTab])
+  // --- Queries ---
 
-  const fetchPricing = async () => {
-    try {
-      setIsLoadingPricing(true)
-      const response = await fetch('/api/subscriptions/pricing')
-      if (response.ok) {
-        const data = await response.json()
-        setPricing(data)
-        setFormData({
-          monthly: data.monthly.toString(),
-          yearly: data.yearly.toString(),
-        })
-      }
-    } catch (error) {
-      console.error('Failed to fetch pricing:', error)
+  const {
+    data: pricing = { monthly: 9.99, yearly: 89.0 },
+    isLoading: isLoadingPricing,
+    error: pricingError,
+    refetch: refetchPricing,
+  } = useQuery({
+    queryKey: ['admin', 'subscriptions', 'pricing'],
+    queryFn: () => fetchClient<Pricing>('/api/subscriptions/pricing'),
+    enabled: activeTab === 'pricing',
+  })
+
+  // Sync form data when pricing loads
+  useEffect(() => {
+    if (pricing) {
+      setFormData({
+        monthly: pricing.monthly.toString(),
+        yearly: pricing.yearly.toString(),
+      })
+    }
+  }, [pricing])
+
+  const {
+    data: promoCodesData,
+    isLoading: isLoadingPromoCodes,
+    error: promoCodesError,
+    refetch: refetchPromoCodes,
+  } = useQuery({
+    queryKey: ['admin', 'promo-codes'],
+    queryFn: () => fetchClient<{ promoCodes: PromoCode[] }>('/api/admin/promo-codes'),
+    enabled: activeTab === 'promo-codes' || activeTab === 'overview',
+  })
+
+  const promoCodes = promoCodesData?.promoCodes || []
+
+  const {
+    data: overview,
+    isLoading: isLoadingOverview,
+    error: overviewError,
+    refetch: refetchOverview,
+  } = useQuery({
+    queryKey: ['admin', 'subscriptions', 'overview'],
+    queryFn: () => fetchClient<any>('/api/admin/subscriptions/overview'),
+    enabled: activeTab === 'overview',
+  })
+
+  // --- Mutations ---
+
+  const savePricingMutation = useMutation({
+    mutationFn: (data: { monthly: number; yearly: number }) =>
+      fetchClient<{ pricing: Pricing }>('/api/subscriptions/pricing', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'subscriptions', 'pricing'] })
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: 'Pricing updated successfully!',
+      })
+    },
+    onError: (error: Error) => {
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Failed to load pricing',
+        description: error.message || 'Failed to update pricing',
       })
-    } finally {
-      setIsLoadingPricing(false)
-    }
-  }
+    },
+  })
 
-  const handleSavePricing = async () => {
+  const savePromoMutation = useMutation({
+    mutationFn: (data: { isEdit: boolean; id?: string; body: any }) =>
+      fetchClient<any>(
+        data.isEdit ? `/api/admin/promo-codes/${data.id}` : '/api/admin/promo-codes',
+        {
+          method: data.isEdit ? 'PATCH' : 'POST',
+          body: JSON.stringify(data.body),
+        }
+      ),
+    onSuccess: (_data, variables) => {
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: variables.isEdit ? 'Promo code updated' : 'Promo code created',
+      })
+      setIsModalOpen(false)
+      resetForm()
+      queryClient.invalidateQueries({ queryKey: ['admin', 'promo-codes'] })
+    },
+    onError: (error: Error) => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to save promo code',
+      })
+    },
+  })
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: (promoCode: PromoCode) =>
+      fetchClient<any>(`/api/admin/promo-codes/${promoCode.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive: !promoCode.isActive }),
+      }),
+    onSuccess: (_data, promoCode) => {
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: promoCode.isActive ? 'Promo code deactivated' : 'Promo code activated',
+      })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'promo-codes'] })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to update promo code',
+      })
+    },
+  })
+
+  const deletePromoMutation = useMutation({
+    mutationFn: (promoCode: PromoCode) =>
+      fetchClient<any>(`/api/admin/promo-codes/${promoCode.id}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: 'Promo code deleted',
+      })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'promo-codes'] })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to delete promo code',
+      })
+    },
+  })
+
+  // --- Handlers ---
+
+  const handleSavePricing = () => {
     const monthly = parseFloat(formData.monthly)
     const yearly = parseFloat(formData.yearly)
 
@@ -130,55 +236,7 @@ export default function SubscriptionsPage() {
       return
     }
 
-    try {
-      setIsSavingPricing(true)
-      const response = await fetch('/api/subscriptions/pricing', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ monthly, yearly }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to update pricing')
-      }
-
-      const data = await response.json()
-      setPricing(data.pricing)
-      showToast({
-        type: 'success',
-        title: 'Success',
-        description: 'Pricing updated successfully!',
-      })
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to update pricing',
-      })
-    } finally {
-      setIsSavingPricing(false)
-    }
-  }
-
-  const fetchPromoCodes = async () => {
-    try {
-      setIsLoadingPromoCodes(true)
-      const response = await fetch('/api/admin/promo-codes')
-      if (response.ok) {
-        const data = await response.json()
-        setPromoCodes(data.promoCodes || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch promo codes:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to load promo codes',
-      })
-    } finally {
-      setIsLoadingPromoCodes(false)
-    }
+    savePricingMutation.mutate({ monthly, yearly })
   }
 
   const handleOpenModal = (promoCode?: PromoCode) => {
@@ -212,7 +270,7 @@ export default function SubscriptionsPage() {
     setBillingCycles([])
   }
 
-  const handleSavePromo = async () => {
+  const handleSavePromo = () => {
     if (!code.trim()) {
       showToast({
         type: 'error',
@@ -231,123 +289,35 @@ export default function SubscriptionsPage() {
       return
     }
 
-    setIsSavingPromo(true)
-    try {
-      const url = editingCode
-        ? `/api/admin/promo-codes/${editingCode.id}`
-        : '/api/admin/promo-codes'
-
-      const method = editingCode ? 'PATCH' : 'POST'
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: code.toUpperCase().trim(),
-          description: description.trim() || null,
-          discountType,
-          discountValue: parseFloat(discountValue),
-          maxUses: maxUses ? parseInt(maxUses) : null,
-          validFrom: new Date(validFrom).toISOString(),
-          validUntil: validUntil ? new Date(validUntil).toISOString() : null,
-          applicableTo,
-          billingCycles: billingCycles.length > 0 ? JSON.stringify(billingCycles) : null,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to save promo code')
-      }
-
-      showToast({
-        type: 'success',
-        title: 'Success',
-        description: editingCode ? 'Promo code updated' : 'Promo code created',
-      })
-
-      setIsModalOpen(false)
-      resetForm()
-      fetchPromoCodes()
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to save promo code',
-      })
-    } finally {
-      setIsSavingPromo(false)
-    }
+    savePromoMutation.mutate({
+      isEdit: !!editingCode,
+      id: editingCode?.id,
+      body: {
+        code: code.toUpperCase().trim(),
+        description: description.trim() || null,
+        discountType,
+        discountValue: parseFloat(discountValue),
+        maxUses: maxUses ? parseInt(maxUses) : null,
+        validFrom: new Date(validFrom).toISOString(),
+        validUntil: validUntil ? new Date(validUntil).toISOString() : null,
+        applicableTo,
+        billingCycles: billingCycles.length > 0 ? JSON.stringify(billingCycles) : null,
+      },
+    })
   }
 
-  const handleToggleActive = async (promoCode: PromoCode) => {
-    try {
-      const response = await fetch(`/api/admin/promo-codes/${promoCode.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          isActive: !promoCode.isActive,
-        }),
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: promoCode.isActive ? 'Promo code deactivated' : 'Promo code activated',
-        })
-        fetchPromoCodes()
-      }
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to update promo code',
-      })
-    }
+  const handleToggleActive = (promoCode: PromoCode) => {
+    toggleActiveMutation.mutate(promoCode)
   }
 
-  const handleDelete = async (promoCode: PromoCode) => {
+  const handleDelete = (promoCode: PromoCode) => {
     if (!confirm(`Are you sure you want to delete promo code "${promoCode.code}"?`)) {
       return
     }
-
-    try {
-      const response = await fetch(`/api/admin/promo-codes/${promoCode.id}`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Promo code deleted',
-        })
-        fetchPromoCodes()
-      }
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to delete promo code',
-      })
-    }
+    deletePromoMutation.mutate(promoCode)
   }
 
-  const fetchOverview = async () => {
-    try {
-      setIsLoadingOverview(true)
-      const response = await fetch('/api/admin/subscriptions/overview')
-      if (response.ok) {
-        const data = await response.json()
-        setOverview(data)
-      }
-    } catch (error) {
-      console.error('Failed to fetch overview:', error)
-    } finally {
-      setIsLoadingOverview(false)
-    }
-  }
+  // --- Helpers ---
 
   const calculateSavings = () => {
     const monthlyYearly = pricing.monthly * 12
@@ -416,6 +386,12 @@ export default function SubscriptionsPage() {
                 <div className="flex items-center justify-center py-8">
                   <LoadingSpinner size="lg" />
                 </div>
+              ) : pricingError ? (
+                <ErrorDisplay
+                  title="Failed to load pricing"
+                  message={(pricingError as Error).message || 'Could not load pricing data.'}
+                  onRetry={() => refetchPricing()}
+                />
               ) : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -487,14 +463,14 @@ export default function SubscriptionsPage() {
                     <Button
                       variant="primary"
                       onClick={handleSavePricing}
-                      isLoading={isSavingPricing}
+                      isLoading={savePricingMutation.isPending}
                       className="flex-1"
                     >
                       Save Pricing
                     </Button>
                     <Button
                       variant="secondary"
-                      onClick={fetchPricing}
+                      onClick={() => refetchPricing()}
                       className="flex-1"
                     >
                       Reset
@@ -557,6 +533,12 @@ export default function SubscriptionsPage() {
                 <div className="flex items-center justify-center py-8">
                   <LoadingSpinner size="lg" />
                 </div>
+              ) : promoCodesError ? (
+                <ErrorDisplay
+                  title="Failed to load promo codes"
+                  message={(promoCodesError as Error).message || 'Could not load promo codes.'}
+                  onRetry={() => refetchPromoCodes()}
+                />
               ) : promoCodes.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-text-secondary mb-4">No promo codes yet</p>
@@ -678,6 +660,12 @@ export default function SubscriptionsPage() {
             <div className="flex items-center justify-center py-8">
               <LoadingSpinner size="lg" />
             </div>
+          ) : overviewError ? (
+            <ErrorDisplay
+              title="Failed to load overview"
+              message={(overviewError as Error).message || 'Could not load overview data.'}
+              onRetry={() => refetchOverview()}
+            />
           ) : overview ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -877,7 +865,7 @@ export default function SubscriptionsPage() {
             >
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleSavePromo} isLoading={isSavingPromo}>
+            <Button variant="primary" onClick={handleSavePromo} isLoading={savePromoMutation.isPending}>
               {editingCode ? 'Update' : 'Create'} Promo Code
             </Button>
           </div>
@@ -886,4 +874,3 @@ export default function SubscriptionsPage() {
     </div>
   )
 }
-

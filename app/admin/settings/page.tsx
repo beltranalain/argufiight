@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
@@ -12,6 +15,7 @@ import SystemSettingsTab from './SystemSettingsTab'
 
 export default function AdminSettingsPage() {
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
   const searchParams = useSearchParams()
   const tabFromUrl = searchParams.get('tab') as 'general' | 'features' | 'system' | 'api-usage' | null
   const [activeTab, setActiveTab] = useState<'general' | 'features' | 'system' | 'api-usage'>(
@@ -23,6 +27,7 @@ export default function AdminSettingsPage() {
       setActiveTab(tabFromUrl)
     }
   }, [tabFromUrl])
+
   const [deepseekKey, setDeepseekKey] = useState('')
   const [resendKey, setResendKey] = useState('')
   const [googleAnalyticsKey, setGoogleAnalyticsKey] = useState('')
@@ -44,7 +49,7 @@ export default function AdminSettingsPage() {
   const [googleClientId, setGoogleClientId] = useState('')
   const [googleClientSecret, setGoogleClientSecret] = useState('')
   const [tournamentsEnabled, setTournamentsEnabled] = useState(false)
-  
+
   // Advertising settings
   const [platformAdsEnabled, setPlatformAdsEnabled] = useState(false)
   const [creatorMarketplaceEnabled, setCreatorMarketplaceEnabled] = useState(false)
@@ -55,388 +60,380 @@ export default function AdminSettingsPage() {
   const [creatorFeeSilver, setCreatorFeeSilver] = useState('20')
   const [creatorFeeGold, setCreatorFeeGold] = useState('15')
   const [creatorFeePlatinum, setCreatorFeePlatinum] = useState('10')
-  const [isLoading, setIsLoading] = useState(false)
-  const [isFetching, setIsFetching] = useState(true)
-  const [isTesting, setIsTesting] = useState(false)
-  const [isTestingResend, setIsTestingResend] = useState(false)
-  const [isTestingGoogle, setIsTestingGoogle] = useState(false)
-  const [isTestingStripe, setIsTestingStripe] = useState(false)
+
+  // Test results state (these stay as local state since they are transient UI state)
   const [testResult, setTestResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [testGoogleResult, setTestGoogleResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [testResendResult, setTestResendResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
   const [testStripeResult, setTestStripeResult] = useState<{ success: boolean; message?: string; error?: string } | null>(null)
-  const [isTestingPush, setIsTestingPush] = useState(false)
   const [pushTestResult, setPushTestResult] = useState<{ success: boolean; message?: string; error?: string; isServiceAccountError?: boolean } | null>(null)
+
+  // Notification state (browser-side, not fetched from server)
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
   const [hasFCMToken, setHasFCMToken] = useState(false)
   const [testNotificationTitle, setTestNotificationTitle] = useState('Test Notification')
   const [testNotificationBody, setTestNotificationBody] = useState('This is a test push notification!')
+  const [serviceWorkerStatus, setServiceWorkerStatus] = useState<any>(null)
+  const [diagnostics, setDiagnostics] = useState<any>(null)
 
+  // --- Queries ---
+
+  const {
+    data: settingsData,
+    isLoading: isFetching,
+    error: settingsError,
+    refetch: refetchSettings,
+  } = useQuery({
+    queryKey: ['admin', 'settings'],
+    queryFn: () => fetchClient<Record<string, string>>(`/api/admin/settings?t=${Date.now()}`),
+    staleTime: 0,
+  })
+
+  // Sync form fields when settings data loads
   useEffect(() => {
-    fetchSettings()
+    if (!settingsData) return
+    const data = settingsData
+    setDeepseekKey(data.DEEPSEEK_API_KEY || '')
+    setResendKey(data.RESEND_API_KEY || '')
+    setGoogleAnalyticsKey(data.GOOGLE_ANALYTICS_API_KEY || '')
+    setGoogleAnalyticsPropertyId(data.GOOGLE_ANALYTICS_PROPERTY_ID || '')
+    setStripePublishableKey(data.STRIPE_PUBLISHABLE_KEY || '')
+    setStripeSecretKey(data.STRIPE_SECRET_KEY || '')
+    setFirebaseApiKey(data.FIREBASE_API_KEY || '')
+    setFirebaseAuthDomain(data.FIREBASE_AUTH_DOMAIN || '')
+    setFirebaseProjectId(data.FIREBASE_PROJECT_ID || '')
+    setFirebaseStorageBucket(data.FIREBASE_STORAGE_BUCKET || '')
+    setFirebaseMessagingSenderId(data.FIREBASE_MESSAGING_SENDER_ID || '')
+    setFirebaseAppId(data.FIREBASE_APP_ID || '')
+    setFirebaseServiceAccount(data.FIREBASE_SERVICE_ACCOUNT || '')
+    setFirebaseOAuthClientId(data.FIREBASE_OAUTH_CLIENT_ID || '')
+    setFirebaseOAuthClientSecret(data.FIREBASE_OAUTH_CLIENT_SECRET || '')
+    setFirebaseOAuthRefreshToken(data.FIREBASE_OAUTH_REFRESH_TOKEN || '')
+    setVapidPublicKey(data.VAPID_PUBLIC_KEY || '')
+    setVapidPrivateKey(data.VAPID_PRIVATE_KEY || '')
+    setGoogleClientId(data.GOOGLE_CLIENT_ID || '')
+    setGoogleClientSecret(data.GOOGLE_CLIENT_SECRET || '')
+    setTournamentsEnabled(data.TOURNAMENTS_ENABLED === 'true')
+    setPlatformAdsEnabled(data.ADS_PLATFORM_ENABLED === 'true')
+    setCreatorMarketplaceEnabled(data.ADS_CREATOR_MARKETPLACE_ENABLED === 'true')
+    setCreatorMinELO(data.CREATOR_MIN_ELO || '1500')
+    setCreatorMinDebates(data.CREATOR_MIN_DEBATES || '10')
+    setCreatorMinAgeMonths(data.CREATOR_MIN_ACCOUNT_AGE_MONTHS || '3')
+    setCreatorFeeBronze(data.CREATOR_FEE_BRONZE || '25')
+    setCreatorFeeSilver(data.CREATOR_FEE_SILVER || '20')
+    setCreatorFeeGold(data.CREATOR_FEE_GOLD || '15')
+    setCreatorFeePlatinum(data.CREATOR_FEE_PLATINUM || '10')
+  }, [settingsData])
+
+  // Refresh settings when features tab is opened
+  useEffect(() => {
+    if (activeTab === 'features') {
+      refetchSettings()
+    }
+  }, [activeTab, refetchSettings])
+
+  // Check notification status on mount
+  useEffect(() => {
     checkNotificationStatus()
   }, [])
 
-  // Refresh settings when activeTab changes to ensure we have latest data
-  useEffect(() => {
-    if (activeTab === 'features') {
-      console.log('[Settings] Features tab opened, fetching settings...')
-      fetchSettings()
-    }
-  }, [activeTab])
-  
-  // Also refresh on mount to ensure we have latest data
-  useEffect(() => {
-    console.log('[Settings] Component mounted, fetching settings...')
-    fetchSettings()
-  }, [])
+  // --- Mutations ---
 
-  const checkNotificationStatus = async () => {
-    // Check browser notification permission
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setNotificationPermission(Notification.permission)
-    }
-
-    // Check if user has FCM token registered
-    try {
-      const response = await fetch('/api/fcm/status')
-      if (response.ok) {
-        const data = await response.json()
-        setHasFCMToken(data.hasToken || false)
-      }
-    } catch (error) {
-      console.error('Failed to check FCM status:', error)
-    }
-  }
-
-  const fetchSettings = async () => {
-    try {
-      const response = await fetch(`/api/admin/settings?t=${Date.now()}`, {
-        cache: 'no-store',
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setDeepseekKey(data.DEEPSEEK_API_KEY || '')
-        setResendKey(data.RESEND_API_KEY || '')
-        setGoogleAnalyticsKey(data.GOOGLE_ANALYTICS_API_KEY || '')
-        setGoogleAnalyticsPropertyId(data.GOOGLE_ANALYTICS_PROPERTY_ID || '')
-        setStripePublishableKey(data.STRIPE_PUBLISHABLE_KEY || '')
-        setStripeSecretKey(data.STRIPE_SECRET_KEY || '')
-        setFirebaseApiKey(data.FIREBASE_API_KEY || '')
-        setFirebaseAuthDomain(data.FIREBASE_AUTH_DOMAIN || '')
-        setFirebaseProjectId(data.FIREBASE_PROJECT_ID || '')
-        setFirebaseStorageBucket(data.FIREBASE_STORAGE_BUCKET || '')
-        setFirebaseMessagingSenderId(data.FIREBASE_MESSAGING_SENDER_ID || '')
-        setFirebaseAppId(data.FIREBASE_APP_ID || '')
-        setFirebaseServiceAccount(data.FIREBASE_SERVICE_ACCOUNT || '')
-        setFirebaseOAuthClientId(data.FIREBASE_OAUTH_CLIENT_ID || '')
-        setFirebaseOAuthClientSecret(data.FIREBASE_OAUTH_CLIENT_SECRET || '')
-        setFirebaseOAuthRefreshToken(data.FIREBASE_OAUTH_REFRESH_TOKEN || '')
-        setVapidPublicKey(data.VAPID_PUBLIC_KEY || '')
-        setVapidPrivateKey(data.VAPID_PRIVATE_KEY || '')
-        setGoogleClientId(data.GOOGLE_CLIENT_ID || '')
-        setGoogleClientSecret(data.GOOGLE_CLIENT_SECRET || '')
-        setTournamentsEnabled(data.TOURNAMENTS_ENABLED === 'true')
-        
-        // Advertising settings
-        setPlatformAdsEnabled(data.ADS_PLATFORM_ENABLED === 'true')
-        // Explicitly check if the setting exists, default to false if not
-        const marketplaceValue = data.ADS_CREATOR_MARKETPLACE_ENABLED
-        console.log('[Settings] Fetched ADS_CREATOR_MARKETPLACE_ENABLED:', marketplaceValue)
-        setCreatorMarketplaceEnabled(marketplaceValue === 'true')
-        setCreatorMinELO(data.CREATOR_MIN_ELO || '1500')
-        setCreatorMinDebates(data.CREATOR_MIN_DEBATES || '10')
-        setCreatorMinAgeMonths(data.CREATOR_MIN_ACCOUNT_AGE_MONTHS || '3')
-        setCreatorFeeBronze(data.CREATOR_FEE_BRONZE || '25')
-        setCreatorFeeSilver(data.CREATOR_FEE_SILVER || '20')
-        setCreatorFeeGold(data.CREATOR_FEE_GOLD || '15')
-        setCreatorFeePlatinum(data.CREATOR_FEE_PLATINUM || '10')
-      }
-    } catch (error) {
-      console.error('Failed to fetch settings:', error)
-    } finally {
-      setIsFetching(false)
-    }
-  }
-
-  const handleSave = async () => {
-    setIsLoading(true)
-
-    try {
-      const response = await fetch('/api/admin/settings', {
+  const saveSettingsMutation = useMutation({
+    mutationFn: (body: Record<string, string>) =>
+      fetchClient<any>('/api/admin/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          DEEPSEEK_API_KEY: deepseekKey,
-          RESEND_API_KEY: resendKey,
-          GOOGLE_ANALYTICS_API_KEY: googleAnalyticsKey,
-          GOOGLE_ANALYTICS_PROPERTY_ID: googleAnalyticsPropertyId,
-          STRIPE_PUBLISHABLE_KEY: stripePublishableKey,
-          STRIPE_SECRET_KEY: stripeSecretKey,
-          FIREBASE_API_KEY: firebaseApiKey,
-          FIREBASE_AUTH_DOMAIN: firebaseAuthDomain,
-          FIREBASE_PROJECT_ID: firebaseProjectId,
-          FIREBASE_STORAGE_BUCKET: firebaseStorageBucket,
-          FIREBASE_MESSAGING_SENDER_ID: firebaseMessagingSenderId,
-          FIREBASE_APP_ID: firebaseAppId,
-          FIREBASE_SERVICE_ACCOUNT: firebaseServiceAccount,
-          FIREBASE_OAUTH_CLIENT_ID: firebaseOAuthClientId,
-          FIREBASE_OAUTH_CLIENT_SECRET: firebaseOAuthClientSecret,
-          FIREBASE_OAUTH_REFRESH_TOKEN: firebaseOAuthRefreshToken,
-          VAPID_PUBLIC_KEY: vapidPublicKey,
-          VAPID_PRIVATE_KEY: vapidPrivateKey,
-          GOOGLE_CLIENT_ID: googleClientId,
-          GOOGLE_CLIENT_SECRET: googleClientSecret,
-          TOURNAMENTS_ENABLED: tournamentsEnabled.toString(),
-          // Advertising settings
-          ADS_PLATFORM_ENABLED: platformAdsEnabled.toString(),
-          ADS_CREATOR_MARKETPLACE_ENABLED: creatorMarketplaceEnabled.toString(),
-          CREATOR_MIN_ELO: creatorMinELO,
-          CREATOR_MIN_DEBATES: creatorMinDebates,
-          CREATOR_MIN_ACCOUNT_AGE_MONTHS: creatorMinAgeMonths,
-          CREATOR_FEE_BRONZE: creatorFeeBronze,
-          CREATOR_FEE_SILVER: creatorFeeSilver,
-          CREATOR_FEE_GOLD: creatorFeeGold,
-          CREATOR_FEE_PLATINUM: creatorFeePlatinum,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to save settings')
-      }
-
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
       showToast({
         type: 'success',
         title: 'Settings Saved',
         description: 'API keys have been updated',
       })
-    } catch (error: any) {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] })
+    },
+    onError: (error: Error) => {
       showToast({
         type: 'error',
         title: 'Save Failed',
         description: error.message || 'Please try again',
       })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+    },
+  })
 
-  const handleTestDeepSeek = async () => {
-    setIsTesting(true)
-    setTestResult(null)
-
-    try {
-      const response = await fetch('/api/admin/settings/test-deepseek', {
-        method: 'POST',
-      })
-
-      const data = await response.json()
-
+  const testDeepSeekMutation = useMutation({
+    mutationFn: () => fetchClient<any>('/api/admin/settings/test-deepseek', { method: 'POST' }),
+    onSuccess: (data) => {
       if (data.success) {
         setTestResult({
           success: true,
-          message: `✅ Connection successful! Response: "${data.response}" (${data.tokensUsed} tokens used)`,
+          message: `Connection successful! Response: "${data.response}" (${data.tokensUsed} tokens used)`,
         })
-        showToast({
-          type: 'success',
-          title: 'API Test Successful',
-          description: 'DeepSeek API is working correctly',
-        })
+        showToast({ type: 'success', title: 'API Test Successful', description: 'DeepSeek API is working correctly' })
       } else {
-        setTestResult({
-          success: false,
-          error: data.error || 'Connection failed',
-        })
-        showToast({
-          type: 'error',
-          title: 'API Test Failed',
-          description: data.error || 'Please check your API key',
-        })
+        setTestResult({ success: false, error: data.error || 'Connection failed' })
+        showToast({ type: 'error', title: 'API Test Failed', description: data.error || 'Please check your API key' })
       }
-    } catch (error: any) {
-      setTestResult({
-        success: false,
-        error: error.message || 'Failed to test connection',
-      })
-      showToast({
-        type: 'error',
-        title: 'Test Failed',
-        description: 'Could not connect to DeepSeek API',
-      })
-    } finally {
-      setIsTesting(false)
-    }
-  }
+    },
+    onError: (error: Error) => {
+      setTestResult({ success: false, error: error.message || 'Failed to test connection' })
+      showToast({ type: 'error', title: 'Test Failed', description: 'Could not connect to DeepSeek API' })
+    },
+  })
 
-  const handleTestResend = async () => {
-    setIsTestingResend(true)
-    setTestResendResult(null)
-
-    try {
-      const response = await fetch('/api/admin/settings/test-resend', {
-        method: 'POST',
-      })
-
-      const data = await response.json()
-
+  const testResendMutation = useMutation({
+    mutationFn: () => fetchClient<any>('/api/admin/settings/test-resend', { method: 'POST' }),
+    onSuccess: (data) => {
       if (data.success) {
         setTestResendResult({
           success: true,
-          message: `Connection successful! API key is valid. (Note: This checks your API key, not emails sent. Emails are tracked separately.)`,
+          message: 'Connection successful! API key is valid. (Note: This checks your API key, not emails sent. Emails are tracked separately.)',
         })
-        showToast({
-          type: 'success',
-          title: 'API Test Successful',
-          description: 'Resend API is working correctly',
-        })
+        showToast({ type: 'success', title: 'API Test Successful', description: 'Resend API is working correctly' })
       } else {
-        setTestResendResult({
-          success: false,
-          error: data.error || 'Connection failed',
-        })
-        showToast({
-          type: 'error',
-          title: 'API Test Failed',
-          description: data.error || 'Please check your API key',
-        })
+        setTestResendResult({ success: false, error: data.error || 'Connection failed' })
+        showToast({ type: 'error', title: 'API Test Failed', description: data.error || 'Please check your API key' })
       }
-    } catch (error: any) {
-      setTestResendResult({
-        success: false,
-        error: error.message || 'Failed to test connection',
-      })
-      showToast({
-        type: 'error',
-        title: 'Test Failed',
-        description: 'Could not connect to Resend API',
-      })
-    } finally {
-      setIsTestingResend(false)
-      }
-    }
+    },
+    onError: (error: Error) => {
+      setTestResendResult({ success: false, error: error.message || 'Failed to test connection' })
+      showToast({ type: 'error', title: 'Test Failed', description: 'Could not connect to Resend API' })
+    },
+  })
 
-  const handleTestGoogleAnalytics = async () => {
-    setIsTestingGoogle(true)
-    setTestGoogleResult(null)
-
-    try {
+  const testGoogleAnalyticsMutation = useMutation({
+    mutationFn: async () => {
       // First save the current values
-      await fetch('/api/admin/settings', {
+      await fetchClient<any>('/api/admin/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           GOOGLE_ANALYTICS_API_KEY: googleAnalyticsKey,
           GOOGLE_ANALYTICS_PROPERTY_ID: googleAnalyticsPropertyId,
         }),
       })
-
-      const response = await fetch('/api/admin/settings/test-google-analytics', {
-        method: 'POST',
-      })
-
-      const data = await response.json()
-
+      return fetchClient<any>('/api/admin/settings/test-google-analytics', { method: 'POST' })
+    },
+    onSuccess: (data) => {
       if (data.success) {
-        setTestGoogleResult({
-          success: true,
-          message: data.message || '✅ Connection successful!',
-        })
-        showToast({
-          type: 'success',
-          title: 'Google Analytics Connected',
-          description: `Successfully connected to Property ${data.propertyId}`,
-        })
+        setTestGoogleResult({ success: true, message: data.message || 'Connection successful!' })
+        showToast({ type: 'success', title: 'Google Analytics Connected', description: `Successfully connected to Property ${data.propertyId}` })
       } else {
-        setTestGoogleResult({
-          success: false,
-          error: data.error || 'Connection failed',
-        })
-        showToast({
-          type: 'error',
-          title: 'Connection Failed',
-          description: data.error || 'Please check your credentials',
-        })
+        setTestGoogleResult({ success: false, error: data.error || 'Connection failed' })
+        showToast({ type: 'error', title: 'Connection Failed', description: data.error || 'Please check your credentials' })
       }
-    } catch (error: any) {
-      setTestGoogleResult({
-        success: false,
-        error: error.message || 'Failed to test connection',
-      })
-      showToast({
-        type: 'error',
-        title: 'Test Failed',
-        description: 'Could not connect to Google Analytics',
-      })
-    } finally {
-      setIsTestingGoogle(false)
-    }
-  }
+    },
+    onError: (error: Error) => {
+      setTestGoogleResult({ success: false, error: error.message || 'Failed to test connection' })
+      showToast({ type: 'error', title: 'Test Failed', description: 'Could not connect to Google Analytics' })
+    },
+  })
 
-  const handleTestStripe = async () => {
-    setIsTestingStripe(true)
-    setTestStripeResult(null)
-
-    try {
+  const testStripeMutation = useMutation({
+    mutationFn: async () => {
       // First save the current values
-      await fetch('/api/admin/settings', {
+      await fetchClient<any>('/api/admin/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           STRIPE_PUBLISHABLE_KEY: stripePublishableKey,
           STRIPE_SECRET_KEY: stripeSecretKey,
         }),
       })
-
-      const response = await fetch('/api/admin/settings/test-stripe', {
-        method: 'POST',
-      })
-
-      const data = await response.json()
-
+      return fetchClient<any>('/api/admin/settings/test-stripe', { method: 'POST' })
+    },
+    onSuccess: (data) => {
       if (data.success) {
-        setTestStripeResult({
+        setTestStripeResult({ success: true, message: data.message || 'Connection successful!' })
+        showToast({ type: 'success', title: 'Stripe Connected', description: `Successfully connected to Stripe (${data.details?.mode || 'unknown'} mode)` })
+      } else {
+        setTestStripeResult({ success: false, error: data.error || 'Connection failed' })
+        showToast({ type: 'error', title: 'Connection Failed', description: data.error || 'Please check your Stripe keys' })
+      }
+    },
+    onError: (error: Error) => {
+      setTestStripeResult({ success: false, error: error.message || 'Failed to test connection' })
+      showToast({ type: 'error', title: 'Test Failed', description: 'Could not connect to Stripe' })
+    },
+  })
+
+  const testPushMutation = useMutation({
+    mutationFn: async () => {
+      // Run diagnostics first
+      const diag = await runDiagnostics()
+      setDiagnostics(diag)
+
+      // Check service worker status
+      const swStatus = await checkServiceWorkerStatus()
+      setServiceWorkerStatus(swStatus)
+
+      if (!swStatus.registered) {
+        showToast({
+          type: 'warning',
+          title: 'Service Worker Issue',
+          description: `Service worker not registered: ${swStatus.error}. Notifications may not work.`,
+        })
+      }
+
+      // Warn if tab is active
+      if (!document.hidden) {
+        showToast({
+          type: 'info',
+          title: 'Tab is Active',
+          description: 'Notifications work best when the tab is closed. Try closing this tab and sending again.',
+        })
+      }
+
+      // Get current user ID
+      const userData = await fetchClient<{ user: { id: string } }>('/api/auth/me')
+      const userId = userData.user?.id
+      if (!userId) throw new Error('User not found')
+
+      // Send test notification
+      return fetchClient<any>('/api/fcm/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          userIds: [userId],
+          title: testNotificationTitle,
+          body: testNotificationBody,
+          data: { type: 'TEST', url: '/admin/settings' },
+        }),
+      })
+    },
+    onSuccess: (data) => {
+      if (data.success) {
+        setPushTestResult({
           success: true,
-          message: data.message || '✅ Connection successful!',
+          message: `Notification sent! (${data.sent || 0} sent, ${data.failed || 0} failed)`,
         })
         showToast({
           type: 'success',
-          title: 'Stripe Connected',
-          description: `Successfully connected to Stripe (${data.details?.mode || 'unknown'} mode)`,
+          title: 'Test Notification Sent',
+          description: 'Check your browser for the push notification! If you don\'t see it, try closing this tab and sending again.',
         })
       } else {
-        setTestStripeResult({
-          success: false,
-          error: data.error || 'Connection failed',
-        })
-        showToast({
-          type: 'error',
-          title: 'Connection Failed',
-          description: data.error || 'Please check your Stripe keys',
-        })
+        const errorMessage = data.message || data.error || 'Failed to send notification'
+        const isVAPIDError = errorMessage.includes('VAPID keys not configured') ||
+          (data.errors && Array.isArray(data.errors) && data.errors.some((err: string) => err.includes('VAPID keys not configured')))
+
+        setPushTestResult({ success: false, error: errorMessage, isServiceAccountError: isVAPIDError })
+
+        if (isVAPIDError) {
+          showToast({ type: 'error', title: 'VAPID Keys Not Configured', description: 'Please add your VAPID keys in the settings above, then save and try again.' })
+        } else {
+          showToast({ type: 'error', title: 'Test Failed', description: errorMessage })
+        }
       }
-    } catch (error: any) {
-      setTestStripeResult({
-        success: false,
-        error: error.message || 'Failed to test connection',
+    },
+    onError: (error: Error) => {
+      setPushTestResult({ success: false, error: error.message || 'Failed to send test notification' })
+      showToast({ type: 'error', title: 'Test Failed', description: error.message || 'Could not send test notification' })
+    },
+  })
+
+  const toggleMarketplaceMutation = useMutation({
+    mutationFn: (newValue: boolean) =>
+      fetchClient<any>('/api/admin/settings', {
+        method: 'POST',
+        body: JSON.stringify({ ADS_CREATOR_MARKETPLACE_ENABLED: newValue.toString() }),
+      }),
+    onSuccess: (_data, newValue) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] })
+      showToast({
+        type: 'success',
+        title: 'Setting Saved',
+        description: `Creator Marketplace ${newValue ? 'enabled' : 'disabled'}`,
       })
+    },
+    onError: (error: Error, newValue) => {
+      setCreatorMarketplaceEnabled(!newValue)
       showToast({
         type: 'error',
-        title: 'Test Failed',
-        description: 'Could not connect to Stripe',
+        title: 'Error',
+        description: error.message || 'Failed to save setting',
       })
-    } finally {
-      setIsTestingStripe(false)
+    },
+  })
+
+  // --- Handlers ---
+
+  const handleSave = () => {
+    saveSettingsMutation.mutate({
+      DEEPSEEK_API_KEY: deepseekKey,
+      RESEND_API_KEY: resendKey,
+      GOOGLE_ANALYTICS_API_KEY: googleAnalyticsKey,
+      GOOGLE_ANALYTICS_PROPERTY_ID: googleAnalyticsPropertyId,
+      STRIPE_PUBLISHABLE_KEY: stripePublishableKey,
+      STRIPE_SECRET_KEY: stripeSecretKey,
+      FIREBASE_API_KEY: firebaseApiKey,
+      FIREBASE_AUTH_DOMAIN: firebaseAuthDomain,
+      FIREBASE_PROJECT_ID: firebaseProjectId,
+      FIREBASE_STORAGE_BUCKET: firebaseStorageBucket,
+      FIREBASE_MESSAGING_SENDER_ID: firebaseMessagingSenderId,
+      FIREBASE_APP_ID: firebaseAppId,
+      FIREBASE_SERVICE_ACCOUNT: firebaseServiceAccount,
+      FIREBASE_OAUTH_CLIENT_ID: firebaseOAuthClientId,
+      FIREBASE_OAUTH_CLIENT_SECRET: firebaseOAuthClientSecret,
+      FIREBASE_OAUTH_REFRESH_TOKEN: firebaseOAuthRefreshToken,
+      VAPID_PUBLIC_KEY: vapidPublicKey,
+      VAPID_PRIVATE_KEY: vapidPrivateKey,
+      GOOGLE_CLIENT_ID: googleClientId,
+      GOOGLE_CLIENT_SECRET: googleClientSecret,
+      TOURNAMENTS_ENABLED: tournamentsEnabled.toString(),
+      ADS_PLATFORM_ENABLED: platformAdsEnabled.toString(),
+      ADS_CREATOR_MARKETPLACE_ENABLED: creatorMarketplaceEnabled.toString(),
+      CREATOR_MIN_ELO: creatorMinELO,
+      CREATOR_MIN_DEBATES: creatorMinDebates,
+      CREATOR_MIN_ACCOUNT_AGE_MONTHS: creatorMinAgeMonths,
+      CREATOR_FEE_BRONZE: creatorFeeBronze,
+      CREATOR_FEE_SILVER: creatorFeeSilver,
+      CREATOR_FEE_GOLD: creatorFeeGold,
+      CREATOR_FEE_PLATINUM: creatorFeePlatinum,
+    })
+  }
+
+  const handleTestDeepSeek = () => {
+    setTestResult(null)
+    testDeepSeekMutation.mutate()
+  }
+
+  const handleTestResend = () => {
+    setTestResendResult(null)
+    testResendMutation.mutate()
+  }
+
+  const handleTestGoogleAnalytics = () => {
+    setTestGoogleResult(null)
+    testGoogleAnalyticsMutation.mutate()
+  }
+
+  const handleTestStripe = () => {
+    setTestStripeResult(null)
+    testStripeMutation.mutate()
+  }
+
+  const handleTestPushNotification = () => {
+    setPushTestResult(null)
+    testPushMutation.mutate()
+  }
+
+  // --- Browser-side notification functions ---
+
+  const checkNotificationStatus = async () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setNotificationPermission(Notification.permission)
+    }
+
+    try {
+      const data = await fetchClient<{ hasToken: boolean }>('/api/fcm/status')
+      setHasFCMToken(data.hasToken || false)
+    } catch {
+      // Silently handle - FCM status check is non-critical
     }
   }
 
   const handleRequestNotificationPermission = async () => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
-      showToast({
-        type: 'error',
-        title: 'Not Supported',
-        description: 'Your browser does not support notifications',
-      })
+      showToast({ type: 'error', title: 'Not Supported', description: 'Your browser does not support notifications' })
       return
     }
 
@@ -445,51 +442,26 @@ export default function AdminSettingsPage() {
       setNotificationPermission(permission)
 
       if (permission === 'granted') {
-        showToast({
-          type: 'success',
-          title: 'Permission Granted',
-          description: 'Notification permission granted! The FCM token will be registered automatically.',
-        })
-        // Refresh status after a short delay to allow token registration
-        setTimeout(() => {
-          checkNotificationStatus()
-        }, 2000)
+        showToast({ type: 'success', title: 'Permission Granted', description: 'Notification permission granted! The FCM token will be registered automatically.' })
+        setTimeout(() => { checkNotificationStatus() }, 2000)
       } else if (permission === 'denied') {
-        showToast({
-          type: 'error',
-          title: 'Permission Denied',
-          description: 'Notification permission was denied. Please enable it in your browser settings (click the lock icon in the address bar).',
-        })
+        showToast({ type: 'error', title: 'Permission Denied', description: 'Notification permission was denied. Please enable it in your browser settings (click the lock icon in the address bar).' })
       } else {
-        showToast({
-          type: 'warning',
-          title: 'Permission Denied',
-          description: 'Please allow notifications to test push notifications',
-        })
+        showToast({ type: 'warning', title: 'Permission Denied', description: 'Please allow notifications to test push notifications' })
       }
     } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to request permission',
-      })
+      showToast({ type: 'error', title: 'Error', description: error.message || 'Failed to request permission' })
     }
   }
 
   const handleRegisterToken = async () => {
     try {
-      // Get Firebase config
-      const configResponse = await fetch('/api/firebase/config')
-      if (!configResponse.ok) {
-        throw new Error('Firebase not configured. Please save your Firebase settings first.')
-      }
-      const config = await configResponse.json()
+      const config = await fetchClient<any>('/api/firebase/config')
 
       if (!config.vapidKey) {
         throw new Error('VAPID key is missing. Please add it in Firebase settings.')
       }
 
-      // Initialize Firebase
       const { initializeApp, getApps } = await import('firebase/app')
       const { getMessaging, getToken } = await import('firebase/messaging')
 
@@ -501,23 +473,19 @@ export default function AdminSettingsPage() {
         app = apps[0]
       }
 
-      // Register service worker first
       let serviceWorkerRegistration = null
       if ('serviceWorker' in navigator) {
         try {
           serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
             scope: '/firebase-cloud-messaging-push-scope',
           })
-          console.log('[Push Notifications] Service worker registered')
         } catch (error) {
-          console.error('[Push Notifications] Service worker registration failed:', error)
           throw new Error('Failed to register service worker: ' + (error as Error).message)
         }
       }
 
       const messaging = getMessaging(app)
 
-      // Get FCM token
       const token = await getToken(messaging, {
         vapidKey: config.vapidKey,
         serviceWorkerRegistration: serviceWorkerRegistration || undefined,
@@ -527,57 +495,27 @@ export default function AdminSettingsPage() {
         throw new Error('Failed to get FCM token. Make sure notifications are allowed.')
       }
 
-      // Register token with server
       const device = navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop'
-      const response = await fetch('/api/fcm/register', {
+      await fetchClient<any>('/api/fcm/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token,
-          device,
-          userAgent: navigator.userAgent,
-        }),
+        body: JSON.stringify({ token, device, userAgent: navigator.userAgent }),
       })
 
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Token Registered',
-          description: 'FCM token has been registered successfully!',
-        })
-        // Refresh status
-        setTimeout(() => {
-          checkNotificationStatus()
-        }, 1000)
-      } else {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to register token')
-      }
+      showToast({ type: 'success', title: 'Token Registered', description: 'FCM token has been registered successfully!' })
+      setTimeout(() => { checkNotificationStatus() }, 1000)
     } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Registration Failed',
-        description: error.message || 'Failed to register FCM token',
-      })
+      showToast({ type: 'error', title: 'Registration Failed', description: error.message || 'Failed to register FCM token' })
     }
   }
 
-  const handleTestBrowserNotification = async () => {
+  const handleTestBrowserNotification = () => {
     if (!('Notification' in window)) {
-      showToast({
-        type: 'error',
-        title: 'Not Supported',
-        description: 'Your browser does not support notifications',
-      })
+      showToast({ type: 'error', title: 'Not Supported', description: 'Your browser does not support notifications' })
       return
     }
 
     if (Notification.permission !== 'granted') {
-      showToast({
-        type: 'error',
-        title: 'Permission Required',
-        description: 'Please grant notification permission first',
-      })
+      showToast({ type: 'error', title: 'Permission Required', description: 'Please grant notification permission first' })
       return
     }
 
@@ -587,17 +525,9 @@ export default function AdminSettingsPage() {
         icon: '/favicon.ico',
         badge: '/favicon.ico',
       })
-      showToast({
-        type: 'success',
-        title: 'Browser Notification Test',
-        description: 'A notification should have appeared. If not, check Windows Focus Assist or browser settings.',
-      })
+      showToast({ type: 'success', title: 'Browser Notification Test', description: 'A notification should have appeared. If not, check Windows Focus Assist or browser settings.' })
     } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Test Failed',
-        description: error.message || 'Failed to show browser notification',
-      })
+      showToast({ type: 'error', title: 'Test Failed', description: error.message || 'Failed to show browser notification' })
     }
   }
 
@@ -617,18 +547,11 @@ export default function AdminSettingsPage() {
       }
 
       const state = fcmWorker.active?.state || fcmWorker.installing?.state || 'unknown'
-      return {
-        registered: true,
-        state,
-        scope: fcmWorker.scope,
-      }
+      return { registered: true, state, scope: fcmWorker.scope }
     } catch (error: any) {
       return { registered: false, error: error.message }
     }
   }
-
-  const [serviceWorkerStatus, setServiceWorkerStatus] = useState<any>(null)
-  const [diagnostics, setDiagnostics] = useState<any>(null)
 
   const runDiagnostics = async () => {
     const diag: any = {
@@ -640,7 +563,6 @@ export default function AdminSettingsPage() {
       focusAssist: 'Windows Focus Assist cannot be detected programmatically. Check manually: Press Windows Key + A',
     }
 
-    // Check service worker
     if ('serviceWorker' in navigator) {
       try {
         const registrations = await navigator.serviceWorker.getRegistrations()
@@ -648,7 +570,7 @@ export default function AdminSettingsPage() {
           scope: reg.scope,
           state: reg.active?.state || reg.installing?.state || 'unknown',
         }))
-        
+
         const fcmWorker = registrations.find(
           (reg) => reg.scope.includes('firebase-cloud-messaging-push-scope')
         )
@@ -662,19 +584,14 @@ export default function AdminSettingsPage() {
       }
     }
 
-    // Check if tab is active
     diag.tabActive = !document.hidden
     diag.tabVisibility = document.visibilityState
 
-    // Check FCM token
     try {
-      const tokenResponse = await fetch('/api/fcm/check-token')
-      if (tokenResponse.ok) {
-        const tokenData = await tokenResponse.json()
-        diag.hasToken = tokenData.hasToken
-        diag.tokenCount = tokenData.count || 0
-      }
-    } catch (error) {
+      const tokenData = await fetchClient<{ hasToken: boolean; count?: number }>('/api/fcm/check-token')
+      diag.hasToken = tokenData.hasToken
+      diag.tokenCount = tokenData.count || 0
+    } catch {
       diag.tokenCheckError = 'Could not check token status'
     }
 
@@ -682,120 +599,21 @@ export default function AdminSettingsPage() {
     return diag
   }
 
-  const handleTestPushNotification = async () => {
-    setIsTestingPush(true)
-    setPushTestResult(null)
-
-    try {
-      // Run diagnostics first
-      const diag = await runDiagnostics()
-      setDiagnostics(diag)
-
-      // Check service worker status
-      const swStatus = await checkServiceWorkerStatus()
-      setServiceWorkerStatus(swStatus)
-      
-      if (!swStatus.registered) {
-        showToast({
-          type: 'warning',
-          title: 'Service Worker Issue',
-          description: `Service worker not registered: ${swStatus.error}. Notifications may not work.`,
-        })
-      }
-
-      // Warn if tab is active
-      if (!document.hidden) {
-        showToast({
-          type: 'info',
-          title: 'Tab is Active',
-          description: 'Notifications work best when the tab is closed. Try closing this tab and sending again.',
-        })
-      }
-
-      // Get current user ID
-      const userResponse = await fetch('/api/auth/me')
-      if (!userResponse.ok) {
-        throw new Error('Failed to get user ID')
-      }
-      const userData = await userResponse.json()
-      const userId = userData.user?.id
-
-      if (!userId) {
-        throw new Error('User not found')
-      }
-
-      // Send test notification
-      const response = await fetch('/api/fcm/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userIds: [userId],
-          title: testNotificationTitle,
-          body: testNotificationBody,
-          data: {
-            type: 'TEST',
-            url: '/admin/settings',
-          },
-        }),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setPushTestResult({
-          success: true,
-          message: `✅ Notification sent! (${data.sent || 0} sent, ${data.failed || 0} failed)`,
-        })
-        showToast({
-          type: 'success',
-          title: 'Test Notification Sent',
-          description: 'Check your browser for the push notification! If you don\'t see it, try closing this tab and sending again.',
-        })
-      } else {
-        const errorMessage = data.message || data.error || 'Failed to send notification'
-        const isVAPIDError = errorMessage.includes('VAPID keys not configured') || 
-                             (data.errors && Array.isArray(data.errors) && data.errors.some((err: string) => err.includes('VAPID keys not configured')))
-        
-        setPushTestResult({
-          success: false,
-          error: errorMessage,
-          isServiceAccountError: isVAPIDError, // Reuse this field for VAPID error
-        })
-        
-        if (isVAPIDError) {
-          showToast({
-            type: 'error',
-            title: 'VAPID Keys Not Configured',
-            description: 'Please add your VAPID keys in the settings above, then save and try again.',
-          })
-        } else {
-          showToast({
-            type: 'error',
-            title: 'Test Failed',
-            description: errorMessage,
-          })
-        }
-      }
-    } catch (error: any) {
-      setPushTestResult({
-        success: false,
-        error: error.message || 'Failed to send test notification',
-      })
-      showToast({
-        type: 'error',
-        title: 'Test Failed',
-        description: error.message || 'Could not send test notification',
-      })
-    } finally {
-      setIsTestingPush(false)
-    }
-  }
-
   if (isFetching) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (settingsError) {
+    return (
+      <ErrorDisplay
+        title="Failed to load settings"
+        message={(settingsError as Error).message || 'Could not load settings.'}
+        onRetry={() => refetchSettings()}
+      />
     )
   }
 
@@ -862,9 +680,9 @@ export default function AdminSettingsPage() {
                 <Button
                   variant="secondary"
                   onClick={handleTestDeepSeek}
-                  isLoading={isTesting}
+                  isLoading={testDeepSeekMutation.isPending}
                 >
-                  {isTesting ? 'Testing...' : 'Test Connection'}
+                  {testDeepSeekMutation.isPending ? 'Testing...' : 'Test Connection'}
                 </Button>
               </div>
               {testResult && (
@@ -969,9 +787,9 @@ export default function AdminSettingsPage() {
                 <Button
                   variant="secondary"
                   onClick={handleTestResend}
-                  isLoading={isTestingResend}
+                  isLoading={testResendMutation.isPending}
                 >
-                  {isTestingResend ? 'Testing...' : 'Test Connection'}
+                  {testResendMutation.isPending ? 'Testing...' : 'Test Connection'}
                 </Button>
               </div>
               {testResendResult && (
@@ -1006,7 +824,7 @@ export default function AdminSettingsPage() {
             <div className="space-y-4">
               <div className="p-4 bg-text-muted/10 border border-text-muted/30 rounded-lg">
                 <p className="text-sm text-text-secondary mb-2">
-                  <strong>Note:</strong> This is for <strong>API integration</strong> to display Google Analytics data in your admin dashboard. 
+                  <strong>Note:</strong> This is for <strong>API integration</strong> to display Google Analytics data in your admin dashboard.
                   If you just want to track visitors, you can skip this and add the tracking code to your website HTML separately.
                 </p>
                 <p className="text-xs text-text-muted mt-1">
@@ -1028,7 +846,7 @@ export default function AdminSettingsPage() {
                   <Button
                     variant="secondary"
                     onClick={handleTestGoogleAnalytics}
-                    isLoading={isTestingGoogle}
+                    isLoading={testGoogleAnalyticsMutation.isPending}
                     disabled={!googleAnalyticsPropertyId || !googleAnalyticsKey}
                   >
                     Test Connection
@@ -1037,8 +855,8 @@ export default function AdminSettingsPage() {
                 <p className="text-xs text-text-secondary mt-1">GA4 Property ID (found in Admin → Property Settings)</p>
                 {testGoogleResult && (
                   <div className={`mt-2 p-2 rounded text-xs ${
-                    testGoogleResult.success 
-                      ? 'bg-cyber-green/20 text-cyber-green border border-cyber-green/30' 
+                    testGoogleResult.success
+                      ? 'bg-cyber-green/20 text-cyber-green border border-cyber-green/30'
                       : 'bg-red-500/20 text-red-400 border border-red-500/30'
                   }`}>
                     {testGoogleResult.success ? testGoogleResult.message : testGoogleResult.error}
@@ -1053,7 +871,7 @@ export default function AdminSettingsPage() {
                   value={googleAnalyticsKey}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                     setGoogleAnalyticsKey(e.target.value)
-                    setTestGoogleResult(null) // Clear test result when editing
+                    setTestGoogleResult(null)
                   }}
                   placeholder='{"type": "service_account", "project_id": "...", ...}'
                   rows={4}
@@ -1110,7 +928,7 @@ export default function AdminSettingsPage() {
                       value={stripeSecretKey}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                         setStripeSecretKey(e.target.value)
-                        setTestStripeResult(null) // Clear test result when editing
+                        setTestStripeResult(null)
                       }}
                       placeholder="sk_test_..."
                       className="w-full px-4 py-2 bg-bg-tertiary border border-bg-tertiary rounded-lg text-white placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent"
@@ -1120,7 +938,7 @@ export default function AdminSettingsPage() {
                   <Button
                     variant="secondary"
                     onClick={handleTestStripe}
-                    isLoading={isTestingStripe}
+                    isLoading={testStripeMutation.isPending}
                     disabled={!stripeSecretKey || !stripePublishableKey}
                   >
                     Test Connection
@@ -1128,8 +946,8 @@ export default function AdminSettingsPage() {
                 </div>
                 {testStripeResult && (
                   <div className={`mt-2 p-2 rounded text-xs ${
-                    testStripeResult.success 
-                      ? 'bg-cyber-green/20 text-cyber-green border border-cyber-green/30' 
+                    testStripeResult.success
+                      ? 'bg-cyber-green/20 text-cyber-green border border-cyber-green/30'
                       : 'bg-red-500/20 text-red-400 border border-red-500/30'
                   }`}>
                     {testStripeResult.success ? testStripeResult.message : testStripeResult.error}
@@ -1171,7 +989,7 @@ export default function AdminSettingsPage() {
                   Users will be asked to allow notifications. When it's their turn in a debate, they'll receive a push notification.
                 </p>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
@@ -1379,7 +1197,7 @@ export default function AdminSettingsPage() {
               {/* Test Push Notifications */}
               <div className="mt-6 pt-6 border-t border-bg-tertiary">
                 <h4 className="text-md font-semibold text-white mb-4">Test Push Notifications</h4>
-                
+
                 {/* Status */}
                 <div className="mb-4 p-3 bg-bg-tertiary rounded-lg">
                   <div className="flex items-center justify-between mb-2">
@@ -1493,7 +1311,7 @@ export default function AdminSettingsPage() {
                       <Button
                         variant="primary"
                         onClick={handleTestPushNotification}
-                        isLoading={isTestingPush}
+                        isLoading={testPushMutation.isPending}
                       >
                         Send Web Push Test Notification
                       </Button>
@@ -1501,18 +1319,15 @@ export default function AdminSettingsPage() {
                         variant="secondary"
                         onClick={async () => {
                           try {
-                            const response = await fetch('/api/fcm/register', {
+                            await fetchClient<any>('/api/fcm/register', {
                               method: 'DELETE',
-                              headers: { 'Content-Type': 'application/json' },
                             })
-                            if (response.ok) {
-                              showToast({
-                                type: 'success',
-                                title: 'Old Tokens Cleared',
-                                description: 'Please refresh the page to register a new Web Push subscription.',
-                              })
-                              setTimeout(() => window.location.reload(), 2000)
-                            }
+                            showToast({
+                              type: 'success',
+                              title: 'Old Tokens Cleared',
+                              description: 'Please refresh the page to register a new Web Push subscription.',
+                            })
+                            setTimeout(() => window.location.reload(), 2000)
                           } catch (error: any) {
                             showToast({
                               type: 'error',
@@ -1620,8 +1435,8 @@ export default function AdminSettingsPage() {
                             <div className="flex justify-between">
                               <span className="text-text-secondary">FCM Service Worker:</span>
                               <span className={diagnostics.fcmWorker.registered ? 'text-green-400' : 'text-red-400'}>
-                                {diagnostics.fcmWorker.registered 
-                                  ? `✅ Registered (${diagnostics.fcmWorker.state})` 
+                                {diagnostics.fcmWorker.registered
+                                  ? `✅ Registered (${diagnostics.fcmWorker.state})`
                                   : '❌ Not Registered'}
                               </span>
                             </div>
@@ -1666,7 +1481,7 @@ export default function AdminSettingsPage() {
               <Button
                 variant="primary"
                 onClick={handleSave}
-                isLoading={isLoading}
+                isLoading={saveSettingsMutation.isPending}
               >
                 Save Settings
               </Button>
@@ -1778,49 +1593,10 @@ export default function AdminSettingsPage() {
                     type="checkbox"
                     className="sr-only peer"
                     checked={creatorMarketplaceEnabled}
-                    onChange={async (e) => {
+                    onChange={(e) => {
                       const newValue = e.target.checked
-                      console.log('[Settings] Toggling Creator Marketplace to:', newValue)
                       setCreatorMarketplaceEnabled(newValue)
-                      // Auto-save immediately when toggled
-                      try {
-                        const response = await fetch('/api/admin/settings', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            ADS_CREATOR_MARKETPLACE_ENABLED: newValue.toString(),
-                          }),
-                        })
-                        const result = await response.json()
-                        console.log('[Settings] Save response:', response.status, result)
-                        
-                        if (response.ok) {
-                          // Refresh settings to ensure we have the latest value
-                          await fetchSettings()
-                          showToast({
-                            type: 'success',
-                            title: 'Setting Saved',
-                            description: `Creator Marketplace ${newValue ? 'enabled' : 'disabled'}`,
-                          })
-                        } else {
-                          // Revert on error
-                          setCreatorMarketplaceEnabled(!newValue)
-                          showToast({
-                            type: 'error',
-                            title: 'Error',
-                            description: result.error || 'Failed to save setting',
-                          })
-                        }
-                      } catch (error: any) {
-                        console.error('[Settings] Error saving toggle:', error)
-                        // Revert on error
-                        setCreatorMarketplaceEnabled(!newValue)
-                        showToast({
-                          type: 'error',
-                          title: 'Error',
-                          description: 'Failed to save setting',
-                        })
-                      }
+                      toggleMarketplaceMutation.mutate(newValue)
                     }}
                   />
                   <div className={`w-11 h-6 rounded-full transition-colors ${
@@ -1939,4 +1715,3 @@ export default function AdminSettingsPage() {
     </div>
   )
 }
-

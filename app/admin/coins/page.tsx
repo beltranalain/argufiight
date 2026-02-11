@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -49,23 +52,21 @@ interface CoinStats {
   todayPurchases: number
 }
 
+interface CoinUser {
+  id: string
+  username: string
+  email: string
+  avatarUrl: string | null
+  coins: number
+  totalPurchased: number
+  purchaseCount: number
+  lastPurchase: string | null
+}
+
 export default function CoinsAdminPage() {
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'packages' | 'transactions' | 'users' | 'stats'>('packages')
-  const [packages, setPackages] = useState<CoinPackage[]>([])
-  const [transactions, setTransactions] = useState<CoinTransaction[]>([])
-  const [users, setUsers] = useState<Array<{
-    id: string
-    username: string
-    email: string
-    avatarUrl: string | null
-    coins: number
-    totalPurchased: number
-    purchaseCount: number
-    lastPurchase: string | null
-  }>>([])
-  const [stats, setStats] = useState<CoinStats | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
   const [editingPackage, setEditingPackage] = useState<string | null>(null)
   const [packageEditData, setPackageEditData] = useState<Partial<CoinPackage>>({})
   const [filters, setFilters] = useState({
@@ -76,86 +77,121 @@ export default function CoinsAdminPage() {
     dateTo: '',
   })
 
-  useEffect(() => {
-    fetchData()
-  }, [activeTab, filters])
+  // Fetch packages
+  const {
+    data: packages = [],
+    isLoading: isLoadingPackages,
+    isError: isPackagesError,
+    refetch: refetchPackages,
+  } = useQuery<CoinPackage[]>({
+    queryKey: ['admin-coin-packages'],
+    queryFn: async () => {
+      const data = await fetchClient<{ packages: CoinPackage[] }>('/api/admin/coins/packages')
+      return data.packages || []
+    },
+    enabled: activeTab === 'packages',
+    staleTime: 60_000,
+  })
 
-  const fetchData = async () => {
-    try {
-      setIsLoading(true)
-      
-      if (activeTab === 'packages') {
-        const res = await fetch('/api/admin/coins/packages')
-        if (res.ok) {
-          const data = await res.json()
-          setPackages(data.packages || [])
-        }
-      } else if (activeTab === 'transactions') {
-        const params = new URLSearchParams()
-        if (filters.type) params.append('type', filters.type)
-        if (filters.status) params.append('status', filters.status)
-        if (filters.userId) params.append('userId', filters.userId)
-        if (filters.dateFrom) params.append('dateFrom', filters.dateFrom)
-        if (filters.dateTo) params.append('dateTo', filters.dateTo)
-        
-        const res = await fetch(`/api/admin/coins/transactions?${params.toString()}`)
-        if (res.ok) {
-          const data = await res.json()
-          setTransactions(data.transactions || [])
-        }
-      } else if (activeTab === 'users') {
-        const res = await fetch('/api/admin/coins/users')
-        if (res.ok) {
-          const data = await res.json()
-          setUsers(data.users || [])
-        }
-      } else if (activeTab === 'stats') {
-        const res = await fetch('/api/admin/coins/stats')
-        if (res.ok) {
-          const data = await res.json()
-          setStats(data)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to load data',
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  // Fetch transactions
+  const {
+    data: transactions = [],
+    isLoading: isLoadingTransactions,
+    isError: isTransactionsError,
+    refetch: refetchTransactions,
+  } = useQuery<CoinTransaction[]>({
+    queryKey: ['admin-coin-transactions', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      if (filters.type) params.append('type', filters.type)
+      if (filters.status) params.append('status', filters.status)
+      if (filters.userId) params.append('userId', filters.userId)
+      if (filters.dateFrom) params.append('dateFrom', filters.dateFrom)
+      if (filters.dateTo) params.append('dateTo', filters.dateTo)
+      const data = await fetchClient<{ transactions: CoinTransaction[] }>(
+        `/api/admin/coins/transactions?${params.toString()}`
+      )
+      return data.transactions || []
+    },
+    enabled: activeTab === 'transactions',
+    staleTime: 60_000,
+  })
 
-  const handleSavePackage = async (packageId: string) => {
-    try {
-      const response = await fetch(`/api/admin/coins/packages/${packageId}`, {
+  // Fetch users
+  const {
+    data: users = [],
+    isLoading: isLoadingUsers,
+    isError: isUsersError,
+    refetch: refetchUsers,
+  } = useQuery<CoinUser[]>({
+    queryKey: ['admin-coin-users'],
+    queryFn: async () => {
+      const data = await fetchClient<{ users: CoinUser[] }>('/api/admin/coins/users')
+      return data.users || []
+    },
+    enabled: activeTab === 'users',
+    staleTime: 60_000,
+  })
+
+  // Fetch stats
+  const {
+    data: stats = null,
+    isLoading: isLoadingStats,
+    isError: isStatsError,
+    refetch: refetchStats,
+  } = useQuery<CoinStats | null>({
+    queryKey: ['admin-coin-stats'],
+    queryFn: async () => {
+      const data = await fetchClient<CoinStats>('/api/admin/coins/stats')
+      return data
+    },
+    enabled: activeTab === 'stats',
+    staleTime: 60_000,
+  })
+
+  // Save package mutation
+  const savePackageMutation = useMutation({
+    mutationFn: ({ packageId, body }: { packageId: string; body: Partial<CoinPackage> }) =>
+      fetchClient(`/api/admin/coins/packages/${packageId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(packageEditData),
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: 'Package updated successfully',
       })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Package updated successfully',
-        })
-        setEditingPackage(null)
-        setPackageEditData({})
-        fetchData()
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to update package')
-      }
-    } catch (error: any) {
+      setEditingPackage(null)
+      setPackageEditData({})
+      queryClient.invalidateQueries({ queryKey: ['admin-coin-packages'] })
+    },
+    onError: (error: any) => {
       showToast({
         type: 'error',
         title: 'Error',
         description: error.message || 'Failed to update package',
       })
-    }
+    },
+  })
+
+  const isLoading =
+    (activeTab === 'packages' && isLoadingPackages) ||
+    (activeTab === 'transactions' && isLoadingTransactions) ||
+    (activeTab === 'users' && isLoadingUsers) ||
+    (activeTab === 'stats' && isLoadingStats)
+
+  const isError =
+    (activeTab === 'packages' && isPackagesError) ||
+    (activeTab === 'transactions' && isTransactionsError) ||
+    (activeTab === 'users' && isUsersError) ||
+    (activeTab === 'stats' && isStatsError)
+
+  const handleRetry = () => {
+    if (activeTab === 'packages') refetchPackages()
+    else if (activeTab === 'transactions') refetchTransactions()
+    else if (activeTab === 'users') refetchUsers()
+    else if (activeTab === 'stats') refetchStats()
   }
 
   const startEditing = (pkg: CoinPackage) => {
@@ -188,6 +224,16 @@ export default function CoinsAdminPage() {
       default:
         return 'bg-gray-500 text-white'
     }
+  }
+
+  if (isError) {
+    return (
+      <ErrorDisplay
+        title="Failed to load data"
+        message="Something went wrong while loading coin data. Please try again."
+        onRetry={handleRetry}
+      />
+    )
   }
 
   return (
@@ -288,8 +334,9 @@ export default function CoinsAdminPage() {
                         </div>
                         <div className="flex gap-2">
                           <Button
-                            onClick={() => handleSavePackage(pkg.id)}
+                            onClick={() => savePackageMutation.mutate({ packageId: pkg.id, body: packageEditData })}
                             className="bg-electric-blue hover:bg-[#00B8E6] text-black"
+                            isLoading={savePackageMutation.isPending}
                           >
                             Save
                           </Button>
@@ -570,50 +617,58 @@ export default function CoinsAdminPage() {
       )}
 
       {/* Stats Tab */}
-      {activeTab === 'stats' && stats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader>
-              <h3 className="text-lg font-bold text-white">Total Revenue</h3>
-            </CardHeader>
-            <CardBody>
-              <div className="text-3xl font-bold text-electric-blue">
-                ${stats.totalRevenue.toFixed(2)}
-              </div>
-              <div className="text-sm text-text-secondary mt-2">
-                Today: ${stats.todayRevenue.toFixed(2)}
-              </div>
-            </CardBody>
-          </Card>
+      {activeTab === 'stats' && (
+        isLoading ? (
+          <div className="flex justify-center py-8">
+            <LoadingSpinner size="lg" />
+          </div>
+        ) : stats ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-bold text-white">Total Revenue</h3>
+              </CardHeader>
+              <CardBody>
+                <div className="text-3xl font-bold text-electric-blue">
+                  ${stats.totalRevenue.toFixed(2)}
+                </div>
+                <div className="text-sm text-text-secondary mt-2">
+                  Today: ${stats.todayRevenue.toFixed(2)}
+                </div>
+              </CardBody>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <h3 className="text-lg font-bold text-white">Total Coins Sold</h3>
-            </CardHeader>
-            <CardBody>
-              <div className="text-3xl font-bold text-electric-blue">
-                {stats.totalCoinsSold.toLocaleString()}
-              </div>
-              <div className="text-sm text-text-secondary mt-2">
-                {stats.totalPurchases} purchases
-              </div>
-            </CardBody>
-          </Card>
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-bold text-white">Total Coins Sold</h3>
+              </CardHeader>
+              <CardBody>
+                <div className="text-3xl font-bold text-electric-blue">
+                  {stats.totalCoinsSold.toLocaleString()}
+                </div>
+                <div className="text-sm text-text-secondary mt-2">
+                  {stats.totalPurchases} purchases
+                </div>
+              </CardBody>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <h3 className="text-lg font-bold text-white">Average Purchase</h3>
-            </CardHeader>
-            <CardBody>
-              <div className="text-3xl font-bold text-electric-blue">
-                ${stats.averagePurchaseAmount.toFixed(2)}
-              </div>
-              <div className="text-sm text-text-secondary mt-2">
-                Most popular: {stats.mostPopularPackage}
-              </div>
-            </CardBody>
-          </Card>
-        </div>
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-bold text-white">Average Purchase</h3>
+              </CardHeader>
+              <CardBody>
+                <div className="text-3xl font-bold text-electric-blue">
+                  ${stats.averagePurchaseAmount.toFixed(2)}
+                </div>
+                <div className="text-sm text-text-secondary mt-2">
+                  Most popular: {stats.mostPopularPackage}
+                </div>
+              </CardBody>
+            </Card>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-text-secondary">No stats available</div>
+        )
       )}
     </div>
   )

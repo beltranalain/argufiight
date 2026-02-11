@@ -1,7 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -26,14 +29,10 @@ interface Advertiser {
 
 export default function AdvertiserSettingsPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false)
-  const [twoFactorLoading, setTwoFactorLoading] = useState(false)
   const [show2FADisable, setShow2FADisable] = useState(false)
   const [disablePassword, setDisablePassword] = useState('')
-  const [advertiser, setAdvertiser] = useState<Advertiser | null>(null)
   const [formData, setFormData] = useState({
     companyName: '',
     contactName: '',
@@ -41,162 +40,108 @@ export default function AdvertiserSettingsPage() {
     industry: '',
     businessEIN: '',
   })
-
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const fetchData = async () => {
-    try {
-      setIsLoading(true)
-      const [advertiserRes, twoFARes] = await Promise.all([
-        fetch('/api/advertiser/settings'),
-        fetch('/api/auth/2fa/status'),
-      ])
-
-      if (advertiserRes.ok) {
-        const data = await advertiserRes.json()
-        setAdvertiser(data.advertiser)
-        setFormData({
-          companyName: data.advertiser.companyName || '',
-          contactName: data.advertiser.contactName || '',
-          website: data.advertiser.website || '',
-          industry: data.advertiser.industry || '',
-          businessEIN: data.advertiser.businessEIN || '',
-        })
-      } else if (advertiserRes.status === 401) {
-        router.push('/login?userType=advertiser')
-        return
-      }
-
-      if (twoFARes.ok) {
-        const twoFAData = await twoFARes.json()
-        setTwoFactorEnabled(twoFAData.enabled || false)
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleSave = async () => {
-    setIsSaving(true)
-    try {
-      const response = await fetch('/api/advertiser/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to update settings')
-      }
-
-      showToast({
-        type: 'success',
-        title: 'Settings Updated',
-        description: 'Your business information has been updated.',
-      })
-
-      fetchData()
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Update Failed',
-        description: error.message || 'Failed to update settings',
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleDisable2FA = async () => {
-    if (!disablePassword) {
-      showToast({
-        type: 'error',
-        title: 'Password Required',
-        description: 'Please enter your password to disable 2FA',
-      })
-      return
-    }
-
-    setTwoFactorLoading(true)
-    try {
-      const response = await fetch('/api/auth/2fa/disable', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: disablePassword }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to disable 2FA')
-      }
-
-      showToast({
-        type: 'success',
-        title: '2FA Disabled',
-        description: 'Two-factor authentication has been disabled.',
-      })
-
-      setTwoFactorEnabled(false)
-      setShow2FADisable(false)
-      setDisablePassword('')
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Disable Failed',
-        description: error.message || 'Failed to disable 2FA',
-      })
-    } finally {
-      setTwoFactorLoading(false)
-    }
-  }
-
   const [showFinancialConnections, setShowFinancialConnections] = useState(false)
   const [showStripeConnect, setShowStripeConnect] = useState(false)
 
-  const handleConnectStripe = async () => {
-    // Open Stripe Connect embedded modal for full onboarding
+  // --- Queries ---
+
+  const settingsQuery = useQuery({
+    queryKey: ['advertiser', 'settings'],
+    queryFn: async () => {
+      const res = await fetch('/api/advertiser/settings')
+      if (res.status === 401) {
+        router.push('/login?userType=advertiser')
+        return null
+      }
+      if (!res.ok) throw new Error('Failed to load settings')
+      const data = await res.json()
+      return data.advertiser as Advertiser
+    },
+  })
+
+  const twoFAQuery = useQuery({
+    queryKey: ['auth', '2fa', 'status'],
+    queryFn: () => fetchClient<{ enabled: boolean }>('/api/auth/2fa/status'),
+  })
+
+  // Initialize form when data loads
+  const advertiser = settingsQuery.data ?? null
+  if (advertiser && formData.companyName === '' && advertiser.companyName) {
+    setFormData({
+      companyName: advertiser.companyName || '',
+      contactName: advertiser.contactName || '',
+      website: advertiser.website || '',
+      industry: advertiser.industry || '',
+      businessEIN: advertiser.businessEIN || '',
+    })
+  }
+
+  const twoFactorEnabled = twoFAQuery.data?.enabled ?? false
+
+  // --- Mutations ---
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      fetchClient('/api/advertiser/settings', {
+        method: 'PUT',
+        body: JSON.stringify(formData),
+      }),
+    onSuccess: () => {
+      showToast({ type: 'success', title: 'Settings Updated', description: 'Your business information has been updated.' })
+      queryClient.invalidateQueries({ queryKey: ['advertiser', 'settings'] })
+    },
+    onError: (error: Error) => {
+      showToast({ type: 'error', title: 'Update Failed', description: error.message || 'Failed to update settings' })
+    },
+  })
+
+  const disable2FAMutation = useMutation({
+    mutationFn: () =>
+      fetchClient('/api/auth/2fa/disable', {
+        method: 'POST',
+        body: JSON.stringify({ password: disablePassword }),
+      }),
+    onSuccess: () => {
+      showToast({ type: 'success', title: '2FA Disabled', description: 'Two-factor authentication has been disabled.' })
+      queryClient.invalidateQueries({ queryKey: ['auth', '2fa', 'status'] })
+      setShow2FADisable(false)
+      setDisablePassword('')
+    },
+    onError: (error: Error) => {
+      showToast({ type: 'error', title: 'Disable Failed', description: error.message || 'Failed to disable 2FA' })
+    },
+  })
+
+  // --- Handlers ---
+
+  const handleConnectStripe = () => {
     setShowStripeConnect(true)
   }
 
   const handleStripeConnectSuccess = async () => {
-    // Verify Stripe account status after onboarding
     try {
-      console.log('[Settings] Verifying Stripe account after onboarding...')
-      const verifyResponse = await fetch('/api/advertiser/stripe-verify', {
+      const verifyData = await fetchClient<{ paymentReady: boolean; message?: string }>('/api/advertiser/stripe-verify', {
         method: 'POST',
       })
 
-      if (verifyResponse.ok) {
-        const verifyData = await verifyResponse.json()
-        console.log('[Settings] Stripe verification result:', verifyData)
-        
-        if (verifyData.paymentReady) {
-          showToast({
-            type: 'success',
-            title: 'Payment Account Connected!',
-            description: 'Your payment account has been successfully connected and verified.',
-          })
-        } else {
-          showToast({
-            type: 'warning',
-            title: 'Setup Incomplete',
-            description: verifyData.message || 'Please complete all required steps in the Stripe form.',
-          })
-        }
+      if (verifyData.paymentReady) {
+        showToast({
+          type: 'success',
+          title: 'Payment Account Connected!',
+          description: 'Your payment account has been successfully connected and verified.',
+        })
       } else {
-        console.error('[Settings] Failed to verify Stripe account')
+        showToast({
+          type: 'warning',
+          title: 'Setup Incomplete',
+          description: verifyData.message || 'Please complete all required steps in the Stripe form.',
+        })
       }
-    } catch (error) {
-      console.error('[Settings] Error verifying Stripe account:', error)
+    } catch {
+      // Verification failed silently
     }
 
-    // Refresh advertiser data
-    await fetchData()
+    queryClient.invalidateQueries({ queryKey: ['advertiser', 'settings'] })
   }
 
   const handleFinancialConnectionsSuccess = async () => {
@@ -205,16 +150,38 @@ export default function AdvertiserSettingsPage() {
       title: 'Bank Account Connected',
       description: 'Your bank account has been successfully connected.',
     })
-    // Refresh advertiser data
-    fetchData()
+    queryClient.invalidateQueries({ queryKey: ['advertiser', 'settings'] })
   }
 
-  if (isLoading) {
+  const handleDisable2FA = () => {
+    if (!disablePassword) {
+      showToast({ type: 'error', title: 'Password Required', description: 'Please enter your password to disable 2FA' })
+      return
+    }
+    disable2FAMutation.mutate()
+  }
+
+  if (settingsQuery.isLoading) {
     return (
       <div className="min-h-screen bg-bg-primary">
         <TopNav currentPanel="ADVERTISER" />
         <div className="flex items-center justify-center min-h-[60vh]">
           <LoadingSpinner size="lg" />
+        </div>
+      </div>
+    )
+  }
+
+  if (settingsQuery.isError) {
+    return (
+      <div className="min-h-screen bg-bg-primary">
+        <TopNav currentPanel="ADVERTISER" />
+        <div className="pt-20 px-4 md:px-8 pb-8">
+          <ErrorDisplay
+            title="Failed to load settings"
+            message="Could not load your account settings. Please try again."
+            onRetry={() => settingsQuery.refetch()}
+          />
         </div>
       </div>
     )
@@ -316,8 +283,8 @@ export default function AdvertiserSettingsPage() {
                 </div>
                 <Button
                   variant="primary"
-                  onClick={handleSave}
-                  isLoading={isSaving}
+                  onClick={() => saveMutation.mutate()}
+                  isLoading={saveMutation.isPending}
                   className="w-full md:w-auto"
                 >
                   Save Changes
@@ -352,7 +319,7 @@ export default function AdvertiserSettingsPage() {
                             rel="noopener noreferrer"
                             className="text-xs text-electric-blue hover:underline mt-1 inline-block"
                           >
-                            View in Stripe Dashboard →
+                            View in Stripe Dashboard
                           </a>
                         </div>
                       )}
@@ -442,7 +409,7 @@ export default function AdvertiserSettingsPage() {
             <Button
               variant="primary"
               onClick={handleDisable2FA}
-              isLoading={twoFactorLoading}
+              isLoading={disable2FAMutation.isPending}
             >
               Disable 2FA
             </Button>
@@ -469,4 +436,3 @@ export default function AdvertiserSettingsPage() {
     </div>
   )
 }
-

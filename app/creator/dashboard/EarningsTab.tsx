@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/Loading'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
 
 interface EarningsData {
   totalEarned: number
@@ -32,36 +33,10 @@ interface EarningsData {
 }
 
 export function EarningsTab() {
-  const [earnings, setEarnings] = useState<EarningsData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetchEarnings()
-  }, [])
-
-  const fetchEarnings = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      const response = await fetch('/api/creator/earnings/detailed')
-      
-      if (response.ok) {
-        const data = await response.json()
-        setEarnings(data)
-      } else if (response.status === 403) {
-        const errorData = await response.json()
-        setError(errorData.error || 'Creator mode not enabled')
-      } else {
-        setError('Failed to load earnings')
-      }
-    } catch (error) {
-      console.error('Failed to fetch earnings:', error)
-      setError('Failed to load earnings')
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const { data: earnings, isLoading, error, refetch } = useQuery<EarningsData>({
+    queryKey: ['creator', 'earnings', 'detailed'],
+    queryFn: () => fetchClient<EarningsData>('/api/creator/earnings/detailed'),
+  })
 
   if (isLoading) {
     return (
@@ -75,12 +50,11 @@ export function EarningsTab() {
     return (
       <Card>
         <CardBody>
-          <div className="text-center py-12">
-            <p className="text-text-secondary mb-4">{error}</p>
-            <Button variant="secondary" onClick={fetchEarnings}>
-              Retry
-            </Button>
-          </div>
+          <ErrorDisplay
+            title="Failed to load earnings"
+            message={error instanceof Error ? error.message : 'Something went wrong. Please try again.'}
+            onRetry={() => refetch()}
+          />
         </CardBody>
       </Card>
     )
@@ -90,12 +64,11 @@ export function EarningsTab() {
     return (
       <Card>
         <CardBody>
-          <div className="text-center py-12">
-            <p className="text-text-secondary mb-4">No earnings data available</p>
-            <Button variant="secondary" onClick={fetchEarnings}>
-              Retry
-            </Button>
-          </div>
+          <ErrorDisplay
+            title="No earnings data"
+            message="No earnings data available."
+            onRetry={() => refetch()}
+          />
         </CardBody>
       </Card>
     )
@@ -212,4 +185,3 @@ export function EarningsTab() {
     </div>
   )
 }
-

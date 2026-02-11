@@ -1,22 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/Loading'
-import { 
-  LineChart, 
-  Line, 
-  BarChart, 
-  Bar, 
-  PieChart, 
-  Pie, 
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
   Cell,
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer 
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
 } from 'recharts'
 
 interface AnalyticsData {
@@ -40,34 +43,28 @@ interface AnalyticsData {
 const COLORS = ['#00D9FF', '#FF6B35', '#FF006E', '#00FF94', '#9D4EDD', '#F72585']
 
 export default function AnalyticsPage() {
-  const [data, setData] = useState<AnalyticsData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d')
 
-  useEffect(() => {
-    fetchAnalytics()
-  }, [timeRange])
-
-  const fetchAnalytics = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch(`/api/admin/analytics?range=${timeRange}`)
-      if (response.ok) {
-        const analyticsData = await response.json()
-        setData(analyticsData)
-      }
-    } catch (error) {
-      console.error('Failed to fetch analytics:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const { data, isLoading, error, refetch } = useQuery<AnalyticsData>({
+    queryKey: ['admin', 'analytics', timeRange],
+    queryFn: () => fetchClient<AnalyticsData>(`/api/admin/analytics?range=${timeRange}`),
+  })
 
   if (isLoading || !data) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorDisplay
+        title="Failed to load analytics"
+        message={error instanceof Error ? error.message : 'Something went wrong. Please try again.'}
+        onRetry={() => refetch()}
+      />
     )
   }
 
@@ -157,19 +154,19 @@ export default function AnalyticsPage() {
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={data.trafficOverTime}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-              <XAxis 
-                dataKey="date" 
+              <XAxis
+                dataKey="date"
                 stroke="#666"
                 tick={{ fill: '#a0a0a0' }}
               />
-              <YAxis 
+              <YAxis
                 stroke="#666"
                 tick={{ fill: '#a0a0a0' }}
                 tickFormatter={(value) => value.toLocaleString()}
               />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1a1a1a', 
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1a1a1a',
                   border: '1px solid #333',
                   borderRadius: '8px'
                 }}
@@ -177,24 +174,24 @@ export default function AnalyticsPage() {
                 formatter={(value: any) => typeof value === 'number' ? value.toLocaleString() : value}
               />
               <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="sessions" 
-                stroke="#00D9FF" 
+              <Line
+                type="monotone"
+                dataKey="sessions"
+                stroke="#00D9FF"
                 strokeWidth={2}
                 name="Sessions"
               />
-              <Line 
-                type="monotone" 
-                dataKey="users" 
-                stroke="#FF6B35" 
+              <Line
+                type="monotone"
+                dataKey="users"
+                stroke="#FF6B35"
                 strokeWidth={2}
                 name="Users"
               />
-              <Line 
-                type="monotone" 
-                dataKey="pageViews" 
-                stroke="#00FF94" 
+              <Line
+                type="monotone"
+                dataKey="pageViews"
+                stroke="#00FF94"
                 strokeWidth={2}
                 name="Page Views"
               />
@@ -227,9 +224,9 @@ export default function AnalyticsPage() {
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1a1a1a', 
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1a1a1a',
                     border: '1px solid #333',
                     borderRadius: '8px'
                   }}
@@ -251,19 +248,19 @@ export default function AnalyticsPage() {
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={data.deviceBreakdown}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-                  <XAxis 
-                    dataKey="device" 
+                  <XAxis
+                    dataKey="device"
                     stroke="#666"
                     tick={{ fill: '#a0a0a0' }}
                   />
-                  <YAxis 
+                  <YAxis
                     stroke="#666"
                     tick={{ fill: '#a0a0a0' }}
                     tickFormatter={(value) => value.toLocaleString()}
                   />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1a1a1a', 
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1a1a1a',
                       border: '1px solid #333',
                       borderRadius: '8px'
                     }}
@@ -347,19 +344,19 @@ export default function AnalyticsPage() {
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data.hourlyTraffic}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-              <XAxis 
-                dataKey="hour" 
+              <XAxis
+                dataKey="hour"
                 stroke="#666"
                 tick={{ fill: '#a0a0a0' }}
               />
-              <YAxis 
+              <YAxis
                 stroke="#666"
                 tick={{ fill: '#a0a0a0' }}
                 tickFormatter={(value) => value.toLocaleString()}
               />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1a1a1a', 
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#1a1a1a',
                   border: '1px solid #333',
                   borderRadius: '8px'
                 }}
@@ -373,4 +370,3 @@ export default function AnalyticsPage() {
     </div>
   )
 }
-

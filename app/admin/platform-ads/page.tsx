@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -22,66 +25,63 @@ interface Campaign {
   }
 }
 
+interface CampaignsResponse {
+  campaigns: Campaign[]
+}
+
+interface SettingsResponse {
+  ADS_PLATFORM_ENABLED?: string
+  [key: string]: string | undefined
+}
+
 export default function PlatformAdsPage() {
   const { showToast } = useToast()
-  const [campaigns, setCampaigns] = useState<Campaign[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [platformAdsEnabled, setPlatformAdsEnabled] = useState(false)
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  const { isLoading: isLoadingCampaigns, error: campaignsError, data: campaignsData } = useQuery({
+    queryKey: ['admin', 'campaigns', 'PLATFORM_ADS'],
+    queryFn: () => fetchClient<CampaignsResponse>('/api/admin/campaigns?type=PLATFORM_ADS'),
+  })
 
-  const fetchData = async () => {
-    try {
-      setIsLoading(true)
-      const [campaignsRes, settingsRes] = await Promise.all([
-        fetch('/api/admin/campaigns?type=PLATFORM_ADS'),
-        fetch('/api/admin/settings'),
-      ])
+  const { isLoading: isLoadingSettings, error: settingsError } = useQuery({
+    queryKey: ['admin', 'settings'],
+    queryFn: () => fetchClient<SettingsResponse>('/api/admin/settings'),
+    select: (data) => {
+      setPlatformAdsEnabled(data.ADS_PLATFORM_ENABLED === 'true')
+      return data
+    },
+  })
 
-      if (campaignsRes.ok) {
-        const data = await campaignsRes.json()
-        setCampaigns(data.campaigns || [])
-      }
-
-      if (settingsRes.ok) {
-        const settings = await settingsRes.json()
-        setPlatformAdsEnabled(settings.ADS_PLATFORM_ENABLED === 'true')
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const togglePlatformAds = async () => {
-    try {
-      const response = await fetch('/api/admin/settings', {
+  const toggleMutation = useMutation({
+    mutationFn: (newValue: boolean) =>
+      fetchClient<void>('/api/admin/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ADS_PLATFORM_ENABLED: (!platformAdsEnabled).toString(),
+          ADS_PLATFORM_ENABLED: newValue.toString(),
         }),
+      }),
+    onSuccess: (_data, newValue) => {
+      setPlatformAdsEnabled(newValue)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] })
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: `Platform Ads ${newValue ? 'enabled' : 'disabled'}`,
       })
-
-      if (response.ok) {
-        setPlatformAdsEnabled(!platformAdsEnabled)
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: `Platform Ads ${!platformAdsEnabled ? 'enabled' : 'disabled'}`,
-        })
-      }
-    } catch (error) {
+    },
+    onError: () => {
       showToast({
         type: 'error',
         title: 'Error',
         description: 'Failed to update setting',
       })
-    }
-  }
+    },
+  })
+
+  const campaigns = campaignsData?.campaigns || []
+  const isLoading = isLoadingCampaigns || isLoadingSettings
+  const error = campaignsError || settingsError
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -107,6 +107,24 @@ export default function PlatformAdsPage() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-bg-primary">
+        <TopNav currentPanel="ADMIN" />
+        <div className="pt-20 px-4 md:px-8 pb-8">
+          <ErrorDisplay
+            title="Failed to load platform ads data"
+            message={error.message}
+            onRetry={() => {
+              queryClient.invalidateQueries({ queryKey: ['admin', 'campaigns', 'PLATFORM_ADS'] })
+              queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] })
+            }}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-bg-primary">
       <TopNav currentPanel="ADMIN" />
@@ -121,7 +139,7 @@ export default function PlatformAdsPage() {
               <div className="flex items-center gap-2">
                 <span className="text-text-secondary">Platform Ads:</span>
                 <button
-                  onClick={togglePlatformAds}
+                  onClick={() => toggleMutation.mutate(!platformAdsEnabled)}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                     platformAdsEnabled ? 'bg-electric-blue' : 'bg-gray-600'
                   }`}
@@ -228,4 +246,3 @@ export default function PlatformAdsPage() {
     </div>
   )
 }
-

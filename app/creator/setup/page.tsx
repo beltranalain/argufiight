@@ -1,53 +1,53 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
-import { useToast } from '@/components/ui/Toast'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
+
+interface TaxInfoData {
+  taxInfo: {
+    stripeAccountId: string | null
+    taxFormComplete: boolean
+    bankVerified: boolean
+    payoutEnabled: boolean
+  } | null
+}
+
+interface OnboardingData {
+  url: string
+}
+
+async function fetchSetupData() {
+  const taxData = await fetchClient<TaxInfoData>('/api/creator/tax-info')
+
+  let onboardingUrl: string | null = null
+  if (!taxData.taxInfo?.stripeAccountId) {
+    try {
+      const onboardingData = await fetchClient<OnboardingData>('/api/creator/stripe-onboarding')
+      onboardingUrl = onboardingData.url
+    } catch {
+      // Onboarding URL fetch failed - will show fallback
+    }
+  }
+
+  return {
+    taxInfo: taxData.taxInfo,
+    onboardingUrl,
+  }
+}
 
 export default function CreatorSetupPage() {
   const router = useRouter()
-  const { showToast } = useToast()
-  const [isLoading, setIsLoading] = useState(true)
-  const [taxInfo, setTaxInfo] = useState<any>(null)
-  const [onboardingUrl, setOnboardingUrl] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchTaxInfo()
-  }, [])
-
-  const fetchTaxInfo = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch('/api/creator/tax-info')
-      if (response.ok) {
-        const data = await response.json()
-        setTaxInfo(data.taxInfo)
-        
-        // If no Stripe account, get onboarding URL
-        if (!data.taxInfo?.stripeAccountId) {
-          const onboardingRes = await fetch('/api/creator/stripe-onboarding')
-          if (onboardingRes.ok) {
-            const onboardingData = await onboardingRes.json()
-            setOnboardingUrl(onboardingData.url)
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch tax info:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleStartOnboarding = () => {
-    if (onboardingUrl) {
-      window.location.href = onboardingUrl
-    }
-  }
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['creator', 'setup'],
+    queryFn: fetchSetupData,
+  })
 
   if (isLoading) {
     return (
@@ -58,6 +58,29 @@ export default function CreatorSetupPage() {
         </div>
       </div>
     )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-bg-primary">
+        <TopNav currentPanel="CREATOR" />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <ErrorDisplay
+            title="Failed to load setup"
+            message={error instanceof Error ? error.message : 'Something went wrong. Please try again.'}
+            onRetry={() => refetch()}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  const { taxInfo, onboardingUrl } = data!
+
+  const handleStartOnboarding = () => {
+    if (onboardingUrl) {
+      window.location.href = onboardingUrl
+    }
   }
 
   return (
@@ -173,4 +196,3 @@ export default function CreatorSetupPage() {
     </div>
   )
 }
-

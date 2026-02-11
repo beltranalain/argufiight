@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -33,11 +36,13 @@ interface Advertisement {
   createdAt: string
 }
 
+interface AdsResponse {
+  ads: Advertisement[]
+}
+
 function DirectAdsTab() {
   const { showToast } = useToast()
-  const [ads, setAds] = useState<Advertisement[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
+  const queryClient = useQueryClient()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingAd, setEditingAd] = useState<Advertisement | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -54,26 +59,109 @@ function DirectAdsTab() {
     creativeUrl: '',
   })
 
-  useEffect(() => {
-    fetchAds()
-  }, [])
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['admin', 'advertisements'],
+    queryFn: () => fetchClient<AdsResponse>('/api/admin/advertisements'),
+  })
 
-  const fetchAds = async (showLoading = true) => {
-    try {
-      if (showLoading) setIsLoading(true)
-      const response = await fetch('/api/admin/advertisements', {
-        cache: 'no-store', // Prevent stale data
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setAds(data.ads || [])
+  const ads = data?.ads || []
+
+  // File upload requires FormData, cannot use fetchClient (which sets Content-Type: application/json)
+  const saveMutation = useMutation({
+    mutationFn: async ({ isEditing, adId }: { isEditing: boolean; adId?: string }) => {
+      const url = isEditing ? `/api/admin/advertisements/${adId}` : '/api/admin/advertisements'
+      const method = isEditing ? 'PUT' : 'POST'
+
+      const submitFormData = new FormData()
+      submitFormData.append('title', formData.title)
+      submitFormData.append('type', formData.type)
+      submitFormData.append('targetUrl', formData.targetUrl)
+      submitFormData.append('status', formData.status)
+      if (formData.startDate) submitFormData.append('startDate', formData.startDate)
+      if (formData.endDate) submitFormData.append('endDate', formData.endDate)
+      if (formData.category) submitFormData.append('category', formData.category)
+      if (isEditing && !selectedFile) {
+        const urlToSend = formData.creativeUrl || editingAd?.creativeUrl || ''
+        if (urlToSend) {
+          submitFormData.append('creativeUrl', urlToSend)
+        }
+      } else if (!isEditing && formData.creativeUrl && !selectedFile) {
+        submitFormData.append('creativeUrl', formData.creativeUrl)
       }
-    } catch (error) {
-      console.error('Failed to fetch ads:', error)
-    } finally {
-      if (showLoading) setIsLoading(false)
-    }
-  }
+      if (selectedFile) {
+        submitFormData.append('file', selectedFile)
+      }
+
+      const response = await fetch(url, {
+        method,
+        body: submitFormData,
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        let error
+        try {
+          error = JSON.parse(errorText)
+        } catch {
+          error = { error: errorText || 'Failed to save advertisement' }
+        }
+        throw new Error(error.error || 'Failed to save advertisement')
+      }
+
+      return response.json()
+    },
+    onSuccess: (result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'advertisements'] })
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: `Advertisement ${variables.isEditing ? 'updated' : 'created'} successfully!`,
+      })
+      setShowCreateModal(false)
+      setSelectedFile(null)
+      setFormData({
+        title: '',
+        type: 'BANNER',
+        targetUrl: '',
+        status: 'DRAFT',
+        startDate: '',
+        endDate: '',
+        category: '',
+        creativeUrl: '',
+      })
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    },
+    onError: (error: Error) => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to save advertisement',
+      })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetchClient<void>(`/api/admin/advertisements/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'advertisements'] })
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: 'Advertisement deleted successfully!',
+      })
+    },
+    onError: (error: Error) => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to delete advertisement',
+      })
+    },
+  })
 
   const handleCreate = () => {
     setEditingAd(null)
@@ -88,7 +176,6 @@ function DirectAdsTab() {
       category: '',
       creativeUrl: '',
     })
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -108,14 +195,13 @@ function DirectAdsTab() {
       category: ad.category || '',
       creativeUrl: ad.creativeUrl,
     })
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
     setShowCreateModal(true)
   }
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!formData.title || !formData.targetUrl) {
       showToast({
         type: 'error',
@@ -134,138 +220,15 @@ function DirectAdsTab() {
       return
     }
 
-    try {
-      setIsSaving(true)
-      console.log('[DirectAdsTab] Saving advertisement...', { editingAd: editingAd?.id, formData })
-      
-      const url = editingAd
-        ? `/api/admin/advertisements/${editingAd.id}`
-        : '/api/admin/advertisements'
-      const method = editingAd ? 'PUT' : 'POST'
-
-      const submitFormData = new FormData()
-      submitFormData.append('title', formData.title)
-      submitFormData.append('type', formData.type)
-      submitFormData.append('targetUrl', formData.targetUrl)
-      submitFormData.append('status', formData.status)
-      if (formData.startDate) submitFormData.append('startDate', formData.startDate)
-      if (formData.endDate) submitFormData.append('endDate', formData.endDate)
-      if (formData.category) submitFormData.append('category', formData.category)
-      // Handle creativeUrl: always send if editing (to preserve existing) or if provided for new ads
-      if (editingAd && !selectedFile) {
-        // When editing: always send creativeUrl to preserve or update it
-        // Use formData.creativeUrl if set, otherwise use existing ad's creativeUrl
-        const urlToSend = formData.creativeUrl || editingAd.creativeUrl || ''
-        if (urlToSend) {
-          submitFormData.append('creativeUrl', urlToSend)
-          console.log('[DirectAdsTab] Sending creativeUrl for update:', urlToSend)
-        }
-      } else if (!editingAd && formData.creativeUrl && !selectedFile) {
-        // For new ads, only send if no file
-        submitFormData.append('creativeUrl', formData.creativeUrl)
-      }
-      if (selectedFile) {
-        submitFormData.append('file', selectedFile)
-        console.log('[DirectAdsTab] Sending new file:', selectedFile.name)
-      }
-
-      console.log('[DirectAdsTab] Calling API:', method, url)
-      const response = await fetch(url, {
-        method,
-        body: submitFormData,
-        cache: 'no-store',
-      })
-
-      console.log('[DirectAdsTab] Response status:', response.status)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        let error
-        try {
-          error = JSON.parse(errorText)
-        } catch {
-          error = { error: errorText || 'Failed to save advertisement' }
-        }
-        console.error('[DirectAdsTab] Save error:', error)
-        throw new Error(error.error || 'Failed to save advertisement')
-      }
-
-      const result = await response.json()
-      console.log('[DirectAdsTab] Save successful:', result)
-      const savedAd = result.ad
-
-      // Optimistic update - add/update ad in list immediately
-      if (editingAd) {
-        setAds(prevAds => prevAds.map(ad => ad.id === editingAd.id ? savedAd : ad))
-      } else {
-        setAds(prevAds => [savedAd, ...prevAds])
-      }
-
-      showToast({
-        type: 'success',
-        title: 'Success',
-        description: `Advertisement ${editingAd ? 'updated' : 'created'} successfully!`,
-      })
-
-      setShowCreateModal(false)
-      
-      // Reset form
-      setSelectedFile(null)
-      setFormData({
-        title: '',
-        type: 'BANNER',
-        targetUrl: '',
-        status: 'DRAFT',
-        startDate: '',
-        endDate: '',
-        category: '',
-        creativeUrl: '',
-      })
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-      
-      // Force refresh to ensure consistency
-      await fetchAds(false)
-    } catch (error: any) {
-      console.error('[DirectAdsTab] Save failed:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to save advertisement',
-      })
-    } finally {
-      setIsSaving(false)
-    }
+    saveMutation.mutate({
+      isEditing: !!editingAd,
+      adId: editingAd?.id,
+    })
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm('Are you sure you want to delete this advertisement?')) return
-
-    try {
-      const response = await fetch(`/api/admin/advertisements/${id}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to delete advertisement')
-      }
-
-      showToast({
-        type: 'success',
-        title: 'Success',
-        description: 'Advertisement deleted successfully!',
-      })
-
-      fetchAds()
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to delete advertisement',
-      })
-    }
+    deleteMutation.mutate(id)
   }
 
   const getStatusColor = (status: string) => {
@@ -297,6 +260,16 @@ function DirectAdsTab() {
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorDisplay
+        title="Failed to load advertisements"
+        message={error.message}
+        onRetry={() => refetch()}
+      />
     )
   }
 
@@ -464,7 +437,7 @@ function DirectAdsTab() {
                   <label className="block text-sm font-medium text-text-secondary mb-2">
                     Creative Image *
                   </label>
-                  
+
                   {/* File Input */}
                   <div className="mb-2">
                     <input
@@ -475,7 +448,6 @@ function DirectAdsTab() {
                         const file = e.target.files?.[0]
                         if (file) {
                           setSelectedFile(file)
-                          // Clear URL input when file is selected
                           setFormData({ ...formData, creativeUrl: '' })
                         }
                       }}
@@ -600,7 +572,7 @@ function DirectAdsTab() {
                   <Button
                     variant="primary"
                     onClick={handleSave}
-                    isLoading={isSaving}
+                    isLoading={saveMutation.isPending}
                     className="flex-1"
                   >
                     {editingAd ? 'Update' : 'Create'} Advertisement
@@ -640,201 +612,149 @@ interface Campaign {
   }
 }
 
+interface CampaignsResponse {
+  campaigns: Campaign[]
+}
+
+interface SettingsResponse {
+  ADS_PLATFORM_ENABLED?: string
+  ADS_CREATOR_MARKETPLACE_ENABLED?: string
+  [key: string]: string | undefined
+}
+
 function PlatformAdsTab() {
   const { showToast } = useToast()
-  const [campaigns, setCampaigns] = useState<Campaign[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [platformAdsEnabled, setPlatformAdsEnabled] = useState(false)
-
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const fetchData = async () => {
-    try {
-      setIsLoading(true)
-      const [campaignsRes, settingsRes] = await Promise.all([
-        fetch('/api/admin/campaigns?type=PLATFORM_ADS'),
-        fetch('/api/admin/settings'),
-      ])
-
-      if (campaignsRes.ok) {
-        const data = await campaignsRes.json()
-        setCampaigns(data.campaigns || [])
-      } else {
-        const errorText = await campaignsRes.text().catch(() => 'Unable to read error')
-        let errorData
-        try {
-          errorData = JSON.parse(errorText)
-        } catch {
-          errorData = { error: errorText || `HTTP ${campaignsRes.status}` }
-        }
-        console.error('[AdvertiserCampaigns] Failed to fetch campaigns:', campaignsRes.status, errorData)
-      }
-
-      if (settingsRes.ok) {
-        const settings = await settingsRes.json()
-        setPlatformAdsEnabled(settings.ADS_PLATFORM_ENABLED === 'true')
-      } else {
-        console.error('[AdvertiserCampaigns] Failed to fetch settings:', settingsRes.status)
-      }
-    } catch (error) {
-      console.error('[AdvertiserCampaigns] Failed to fetch data:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const togglePlatformAds = async () => {
-    try {
-      const response = await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ADS_PLATFORM_ENABLED: (!platformAdsEnabled).toString(),
-        }),
-      })
-
-      if (response.ok) {
-        setPlatformAdsEnabled(!platformAdsEnabled)
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: `Platform Ads ${!platformAdsEnabled ? 'enabled' : 'disabled'}`,
-        })
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to update setting',
-      })
-    }
-  }
-
-  const handleApproveCampaign = async (id: string) => {
-    try {
-      const response = await fetch(`/api/admin/campaigns/${id}/approve`, {
-        method: 'POST',
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const isActivated = data.campaign?.status === 'ACTIVE'
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: isActivated 
-            ? 'Campaign approved and activated (start date reached)' 
-            : 'Campaign approved (will activate when start date is reached)',
-        })
-        fetchData()
-      } else {
-        const errorData = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: errorData.error || 'Failed to approve campaign',
-        })
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to approve campaign',
-      })
-    }
-  }
-
-  const handleActivateCampaign = async (id: string) => {
-    try {
-      const response = await fetch(`/api/admin/campaigns/${id}/activate`, {
-        method: 'POST',
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Campaign activated',
-        })
-        fetchData()
-      } else {
-        const errorData = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: errorData.error || 'Failed to activate campaign',
-        })
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to activate campaign',
-      })
-    }
-  }
-
-  const handleRejectCampaign = async (id: string) => {
-    const reason = prompt('Please provide a reason for rejecting this campaign:')
-    if (!reason || reason.trim() === '') {
-      return // User cancelled or entered empty reason
-    }
-
-    try {
-      const response = await fetch(`/api/admin/campaigns/${id}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: reason.trim() }),
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Campaign rejected',
-        })
-        fetchData()
-      } else {
-        const errorData = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: errorData.error || 'Failed to reject campaign',
-        })
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to reject campaign',
-      })
-    }
-  }
-
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null)
   const [showCampaignModal, setShowCampaignModal] = useState(false)
   const [campaignDetails, setCampaignDetails] = useState<any>(null)
   const [isLoadingCampaignDetails, setIsLoadingCampaignDetails] = useState(false)
 
+  const { data: campaignsData, isLoading: isLoadingCampaigns, error: campaignsError, refetch: refetchCampaigns } = useQuery({
+    queryKey: ['admin', 'campaigns', 'PLATFORM_ADS'],
+    queryFn: () => fetchClient<CampaignsResponse>('/api/admin/campaigns?type=PLATFORM_ADS'),
+  })
+
+  const { isLoading: isLoadingSettings } = useQuery({
+    queryKey: ['admin', 'settings'],
+    queryFn: () => fetchClient<SettingsResponse>('/api/admin/settings'),
+    select: (data) => {
+      setPlatformAdsEnabled(data.ADS_PLATFORM_ENABLED === 'true')
+      return data
+    },
+  })
+
+  const campaigns = campaignsData?.campaigns || []
+
+  const toggleMutation = useMutation({
+    mutationFn: (newValue: boolean) =>
+      fetchClient<void>('/api/admin/settings', {
+        method: 'POST',
+        body: JSON.stringify({
+          ADS_PLATFORM_ENABLED: newValue.toString(),
+        }),
+      }),
+    onSuccess: (_data, newValue) => {
+      setPlatformAdsEnabled(newValue)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] })
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: `Platform Ads ${newValue ? 'enabled' : 'disabled'}`,
+      })
+    },
+    onError: () => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to update setting',
+      })
+    },
+  })
+
+  const approveMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetchClient<{ campaign?: { status: string } }>(`/api/admin/campaigns/${id}/approve`, { method: 'POST' }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'campaigns', 'PLATFORM_ADS'] })
+      const isActivated = data?.campaign?.status === 'ACTIVE'
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: isActivated
+          ? 'Campaign approved and activated (start date reached)'
+          : 'Campaign approved (will activate when start date is reached)',
+      })
+    },
+    onError: (error: Error) => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to approve campaign',
+      })
+    },
+  })
+
+  const activateMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetchClient<void>(`/api/admin/campaigns/${id}/activate`, { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'campaigns', 'PLATFORM_ADS'] })
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: 'Campaign activated',
+      })
+    },
+    onError: (error: Error) => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to activate campaign',
+      })
+    },
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      fetchClient<void>(`/api/admin/campaigns/${id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'campaigns', 'PLATFORM_ADS'] })
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: 'Campaign rejected',
+      })
+    },
+    onError: (error: Error) => {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        description: error.message || 'Failed to reject campaign',
+      })
+    },
+  })
+
+  const handleRejectCampaign = (id: string) => {
+    const reason = prompt('Please provide a reason for rejecting this campaign:')
+    if (!reason || reason.trim() === '') {
+      return
+    }
+    rejectMutation.mutate({ id, reason: reason.trim() })
+  }
+
   const handleViewCampaign = async (id: string) => {
     try {
       setIsLoadingCampaignDetails(true)
-      const response = await fetch(`/api/admin/campaigns/${id}`)
-      if (response.ok) {
-        const data = await response.json()
-        setCampaignDetails(data.campaign)
-        setSelectedCampaign(campaigns.find(c => c.id === id) || null)
-        setShowCampaignModal(true)
-      } else {
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: 'Failed to load campaign details',
-        })
-      }
-    } catch (error) {
+      const data = await fetchClient<{ campaign: any }>(`/api/admin/campaigns/${id}`)
+      setCampaignDetails(data.campaign)
+      setSelectedCampaign(campaigns.find(c => c.id === id) || null)
+      setShowCampaignModal(true)
+    } catch {
       showToast({
         type: 'error',
         title: 'Error',
@@ -865,11 +785,23 @@ function PlatformAdsTab() {
     }
   }
 
+  const isLoading = isLoadingCampaigns || isLoadingSettings
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (campaignsError) {
+    return (
+      <ErrorDisplay
+        title="Failed to load campaigns"
+        message={campaignsError.message}
+        onRetry={() => refetchCampaigns()}
+      />
     )
   }
 
@@ -884,7 +816,7 @@ function PlatformAdsTab() {
           <div className="flex items-center gap-2">
             <span className="text-text-secondary">Platform Ads:</span>
             <button
-              onClick={togglePlatformAds}
+              onClick={() => toggleMutation.mutate(!platformAdsEnabled)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                 platformAdsEnabled ? 'bg-electric-blue' : 'bg-gray-600'
               }`}
@@ -994,7 +926,7 @@ function PlatformAdsTab() {
                             <Button
                               variant="primary"
                               size="sm"
-                              onClick={() => handleApproveCampaign(campaign.id)}
+                              onClick={() => approveMutation.mutate(campaign.id)}
                             >
                               Approve
                             </Button>
@@ -1016,7 +948,7 @@ function PlatformAdsTab() {
                             <Button
                               variant="primary"
                               size="sm"
-                              onClick={() => handleActivateCampaign(campaign.id)}
+                              onClick={() => activateMutation.mutate(campaign.id)}
                             >
                               Activate Now
                             </Button>
@@ -1308,145 +1240,104 @@ interface Contract {
   endDate: string
 }
 
+interface ContractsResponse {
+  contracts: Contract[]
+}
+
+interface MarketplaceStatsResponse {
+  pendingAdvertisers: number
+  activeContracts: number
+  monthlyRevenue: number
+  totalCreators: number
+}
+
 function CreatorMarketplaceTab() {
   const { showToast } = useToast()
-  const [activeContracts, setActiveContracts] = useState<Contract[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [marketplaceEnabled, setMarketplaceEnabled] = useState(false)
-  const [stats, setStats] = useState({
-    pendingAdvertisers: 0,
-    activeContracts: 0,
-    monthlyRevenue: 0,
-    totalCreators: 0,
+
+  const { data: contractsData, isLoading: isLoadingContracts } = useQuery({
+    queryKey: ['admin', 'contracts', 'ACTIVE'],
+    queryFn: () => fetchClient<ContractsResponse>('/api/admin/contracts?status=ACTIVE'),
   })
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  const { data: statsData, isLoading: isLoadingStats } = useQuery({
+    queryKey: ['admin', 'marketplace', 'stats'],
+    queryFn: () => fetchClient<MarketplaceStatsResponse>('/api/admin/marketplace/stats'),
+  })
 
-  const fetchData = async () => {
-    try {
-      setIsLoading(true)
-      const timestamp = Date.now()
-      const [contractsRes, statsRes, settingsRes] = await Promise.all([
-        fetch(`/api/admin/contracts?status=ACTIVE&t=${timestamp}`, { cache: 'no-store' }),
-        fetch(`/api/admin/marketplace/stats?t=${timestamp}`, { cache: 'no-store' }),
-        fetch(`/api/admin/settings?t=${timestamp}`, { cache: 'no-store' }),
-      ])
+  const { isLoading: isLoadingSettings } = useQuery({
+    queryKey: ['admin', 'settings'],
+    queryFn: () => fetchClient<SettingsResponse>('/api/admin/settings'),
+    select: (data) => {
+      setMarketplaceEnabled(data.ADS_CREATOR_MARKETPLACE_ENABLED === 'true')
+      return data
+    },
+  })
 
-      if (contractsRes.ok) {
-        const data = await contractsRes.json()
-        setActiveContracts(data.contracts || [])
-      }
+  const activeContracts = contractsData?.contracts || []
+  const stats = statsData || { pendingAdvertisers: 0, activeContracts: 0, monthlyRevenue: 0, totalCreators: 0 }
 
-      if (statsRes.ok) {
-        const data = await statsRes.json()
-        // Stats API should return pendingAdvertisers count, but if not, set to 0
-        setStats({
-          ...data,
-          pendingAdvertisers: data.pendingAdvertisers || 0
-        })
-      }
-
-      if (settingsRes.ok) {
-        const settings = await settingsRes.json()
-        const marketplaceValue = settings.ADS_CREATOR_MARKETPLACE_ENABLED
-        const marketplaceEnabled = marketplaceValue === 'true'
-        console.log('[CreatorMarketplace] Fetched ADS_CREATOR_MARKETPLACE_ENABLED:', marketplaceValue, '→ enabled:', marketplaceEnabled)
-        setMarketplaceEnabled(marketplaceEnabled)
-      } else {
-        console.error('[CreatorMarketplace] Failed to fetch settings:', settingsRes.status)
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const toggleMarketplace = async () => {
-    const newValue = !marketplaceEnabled
-    console.log('[CreatorMarketplace] Toggling to:', newValue)
-    // Optimistically update UI
-    setMarketplaceEnabled(newValue)
-    
-    try {
-      const response = await fetch('/api/admin/settings', {
+  const toggleMutation = useMutation({
+    mutationFn: (newValue: boolean) =>
+      fetchClient<void>('/api/admin/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ADS_CREATOR_MARKETPLACE_ENABLED: newValue.toString(),
         }),
+      }),
+    onSuccess: (_data, newValue) => {
+      setMarketplaceEnabled(newValue)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'contracts'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'marketplace'] })
+      showToast({
+        type: 'success',
+        title: 'Success',
+        description: `Creator Marketplace ${newValue ? 'enabled' : 'disabled'}`,
       })
-
-      const result = await response.json()
-      console.log('[CreatorMarketplace] Save response:', response.status, result)
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: `Creator Marketplace ${newValue ? 'enabled' : 'disabled'}`,
-        })
-        // Refresh data after toggle to ensure state is synced
-        await fetchData()
-      } else {
-        // Revert on error
-        setMarketplaceEnabled(!newValue)
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: result.error || 'Failed to update setting',
-        })
-      }
-    } catch (error: any) {
-      console.error('[CreatorMarketplace] Error saving toggle:', error)
-      // Revert on error
+    },
+    onError: (_error, newValue) => {
       setMarketplaceEnabled(!newValue)
       showToast({
         type: 'error',
         title: 'Error',
         description: 'Failed to update setting',
       })
-    }
-  }
+    },
+  })
 
+  const payoutMutation = useMutation({
+    mutationFn: (contractId: string) =>
+      fetchClient<{ contract: { creatorPayout: number; platformFee: number } }>(`/api/admin/contracts/${contractId}/payout`, {
+        method: 'POST',
+      }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'contracts'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'marketplace'] })
+      showToast({
+        type: 'success',
+        title: 'Payout Processed',
+        description: `Successfully transferred $${data.contract.creatorPayout.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to creator. Platform fee of $${data.contract.platformFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} retained.`,
+      })
+    },
+    onError: (error: Error) => {
+      showToast({
+        type: 'error',
+        title: 'Payout Failed',
+        description: error.message || 'Failed to process payout',
+      })
+    },
+  })
 
-
-  const handlePayout = async (contractId: string) => {
+  const handlePayout = (contractId: string) => {
     if (!confirm('Are you sure you want to process the payout for this contract? This will transfer funds to the creator.')) {
       return
     }
-
-    try {
-      const response = await fetch(`/api/admin/contracts/${contractId}/payout`, {
-        method: 'POST',
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        showToast({
-          type: 'success',
-          title: 'Payout Processed',
-          description: `Successfully transferred $${data.contract.creatorPayout.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} to creator. Platform fee of $${data.contract.platformFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} retained.`,
-        })
-        fetchData()
-      } else {
-        const error = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Payout Failed',
-          description: error.error || 'Failed to process payout',
-        })
-      }
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to process payout',
-      })
-    }
+    payoutMutation.mutate(contractId)
   }
+
+  const isLoading = isLoadingContracts || isLoadingStats || isLoadingSettings
 
   if (isLoading) {
     return (
@@ -1465,14 +1356,14 @@ function CreatorMarketplaceTab() {
             Manage advertiser applications and creator contracts
           </p>
           <p className="text-xs text-text-secondary mt-2">
-            💡 Advertisers sign up at <a href="/advertise" target="_blank" className="text-electric-blue hover:underline">/advertise</a> | 
+            Advertisers sign up at <a href="/advertise" target="_blank" className="text-electric-blue hover:underline">/advertise</a> |
             Creators view contracts at <a href="/creator/dashboard" target="_blank" className="text-electric-blue hover:underline">/creator/dashboard</a>
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-text-secondary">Creator Marketplace:</span>
           <button
-            onClick={toggleMarketplace}
+            onClick={() => toggleMutation.mutate(!marketplaceEnabled)}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
               marketplaceEnabled ? 'bg-electric-blue' : 'bg-gray-600'
             }`}
@@ -1544,11 +1435,11 @@ function CreatorMarketplaceTab() {
               ) : (
                 <div className="space-y-4">
                   {activeContracts.map((contract: any) => {
-                    const isReadyForPayout = contract.escrowHeld && !contract.payoutSent && 
+                    const isReadyForPayout = contract.escrowHeld && !contract.payoutSent &&
                       new Date(contract.endDate) <= new Date()
-                    const canPayout = contract.creator?.creatorTaxInfo?.stripeAccountId && 
+                    const canPayout = contract.creator?.creatorTaxInfo?.stripeAccountId &&
                       contract.creator?.creatorTaxInfo?.payoutEnabled
-                    
+
                     return (
                       <div
                         key={contract.id}
@@ -1557,7 +1448,7 @@ function CreatorMarketplaceTab() {
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <h4 className="text-lg font-bold text-text-primary">
-                              {contract.advertiser.companyName} × @{contract.creator.username}
+                              {contract.advertiser.companyName} x @{contract.creator.username}
                             </h4>
                             <div className="text-sm text-text-secondary space-y-1 mt-2">
                               <p>Campaign: {contract.campaign?.name || 'N/A'}</p>
@@ -1572,7 +1463,7 @@ function CreatorMarketplaceTab() {
                           </div>
                           <div className="flex flex-col items-end gap-2">
                             <Badge className={
-                              contract.payoutSent 
+                              contract.payoutSent
                                 ? "bg-cyber-green/20 text-cyber-green"
                                 : contract.status === 'ACTIVE'
                                 ? "bg-cyber-green/20 text-cyber-green"
@@ -1615,15 +1506,14 @@ function CreatorMarketplaceTab() {
 // ============================================
 // ADVERTISERS MANAGEMENT TAB
 // ============================================
+interface AdvertisersResponse {
+  advertisers: Advertiser[]
+}
+
 function AdvertisersManagementTab() {
   const { showToast } = useToast()
-  const [advertisers, setAdvertisers] = useState<Advertiser[]>([])
-  const [pendingAdvertisers, setPendingAdvertisers] = useState<Advertiser[]>([])
-  const [approvedAdvertisers, setApprovedAdvertisers] = useState<Advertiser[]>([])
-  const [rejectedAdvertisers, setRejectedAdvertisers] = useState<Advertiser[]>([])
-  const [suspendedAdvertisers, setSuspendedAdvertisers] = useState<Advertiser[]>([])
+  const queryClient = useQueryClient()
   const [advertiserSubTab, setAdvertiserSubTab] = useState('pending')
-  const [isLoading, setIsLoading] = useState(true)
   const [selectedAdvertiser, setSelectedAdvertiser] = useState<Advertiser | null>(null)
   const [advertiserStats, setAdvertiserStats] = useState<any>(null)
   const [showStatsModal, setShowStatsModal] = useState(false)
@@ -1633,52 +1523,100 @@ function AdvertisersManagementTab() {
   const [suspendReason, setSuspendReason] = useState('')
   const [rejectionReason, setRejectionReason] = useState('')
 
-  useEffect(() => {
-    fetchAdvertisers()
-  }, [])
+  const { data: pendingData, isLoading: isLoadingPending } = useQuery({
+    queryKey: ['admin', 'advertisers', 'PENDING'],
+    queryFn: () => fetchClient<AdvertisersResponse>('/api/admin/advertisers?status=PENDING'),
+  })
 
-  const fetchAdvertisers = async () => {
-    try {
-      setIsLoading(true)
-      const timestamp = Date.now()
-      const [pendingRes, approvedRes, rejectedRes, suspendedRes] = await Promise.all([
-        fetch(`/api/admin/advertisers?status=PENDING&t=${timestamp}`, { cache: 'no-store' }),
-        fetch(`/api/admin/advertisers?status=APPROVED&t=${timestamp}`, { cache: 'no-store' }),
-        fetch(`/api/admin/advertisers?status=REJECTED&t=${timestamp}`, { cache: 'no-store' }),
-        fetch(`/api/admin/advertisers?status=SUSPENDED&t=${timestamp}`, { cache: 'no-store' }),
-      ])
-      
-      if (pendingRes.ok) {
-        const data = await pendingRes.json()
-        setPendingAdvertisers(data.advertisers || [])
-      }
-      
-      if (approvedRes.ok) {
-        const data = await approvedRes.json()
-        setApprovedAdvertisers(data.advertisers || [])
-      }
-      
-      if (rejectedRes.ok) {
-        const data = await rejectedRes.json()
-        setRejectedAdvertisers(data.advertisers || [])
-      }
-      
-      if (suspendedRes.ok) {
-        const data = await suspendedRes.json()
-        setSuspendedAdvertisers(data.advertisers || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch advertisers:', error)
-    } finally {
-      setIsLoading(false)
-    }
+  const { data: approvedData, isLoading: isLoadingApproved } = useQuery({
+    queryKey: ['admin', 'advertisers', 'APPROVED'],
+    queryFn: () => fetchClient<AdvertisersResponse>('/api/admin/advertisers?status=APPROVED'),
+  })
+
+  const { data: rejectedData, isLoading: isLoadingRejected } = useQuery({
+    queryKey: ['admin', 'advertisers', 'REJECTED'],
+    queryFn: () => fetchClient<AdvertisersResponse>('/api/admin/advertisers?status=REJECTED'),
+  })
+
+  const { data: suspendedData, isLoading: isLoadingSuspended } = useQuery({
+    queryKey: ['admin', 'advertisers', 'SUSPENDED'],
+    queryFn: () => fetchClient<AdvertisersResponse>('/api/admin/advertisers?status=SUSPENDED'),
+  })
+
+  const pendingAdvertisers = pendingData?.advertisers || []
+  const approvedAdvertisers = approvedData?.advertisers || []
+  const rejectedAdvertisers = rejectedData?.advertisers || []
+  const suspendedAdvertisers = suspendedData?.advertisers || []
+  const isLoading = isLoadingPending || isLoadingApproved || isLoadingRejected || isLoadingSuspended
+
+  const invalidateAdvertisers = () => {
+    queryClient.invalidateQueries({ queryKey: ['admin', 'advertisers'] })
   }
-  
+
+  const approveMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetchClient<void>(`/api/admin/advertisers/${id}/approve`, { method: 'POST' }),
+    onSuccess: () => {
+      invalidateAdvertisers()
+      showToast({ type: 'success', title: 'Success', description: 'Advertiser approved' })
+    },
+    onError: (error: Error) => {
+      showToast({ type: 'error', title: 'Error', description: error.message || 'Failed to approve advertiser' })
+    },
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      fetchClient<void>(`/api/admin/advertisers/${id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      }),
+    onSuccess: () => {
+      invalidateAdvertisers()
+      setShowRejectModal(false)
+      setRejectionReason('')
+      setSelectedAdvertiser(null)
+      showToast({ type: 'success', title: 'Success', description: 'Advertiser rejected' })
+    },
+    onError: (error: Error) => {
+      showToast({ type: 'error', title: 'Error', description: error.message || 'Failed to reject advertiser' })
+    },
+  })
+
+  const suspendMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      fetchClient<void>(`/api/admin/advertisers/${id}/suspend`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      }),
+    onSuccess: () => {
+      invalidateAdvertisers()
+      setShowSuspendModal(false)
+      setSuspendReason('')
+      showToast({ type: 'success', title: 'Success', description: 'Advertiser suspended' })
+    },
+    onError: () => {
+      showToast({ type: 'error', title: 'Error', description: 'Failed to suspend advertiser' })
+    },
+  })
+
+  const unsuspendMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetchClient<void>(`/api/admin/advertisers/${id}/suspend`, { method: 'DELETE' }),
+    onSuccess: () => {
+      invalidateAdvertisers()
+      showToast({ type: 'success', title: 'Success', description: 'Advertiser unsuspended' })
+    },
+    onError: () => {
+      showToast({ type: 'error', title: 'Error', description: 'Failed to unsuspend advertiser' })
+    },
+  })
+
   const handleViewDetails = (advertiser: Advertiser) => {
     setSelectedAdvertiser(advertiser)
     setShowDetailsModal(true)
   }
-  
+
   const handleRejectClick = (advertiser: Advertiser) => {
     setSelectedAdvertiser(advertiser)
     setRejectionReason('')
@@ -1687,149 +1625,15 @@ function AdvertisersManagementTab() {
 
   const handleViewStats = async (advertiser: Advertiser) => {
     try {
-      const response = await fetch(`/api/admin/advertisers/${advertiser.id}/stats`)
-      if (response.ok) {
-        const data = await response.json()
-        setAdvertiserStats(data)
-        setSelectedAdvertiser(advertiser)
-        setShowStatsModal(true)
-      }
-    } catch (error) {
+      const data = await fetchClient<any>(`/api/admin/advertisers/${advertiser.id}/stats`)
+      setAdvertiserStats(data)
+      setSelectedAdvertiser(advertiser)
+      setShowStatsModal(true)
+    } catch {
       showToast({
         type: 'error',
         title: 'Error',
         description: 'Failed to fetch advertiser stats',
-      })
-    }
-  }
-
-  const handleSuspend = async () => {
-    if (!selectedAdvertiser) return
-
-    try {
-      const response = await fetch(`/api/admin/advertisers/${selectedAdvertiser.id}/suspend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: suspendReason }),
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Advertiser suspended',
-        })
-        setShowSuspendModal(false)
-        setSuspendReason('')
-        fetchAdvertisers()
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to suspend advertiser',
-      })
-    }
-  }
-
-  const handleUnsuspend = async (id: string) => {
-    try {
-      const response = await fetch(`/api/admin/advertisers/${id}/suspend`, {
-        method: 'DELETE',
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Advertiser unsuspended',
-        })
-        fetchAdvertisers()
-      }
-    } catch (error) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to unsuspend advertiser',
-      })
-    }
-  }
-
-  const handleApproveAdvertiser = async (id: string) => {
-    try {
-      console.log('[AdvertisersManagement] Approving advertiser:', id)
-      const response = await fetch(`/api/admin/advertisers/${id}/approve`, {
-        method: 'POST',
-      })
-
-      const data = await response.json().catch(() => ({}))
-      console.log('[AdvertisersManagement] Approval response:', response.status, data)
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Advertiser approved',
-        })
-        await fetchAdvertisers()
-        console.log('[AdvertisersManagement] Data refreshed after approval')
-      } else {
-        const errorMsg = data.error || `HTTP ${response.status}`
-        console.error('[AdvertisersManagement] Approval failed:', errorMsg)
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: errorMsg,
-        })
-      }
-    } catch (error: any) {
-      console.error('[AdvertisersManagement] Approval error:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to approve advertiser',
-      })
-    }
-  }
-
-  const handleRejectAdvertiser = async (id: string, reason: string) => {
-    try {
-      console.log('[AdvertisersManagement] Rejecting advertiser:', id, 'Reason:', reason)
-      const response = await fetch(`/api/admin/advertisers/${id}/reject`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
-      })
-
-      const data = await response.json().catch(() => ({}))
-      console.log('[AdvertisersManagement] Rejection response:', response.status, data)
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Success',
-          description: 'Advertiser rejected',
-        })
-        setShowRejectModal(false)
-        setRejectionReason('')
-        setSelectedAdvertiser(null)
-        await fetchAdvertisers()
-        console.log('[AdvertisersManagement] Data refreshed after rejection')
-      } else {
-        const errorMsg = data.error || `HTTP ${response.status}`
-        console.error('[AdvertisersManagement] Rejection failed:', errorMsg)
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: errorMsg,
-        })
-      }
-    } catch (error: any) {
-      console.error('[AdvertisersManagement] Rejection error:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to reject advertiser',
       })
     }
   }
@@ -1894,8 +1698,8 @@ function AdvertisersManagementTab() {
                   {tab.label}
                   {tab.count > 0 && (
                     <Badge className={`ml-2 ${
-                      tab.id === 'pending' ? 'bg-neon-orange/20 text-neon-orange' : 
-                      tab.id === 'approved' ? 'bg-cyber-green/20 text-cyber-green' : 
+                      tab.id === 'pending' ? 'bg-neon-orange/20 text-neon-orange' :
+                      tab.id === 'approved' ? 'bg-cyber-green/20 text-cyber-green' :
                       tab.id === 'rejected' ? 'bg-red-500/20 text-red-500' :
                       'bg-yellow-500/20 text-yellow-500'
                     }`}>
@@ -1941,7 +1745,7 @@ function AdvertisersManagementTab() {
                         <Button
                           variant="primary"
                           size="sm"
-                          onClick={() => handleApproveAdvertiser(advertiser.id)}
+                          onClick={() => approveMutation.mutate(advertiser.id)}
                         >
                           Approve
                         </Button>
@@ -2075,7 +1879,7 @@ function AdvertisersManagementTab() {
                         <Button
                           variant="primary"
                           size="sm"
-                          onClick={() => handleUnsuspend(advertiser.id)}
+                          onClick={() => unsuspendMutation.mutate(advertiser.id)}
                         >
                           Unsuspend
                         </Button>
@@ -2201,7 +2005,7 @@ function AdvertisersManagementTab() {
                   >
                     Cancel
                   </Button>
-                  <Button variant="danger" onClick={handleSuspend}>
+                  <Button variant="danger" onClick={() => suspendMutation.mutate({ id: selectedAdvertiser.id, reason: suspendReason })}>
                     Suspend
                   </Button>
                 </div>
@@ -2250,7 +2054,7 @@ function AdvertisersManagementTab() {
                     variant="danger"
                     onClick={() => {
                       if (rejectionReason.trim()) {
-                        handleRejectAdvertiser(selectedAdvertiser.id, rejectionReason.trim())
+                        rejectMutation.mutate({ id: selectedAdvertiser.id, reason: rejectionReason.trim() })
                       } else {
                         showToast({
                           type: 'error',
@@ -2445,17 +2249,14 @@ function AdvertisersManagementTab() {
 // ============================================
 // Helper function to extract body content from full HTML
 const extractBodyContent = (fullHtml: string): string => {
-  // Try to extract content from the inner div (body content)
   const bodyMatch = fullHtml.match(/<div[^>]*style="[^"]*background:\s*#f9f9f9[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/body>/i)
   if (bodyMatch) {
     return bodyMatch[1].trim()
   }
-  // Fallback: try to extract from any div with padding
   const divMatch = fullHtml.match(/<div[^>]*style="[^"]*padding:\s*30px[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/body>/i)
   if (divMatch) {
     return divMatch[1].trim()
   }
-  // If no match, return empty
   return ''
 }
 
@@ -2471,9 +2272,9 @@ const wrapEmailTemplate = (bodyContent: string, type: 'approval' | 'rejection'):
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #000; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-    <h1 style="color: white; margin: 0;">🎉 Application Approved!</h1>
+    <h1 style="color: white; margin: 0;">Application Approved!</h1>
   </div>
-  
+
   <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; color: #000;">
     ${bodyContent}
   </div>
@@ -2498,12 +2299,11 @@ const wrapEmailTemplate = (bodyContent: string, type: 'approval' | 'rejection'):
 
 function EmailTemplatesTab() {
   const { showToast } = useToast()
-  
-  // Store just the body content (what the user edits)
+
   const [approvalEmail, setApprovalEmail] = useState({
     subject: 'Your Advertiser Application Has Been Approved!',
     bodyContent: `<p>Hi {{advertiserName}},</p>
-    
+
 <p>Great news! Your advertiser application for <strong>{{companyName}}</strong> has been approved.</p>
 
 <p>You can now access your advertiser dashboard to:</p>
@@ -2557,7 +2357,7 @@ function EmailTemplatesTab() {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
     const dashboardUrl = `${baseUrl}/advertiser/dashboard`
     const loginUrl = `${baseUrl}/login`
-    
+
     let html = template
       .replace(/\{\{advertiserName\}\}/g, 'John Doe')
       .replace(/\{\{companyName\}\}/g, 'Example Company')
@@ -2571,7 +2371,6 @@ function EmailTemplatesTab() {
         .replace(/\{\{\/if\}\}/g, '')
         .replace(/\{\{reason\}\}/g, 'Your application did not meet our current advertising guidelines.')
     } else {
-      // Remove handlebars conditionals for approval
       html = html.replace(/\{\{#if reason\}\}[\s\S]*?\{\{\/if\}\}/g, '')
     }
 
@@ -2773,15 +2572,15 @@ export default function AdvertisementsPage() {
   }, [])
 
   const tabs = [
-    { 
-      id: 'basic', 
-      label: 'Direct Ads', 
+    {
+      id: 'basic',
+      label: 'Direct Ads',
       content: (
         <div>
           <div className="mb-4 p-4 bg-bg-secondary rounded-lg border border-bg-tertiary">
             <h3 className="text-lg font-semibold text-text-primary mb-2">Direct Ads</h3>
             <p className="text-text-secondary text-sm">
-              Create and manage ads directly. These are admin-created ads for direct clients, internal promotions, 
+              Create and manage ads directly. These are admin-created ads for direct clients, internal promotions,
               or quick campaigns. No advertiser account needed. Ads display immediately when set to Active.
             </p>
           </div>
@@ -2789,15 +2588,15 @@ export default function AdvertisementsPage() {
         </div>
       )
     },
-    { 
-      id: 'platform', 
-      label: 'Advertiser Campaigns', 
+    {
+      id: 'platform',
+      label: 'Advertiser Campaigns',
       content: (
         <div>
           <div className="mb-4 p-4 bg-bg-secondary rounded-lg border border-bg-tertiary">
             <h3 className="text-lg font-semibold text-text-primary mb-2">Advertiser Campaigns</h3>
             <p className="text-text-secondary text-sm">
-              Manage campaigns created by external advertisers. Advertisers apply, get approved, then create campaigns. 
+              Manage campaigns created by external advertisers. Advertisers apply, get approved, then create campaigns.
               You review and approve campaigns before they go live. These are managed advertising relationships.
             </p>
           </div>
@@ -2805,9 +2604,9 @@ export default function AdvertisementsPage() {
         </div>
       )
     },
-    { 
-      id: 'marketplace', 
-      label: 'Creator Marketplace', 
+    {
+      id: 'marketplace',
+      label: 'Creator Marketplace',
       content: <CreatorMarketplaceTab />
     },
     { id: 'creators', label: 'Creators', content: <CreatorsTab /> },

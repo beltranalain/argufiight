@@ -1,162 +1,90 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/Toast'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { TopNav } from '@/components/layout/TopNav'
+import { useSubscription } from '@/lib/hooks/queries/useSubscription'
+import { fetchClient } from '@/lib/api/fetchClient'
 
 interface Pricing {
   monthly: number
   yearly: number
 }
 
+const PRO_FEATURES = [
+  'Unlimited Speed Mode debates',
+  'Priority matchmaking',
+  'Advanced analytics dashboard',
+  '4 tournament credits/month',
+  '12 appeals per month',
+  '"That\'s The One" unlimited',
+  'Debate replay & export',
+  'Custom profile themes',
+  'Verified badge',
+  'No ads',
+]
+
 export default function UpgradePage() {
   const router = useRouter()
   const { showToast } = useToast()
-  const [pricing, setPricing] = useState<Pricing>({ monthly: 9.99, yearly: 89.0 })
   const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY')
   const [promoCode, setPromoCode] = useState('')
-  const [isValidatingPromo, setIsValidatingPromo] = useState(false)
-  const [promoValid, setPromoValid] = useState<{ valid: boolean; discount?: number; finalPrice?: number } | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [userTier, setUserTier] = useState<'FREE' | 'PRO' | null>(null)
+  const [promoValid, setPromoValid] = useState<{ valid: boolean; discount?: number } | null>(null)
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  const { data: subscription, isLoading: subLoading } = useSubscription()
+  const { data: pricing = { monthly: 9.99, yearly: 89.0 }, isLoading: pricingLoading } = useQuery<Pricing>({
+    queryKey: ['pricing'],
+    queryFn: () => fetchClient<Pricing>('/api/subscriptions/pricing'),
+    staleTime: 300_000,
+  })
 
-  const fetchData = async () => {
-    try {
-      setIsLoading(true)
-      const [pricingRes, subscriptionRes] = await Promise.all([
-        fetch('/api/subscriptions/pricing'),
-        fetch('/api/subscriptions'),
-      ])
-
-      if (pricingRes.ok) {
-        const pricingData = await pricingRes.json()
-        setPricing(pricingData)
-      }
-
-      if (subscriptionRes.ok) {
-        const subData = await subscriptionRes.json()
-        setUserTier(subData.subscription?.tier || 'FREE')
-        // If already PRO, redirect to settings
-        if (subData.subscription?.tier === 'PRO') {
-          router.push('/settings/subscription')
-          return
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleValidatePromo = async () => {
-    if (!promoCode.trim()) {
-      setPromoValid(null)
-      return
-    }
-
-    setIsValidatingPromo(true)
-    try {
-      const response = await fetch('/api/subscriptions/validate-promo-code', {
+  const promoMutation = useMutation({
+    mutationFn: () =>
+      fetchClient<{ valid: boolean; discountAmount?: number; error?: string }>('/api/subscriptions/validate-promo-code', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: promoCode.toUpperCase(),
-          tier: 'PRO',
-          billingCycle,
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.valid) {
-          const basePrice = billingCycle === 'MONTHLY' ? pricing.monthly : pricing.yearly
-          const finalPrice = basePrice - (data.discountAmount || 0)
-          setPromoValid({
-            valid: true,
-            discount: data.discountAmount,
-            finalPrice: Math.max(0, finalPrice),
-          })
-          showToast({
-            type: 'success',
-            title: 'Promo Code Applied',
-            description: `You'll save $${data.discountAmount?.toFixed(2)}!`,
-          })
-        } else {
-          setPromoValid({ valid: false })
-          showToast({
-            type: 'error',
-            title: 'Invalid Promo Code',
-            description: data.error || 'This promo code is not valid',
-          })
-        }
+        body: JSON.stringify({ code: promoCode.toUpperCase(), tier: 'PRO', billingCycle }),
+      }),
+    onSuccess: (data) => {
+      if (data.valid) {
+        const basePrice = billingCycle === 'MONTHLY' ? pricing.monthly : pricing.yearly
+        setPromoValid({ valid: true, discount: data.discountAmount })
+        showToast({ type: 'success', title: 'Promo Code Applied', description: `You'll save $${data.discountAmount?.toFixed(2)}!` })
       } else {
-        const error = await response.json()
         setPromoValid({ valid: false })
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: error.error || 'Failed to validate promo code',
-        })
+        showToast({ type: 'error', title: 'Invalid Promo Code', description: data.error || 'This promo code is not valid' })
       }
-    } catch (error: any) {
+    },
+    onError: (error: any) => {
       setPromoValid({ valid: false })
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to validate promo code',
-      })
-    } finally {
-      setIsValidatingPromo(false)
-    }
-  }
+      showToast({ type: 'error', title: 'Error', description: error.message || 'Failed to validate promo code' })
+    },
+  })
 
-  const handleSubscribe = async () => {
-    setIsProcessing(true)
-    try {
-      const response = await fetch('/api/subscriptions/checkout', {
+  const checkoutMutation = useMutation({
+    mutationFn: () =>
+      fetchClient<{ checkoutUrl: string }>('/api/subscriptions/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tier: 'PRO',
           billingCycle,
           promoCode: promoValid?.valid ? promoCode.toUpperCase() : undefined,
         }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to create checkout session')
-      }
-
-      const data = await response.json()
-      // Redirect to Stripe Checkout
+      }),
+    onSuccess: (data) => {
       window.location.href = data.checkoutUrl
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to start checkout',
-      })
-      setIsProcessing(false)
-    }
-  }
+    },
+    onError: (error: any) => {
+      showToast({ type: 'error', title: 'Error', description: error.message || 'Failed to start checkout' })
+    },
+  })
 
-  const basePrice = billingCycle === 'MONTHLY' ? pricing.monthly : pricing.yearly
-  const discount = promoValid?.discount || 0
-  const finalPrice = Math.max(0, basePrice - discount)
-
-  if (isLoading) {
+  if (subLoading || pricingLoading) {
     return (
       <div className="min-h-screen bg-bg-primary">
         <TopNav currentPanel="UPGRADE" />
@@ -167,9 +95,14 @@ export default function UpgradePage() {
     )
   }
 
-  if (userTier === 'PRO') {
-    return null // Will redirect
+  if (subscription?.tier === 'PRO') {
+    router.push('/settings/subscription')
+    return null
   }
+
+  const basePrice = billingCycle === 'MONTHLY' ? pricing.monthly : pricing.yearly
+  const discount = promoValid?.discount || 0
+  const finalPrice = Math.max(0, basePrice - discount)
 
   return (
     <div className="min-h-screen bg-bg-primary">
@@ -182,40 +115,19 @@ export default function UpgradePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Billing Cycle Selection */}
             <Card>
               <CardHeader>
                 <h2 className="text-xl font-bold text-text-primary mb-4">Choose Your Plan</h2>
               </CardHeader>
               <CardBody className="space-y-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBillingCycle('MONTHLY')
-                    setPromoValid(null)
-                  }}
-                  className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
-                    billingCycle === 'MONTHLY'
-                      ? 'border-electric-blue bg-electric-blue/10'
-                      : 'border-bg-tertiary bg-bg-secondary hover:border-bg-tertiary'
-                  }`}
-                >
+                <button type="button" onClick={() => { setBillingCycle('MONTHLY'); setPromoValid(null) }}
+                  className={`w-full p-4 rounded-lg border-2 transition-all text-left ${billingCycle === 'MONTHLY' ? 'border-electric-blue bg-electric-blue/10' : 'border-bg-tertiary bg-bg-secondary'}`}>
                   <div className="text-lg font-bold text-text-primary mb-1">Monthly</div>
                   <div className="text-3xl font-bold text-electric-blue">${pricing.monthly.toFixed(2)}</div>
                   <div className="text-sm text-text-secondary">per month</div>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBillingCycle('YEARLY')
-                    setPromoValid(null)
-                  }}
-                  className={`w-full p-4 rounded-lg border-2 transition-all text-left relative ${
-                    billingCycle === 'YEARLY'
-                      ? 'border-electric-blue bg-electric-blue/10'
-                      : 'border-bg-tertiary bg-bg-secondary hover:border-bg-tertiary'
-                  }`}
-                >
+                <button type="button" onClick={() => { setBillingCycle('YEARLY'); setPromoValid(null) }}
+                  className={`w-full p-4 rounded-lg border-2 transition-all text-left relative ${billingCycle === 'YEARLY' ? 'border-electric-blue bg-electric-blue/10' : 'border-bg-tertiary bg-bg-secondary'}`}>
                   <div className="absolute top-2 right-2 bg-cyber-green text-black px-2 py-1 rounded text-xs font-bold">
                     SAVE {Math.round(((pricing.monthly * 12 - pricing.yearly) / (pricing.monthly * 12)) * 100)}%
                   </div>
@@ -226,49 +138,25 @@ export default function UpgradePage() {
               </CardBody>
             </Card>
 
-            {/* Promo Code & Summary */}
             <Card>
               <CardHeader>
                 <h2 className="text-xl font-bold text-text-primary mb-4">Promo Code</h2>
               </CardHeader>
               <CardBody className="space-y-4">
                 <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    value={promoCode}
-                    onChange={(e) => {
-                      setPromoCode(e.target.value.toUpperCase())
-                      setPromoValid(null)
-                    }}
-                    placeholder="Enter promo code"
-                    className="flex-1"
-                  />
-                  <Button
-                    variant="secondary"
-                    onClick={handleValidatePromo}
-                    isLoading={isValidatingPromo}
-                  >
-                    Apply
-                  </Button>
+                  <Input type="text" value={promoCode} onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoValid(null) }} placeholder="Enter promo code" className="flex-1" />
+                  <Button variant="secondary" onClick={() => promoMutation.mutate()} isLoading={promoMutation.isPending}>Apply</Button>
                 </div>
-
                 {promoValid?.valid && (
                   <div className="p-3 bg-cyber-green/10 border border-cyber-green/30 rounded-lg">
-                    <p className="text-sm text-cyber-green">
-                      ✓ Promo code applied! Save ${discount.toFixed(2)}
-                    </p>
+                    <p className="text-sm text-cyber-green">Promo code applied! Save ${discount.toFixed(2)}</p>
                   </div>
                 )}
-
                 {promoValid?.valid === false && (
                   <div className="p-3 bg-neon-orange/10 border border-neon-orange/30 rounded-lg">
-                    <p className="text-sm text-neon-orange">
-                      Invalid promo code
-                    </p>
+                    <p className="text-sm text-neon-orange">Invalid promo code</p>
                   </div>
                 )}
-
-                {/* Price Summary */}
                 <div className="pt-4 border-t border-bg-tertiary space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-text-secondary">Subtotal:</span>
@@ -284,92 +172,27 @@ export default function UpgradePage() {
                     <span className="text-lg font-bold text-text-primary">Total:</span>
                     <span className="text-2xl font-bold text-electric-blue">${finalPrice.toFixed(2)}</span>
                   </div>
-                  {billingCycle === 'YEARLY' && (
-                    <p className="text-xs text-text-secondary mt-2 text-center">
-                      Billed annually. Cancel anytime.
-                    </p>
-                  )}
+                  {billingCycle === 'YEARLY' && <p className="text-xs text-text-secondary mt-2 text-center">Billed annually. Cancel anytime.</p>}
                 </div>
-
-                <Button
-                  variant="primary"
-                  onClick={handleSubscribe}
-                  isLoading={isProcessing}
-                  className="w-full py-3 text-base font-semibold"
-                >
-                  Subscribe to Pro
-                </Button>
+                <Button variant="primary" onClick={() => checkoutMutation.mutate()} isLoading={checkoutMutation.isPending} className="w-full py-3 text-base font-semibold">Subscribe to Pro</Button>
               </CardBody>
             </Card>
           </div>
 
-          {/* Pro Features */}
           <Card>
             <CardHeader>
-              <h2 className="text-xl font-bold text-text-primary">What's Included in Pro</h2>
+              <h2 className="text-xl font-bold text-text-primary">What&apos;s Included in Pro</h2>
             </CardHeader>
             <CardBody>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-cyber-green mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-text-primary">Unlimited Speed Mode debates</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-cyber-green mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-text-primary">Priority matchmaking</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-cyber-green mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-text-primary">Advanced analytics dashboard</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-cyber-green mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-text-primary">4 tournament credits/month</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-cyber-green mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-text-primary">12 appeals per month</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-cyber-green mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-text-primary">"That's The One" unlimited</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-cyber-green mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-text-primary">Debate replay & export</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-cyber-green mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-text-primary">Custom profile themes</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-cyber-green mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-text-primary">Verified badge</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-cyber-green mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-text-primary">No ads</span>
-                </div>
+                {PRO_FEATURES.map((feature) => (
+                  <div key={feature} className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-cyber-green mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-text-primary">{feature}</span>
+                  </div>
+                ))}
               </div>
             </CardBody>
           </Card>
@@ -378,4 +201,3 @@ export default function UpgradePage() {
     </div>
   )
 }
-

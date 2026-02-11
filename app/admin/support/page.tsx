@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
@@ -52,9 +55,7 @@ interface Admin {
 
 export default function AdminSupportPage() {
   const { showToast } = useToast()
-  const [tickets, setTickets] = useState<SupportTicket[]>([])
-  const [admins, setAdmins] = useState<Admin[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null)
   const [filters, setFilters] = useState({
     status: 'all',
@@ -65,160 +66,130 @@ export default function AdminSupportPage() {
   // Reply form
   const [replyContent, setReplyContent] = useState('')
   const [isInternal, setIsInternal] = useState(false)
-  const [isSubmittingReply, setIsSubmittingReply] = useState(false)
 
-  useEffect(() => {
-    fetchTickets()
-  }, [filters])
+  // --- Queries ---
 
-  const fetchTickets = async () => {
-    setIsLoading(true)
-    try {
-      const params = new URLSearchParams()
-      if (filters.status !== 'all') params.append('status', filters.status)
-      if (filters.assignedToId !== 'all') params.append('assignedToId', filters.assignedToId)
-      if (filters.priority !== 'all') params.append('priority', filters.priority)
+  const buildTicketParams = () => {
+    const params = new URLSearchParams()
+    if (filters.status !== 'all') params.append('status', filters.status)
+    if (filters.assignedToId !== 'all') params.append('assignedToId', filters.assignedToId)
+    if (filters.priority !== 'all') params.append('priority', filters.priority)
+    return params.toString()
+  }
 
-      const response = await fetch(`/api/admin/support/tickets?${params.toString()}`, {
-        cache: 'no-store',
-      })
-      if (response.ok) {
-        const data = await response.json()
-        console.log('[Admin Support Page] Fetched tickets from API:', {
-          ticketCount: data.tickets?.length || 0,
-          adminsCount: data.admins?.length || 0,
-        })
-        // Log reply counts for each ticket
-        if (data.tickets && data.tickets.length > 0) {
-          data.tickets.forEach((ticket: any) => {
-            console.log('[Admin Support Page] Ticket reply count:', {
-              ticketId: ticket.id,
-              subject: ticket.subject,
-              replyCount: ticket.replies?.length || 0,
-              replies: ticket.replies?.map((r: any) => ({ id: r.id, author: r.author?.username })) || [],
-            })
-          })
-        }
-        setTickets(data.tickets || [])
-        setAdmins(data.admins || [])
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('[Admin Support Page] Failed to fetch tickets:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData,
-        })
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: errorData.error || `Failed to load support tickets (${response.status})`,
-        })
-      }
-    } catch (error) {
-      console.error('Failed to fetch tickets:', error)
+  const {
+    data: ticketsData,
+    isLoading,
+    error: ticketsError,
+    refetch: refetchTickets,
+  } = useQuery({
+    queryKey: ['admin', 'support', 'tickets', filters],
+    queryFn: () =>
+      fetchClient<{ tickets: SupportTicket[]; admins: Admin[] }>(
+        `/api/admin/support/tickets?${buildTicketParams()}`
+      ),
+  })
+
+  const tickets = ticketsData?.tickets || []
+  const admins = ticketsData?.admins || []
+
+  // --- Mutations ---
+
+  const viewTicketMutation = useMutation({
+    mutationFn: (ticketId: string) =>
+      fetchClient<{ ticket: SupportTicket }>(
+        `/api/support/tickets/${ticketId}?t=${Date.now()}`
+      ),
+    onSuccess: (data) => {
+      setSelectedTicket(data.ticket)
+    },
+    onError: () => {
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Failed to load support tickets',
+        description: 'Failed to load ticket details',
       })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+    },
+  })
 
-  const handleViewTicket = async (ticketId: string) => {
-    try {
-      // Add cache-busting to ensure fresh data
-      const response = await fetch(`/api/support/tickets/${ticketId}?t=${Date.now()}`, {
-        cache: 'no-store',
-      })
-      if (response.ok) {
-        const data = await response.json()
-        console.log('[Admin Support] Fetched ticket with replies:', {
-          ticketId: data.ticket?.id,
-          replyCount: data.ticket?.replies?.length || 0,
-        })
-        setSelectedTicket(data.ticket)
-      }
-    } catch (error) {
-      console.error('Failed to fetch ticket:', error)
-    }
-  }
-
-  const handleUpdateTicket = async (updates: {
-    status?: string
-    assignedToId?: string | null
-    priority?: string
-  }) => {
-    if (!selectedTicket) return
-
-    try {
-      const response = await fetch(`/api/support/tickets/${selectedTicket.id}`, {
+  const updateTicketMutation = useMutation({
+    mutationFn: (data: { ticketId: string; updates: { status?: string; assignedToId?: string | null; priority?: string } }) =>
+      fetchClient<any>(`/api/support/tickets/${data.ticketId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(data.updates),
+      }),
+    onSuccess: (_data, variables) => {
+      showToast({
+        type: 'success',
+        title: 'Ticket Updated',
+        description: 'Ticket has been updated successfully',
       })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Ticket Updated',
-          description: 'Ticket has been updated successfully',
-        })
-        handleViewTicket(selectedTicket.id)
-        fetchTickets()
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to update ticket')
-      }
-    } catch (error: any) {
+      viewTicketMutation.mutate(variables.ticketId)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'support', 'tickets'] })
+    },
+    onError: (error: Error) => {
       showToast({
         type: 'error',
         title: 'Error',
         description: error.message || 'Failed to update ticket',
       })
-    }
-  }
+    },
+  })
 
-  const handleSubmitReply = async () => {
-    if (!selectedTicket || !replyContent.trim()) return
-
-    setIsSubmittingReply(true)
-    try {
-      const response = await fetch(`/api/support/tickets/${selectedTicket.id}/replies`, {
+  const submitReplyMutation = useMutation({
+    mutationFn: (data: { ticketId: string; content: string; isInternal: boolean }) =>
+      fetchClient<any>(`/api/support/tickets/${data.ticketId}/replies`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: replyContent.trim(),
-          isInternal,
+          content: data.content,
+          isInternal: data.isInternal,
         }),
+      }),
+    onSuccess: (_data, variables) => {
+      showToast({
+        type: 'success',
+        title: 'Reply Sent',
+        description: 'Your reply has been added to the ticket',
       })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Reply Sent',
-          description: 'Your reply has been added to the ticket',
-        })
-        setReplyContent('')
-        setIsInternal(false)
-        // Refresh both the ticket detail and the ticket list
-        await handleViewTicket(selectedTicket.id)
-        await fetchTickets() // Refresh the list to update reply counts
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to send reply')
-      }
-    } catch (error: any) {
+      setReplyContent('')
+      setIsInternal(false)
+      viewTicketMutation.mutate(variables.ticketId)
+      queryClient.invalidateQueries({ queryKey: ['admin', 'support', 'tickets'] })
+    },
+    onError: (error: Error) => {
       showToast({
         type: 'error',
         title: 'Error',
         description: error.message || 'Failed to send reply',
       })
-    } finally {
-      setIsSubmittingReply(false)
-    }
+    },
+  })
+
+  // --- Handlers ---
+
+  const handleViewTicket = (ticketId: string) => {
+    viewTicketMutation.mutate(ticketId)
   }
+
+  const handleUpdateTicket = (updates: {
+    status?: string
+    assignedToId?: string | null
+    priority?: string
+  }) => {
+    if (!selectedTicket) return
+    updateTicketMutation.mutate({ ticketId: selectedTicket.id, updates })
+  }
+
+  const handleSubmitReply = () => {
+    if (!selectedTicket || !replyContent.trim()) return
+    submitReplyMutation.mutate({
+      ticketId: selectedTicket.id,
+      content: replyContent.trim(),
+      isInternal,
+    })
+  }
+
+  // --- Helpers ---
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -323,6 +294,12 @@ export default function AdminSupportPage() {
           <div className="flex items-center justify-center py-12">
             <LoadingSpinner size="lg" />
           </div>
+        ) : ticketsError ? (
+          <ErrorDisplay
+            title="Failed to load tickets"
+            message={(ticketsError as Error).message || 'Could not load support tickets.'}
+            onRetry={() => refetchTickets()}
+          />
         ) : tickets.length === 0 ? (
           <Card>
             <CardBody className="text-center py-12">
@@ -543,7 +520,7 @@ export default function AdminSupportPage() {
               </div>
               <Button
                 onClick={handleSubmitReply}
-                isLoading={isSubmittingReply}
+                isLoading={submitReplyMutation.isPending}
                 disabled={!replyContent.trim()}
               >
                 Send Reply
@@ -555,4 +532,3 @@ export default function AdminSupportPage() {
     </div>
   )
 }
-

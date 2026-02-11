@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -74,21 +77,42 @@ interface SupportTicket {
   }>
 }
 
+function computeStats(campaigns: Campaign[]) {
+  const active = campaigns.filter((c) => c.status === 'ACTIVE')
+  const totalImpressions = campaigns.reduce(
+    (sum, c) => sum + (c.impressionsDelivered || 0),
+    0
+  )
+  const totalClicks = campaigns.reduce(
+    (sum, c) => sum + (c.clicksDelivered || 0),
+    0
+  )
+  const totalSpent = campaigns
+    .filter((c) => c.type === 'PLATFORM_ADS' && c.paymentStatus === 'PAID')
+    .reduce((sum, c) => {
+      const budget = typeof c.budget === 'string' ? parseFloat(c.budget) : Number(c.budget)
+      return sum + (isNaN(budget) ? 0 : budget)
+    }, 0)
+  const pendingPayment = campaigns
+    .filter((c) => c.status === 'PENDING_PAYMENT' || c.paymentStatus === 'PENDING')
+    .reduce((sum, c) => {
+      const budget = typeof c.budget === 'string' ? parseFloat(c.budget) : Number(c.budget)
+      return sum + (isNaN(budget) ? 0 : budget)
+    }, 0)
+
+  return {
+    activeCampaigns: active.length,
+    totalImpressions,
+    totalClicks,
+    totalSpent,
+    pendingPayment,
+  }
+}
+
 export default function AdvertiserDashboardPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { showToast } = useToast()
-  const [isLoading, setIsLoading] = useState(true)
-  const [advertiser, setAdvertiser] = useState<Advertiser | null>(null)
-  const [campaigns, setCampaigns] = useState<Campaign[]>([])
-  const [offers, setOffers] = useState<Offer[]>([])
-  const [stats, setStats] = useState({
-    activeCampaigns: 0,
-    totalImpressions: 0,
-    totalClicks: 0,
-    totalSpent: 0,
-    pendingPayment: 0,
-  })
-  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([])
   const [showSupportModal, setShowSupportModal] = useState(false)
   const [showSupportDetailModal, setShowSupportDetailModal] = useState(false)
   const [selectedSupportTicket, setSelectedSupportTicket] = useState<SupportTicket | null>(null)
@@ -97,32 +121,148 @@ export default function AdvertiserDashboardPage() {
   const [supportCategory, setSupportCategory] = useState('Technical')
   const [supportPriority, setSupportPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM')
   const [supportReplyContent, setSupportReplyContent] = useState('')
-  const [isSubmittingSupportTicket, setIsSubmittingSupportTicket] = useState(false)
-  const [isSubmittingSupportReply, setIsSubmittingSupportReply] = useState(false)
   const [activeTab, setActiveTab] = useState('campaigns')
 
+  // --- Data Queries ---
+
+  const advertiserQuery = useQuery({
+    queryKey: ['advertiser', 'me'],
+    queryFn: async () => {
+      const res = await fetch('/api/advertiser/me')
+      if (res.status === 401) {
+        router.push('/login?userType=advertiser')
+        return null
+      }
+      if (res.status === 404) {
+        router.push('/advertise')
+        return null
+      }
+      if (res.status === 403) {
+        try {
+          const errorData = await res.json()
+          if (errorData.advertiser) return errorData.advertiser as Advertiser
+        } catch {
+          // ignore
+        }
+        return { id: '', companyName: '', status: 'PENDING', paymentReady: false } as Advertiser
+      }
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        if (errorData.error) {
+          showToast({ type: 'error', title: 'Error', description: errorData.error })
+        }
+        return null
+      }
+      const data = await res.json()
+      return data.advertiser as Advertiser
+    },
+  })
+
+  const campaignsQuery = useQuery({
+    queryKey: ['advertiser', 'campaigns'],
+    queryFn: () => fetchClient<{ campaigns: Campaign[] }>('/api/advertiser/campaigns'),
+    enabled: !!advertiserQuery.data,
+  })
+
+  const offersQuery = useQuery({
+    queryKey: ['advertiser', 'offers'],
+    queryFn: () => fetchClient<{ offers: Offer[] }>('/api/advertiser/offers'),
+    enabled: !!advertiserQuery.data,
+  })
+
+  const supportTicketsQuery = useQuery({
+    queryKey: ['advertiser', 'supportTickets'],
+    queryFn: () => fetchClient<{ tickets: SupportTicket[] }>(`/api/support/tickets?t=${Date.now()}`),
+    enabled: !!advertiserQuery.data && advertiserQuery.data.status === 'APPROVED',
+  })
+
+  // --- Mutations ---
+
+  const createSupportTicketMutation = useMutation({
+    mutationFn: (payload: { subject: string; description: string; category: string | null; priority: string }) =>
+      fetchClient<{ ticket: SupportTicket }>('/api/support/tickets', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    onSuccess: () => {
+      showToast({ type: 'success', title: 'Ticket Created', description: 'Your support ticket has been created successfully' })
+      setShowSupportModal(false)
+      setSupportSubject('')
+      setSupportDescription('')
+      setSupportCategory('Technical')
+      setSupportPriority('MEDIUM')
+      queryClient.invalidateQueries({ queryKey: ['advertiser', 'supportTickets'] })
+    },
+    onError: (error: Error) => {
+      showToast({ type: 'error', title: 'Error', description: error.message || 'Failed to create support ticket' })
+    },
+  })
+
+  const submitSupportReplyMutation = useMutation({
+    mutationFn: async (ticketId: string) => {
+      const reply = await fetchClient<{ reply: any }>(`/api/support/tickets/${ticketId}/replies`, {
+        method: 'POST',
+        body: JSON.stringify({ content: supportReplyContent.trim(), isInternal: false }),
+      })
+      // Refresh ticket data
+      const ticketData = await fetchClient<{ ticket: SupportTicket }>(`/api/support/tickets/${ticketId}?t=${Date.now()}`)
+      return ticketData
+    },
+    onSuccess: (data) => {
+      showToast({ type: 'success', title: 'Reply Sent', description: 'Your reply has been added to the ticket' })
+      setSupportReplyContent('')
+      setSelectedSupportTicket(data.ticket)
+      queryClient.invalidateQueries({ queryKey: ['advertiser', 'supportTickets'] })
+    },
+    onError: (error: Error) => {
+      showToast({ type: 'error', title: 'Error', description: error.message || 'Failed to send reply' })
+    },
+  })
+
+  const deleteCampaignMutation = useMutation({
+    mutationFn: (campaignId: string) =>
+      fetchClient(`/api/advertiser/campaigns/${campaignId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      showToast({ type: 'success', title: 'Campaign Deleted', description: 'The campaign has been deleted successfully.' })
+      queryClient.invalidateQueries({ queryKey: ['advertiser', 'campaigns'] })
+    },
+    onError: (error: Error) => {
+      showToast({ type: 'error', title: 'Delete Failed', description: error.message || 'Failed to delete campaign' })
+    },
+  })
+
+  const initiatePaymentMutation = useMutation({
+    mutationFn: (campaignId: string) =>
+      fetchClient<{ checkoutUrl: string }>('/api/advertiser/campaigns/payment', {
+        method: 'POST',
+        body: JSON.stringify({ campaignId }),
+      }),
+    onSuccess: (data) => {
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
+      }
+    },
+    onError: (error: Error) => {
+      showToast({ type: 'error', title: 'Payment Error', description: error.message || 'Failed to initiate payment' })
+    },
+  })
+
+  // --- URL param handling on mount ---
   useEffect(() => {
-    fetchData()
-    
-    // Check for payment success/error messages in URL
     const urlParams = new URLSearchParams(window.location.search)
     const success = urlParams.get('success')
     const error = urlParams.get('error')
     const message = urlParams.get('message')
-    
+
     if (success === 'payment_completed') {
-      console.log('[Advertiser Dashboard] Payment completed, refreshing data')
       showToast({
         type: 'success',
         title: 'Payment Successful',
         description: 'Your payment has been processed. Your campaign is now pending admin review.',
       })
-      // Refresh campaign data to show updated status
       setTimeout(() => {
-        console.log('[Advertiser Dashboard] Refreshing campaign data after payment')
-        fetchData()
+        queryClient.invalidateQueries({ queryKey: ['advertiser', 'campaigns'] })
       }, 1000)
-      // Clean up URL
       window.history.replaceState({}, '', '/advertiser/dashboard')
     } else if (success === 'already_paid') {
       showToast({
@@ -130,9 +270,8 @@ export default function AdvertiserDashboardPage() {
         title: 'Payment Already Processed',
         description: 'This payment was already processed successfully.',
       })
-      // Refresh campaign data
       setTimeout(() => {
-        fetchData()
+        queryClient.invalidateQueries({ queryKey: ['advertiser', 'campaigns'] })
       }, 500)
       window.history.replaceState({}, '', '/advertiser/dashboard')
     } else if (error) {
@@ -146,11 +285,6 @@ export default function AdvertiserDashboardPage() {
         payment_intent_missing: 'Payment verification failed. Please contact support.',
         verification_failed: message || 'Payment verification failed. Please contact support if you were charged.',
       }
-      console.error('[Advertiser Dashboard] Payment error:', {
-        errorCode: error,
-        errorMessage: message,
-        userMessage: errorMessages[error] || 'An error occurred. Please contact support.',
-      })
       showToast({
         type: 'error',
         title: 'Payment Error',
@@ -158,270 +292,34 @@ export default function AdvertiserDashboardPage() {
       })
       window.history.replaceState({}, '', '/advertiser/dashboard')
     }
-  }, [showToast])
+  }, [showToast, queryClient])
 
-  useEffect(() => {
-    // Fetch support tickets once advertiser is loaded (for all approved advertisers)
-    if (advertiser && advertiser.id && !isLoading) {
-      fetchSupportTickets()
-    }
-  }, [advertiser, isLoading])
+  // --- Derived data ---
 
-  const fetchData = async () => {
-    try {
-      setIsLoading(true)
-      const [advertiserRes, campaignsRes, offersRes] = await Promise.all([
-        fetch('/api/advertiser/me'),
-        fetch('/api/advertiser/campaigns'),
-        fetch('/api/advertiser/offers'),
-      ])
+  const advertiser = advertiserQuery.data ?? null
+  const campaigns = campaignsQuery.data?.campaigns ?? []
+  const offers = offersQuery.data?.offers ?? []
+  const supportTickets = supportTicketsQuery.data?.tickets ?? []
+  const stats = computeStats(campaigns)
 
-      if (advertiserRes.ok) {
-        const advertiserData = await advertiserRes.json()
-        setAdvertiser(advertiserData.advertiser)
-      } else if (advertiserRes.status === 401) {
-        // Redirect to login with advertiser userType
-        router.push('/login?userType=advertiser')
-        return
-      } else if (advertiserRes.status === 404) {
-        // Not an advertiser, redirect to apply
-        router.push('/advertise')
-        return
-      } else if (advertiserRes.status === 403) {
-        // 403 means advertiser exists but not approved - try to get advertiser data anyway
-        // The API should return 200 now, but handle 403 as fallback
-        try {
-          const errorData = await advertiserRes.json()
-          // If error data has advertiser info, use it
-          if (errorData.advertiser) {
-            setAdvertiser(errorData.advertiser)
-          } else {
-            // Fallback: create minimal advertiser object
-            setAdvertiser({
-              id: '',
-              companyName: '',
-              status: 'PENDING',
-              paymentReady: false,
-            })
-          }
-        } catch (e) {
-          // If can't parse error, create minimal advertiser
-          setAdvertiser({
-            id: '',
-            companyName: '',
-            status: 'PENDING',
-            paymentReady: false,
-          })
-        }
-      } else {
-        // Other error - show error message
-        console.error('Failed to fetch advertiser:', advertiserRes.status)
-        const errorData = await advertiserRes.json().catch(() => ({}))
-        // Try to show error message if available
-        if (errorData.error) {
-          showToast({
-            type: 'error',
-            title: 'Error',
-            description: errorData.error,
-          })
-        }
-        setAdvertiser(null)
-      }
+  // --- Handlers ---
 
-      if (campaignsRes.ok) {
-        const campaignsData = await campaignsRes.json()
-        setCampaigns(campaignsData.campaigns || [])
-        
-        // Calculate stats
-        const active = campaignsData.campaigns.filter((c: Campaign) => c.status === 'ACTIVE')
-        const totalImpressions = campaignsData.campaigns.reduce(
-          (sum: number, c: Campaign) => sum + (c.impressionsDelivered || 0),
-          0
-        )
-        const totalClicks = campaignsData.campaigns.reduce(
-          (sum: number, c: Campaign) => sum + (c.clicksDelivered || 0),
-          0
-        )
-        // Only count paid PLATFORM_ADS campaigns in totalSpent
-        // Creator Sponsorship and Tournament Sponsorship don't require payment upfront
-        const totalSpent = campaignsData.campaigns
-          .filter((c: Campaign) => {
-            // Only PLATFORM_ADS campaigns require payment
-            // Only count if paymentStatus is PAID
-            return c.type === 'PLATFORM_ADS' && c.paymentStatus === 'PAID'
-          })
-          .reduce((sum: number, c: Campaign) => {
-            const budget = typeof c.budget === 'string' ? parseFloat(c.budget) : Number(c.budget)
-            return sum + (isNaN(budget) ? 0 : budget)
-          }, 0)
-        // Calculate pending payment amount (campaigns with PENDING_PAYMENT status)
-        const pendingPayment = campaignsData.campaigns
-          .filter((c: Campaign) => c.status === 'PENDING_PAYMENT' || c.paymentStatus === 'PENDING')
-          .reduce((sum: number, c: Campaign) => {
-            const budget = typeof c.budget === 'string' ? parseFloat(c.budget) : Number(c.budget)
-            return sum + (isNaN(budget) ? 0 : budget)
-          }, 0)
-
-        setStats({
-          activeCampaigns: active.length,
-          totalImpressions,
-          totalClicks,
-          totalSpent,
-          pendingPayment,
-        })
-      }
-
-      if (offersRes.ok) {
-        const offersData = await offersRes.json()
-        setOffers(offersData.offers || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch data:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const fetchSupportTickets = async () => {
-    try {
-      const response = await fetch(`/api/support/tickets?t=${Date.now()}`, {
-        cache: 'no-store',
-      })
-      if (response.ok) {
-        const data = await response.json()
-        console.log('[Advertiser Dashboard] Fetched support tickets:', data.tickets?.length || 0)
-        // Log reply counts for each ticket
-        if (data.tickets && data.tickets.length > 0) {
-          data.tickets.forEach((ticket: any) => {
-            console.log('[Advertiser Dashboard] Ticket:', {
-              id: ticket.id,
-              subject: ticket.subject,
-              replyCount: ticket.replies?.length || 0,
-            })
-          })
-        }
-        setSupportTickets(data.tickets || [])
-      } else {
-        console.error('[Advertiser Dashboard] Failed to fetch support tickets:', response.status)
-      }
-    } catch (error) {
-      console.error('[Advertiser Dashboard] Failed to fetch support tickets:', error)
-    }
-  }
-
-  const handleCreateSupportTicket = async () => {
+  const handleCreateSupportTicket = () => {
     if (!supportSubject.trim() || !supportDescription.trim()) {
-      showToast({
-        type: 'error',
-        title: 'Validation Error',
-        description: 'Subject and description are required',
-      })
+      showToast({ type: 'error', title: 'Validation Error', description: 'Subject and description are required' })
       return
     }
-
-    setIsSubmittingSupportTicket(true)
-    try {
-      const response = await fetch('/api/support/tickets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subject: supportSubject.trim(),
-          description: supportDescription.trim(),
-          category: supportCategory || null,
-          priority: supportPriority,
-        }),
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Ticket Created',
-          description: 'Your support ticket has been created successfully',
-        })
-        setShowSupportModal(false)
-        setSupportSubject('')
-        setSupportDescription('')
-        setSupportCategory('Technical')
-        setSupportPriority('MEDIUM')
-        fetchSupportTickets()
-      } else {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to create ticket')
-      }
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to create support ticket',
-      })
-    } finally {
-      setIsSubmittingSupportTicket(false)
-    }
+    createSupportTicketMutation.mutate({
+      subject: supportSubject.trim(),
+      description: supportDescription.trim(),
+      category: supportCategory || null,
+      priority: supportPriority,
+    })
   }
 
-  const handleSubmitSupportReply = async () => {
+  const handleSubmitSupportReply = () => {
     if (!selectedSupportTicket || !supportReplyContent.trim()) return
-
-    setIsSubmittingSupportReply(true)
-    try {
-      const response = await fetch(`/api/support/tickets/${selectedSupportTicket.id}/replies`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: supportReplyContent.trim(),
-          isInternal: false, // Explicitly set to false for advertiser replies
-        }),
-      })
-
-      if (response.ok) {
-        const replyData = await response.json()
-        console.log('[Advertiser Dashboard] Reply sent successfully:', replyData.reply?.id)
-        
-        showToast({
-          type: 'success',
-          title: 'Reply Sent',
-          description: 'Your reply has been added to the ticket',
-        })
-        setSupportReplyContent('')
-        
-        // Refresh ticket with cache-busting
-        const ticketResponse = await fetch(`/api/support/tickets/${selectedSupportTicket.id}?t=${Date.now()}`, {
-          cache: 'no-store',
-        })
-        if (ticketResponse.ok) {
-          const ticketData = await ticketResponse.json()
-          console.log('[Advertiser Dashboard] Refreshed ticket with replies:', {
-            ticketId: ticketData.ticket?.id,
-            replyCount: ticketData.ticket?.replies?.length || 0,
-            replies: ticketData.ticket?.replies?.map((r: any) => ({
-              id: r.id,
-              author: r.author?.username,
-              isAdmin: r.author?.isAdmin,
-            })) || [],
-          })
-          setSelectedSupportTicket(ticketData.ticket)
-        } else {
-          console.error('[Advertiser Dashboard] Failed to refresh ticket:', ticketResponse.status)
-        }
-        // Refresh ticket list with a small delay to ensure server has processed the reply
-        setTimeout(() => {
-          fetchSupportTickets()
-        }, 500)
-      } else {
-        const error = await response.json()
-        console.error('[Advertiser Dashboard] Failed to send reply:', error)
-        throw new Error(error.error || 'Failed to send reply')
-      }
-    } catch (error: any) {
-      console.error('[Advertiser Dashboard] Reply error:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to send reply',
-      })
-    } finally {
-      setIsSubmittingSupportReply(false)
-    }
+    submitSupportReplyMutation.mutate(selectedSupportTicket.id)
   }
 
   const getStatusColor = (status: string) => {
@@ -449,12 +347,27 @@ export default function AdvertiserDashboardPage() {
     }
   }
 
-  if (isLoading) {
+  if (advertiserQuery.isLoading) {
     return (
       <div className="min-h-screen bg-bg-primary">
         <TopNav currentPanel="ADVERTISER" />
         <div className="flex items-center justify-center min-h-[60vh]">
           <LoadingSpinner size="lg" />
+        </div>
+      </div>
+    )
+  }
+
+  if (advertiserQuery.isError) {
+    return (
+      <div className="min-h-screen bg-bg-primary">
+        <TopNav currentPanel="ADVERTISER" />
+        <div className="pt-20 px-4 md:px-8 pb-20">
+          <ErrorDisplay
+            title="Failed to load dashboard"
+            message="Could not load your advertiser data. Please try again."
+            onRetry={() => advertiserQuery.refetch()}
+          />
         </div>
       </div>
     )
@@ -566,7 +479,7 @@ export default function AdvertiserDashboardPage() {
                       Connect your payment account to start creating campaigns and making offers to creators.
                     </p>
                   </div>
-                  <Button 
+                  <Button
                     variant="primary"
                     onClick={() => router.push('/advertiser/settings')}
                   >
@@ -653,7 +566,16 @@ export default function AdvertiserDashboardPage() {
                             <Button variant="primary" size="sm">+ New Campaign</Button>
                           </Link>
                         </div>
-                        {campaigns.length === 0 ? (
+
+                        {campaignsQuery.isError && (
+                          <ErrorDisplay
+                            title="Failed to load campaigns"
+                            message="Could not load your campaigns."
+                            onRetry={() => campaignsQuery.refetch()}
+                          />
+                        )}
+
+                        {!campaignsQuery.isError && campaigns.length === 0 ? (
                           <div className="text-center py-12">
                             <p className="text-text-secondary mb-4">No campaigns yet</p>
                             <Link href="/advertiser/campaigns/create">
@@ -693,34 +615,7 @@ export default function AdvertiserDashboardPage() {
                                     <Button
                                       variant="primary"
                                       size="sm"
-                                      onClick={async () => {
-                                        try {
-                                          const response = await fetch(`/api/advertiser/campaigns/payment`, {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ campaignId: campaign.id }),
-                                          })
-                                          if (response.ok) {
-                                            const data = await response.json()
-                                            if (data.checkoutUrl) {
-                                              window.location.href = data.checkoutUrl
-                                            }
-                                          } else {
-                                            const error = await response.json()
-                                            showToast({
-                                              type: 'error',
-                                              title: 'Payment Error',
-                                              description: error.error || 'Failed to initiate payment',
-                                            })
-                                          }
-                                        } catch (error: any) {
-                                          showToast({
-                                            type: 'error',
-                                            title: 'Error',
-                                            description: error.message || 'Failed to process payment',
-                                          })
-                                        }
-                                      }}
+                                      onClick={() => initiatePaymentMutation.mutate(campaign.id)}
                                     >
                                       Pay Now
                                     </Button>
@@ -731,13 +626,10 @@ export default function AdvertiserDashboardPage() {
                                       size="sm"
                                       onClick={async () => {
                                         try {
-                                          const response = await fetch(`/api/advertiser/campaigns/${campaign.id}/receipt`)
-                                          if (response.ok) {
-                                            const data = await response.json()
-                                            const receipt = data.receipt
-                                            
-                                            // Create receipt HTML
-                                            const receiptHTML = `
+                                          const data = await fetchClient<{ receipt: any }>(`/api/advertiser/campaigns/${campaign.id}/receipt`)
+                                          const receipt = data.receipt
+
+                                          const receiptHTML = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -760,14 +652,14 @@ export default function AdvertiserDashboardPage() {
     <div class="receipt-number">Receipt: ${receipt.receiptNumber}</div>
     <div>Date: ${new Date(receipt.date).toLocaleString()}</div>
   </div>
-  
+
   <div class="section">
     <div class="section-title">Advertiser Information</div>
     <div class="row"><span class="label">Company:</span><span class="value">${receipt.advertiser.companyName}</span></div>
     <div class="row"><span class="label">Contact:</span><span class="value">${receipt.advertiser.contactName || receipt.advertiser.contactEmail}</span></div>
     <div class="row"><span class="label">Email:</span><span class="value">${receipt.advertiser.contactEmail}</span></div>
   </div>
-  
+
   <div class="section">
     <div class="section-title">Campaign Details</div>
     <div class="row"><span class="label">Campaign:</span><span class="value">${receipt.campaign.name}</span></div>
@@ -775,7 +667,7 @@ export default function AdvertiserDashboardPage() {
     <div class="row"><span class="label">Category:</span><span class="value">${receipt.campaign.category}</span></div>
     <div class="row"><span class="label">Duration:</span><span class="value">${new Date(receipt.campaign.startDate).toLocaleDateString()} - ${new Date(receipt.campaign.endDate).toLocaleDateString()}</span></div>
   </div>
-  
+
   <div class="section">
     <div class="section-title">Payment Details</div>
     <div class="row"><span class="label">Campaign Budget:</span><span class="value">$${receipt.payment.budget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
@@ -786,25 +678,16 @@ export default function AdvertiserDashboardPage() {
   </div>
 </body>
 </html>
-                                            `
-                                            
-                                            // Open receipt in new window for printing
-                                            const printWindow = window.open('', '_blank')
-                                            if (printWindow) {
-                                              printWindow.document.write(receiptHTML)
-                                              printWindow.document.close()
-                                              printWindow.focus()
-                                              setTimeout(() => {
-                                                printWindow.print()
-                                              }, 250)
-                                            }
-                                          } else {
-                                            const error = await response.json()
-                                            showToast({
-                                              type: 'error',
-                                              title: 'Error',
-                                              description: error.error || 'Failed to load receipt',
-                                            })
+                                          `
+
+                                          const printWindow = window.open('', '_blank')
+                                          if (printWindow) {
+                                            printWindow.document.write(receiptHTML)
+                                            printWindow.document.close()
+                                            printWindow.focus()
+                                            setTimeout(() => {
+                                              printWindow.print()
+                                            }, 250)
                                           }
                                         } catch (error: any) {
                                           showToast({
@@ -828,36 +711,11 @@ export default function AdvertiserDashboardPage() {
                                     <Button
                                       variant="secondary"
                                       size="sm"
-                                      onClick={async () => {
+                                      onClick={() => {
                                         if (!confirm('Are you sure you want to delete this campaign? This action cannot be undone.')) {
                                           return
                                         }
-                                        try {
-                                          const response = await fetch(`/api/advertiser/campaigns/${campaign.id}`, {
-                                            method: 'DELETE',
-                                          })
-                                          if (response.ok) {
-                                            showToast({
-                                              type: 'success',
-                                              title: 'Campaign Deleted',
-                                              description: 'The campaign has been deleted successfully.',
-                                            })
-                                            fetchData()
-                                          } else {
-                                            const error = await response.json()
-                                            showToast({
-                                              type: 'error',
-                                              title: 'Delete Failed',
-                                              description: error.error || 'Failed to delete campaign',
-                                            })
-                                          }
-                                        } catch (error: any) {
-                                          showToast({
-                                            type: 'error',
-                                            title: 'Error',
-                                            description: error.message || 'Failed to delete campaign',
-                                          })
-                                        }
+                                        deleteCampaignMutation.mutate(campaign.id)
                                       }}
                                     >
                                       Delete
@@ -879,8 +737,8 @@ export default function AdvertiserDashboardPage() {
                     <div>
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-bold text-text-primary">Support Tickets</h3>
-                        <Button 
-                          variant="primary" 
+                        <Button
+                          variant="primary"
                           size="sm"
                           onClick={() => {
                             setShowSupportModal(true)
@@ -893,10 +751,19 @@ export default function AdvertiserDashboardPage() {
                           + New Ticket
                         </Button>
                       </div>
-                      {supportTickets.length === 0 ? (
+
+                      {supportTicketsQuery.isError && (
+                        <ErrorDisplay
+                          title="Failed to load tickets"
+                          message="Could not load your support tickets."
+                          onRetry={() => supportTicketsQuery.refetch()}
+                        />
+                      )}
+
+                      {!supportTicketsQuery.isError && supportTickets.length === 0 ? (
                         <div className="text-center py-12">
                           <p className="text-text-secondary mb-4">No support tickets yet</p>
-                          <Button 
+                          <Button
                             variant="primary"
                             onClick={() => {
                               setShowSupportModal(true)
@@ -916,22 +783,10 @@ export default function AdvertiserDashboardPage() {
                               key={ticket.id}
                               className="flex items-center justify-between p-4 bg-bg-secondary rounded-lg border border-bg-tertiary hover:border-electric-blue transition-colors cursor-pointer"
                               onClick={async () => {
-                                // Fetch fresh ticket data when opening modal
                                 try {
-                                  const response = await fetch(`/api/support/tickets/${ticket.id}?t=${Date.now()}`, {
-                                    cache: 'no-store',
-                                  })
-                                  if (response.ok) {
-                                    const data = await response.json()
-                                    console.log('[Advertiser Dashboard] Opening ticket with replies:', data.ticket?.replies?.length || 0)
-                                    setSelectedSupportTicket(data.ticket)
-                                  } else {
-                                    // Fallback to ticket from list if fetch fails
-                                    setSelectedSupportTicket(ticket)
-                                  }
-                                } catch (error) {
-                                  console.error('[Advertiser Dashboard] Failed to fetch ticket:', error)
-                                  // Fallback to ticket from list if fetch fails
+                                  const data = await fetchClient<{ ticket: SupportTicket }>(`/api/support/tickets/${ticket.id}?t=${Date.now()}`)
+                                  setSelectedSupportTicket(data.ticket)
+                                } catch {
                                   setSelectedSupportTicket(ticket)
                                 }
                                 setShowSupportDetailModal(true)
@@ -978,7 +833,7 @@ export default function AdvertiserDashboardPage() {
           </Card>
         </div>
       </div>
-      
+
       {/* Support Ticket Modal */}
       <Modal
         isOpen={showSupportModal}
@@ -1065,7 +920,7 @@ export default function AdvertiserDashboardPage() {
             <Button
               variant="primary"
               onClick={handleCreateSupportTicket}
-              isLoading={isSubmittingSupportTicket}
+              isLoading={createSupportTicketMutation.isPending}
               disabled={!supportSubject.trim() || !supportDescription.trim()}
             >
               Submit Ticket
@@ -1151,7 +1006,7 @@ export default function AdvertiserDashboardPage() {
               />
               <Button
                 onClick={handleSubmitSupportReply}
-                isLoading={isSubmittingSupportReply}
+                isLoading={submitSupportReplyMutation.isPending}
                 disabled={!supportReplyContent.trim()}
               >
                 Send Reply
@@ -1163,4 +1018,3 @@ export default function AdvertiserDashboardPage() {
     </div>
   )
 }
-

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -33,16 +35,13 @@ export default function CreateCampaignPage() {
   const router = useRouter()
   const { showToast } = useToast()
   const [currentStep, setCurrentStep] = useState<Step>(1)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [createdCampaignId, setCreatedCampaignId] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [categories, setCategories] = useState<string[]>([])
-  const [todayDate] = useState<string>(getTodayDate()) // Get today's date once on mount
+  const [todayDate] = useState<string>(getTodayDate())
   const [formData, setFormData] = useState({
     // Step 1: Campaign Type
     type: 'PLATFORM_ADS' as 'PLATFORM_ADS' | 'CREATOR_SPONSORSHIP' | 'TOURNAMENT_SPONSORSHIP',
-    
+
     // Step 2: Campaign Details
     name: '',
     category: '',
@@ -51,11 +50,11 @@ export default function CreateCampaignPage() {
     endDate: '',
     destinationUrl: '',
     ctaText: 'Learn More',
-    adType: null as null | 'BANNER' | 'IN_FEED' | 'SPONSORED_DEBATE', // Ad placement type (for PLATFORM_ADS) - null until user selects
-    
+    adType: null as null | 'BANNER' | 'IN_FEED' | 'SPONSORED_DEBATE',
+
     // Step 3: Creative Assets
     bannerUrl: '',
-    
+
     // Step 4: Targeting (for creator sponsorships)
     minELO: '',
     targetCategories: [] as string[],
@@ -63,9 +62,21 @@ export default function CreateCampaignPage() {
     maxBudgetPerCreator: '',
   })
 
-  useEffect(() => {
-    fetchCategories()
-  }, [])
+  // --- Queries ---
+
+  const categoriesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      try {
+        const data = await fetchClient<{ categories: Array<{ name: string }> }>('/api/categories')
+        return (data.categories || []).map((cat) => cat.name)
+      } catch {
+        return ['SPORTS', 'TECH', 'POLITICS', 'SCIENCE', 'ENTERTAINMENT', 'OTHER']
+      }
+    },
+  })
+
+  const categories = categoriesQuery.data ?? ['SPORTS', 'TECH', 'POLITICS', 'SCIENCE', 'ENTERTAINMENT', 'OTHER']
 
   // Auto-advance past step 4 if not creator sponsorship
   useEffect(() => {
@@ -74,90 +85,21 @@ export default function CreateCampaignPage() {
     }
   }, [currentStep, formData.type])
 
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('/api/categories')
-      if (response.ok) {
-        const data = await response.json()
-        const categoryNames = (data.categories || []).map((cat: any) => cat.name)
-        setCategories(categoryNames)
-      } else {
-        // Fallback to default categories
-        setCategories(['SPORTS', 'TECH', 'POLITICS', 'SCIENCE', 'ENTERTAINMENT', 'OTHER'])
+  // --- Mutations ---
+
+  const createCampaignMutation = useMutation({
+    mutationFn: async () => {
+      // Validate required fields
+      if (!formData.name || !formData.category || !formData.budget || !formData.startDate || !formData.endDate || !formData.destinationUrl) {
+        throw new Error('Please fill in all required fields.')
       }
-    } catch (error) {
-      console.error('Failed to fetch categories:', error)
-      // Fallback to default categories
-      setCategories(['SPORTS', 'TECH', 'POLITICS', 'SCIENCE', 'ENTERTAINMENT', 'OTHER'])
-    }
-  }
-
-  const handleNext = () => {
-    // For PLATFORM_ADS, go to payment step (6) after review (5)
-    // For other types, submit directly
-    if (formData.type === 'PLATFORM_ADS' && currentStep === 5) {
-      setCurrentStep(6)
-    } else if (currentStep < 5) {
-      setCurrentStep((currentStep + 1) as Step)
-    }
-  }
-
-  const handleBack = () => {
-    console.log('[CreateCampaign] handleBack called, currentStep:', currentStep)
-    if (currentStep > 1) {
-      // Special handling for step 6: go back to step 5
-      if (currentStep === 6) {
-        setCurrentStep(5)
-        return
+      if (formData.type === 'PLATFORM_ADS' && !formData.adType) {
+        throw new Error('Please select where you want your ad to appear in Step 1.')
       }
-      // For other steps, go back normally
-      const newStep = (currentStep - 1) as Step
-      console.log('[CreateCampaign] Moving to step:', newStep)
-      setCurrentStep(newStep)
-    } else {
-      console.log('[CreateCampaign] Already at step 1, cannot go back')
-    }
-  }
+      if (!selectedFile && !formData.bannerUrl) {
+        throw new Error('Please upload a banner image or provide an image URL.')
+      }
 
-  const handleSubmit = async () => {
-    console.log('[CreateCampaign] handleSubmit called')
-    console.log('[CreateCampaign] Form data:', formData)
-    console.log('[CreateCampaign] Selected file:', selectedFile)
-    console.log('[CreateCampaign] Banner URL:', formData.bannerUrl)
-    
-    // Validate required fields
-    if (!formData.name || !formData.category || !formData.budget || !formData.startDate || !formData.endDate || !formData.destinationUrl) {
-      showToast({
-        type: 'error',
-        title: 'Validation Error',
-        description: 'Please fill in all required fields.',
-      })
-      return
-    }
-
-    // Validate adType for PLATFORM_ADS
-    if (formData.type === 'PLATFORM_ADS' && !formData.adType) {
-      showToast({
-        type: 'error',
-        title: 'Placement Required',
-        description: 'Please select where you want your ad to appear in Step 1.',
-      })
-      return
-    }
-
-    // Validate image
-    if (!selectedFile && !formData.bannerUrl) {
-      showToast({
-        type: 'error',
-        title: 'Image Required',
-        description: 'Please upload a banner image or provide an image URL.',
-      })
-      return
-    }
-
-    setIsSubmitting(true)
-
-    try {
       const submitFormData = new FormData()
       submitFormData.append('name', formData.name)
       submitFormData.append('type', formData.type)
@@ -167,17 +109,14 @@ export default function CreateCampaignPage() {
       submitFormData.append('endDate', formData.endDate)
       submitFormData.append('destinationUrl', formData.destinationUrl)
       submitFormData.append('ctaText', formData.ctaText)
-      
-      // Add adType for PLATFORM_ADS (matches Direct Ads types)
+
       if (formData.type === 'PLATFORM_ADS' && formData.adType) {
         submitFormData.append('adType', formData.adType)
       }
-      
+
       if (selectedFile) {
-        console.log('[CreateCampaign] Appending file:', selectedFile.name, selectedFile.size, 'bytes')
         submitFormData.append('file', selectedFile)
       } else if (formData.bannerUrl) {
-        console.log('[CreateCampaign] Appending banner URL:', formData.bannerUrl)
         submitFormData.append('bannerUrl', formData.bannerUrl)
       }
 
@@ -190,57 +129,77 @@ export default function CreateCampaignPage() {
         if (formData.maxBudgetPerCreator) submitFormData.append('maxBudgetPerCreator', formData.maxBudgetPerCreator)
       }
 
-      console.log('[CreateCampaign] Submitting to API...')
+      // Use raw fetch for FormData (fetchClient sets Content-Type: application/json)
       const response = await fetch('/api/advertiser/campaigns', {
         method: 'POST',
         body: submitFormData,
       })
-
-      console.log('[CreateCampaign] Response status:', response.status)
 
       if (!response.ok) {
         let errorData
         try {
           const text = await response.text()
           errorData = text ? JSON.parse(text) : { error: 'Unknown error' }
-        } catch (parseError) {
+        } catch {
           errorData = { error: `Failed to create campaign (${response.status})` }
         }
-        console.error('[CreateCampaign] API error:', errorData)
-        console.error('[CreateCampaign] Response status:', response.status)
-        console.error('[CreateCampaign] Response headers:', Object.fromEntries(response.headers.entries()))
         throw new Error(errorData.error || `Failed to create campaign (${response.status})`)
       }
 
-      const data = await response.json()
-      console.log('[CreateCampaign] Campaign created:', data)
-
-      // For PLATFORM_ADS, save campaign ID and go to payment step
+      return response.json()
+    },
+    onSuccess: (data) => {
       if (formData.type === 'PLATFORM_ADS' && data.campaign?.id) {
         setCreatedCampaignId(data.campaign.id)
         setCurrentStep(6)
-        showToast({
-          type: 'success',
-          title: 'Campaign Created',
-          description: 'Please proceed to payment.',
-        })
+        showToast({ type: 'success', title: 'Campaign Created', description: 'Please proceed to payment.' })
       } else {
-        // For other types, redirect to dashboard
-        showToast({
-          type: 'success',
-          title: 'Campaign Created',
-          description: 'Your campaign is pending admin review.',
-        })
+        showToast({ type: 'success', title: 'Campaign Created', description: 'Your campaign is pending admin review.' })
         router.push('/advertiser/dashboard')
       }
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to create campaign',
+    },
+    onError: (error: Error) => {
+      showToast({ type: 'error', title: 'Error', description: error.message || 'Failed to create campaign' })
+    },
+  })
+
+  const paymentMutation = useMutation({
+    mutationFn: async () => {
+      if (!createdCampaignId) throw new Error('Campaign ID not found')
+      return fetchClient<{ checkoutUrl: string }>('/api/advertiser/campaigns/payment', {
+        method: 'POST',
+        body: JSON.stringify({ campaignId: createdCampaignId }),
       })
-    } finally {
-      setIsSubmitting(false)
+    },
+    onSuccess: (data) => {
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
+      } else {
+        throw new Error('No checkout URL received')
+      }
+    },
+    onError: (error: Error) => {
+      showToast({ type: 'error', title: 'Error', description: error.message || 'Failed to process payment' })
+    },
+  })
+
+  // --- Navigation ---
+
+  const handleNext = () => {
+    if (formData.type === 'PLATFORM_ADS' && currentStep === 5) {
+      setCurrentStep(6)
+    } else if (currentStep < 5) {
+      setCurrentStep((currentStep + 1) as Step)
+    }
+  }
+
+  const handleBack = () => {
+    if (currentStep > 1) {
+      if (currentStep === 6) {
+        setCurrentStep(5)
+        return
+      }
+      setCurrentStep((currentStep - 1) as Step)
     }
   }
 
@@ -297,7 +256,7 @@ export default function CreateCampaignPage() {
               </div>
             </div>
             {formData.type === 'PLATFORM_ADS' && (
-              <AdPlacementGuide 
+              <AdPlacementGuide
                 campaignType={formData.type}
                 selectedAdType={formData.adType}
                 onSelectPlacement={(adType) => setFormData({ ...formData, adType })}
@@ -361,7 +320,7 @@ export default function CreateCampaignPage() {
                   </select>
                   {!formData.adType && (
                     <p className="text-xs text-neon-orange mt-1">
-                      ⚠️ Please go back to Step 1 and select a placement for your ad.
+                      Please go back to Step 1 and select a placement for your ad.
                     </p>
                   )}
                 </div>
@@ -445,9 +404,7 @@ export default function CreateCampaignPage() {
                 accept="image/*"
                 onChange={(e) => {
                   const file = e.target.files?.[0]
-                  console.log('[CreateCampaign] File selected:', file?.name, file?.size, 'bytes')
                   setSelectedFile(file || null)
-                  // Clear bannerUrl if file is selected
                   if (file) {
                     setFormData(prev => ({ ...prev, bannerUrl: '' }))
                   }
@@ -457,10 +414,7 @@ export default function CreateCampaignPage() {
                 <div className="mt-2">
                   <Input
                     value={formData.bannerUrl}
-                    onChange={(e) => {
-                      console.log('[CreateCampaign] Banner URL changed:', e.target.value)
-                      setFormData({ ...formData, bannerUrl: e.target.value })
-                    }}
+                    onChange={(e) => setFormData({ ...formData, bannerUrl: e.target.value })}
                     placeholder="Or enter image URL"
                   />
                 </div>
@@ -478,9 +432,6 @@ export default function CreateCampaignPage() {
         )
 
       case 4:
-        // This step is only for CREATOR_SPONSORSHIP
-        // If we reach here and it's not creator sponsorship, show a message
-        // (useEffect should have advanced us, but just in case)
         if (formData.type !== 'CREATOR_SPONSORSHIP') {
           return (
             <div className="space-y-4">
@@ -591,11 +542,8 @@ export default function CreateCampaignPage() {
                 <span className="text-text-secondary">Duration:</span>
                 <span className="ml-2 text-text-primary font-semibold">
                   {formData.startDate && formData.endDate ? (() => {
-                    // Parse date string (YYYY-MM-DD) and format for display
-                    // The date string is already in the correct format, just reformat for display
                     const [startYear, startMonth, startDay] = formData.startDate.split('-')
                     const [endYear, endMonth, endDay] = formData.endDate.split('-')
-                    // Format as M/D/YYYY (Eastern Time format)
                     return `${parseInt(startMonth)}/${parseInt(startDay)}/${startYear} - ${parseInt(endMonth)}/${parseInt(endDay)}/${endYear}`
                   })() : 'N/A'}
                 </span>
@@ -603,7 +551,7 @@ export default function CreateCampaignPage() {
             </div>
             <div className="bg-bg-tertiary rounded-lg p-4">
               <p className="text-sm text-text-secondary">
-                {formData.type === 'PLATFORM_ADS' 
+                {formData.type === 'PLATFORM_ADS'
                   ? 'After payment, your campaign will be submitted for admin review.'
                   : 'Your campaign will be submitted for admin review. You\'ll be notified once it\'s approved.'}
               </p>
@@ -612,7 +560,6 @@ export default function CreateCampaignPage() {
         )
 
       case 6:
-        // Payment step (only for PLATFORM_ADS)
         if (formData.type !== 'PLATFORM_ADS' || !createdCampaignId) {
           return null
         }
@@ -625,7 +572,7 @@ export default function CreateCampaignPage() {
                 To submit your Platform Ads campaign, payment is required. Your payment will be held in escrow
                 and will be processed once your campaign is approved.
               </p>
-              
+
               <div className="bg-bg-secondary rounded-lg p-4 mb-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-text-secondary">Campaign Budget:</span>
@@ -654,48 +601,6 @@ export default function CreateCampaignPage() {
 
       default:
         return null
-    }
-  }
-
-  const handlePayment = async () => {
-    if (!createdCampaignId) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Campaign ID not found',
-      })
-      return
-    }
-
-    try {
-      setIsProcessingPayment(true)
-      const response = await fetch('/api/advertiser/campaigns/payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId: createdCampaignId }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to create payment session')
-      }
-
-      const data = await response.json()
-
-      // Redirect to Stripe Checkout
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl
-      } else {
-        throw new Error('No checkout URL received')
-      }
-    } catch (error: any) {
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to process payment',
-      })
-    } finally {
-      setIsProcessingPayment(false)
     }
   }
 
@@ -728,7 +633,6 @@ export default function CreateCampaignPage() {
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
-                    console.log('[CreateCampaign] Back button clicked, currentStep:', currentStep)
                     handleBack()
                   }}
                   disabled={currentStep === 1}
@@ -737,11 +641,10 @@ export default function CreateCampaignPage() {
                   Back
                 </Button>
                 {currentStep < 5 ? (
-                  <Button 
-                    variant="primary" 
+                  <Button
+                    variant="primary"
                     onClick={(e) => {
                       e.preventDefault()
-                      console.log('[CreateCampaign] Next button clicked, currentStep:', currentStep)
                       handleNext()
                     }}
                     type="button"
@@ -753,10 +656,9 @@ export default function CreateCampaignPage() {
                     variant="primary"
                     onClick={async (e) => {
                       e.preventDefault()
-                      console.log('[CreateCampaign] Submit button clicked, currentStep:', currentStep)
-                      await handleSubmit()
+                      createCampaignMutation.mutate()
                     }}
-                    isLoading={isSubmitting}
+                    isLoading={createCampaignMutation.isPending}
                     type="button"
                   >
                     {formData.type === 'PLATFORM_ADS' ? 'Continue to Payment' : 'Submit Campaign'}
@@ -766,10 +668,9 @@ export default function CreateCampaignPage() {
                     variant="primary"
                     onClick={async (e) => {
                       e.preventDefault()
-                      console.log('[CreateCampaign] Payment button clicked, currentStep:', currentStep)
-                      await handlePayment()
+                      paymentMutation.mutate()
                     }}
-                    isLoading={isProcessingPayment}
+                    isLoading={paymentMutation.isPending}
                     type="button"
                   >
                     Proceed to Payment
@@ -783,4 +684,3 @@ export default function CreateCampaignPage() {
     </div>
   )
 }
-

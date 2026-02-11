@@ -1,9 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ApiError } from '@/lib/api/fetchClient'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { Badge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/Toast'
 
@@ -27,94 +31,67 @@ interface Offer {
 
 export function OffersTab() {
   const { showToast } = useToast()
-  const [offers, setOffers] = useState<Offer[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [filter, setFilter] = useState<'PENDING' | 'ACCEPTED' | 'DECLINED' | 'ALL'>('PENDING')
 
-  useEffect(() => {
-    fetchOffers()
-  }, [filter])
-
-  const fetchOffers = async () => {
-    try {
-      setIsLoading(true)
-      // When filter is ALL, don't pass status parameter to get all offers
+  const { data: offers = [], isLoading, error, refetch } = useQuery<Offer[]>({
+    queryKey: ['creator', 'offers', filter],
+    queryFn: async () => {
       const url = filter === 'ALL' ? '/api/creator/offers' : `/api/creator/offers?status=${filter}`
-      const response = await fetch(url)
-      if (response.ok) {
-        const data = await response.json()
-        console.log('[OffersTab] Fetched offers:', data.offers?.length || 0)
-        console.log('[OffersTab] Offer statuses:', data.offers?.map((o: Offer) => o.status))
-        setOffers(data.offers || [])
-      } else {
-        console.error('[OffersTab] Failed to fetch offers:', response.status)
-      }
-    } catch (error) {
-      console.error('Failed to fetch offers:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+      const data = await fetchClient<{ offers: Offer[] }>(url)
+      return data.offers || []
+    },
+  })
 
-  const handleAccept = async (offerId: string) => {
-    try {
-      const response = await fetch(`/api/creator/offers/${offerId}/accept`, {
-        method: 'POST',
+  const acceptMutation = useMutation({
+    mutationFn: (offerId: string) =>
+      fetchClient(`/api/creator/offers/${offerId}/accept`, { method: 'POST' }),
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Offer Accepted',
+        description: 'Contract created and payment held in escrow.',
       })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Offer Accepted',
-          description: 'Contract created and payment held in escrow.',
-        })
-        fetchOffers()
-      } else if (response.status === 402) {
-        const data = await response.json()
+      queryClient.invalidateQueries({ queryKey: ['creator', 'offers'] })
+      queryClient.invalidateQueries({ queryKey: ['creator', 'dashboard'] })
+    },
+    onError: (error: unknown) => {
+      if (error instanceof ApiError && error.status === 402) {
         showToast({
           type: 'warning',
           title: 'Payment Required',
           description: 'The advertiser needs to complete payment. The contract will be created once payment is processed.',
         })
-        fetchOffers()
+        queryClient.invalidateQueries({ queryKey: ['creator', 'offers'] })
       } else {
-        const error = await response.json()
         showToast({
           type: 'error',
           title: 'Error',
-          description: error.error || 'Failed to accept offer',
+          description: error instanceof ApiError ? error.message : 'Failed to accept offer',
         })
       }
-    } catch (error) {
+    },
+  })
+
+  const declineMutation = useMutation({
+    mutationFn: (offerId: string) =>
+      fetchClient(`/api/creator/offers/${offerId}/decline`, { method: 'POST' }),
+    onSuccess: () => {
       showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to accept offer',
+        type: 'success',
+        title: 'Offer Declined',
       })
-    }
-  }
-
-  const handleDecline = async (offerId: string) => {
-    try {
-      const response = await fetch(`/api/creator/offers/${offerId}/decline`, {
-        method: 'POST',
-      })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Offer Declined',
-        })
-        fetchOffers()
-      }
-    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: ['creator', 'offers'] })
+      queryClient.invalidateQueries({ queryKey: ['creator', 'dashboard'] })
+    },
+    onError: () => {
       showToast({
         type: 'error',
         title: 'Error',
         description: 'Failed to decline offer',
       })
-    }
-  }
+    },
+  })
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -136,6 +113,16 @@ export function OffersTab() {
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorDisplay
+        title="Failed to load offers"
+        message={error instanceof Error ? error.message : 'Something went wrong. Please try again.'}
+        onRetry={() => refetch()}
+      />
     )
   }
 
@@ -236,14 +223,16 @@ export function OffersTab() {
                     <div className="flex gap-2 pt-4 border-t border-bg-tertiary">
                       <Button
                         variant="primary"
-                        onClick={() => handleAccept(offer.id)}
+                        onClick={() => acceptMutation.mutate(offer.id)}
+                        isLoading={acceptMutation.isPending && acceptMutation.variables === offer.id}
                         className="flex-1"
                       >
                         Accept Offer
                       </Button>
                       <Button
                         variant="danger"
-                        onClick={() => handleDecline(offer.id)}
+                        onClick={() => declineMutation.mutate(offer.id)}
+                        isLoading={declineMutation.isPending && declineMutation.variables === offer.id}
                         className="flex-1"
                       >
                         Decline
@@ -252,7 +241,6 @@ export function OffersTab() {
                         variant="secondary"
                         onClick={() => {
                           // TODO: Open counter offer modal
-                          console.log('Counter offer for', offer.id)
                         }}
                         className="flex-1"
                       >
@@ -269,4 +257,3 @@ export function OffersTab() {
     </div>
   )
 }
-

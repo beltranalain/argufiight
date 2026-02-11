@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { TopNav } from '@/components/layout/TopNav'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -36,8 +39,6 @@ interface Campaign {
 
 export default function CreatorDiscoveryPage() {
   const { showToast } = useToast()
-  const [creators, setCreators] = useState<Creator[]>([])
-  const [isLoading, setIsLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [filters, setFilters] = useState({
     minELO: '',
@@ -45,13 +46,11 @@ export default function CreatorDiscoveryPage() {
     minFollowers: '',
     search: '',
   })
-  
+  const [searchParams, setSearchParams] = useState('')
+
   // Make Offer Modal State
   const [showOfferModal, setShowOfferModal] = useState(false)
   const [selectedCreator, setSelectedCreator] = useState<Creator | null>(null)
-  const [campaigns, setCampaigns] = useState<Campaign[]>([])
-  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false)
-  const [isSubmittingOffer, setIsSubmittingOffer] = useState(false)
   const [offerForm, setOfferForm] = useState({
     campaignId: '',
     placement: 'PROFILE_BANNER',
@@ -61,201 +60,94 @@ export default function CreatorDiscoveryPage() {
     message: '',
   })
 
-  // Initial load - fetch all creators
-  useEffect(() => {
-    handleSearch()
-  }, [])
+  // --- Queries ---
 
-  // Fetch campaigns when modal opens
-  const fetchCampaigns = useCallback(async () => {
-    try {
-      setIsLoadingCampaigns(true)
-      const response = await fetch('/api/advertiser/campaigns')
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Campaigns API response:', data)
-        console.log('All campaigns:', data.campaigns)
-        console.log('Campaign statuses:', data.campaigns?.map((c: Campaign) => c.status))
-        setCampaigns(data.campaigns || [])
-        console.log('Set campaigns:', data.campaigns || [])
-      }
-    } catch (error) {
-      console.error('Failed to fetch campaigns:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: 'Failed to load campaigns',
+  const creatorsQuery = useQuery({
+    queryKey: ['advertiser', 'creators', searchParams],
+    queryFn: () => fetchClient<{ creators: Creator[] }>(`/api/advertiser/creators?${searchParams}`),
+  })
+
+  const campaignsQuery = useQuery({
+    queryKey: ['advertiser', 'campaigns', 'forOffer'],
+    queryFn: () => fetchClient<{ campaigns: Campaign[] }>('/api/advertiser/campaigns'),
+    enabled: showOfferModal,
+  })
+
+  // --- Mutations ---
+
+  const submitOfferMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedCreator) throw new Error('No creator selected')
+      if (!offerForm.campaignId) throw new Error('Please select a campaign')
+      if (!offerForm.amount || !offerForm.duration) throw new Error('Please fill in all required fields (amount and duration)')
+
+      const durationNum = parseInt(offerForm.duration)
+      const amountNum = parseFloat(offerForm.amount)
+
+      if (isNaN(durationNum) || durationNum <= 0) throw new Error('Duration must be a valid positive number')
+      if (isNaN(amountNum) || amountNum <= 0) throw new Error('Amount must be a valid positive number')
+
+      return fetchClient<{ offer: any }>('/api/advertiser/offers', {
+        method: 'POST',
+        body: JSON.stringify({
+          creatorId: selectedCreator.id,
+          campaignId: offerForm.campaignId,
+          placement: offerForm.placement,
+          duration: durationNum,
+          paymentType: offerForm.paymentType,
+          amount: amountNum,
+          message: offerForm.message || null,
+        }),
       })
-    } finally {
-      setIsLoadingCampaigns(false)
-    }
-  }, [showToast])
+    },
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Offer Sent',
+        description: `Your offer has been sent to @${selectedCreator?.username}`,
+      })
+      handleCloseOfferModal()
+    },
+    onError: (error: Error) => {
+      showToast({ type: 'error', title: 'Error', description: error.message || 'Failed to send offer' })
+    },
+  })
+
+  // --- Derived ---
+
+  const creators = creatorsQuery.data?.creators ?? []
+  const campaigns = campaignsQuery.data?.campaigns ?? []
+
+  // --- Handlers ---
+
+  const handleSearch = () => {
+    setHasSearched(true)
+    const params = new URLSearchParams()
+    if (filters.minELO) params.append('minELO', filters.minELO)
+    if (filters.category) params.append('category', filters.category)
+    if (filters.minFollowers) params.append('minFollowers', filters.minFollowers)
+    if (filters.search && filters.search.trim()) params.append('search', filters.search.trim())
+    setSearchParams(params.toString())
+  }
 
   const handleOpenOfferModal = useCallback((creator: Creator) => {
     setSelectedCreator(creator)
     setShowOfferModal(true)
-    fetchCampaigns()
-    // Reset form
     setOfferForm({
       campaignId: '',
-      placement: creator.profileBannerAvailable ? 'PROFILE_BANNER' : 
-                 creator.postDebateAvailable ? 'POST_DEBATE' : 
+      placement: creator.profileBannerAvailable ? 'PROFILE_BANNER' :
+                 creator.postDebateAvailable ? 'POST_DEBATE' :
                  creator.debateWidgetAvailable ? 'DEBATE_WIDGET' : 'PROFILE_BANNER',
       duration: '30',
       paymentType: 'FLAT_RATE',
       amount: '',
       message: '',
     })
-  }, [fetchCampaigns])
+  }, [])
 
   const handleCloseOfferModal = () => {
     setShowOfferModal(false)
     setSelectedCreator(null)
-    setCampaigns([])
-  }
-
-  const handleSubmitOffer = async () => {
-    if (!selectedCreator) return
-
-    // Validate form
-    if (!offerForm.campaignId) {
-      showToast({
-        type: 'error',
-        title: 'Validation Error',
-        description: 'Please select a campaign',
-      })
-      return
-    }
-    
-    if (!offerForm.amount || !offerForm.duration) {
-      showToast({
-        type: 'error',
-        title: 'Validation Error',
-        description: 'Please fill in all required fields (amount and duration)',
-      })
-      return
-    }
-
-    try {
-      setIsSubmittingOffer(true)
-      
-      // Validate and parse numeric values
-      const durationNum = parseInt(offerForm.duration)
-      const amountNum = parseFloat(offerForm.amount)
-      
-      if (isNaN(durationNum) || durationNum <= 0) {
-        showToast({
-          type: 'error',
-          title: 'Validation Error',
-          description: 'Duration must be a valid positive number',
-        })
-        setIsSubmittingOffer(false)
-        return
-      }
-      
-      if (isNaN(amountNum) || amountNum <= 0) {
-        showToast({
-          type: 'error',
-          title: 'Validation Error',
-          description: 'Amount must be a valid positive number',
-        })
-        setIsSubmittingOffer(false)
-        return
-      }
-      
-      const requestBody = {
-        creatorId: selectedCreator.id,
-        campaignId: offerForm.campaignId,
-        placement: offerForm.placement,
-        duration: durationNum,
-        paymentType: offerForm.paymentType,
-        amount: amountNum,
-        message: offerForm.message || null,
-      }
-      
-      console.log('Submitting offer:', JSON.stringify(requestBody, null, 2))
-      
-      const response = await fetch('/api/advertiser/offers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      })
-
-      let responseData: any = {}
-      try {
-        const text = await response.text()
-        if (text) {
-          responseData = JSON.parse(text)
-        }
-      } catch (parseError) {
-        console.error('Failed to parse response:', parseError)
-        responseData = { error: 'Failed to parse server response' }
-      }
-      
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Offer Sent',
-          description: `Your offer has been sent to @${selectedCreator.username}`,
-        })
-        handleCloseOfferModal()
-      } else {
-        console.error('Offer submission failed:', {
-          status: response.status,
-          statusText: response.statusText,
-          responseData: JSON.stringify(responseData, null, 2),
-          requestBody: JSON.stringify(requestBody, null, 2),
-        })
-        
-        const errorMessage = responseData.error || responseData.message || `Failed to send offer (${response.status})`
-        console.error('Error message:', errorMessage)
-        
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: errorMessage,
-        })
-      }
-    } catch (error: any) {
-      console.error('Failed to submit offer:', error)
-      showToast({
-        type: 'error',
-        title: 'Error',
-        description: error.message || 'Failed to send offer',
-      })
-    } finally {
-      setIsSubmittingOffer(false)
-    }
-  }
-
-  const handleSearch = async () => {
-    try {
-      setIsLoading(true)
-      setHasSearched(true)
-      const params = new URLSearchParams()
-      if (filters.minELO) params.append('minELO', filters.minELO)
-      if (filters.category) params.append('category', filters.category)
-      if (filters.minFollowers) params.append('minFollowers', filters.minFollowers)
-      if (filters.search && filters.search.trim()) params.append('search', filters.search.trim())
-
-      const response = await fetch(`/api/advertiser/creators?${params.toString()}`)
-      if (response.ok) {
-        const data = await response.json()
-        setCreators(data.creators || [])
-        console.log('Fetched creators:', data.creators?.length || 0)
-      } else {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Failed to fetch creators:', response.status, errorData)
-        setCreators([])
-      }
-    } catch (error) {
-      console.error('Failed to fetch creators:', error)
-      setCreators([])
-    } finally {
-      setIsLoading(false)
-    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -355,16 +247,25 @@ export default function CreatorDiscoveryPage() {
                 </div>
               </div>
               <div className="flex justify-end">
-                <Button 
-                  variant="primary" 
+                <Button
+                  variant="primary"
                   onClick={handleSearch}
-                  isLoading={isLoading}
+                  isLoading={creatorsQuery.isFetching}
                 >
                   Search
                 </Button>
               </div>
             </CardBody>
           </Card>
+
+          {/* Error State */}
+          {creatorsQuery.isError && (
+            <ErrorDisplay
+              title="Failed to load creators"
+              message="Could not load creators. Please try again."
+              onRetry={() => creatorsQuery.refetch()}
+            />
+          )}
 
           {/* Creators Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -450,13 +351,13 @@ export default function CreatorDiscoveryPage() {
             ))}
           </div>
 
-          {isLoading && (
+          {creatorsQuery.isLoading && (
             <div className="flex items-center justify-center py-12">
               <LoadingSpinner size="lg" />
             </div>
           )}
 
-          {!isLoading && hasSearched && creators.length === 0 && (
+          {!creatorsQuery.isLoading && !creatorsQuery.isError && hasSearched && creators.length === 0 && (
             <Card>
               <CardBody>
                 <p className="text-text-secondary text-center py-8">
@@ -466,7 +367,7 @@ export default function CreatorDiscoveryPage() {
             </Card>
           )}
 
-          {!isLoading && !hasSearched && creators.length === 0 && (
+          {!creatorsQuery.isLoading && !creatorsQuery.isError && !hasSearched && creators.length === 0 && (
             <Card>
               <CardBody>
                 <p className="text-text-secondary text-center py-8">
@@ -492,7 +393,7 @@ export default function CreatorDiscoveryPage() {
               <label className="block text-sm font-medium text-text-secondary mb-2">
                 Campaign *
               </label>
-              {isLoadingCampaigns ? (
+              {campaignsQuery.isLoading ? (
                 <div className="flex items-center justify-center py-4">
                   <LoadingSpinner size="sm" />
                 </div>
@@ -603,14 +504,14 @@ export default function CreatorDiscoveryPage() {
               <Button
                 variant="secondary"
                 onClick={handleCloseOfferModal}
-                disabled={isSubmittingOffer}
+                disabled={submitOfferMutation.isPending}
               >
                 Cancel
               </Button>
               <Button
                 variant="primary"
-                onClick={handleSubmitOffer}
-                isLoading={isSubmittingOffer}
+                onClick={() => submitOfferMutation.mutate()}
+                isLoading={submitOfferMutation.isPending}
                 disabled={!offerForm.campaignId || !offerForm.amount || campaigns.length === 0}
               >
                 Send Offer
@@ -622,4 +523,3 @@ export default function CreatorDiscoveryPage() {
     </div>
   )
 }
-

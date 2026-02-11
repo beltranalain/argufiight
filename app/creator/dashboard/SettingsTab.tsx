@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchClient } from '@/lib/api/fetchClient'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { LoadingSpinner } from '@/components/ui/Loading'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
 import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
 
@@ -19,13 +22,24 @@ interface CreatorSettings {
   creatorStatus: string | null
 }
 
+interface SettingsResponse {
+  user: {
+    isCreator: boolean
+    profileBannerPrice: number | null
+    postDebatePrice: number | null
+    debateWidgetPrice: number | null
+    profileBannerAvailable: boolean
+    postDebateAvailable: boolean
+    debateWidgetAvailable: boolean
+    creatorStatus: string | null
+  }
+}
+
 export function SettingsTab() {
   const router = useRouter()
   const { showToast } = useToast()
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [isCreator, setIsCreator] = useState(false)
-  const [isEnablingCreator, setIsEnablingCreator] = useState(false)
+  const queryClient = useQueryClient()
+
   const [settings, setSettings] = useState<CreatorSettings>({
     profileBannerPrice: 300,
     postDebatePrice: 150,
@@ -36,80 +50,59 @@ export function SettingsTab() {
     creatorStatus: null,
   })
 
+  const { data, isLoading, error, refetch } = useQuery<SettingsResponse>({
+    queryKey: ['creator', 'settings'],
+    queryFn: () => fetchClient<SettingsResponse>('/api/creator/settings'),
+    retry: (failureCount, error) => {
+      // Don't retry on 403 (not a creator) or 401 (unauthorized)
+      if (error instanceof Error && 'status' in error) {
+        const status = (error as any).status
+        if (status === 403 || status === 401) return false
+      }
+      return failureCount < 3
+    },
+  })
+
+  const isCreator = data?.user?.isCreator || false
+
+  // Sync fetched data into local settings state for form editing
   useEffect(() => {
-    fetchSettings()
-  }, [])
-
-  const fetchSettings = async () => {
-    try {
-      setIsLoading(true)
-      const response = await fetch('/api/creator/settings')
-      if (response.ok) {
-        const data = await response.json()
-        setIsCreator(data.user.isCreator || false)
-        setSettings({
-          profileBannerPrice: data.user.profileBannerPrice ? Number(data.user.profileBannerPrice) : 300,
-          postDebatePrice: data.user.postDebatePrice ? Number(data.user.postDebatePrice) : 150,
-          debateWidgetPrice: data.user.debateWidgetPrice ? Number(data.user.debateWidgetPrice) : 200,
-          profileBannerAvailable: data.user.profileBannerAvailable ?? true,
-          postDebateAvailable: data.user.postDebateAvailable ?? true,
-          debateWidgetAvailable: data.user.debateWidgetAvailable ?? true,
-          creatorStatus: data.user.creatorStatus || null,
-        })
-      } else if (response.status === 403) {
-        setIsCreator(false)
-      } else if (response.status === 401) {
-        router.push('/login')
-      }
-    } catch (error) {
-      console.error('Failed to fetch settings:', error)
-      setIsCreator(false)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleEnableCreator = async () => {
-    setIsEnablingCreator(true)
-    try {
-      const response = await fetch('/api/creators/enable', {
-        method: 'POST',
+    if (data?.user) {
+      setSettings({
+        profileBannerPrice: data.user.profileBannerPrice ? Number(data.user.profileBannerPrice) : 300,
+        postDebatePrice: data.user.postDebatePrice ? Number(data.user.postDebatePrice) : 150,
+        debateWidgetPrice: data.user.debateWidgetPrice ? Number(data.user.debateWidgetPrice) : 200,
+        profileBannerAvailable: data.user.profileBannerAvailable ?? true,
+        postDebateAvailable: data.user.postDebateAvailable ?? true,
+        debateWidgetAvailable: data.user.debateWidgetAvailable ?? true,
+        creatorStatus: data.user.creatorStatus || null,
       })
+    }
+  }, [data])
 
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Creator Mode Enabled',
-          description: 'You can now configure your ad slot settings.',
-        })
-        await fetchSettings()
-      } else {
-        const errorData = await response.json()
-        showToast({
-          type: 'error',
-          title: 'Error',
-          description: errorData.error || 'Failed to enable creator mode',
-        })
-      }
-    } catch (error) {
+  const enableCreatorMutation = useMutation({
+    mutationFn: () => fetchClient('/api/creators/enable', { method: 'POST' }),
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Creator Mode Enabled',
+        description: 'You can now configure your ad slot settings.',
+      })
+      queryClient.invalidateQueries({ queryKey: ['creator', 'settings'] })
+    },
+    onError: (error: any) => {
       showToast({
         type: 'error',
         title: 'Error',
-        description: 'Failed to enable creator mode',
+        description: error?.message || 'Failed to enable creator mode',
       })
-    } finally {
-      setIsEnablingCreator(false)
-    }
-  }
+    },
+  })
 
-  const handleSave = async () => {
-    try {
-      setIsSaving(true)
-      const response = await fetch('/api/creator/settings', {
+  const saveSettingsMutation = useMutation({
+    mutationFn: () =>
+      fetchClient('/api/creator/settings', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           profileBannerPrice: settings.profileBannerPrice ? Number(settings.profileBannerPrice) : null,
           postDebatePrice: settings.postDebatePrice ? Number(settings.postDebatePrice) : null,
@@ -118,35 +111,39 @@ export function SettingsTab() {
           postDebateAvailable: settings.postDebateAvailable,
           debateWidgetAvailable: settings.debateWidgetAvailable,
         }),
+      }),
+    onSuccess: () => {
+      showToast({
+        type: 'success',
+        title: 'Settings Saved',
+        description: 'Your ad slot settings have been updated.',
       })
-
-      if (response.ok) {
-        showToast({
-          type: 'success',
-          title: 'Settings Saved',
-          description: 'Your ad slot settings have been updated.',
-        })
-      } else {
-        const data = await response.json()
-        throw new Error(data.error || 'Failed to save settings')
-      }
-    } catch (error: any) {
-      console.error('Failed to save settings:', error)
+      queryClient.invalidateQueries({ queryKey: ['creator', 'settings'] })
+    },
+    onError: (error: any) => {
       showToast({
         type: 'error',
         title: 'Error',
-        description: error.message || 'Failed to save settings.',
+        description: error?.message || 'Failed to save settings.',
       })
-    } finally {
-      setIsSaving(false)
-    }
-  }
+    },
+  })
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  if (error && !(error instanceof Error && 'status' in error && (error as any).status === 403)) {
+    return (
+      <ErrorDisplay
+        title="Failed to load settings"
+        message={error instanceof Error ? error.message : 'Something went wrong. Please try again.'}
+        onRetry={() => refetch()}
+      />
     )
   }
 
@@ -161,8 +158,8 @@ export function SettingsTab() {
             </p>
             <Button
               variant="primary"
-              onClick={handleEnableCreator}
-              isLoading={isEnablingCreator}
+              onClick={() => enableCreatorMutation.mutate()}
+              isLoading={enableCreatorMutation.isPending}
             >
               Enable Creator Mode
             </Button>
@@ -190,8 +187,8 @@ export function SettingsTab() {
         </div>
         <Button
           variant="primary"
-          onClick={handleSave}
-          isLoading={isSaving}
+          onClick={() => saveSettingsMutation.mutate()}
+          isLoading={saveSettingsMutation.isPending}
         >
           Save Settings
         </Button>
@@ -349,4 +346,3 @@ export function SettingsTab() {
     </div>
   )
 }
-
