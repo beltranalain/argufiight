@@ -11,6 +11,7 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { NAV_POLL_INTERVAL_MS } from '@/lib/constants'
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher'
 import { useVisibleInterval } from '@/lib/hooks/useVisibleInterval'
+import { DailyChallengeNav } from '@/components/dashboard/DailyChallengeNav'
 
 interface TopNavProps {
   currentPanel: string
@@ -229,7 +230,7 @@ export function TopNav({ currentPanel, initialNavData }: TopNavProps) {
   return (
     <nav className="fixed top-0 left-0 right-0 h-16 md:h-20 bg-bg-primary/80 backdrop-blur-sm border-b border-bg-tertiary z-50">
       <div className="h-full px-4 md:px-8 flex items-center justify-between">
-        {/* Logo */}
+        {/* Logo + Daily Challenge */}
         <div className="flex items-center">
           <button
             onClick={handleLogoClick}
@@ -240,6 +241,7 @@ export function TopNav({ currentPanel, initialNavData }: TopNavProps) {
               ARGU FIGHT
             </span>
           </button>
+          {currentPanel === 'THE ARENA' && <DailyChallengeNav />}
         </div>
 
         {/* Panel Title */}

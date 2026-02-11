@@ -12,7 +12,6 @@ import { CreateDebateModal } from '@/components/debate/CreateDebateModal'
 import { StaggerContainer } from '@/components/ui/StaggerContainer'
 import { StaggerItem } from '@/components/ui/StaggerItem'
 import { ChallengesPanel } from '@/components/panels/ChallengesPanel'
-import { DailyChallengeCard } from '@/components/dashboard/DailyChallengeCard'
 import { useAuth } from '@/lib/hooks/useAuth'
 
 interface ArenaPanelProps {
@@ -286,9 +285,6 @@ export const ArenaPanel = memo(function ArenaPanel({
           />
         </div>
       </div>
-
-      {/* Daily Challenge */}
-      <DailyChallengeCard />
 
       {/* Live Battles - Combined */}
       <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
