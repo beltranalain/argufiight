@@ -21,6 +21,7 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { useToast } from '@/components/ui/Toast'
 import { AdDisplay } from '@/components/ads/AdDisplay'
 import { BeltTransferAnimation } from '@/components/debate/BeltTransferAnimation'
+import { OnboardingCongrats } from '@/components/onboarding/OnboardingCongrats'
 import { DEBATE_ACTIVE_POLL_MS, DEBATE_WAITING_POLL_MS, DEBATE_VERDICT_POLL_MS } from '@/lib/constants'
 
 interface Statement {
@@ -150,6 +151,7 @@ interface Debate {
       roundNumber: number
     }
   } | null
+  isOnboardingDebate?: boolean
   hasBeltAtStake?: boolean
   beltStakeType?: string | null
   stakedBelt?: {
@@ -176,6 +178,8 @@ export default function DebatePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isAccepting, setIsAccepting] = useState(false)
   const [showBeltTransfer, setShowBeltTransfer] = useState(false)
+  const [showOnboardingCongrats, setShowOnboardingCongrats] = useState(false)
+  const onboardingCongratsShownRef = useRef(false)
   const scrollPositionRef = useRef<number>(0)
   const isRestoringScrollRef = useRef<boolean>(false)
 
@@ -248,6 +252,21 @@ export default function DebatePage() {
 
     return () => clearInterval(interval)
   }, [debate?.status, debate?.id, user])
+
+  // Show onboarding congrats when verdict arrives for onboarding debates
+  useEffect(() => {
+    if (
+      debate?.isOnboardingDebate &&
+      debate.status === 'VERDICT_READY' &&
+      debate.verdicts &&
+      debate.verdicts.length > 0 &&
+      user &&
+      !onboardingCongratsShownRef.current
+    ) {
+      onboardingCongratsShownRef.current = true
+      setShowOnboardingCongrats(true)
+    }
+  }, [debate?.status, debate?.verdicts?.length, debate?.isOnboardingDebate, user])
 
   // Listen for statement-submitted events to refresh debate data immediately
   useEffect(() => {
@@ -909,6 +928,26 @@ export default function DebatePage() {
             </Card>
           )}
 
+
+          {/* Onboarding Congrats Overlay */}
+          {showOnboardingCongrats && debate.isOnboardingDebate && debate.verdicts && debate.verdicts.length > 0 && user && debate.opponent && (() => {
+            const challengerTotal = debate.verdicts.reduce((sum, v) => sum + (v.challengerScore || 0), 0)
+            const opponentTotal = debate.verdicts.reduce((sum, v) => sum + (v.opponentScore || 0), 0)
+            const isChallenger = user.id === debate.challenger.id
+            const myScore = isChallenger ? challengerTotal : opponentTotal
+            const theirScore = isChallenger ? opponentTotal : challengerTotal
+            const result = debate.winnerId === user.id ? 'won' as const : debate.winnerId ? 'lost' as const : 'tie' as const
+            return (
+              <OnboardingCongrats
+                result={result}
+                topic={debate.topic}
+                challengerScore={myScore}
+                opponentScore={theirScore}
+                aiOpponentName={debate.opponent.username}
+                onClose={() => setShowOnboardingCongrats(false)}
+              />
+            )
+          })()}
 
           {/* King of the Hill GROUP Verdict Display */}
           {debate.status === 'VERDICT_READY' && 

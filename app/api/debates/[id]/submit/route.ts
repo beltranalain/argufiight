@@ -3,6 +3,7 @@ import { verifySession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { calculateWordCount, updateUserAnalyticsOnStatement } from '@/lib/utils/analytics'
+import { updateDebateStreak } from '@/lib/rewards/debate-streak'
 
 // POST /api/debates/[id]/submit - Submit argument
 export async function POST(
@@ -121,6 +122,11 @@ export async function POST(
     // Update user analytics (non-blocking)
     updateUserAnalyticsOnStatement(userId, wordCount).catch(err => {
       console.error('Failed to update user analytics:', err)
+    })
+
+    // Update debate streak (non-blocking)
+    updateDebateStreak(userId).catch(err => {
+      console.error('Failed to update debate streak:', err)
     })
 
     // Check if all participants have submitted (for both 2-person and group debates)

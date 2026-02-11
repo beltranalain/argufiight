@@ -78,22 +78,32 @@ export default async function RootPage() {
   try {
     const session = await verifySessionWithDb().catch(() => null)
 
-    // If logged in, check if user is advertiser and redirect accordingly
+    // If logged in, check if user is advertiser or needs onboarding
     if (session?.userId) {
       try {
         // session.user.email is already available from verifySessionWithDb — no extra DB query needed
-        const advertiser = await prisma.advertiser.findUnique({
-          where: { contactEmail: session.user.email },
-          select: { status: true },
-        })
+        const [advertiser, userOnboarding] = await Promise.all([
+          prisma.advertiser.findUnique({
+            where: { contactEmail: session.user.email },
+            select: { status: true },
+          }),
+          prisma.user.findUnique({
+            where: { id: session.userId },
+            select: { hasCompletedOnboarding: true },
+          }),
+        ])
 
         if (advertiser) {
           redirect('/advertiser/dashboard')
         }
+
+        if (userOnboarding && !userOnboarding.hasCompletedOnboarding) {
+          redirect('/onboarding')
+        }
       } catch (error: any) {
         // redirect() throws a special error — rethrow it
         if (error?.digest?.startsWith('NEXT_REDIRECT')) throw error
-        // Continue to dashboard even if advertiser check fails
+        // Continue to dashboard even if checks fail
       }
 
       return <DashboardHomePage />

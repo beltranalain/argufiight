@@ -95,9 +95,9 @@ export default function SignupPage() {
       }
 
       // FREE subscription is created automatically on the server
-      // Wait a moment for session cookie to be set, then redirect to dashboard
+      // Wait a moment for session cookie to be set, then redirect to onboarding
       setTimeout(() => {
-        window.location.href = '/'
+        window.location.href = '/onboarding'
       }, 100)
     } catch (err: any) {
       setError(err.message || 'Failed to create account')

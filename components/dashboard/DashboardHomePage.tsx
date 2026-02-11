@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { POLL_INTERVAL_MS, BLINK_DURATION_MS, BELT_BLINK_DURATION_MS } from '@/lib/constants'
 import { useVisibleInterval } from '@/lib/hooks/useVisibleInterval'
+import { DebateStreakBadge } from '@/components/dashboard/DebateStreakBadge'
 
 export function DashboardHomePage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -123,7 +124,15 @@ export function DashboardHomePage() {
             <div className="space-y-6">
               {/* Your Profile */}
               <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary mt-8">
-                <h2 className="text-2xl font-bold text-text-primary mb-2">Your Profile</h2>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="text-2xl font-bold text-text-primary">Your Profile</h2>
+                  {dashData?.streak && (
+                    <DebateStreakBadge
+                      streak={dashData.streak.debateStreak || 0}
+                      longestStreak={dashData.streak.longestDebateStreak || 0}
+                    />
+                  )}
+                </div>
                 <ProfilePanel initialDebates={dashData?.recentDebates} />
               </div>
 

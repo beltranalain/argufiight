@@ -30,6 +30,7 @@ export async function generateInitialVerdicts(debateId: string) {
             id: true,
             username: true,
             eloRating: true,
+            isAI: true,
           }
         },
         opponent: {
@@ -37,6 +38,7 @@ export async function generateInitialVerdicts(debateId: string) {
             id: true,
             username: true,
             eloRating: true,
+            isAI: true,
           }
         },
         statements: {
@@ -463,6 +465,44 @@ export async function generateInitialVerdicts(debateId: string) {
             where: { id: debate.opponentId },
             data: { averageRounds: newAverage },
           })
+        }
+      }
+    }
+
+    // Award onboarding coin reward for first-debate completion
+    if ((debate as any).isOnboardingDebate) {
+      // Find the human participant (not the AI)
+      const humanId = debate.challenger && !debate.challenger.isAI
+        ? debate.challengerId
+        : debate.opponentId && debate.opponent && !debate.opponent.isAI
+          ? debate.opponentId
+          : null
+      if (humanId) {
+        try {
+          const humanUser = await prisma.user.findUnique({
+            where: { id: humanId },
+            select: { coins: true },
+          })
+          if (humanUser) {
+            await prisma.$transaction([
+              prisma.user.update({
+                where: { id: humanId },
+                data: { coins: { increment: 50 } },
+              }),
+              prisma.coinTransaction.create({
+                data: {
+                  userId: humanId,
+                  type: 'ONBOARDING_REWARD',
+                  status: 'COMPLETED',
+                  amount: 50,
+                  balanceAfter: humanUser.coins + 50,
+                  description: 'Welcome bonus for completing your first debate!',
+                },
+              }),
+            ])
+          }
+        } catch (err) {
+          console.error('[Verdict] Onboarding reward failed:', err)
         }
       }
     }

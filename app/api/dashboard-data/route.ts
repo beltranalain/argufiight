@@ -224,6 +224,7 @@ export async function GET() {
           debatesWon: true, debatesLost: true, debatesTied: true,
           totalDebates: true, totalScore: true, totalMaxScore: true,
           email: true, coins: true,
+          debateStreak: true, longestDebateStreak: true,
         },
       }),
 
@@ -409,6 +410,10 @@ export async function GET() {
       },
       yourTurn: yourTurn ? { hasTurn: true, ...yourTurn } : { hasTurn: false },
       pendingRematches: rematchData,
+      streak: {
+        debateStreak: userRankData?.debateStreak || 0,
+        longestDebateStreak: userRankData?.longestDebateStreak || 0,
+      },
     })
   } catch (error) {
     console.error('[dashboard-data] Error:', error)

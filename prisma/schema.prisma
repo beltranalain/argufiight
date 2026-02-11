@@ -68,6 +68,15 @@ model User {
   coins                       Int                     @default(0)
   freeBeltChallengesAvailable Int                     @default(1) @map("free_belt_challenges_available")
   lastFreeChallengeReset      DateTime?               @map("last_free_challenge_reset")
+  consecutiveLoginDays        Int                     @default(0) @map("consecutive_login_days")
+  lastDailyRewardDate         DateTime?               @map("last_daily_reward_date")
+  lastLoginDate               DateTime?               @map("last_login_date")
+  longestLoginStreak          Int                     @default(0) @map("longest_login_streak")
+  totalLoginDays              Int                     @default(0) @map("total_login_days")
+  hasCompletedOnboarding      Boolean                 @default(false) @map("has_completed_onboarding")
+  debateStreak                Int                     @default(0) @map("debate_streak")
+  longestDebateStreak         Int                     @default(0) @map("longest_debate_streak")
+  lastDebateDate              DateTime?               @map("last_debate_date")
   activeContracts             AdContract[]            @relation("CreatorContracts")
   apiUsage                    ApiUsage[]
   appealLimit                 AppealLimit?
@@ -452,6 +461,7 @@ model CreatorTaxInfo {
   legalName       String?  @map("legal_name")
   businessName    String?  @map("business_name")
   taxIdType       String?  @map("tax_id_type")
+  country         String?
   taxFormComplete Boolean  @default(false) @map("tax_form_complete")
   w9Submitted     Boolean  @default(false) @map("w9_submitted")
   w9SubmittedAt   DateTime? @map("w9_submitted_at")
@@ -687,6 +697,7 @@ model Debate {
   roundDeadline         DateTime?           @map("round_deadline")
   visibility            DebateVisibility    @default(PRIVATE)
   slug                  String?             @unique
+  isOnboardingDebate    Boolean             @default(false) @map("is_onboarding_debate")
   beltStakeType         String?             @map("belt_stake_type")
   hasBeltAtStake        Boolean             @default(false) @map("has_belt_at_stake")
   apiUsage              ApiUsage[]
@@ -1139,6 +1150,21 @@ model Category {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("categories")
+}
+
+model DailyChallenge {
+  id           String         @id @default(uuid())
+  topic        String
+  description  String?
+  category     DebateCategory
+  forLabel     String         @map("for_label")
+  againstLabel String         @map("against_label")
+  activeDate   DateTime       @unique @map("active_date") @db.Date
+  isActive     Boolean        @default(true) @map("is_active")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  @@map("daily_challenges")
 }
 
 model ModelMetric {
@@ -2219,6 +2245,8 @@ enum CoinTransactionType {
   COIN_PURCHASE
   COIN_PURCHASE_REFUND
   DAILY_LOGIN_REWARD
+  ONBOARDING_REWARD
+  DEBATE_STREAK_REWARD
 }
 
 enum CoinTransactionStatus {

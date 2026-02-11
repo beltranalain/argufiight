@@ -390,6 +390,8 @@ export async function GET(request: NextRequest) {
         redirectUrl = '/admin'
       } else if (userType === 'advertiser') {
         redirectUrl = '/advertiser/dashboard'
+      } else if (!user.hasCompletedOnboarding) {
+        redirectUrl = '/onboarding'
       } else {
         redirectUrl = returnTo || '/'
       }

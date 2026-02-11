@@ -79,7 +79,8 @@ export async function triggerAIResponseForDebate(debateId: string): Promise<bool
     if (!shouldRespond) return false
 
     // Enforce response delay so AI doesn't reply instantly
-    const delayMs = aiUser.aiResponseDelay || 45000 // Default 45 seconds
+    // Onboarding debates use a much shorter delay for a responsive experience
+    const delayMs = (debate as any).isOnboardingDebate ? 10000 : (aiUser.aiResponseDelay || 45000)
     let referenceTime: Date | null = null
 
     if (isChallenger) {

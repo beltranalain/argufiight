@@ -13,6 +13,7 @@ export const config = {
     '/debates/saved',
     '/upgrade',
     '/belts/room',
+    '/onboarding',
   ],
 }
 
