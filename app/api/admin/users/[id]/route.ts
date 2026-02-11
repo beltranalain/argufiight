@@ -278,7 +278,27 @@ export async function DELETE(
     }
 
     // Manually delete related records that don't have cascade delete
-    // TournamentParticipant and TournamentSubscription don't have onDelete: Cascade
+    // First, find all tournament participant IDs for this user
+    const userParticipants = await prisma.tournamentParticipant.findMany({
+      where: { userId: id },
+      select: { id: true },
+    })
+    const participantIds = userParticipants.map(p => p.id)
+
+    // Delete tournament matches that reference this user's participants
+    if (participantIds.length > 0) {
+      await prisma.tournamentMatch.deleteMany({
+        where: {
+          OR: [
+            { participant1Id: { in: participantIds } },
+            { participant2Id: { in: participantIds } },
+            { winnerId: { in: participantIds } },
+          ],
+        },
+      })
+    }
+
+    // Now safe to delete tournament participants
     await prisma.tournamentParticipant.deleteMany({
       where: {
         userId: id,
