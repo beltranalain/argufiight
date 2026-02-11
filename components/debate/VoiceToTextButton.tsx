@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 
@@ -16,455 +16,193 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   const [showPermissionModal, setShowPermissionModal] = useState(false)
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle')
   const [testMessage, setTestMessage] = useState('')
-  const [isRestarting, setIsRestarting] = useState(false) // Track restart state
-  const [restartCount, setRestartCount] = useState(0) // Count auto-restarts
+  const [interimText, setInterimText] = useState('')
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const testRecognitionRef = useRef<SpeechRecognition | null>(null)
-  const streamRef = useRef<MediaStream | null>(null) // Keep microphone stream open
-  const shouldListenRef = useRef(false) // Track if we should be listening (for immediate restart)
-  const accumulatedTranscriptRef = useRef('') // Store transcript separately from recognition instance
-  const lastResultTimeRef = useRef<number | null>(null) // Track when we last got a result
-  const preemptiveRestartTimeoutRef = useRef<number | null>(null) // For preemptive restart
-  const nextRecognitionRef = useRef<SpeechRecognition | null>(null) // Pre-create next instance
+  const streamRef = useRef<MediaStream | null>(null)
+  const shouldListenRef = useRef(false)
+  const restartCountRef = useRef(0)
+  const onTranscriptRef = useRef(onTranscript)
 
-  // Function to create a new recognition instance
-  const createRecognitionInstance = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SpeechRecognition) return null
+  // Keep onTranscript ref current to avoid stale closures
+  useEffect(() => {
+    onTranscriptRef.current = onTranscript
+  }, [onTranscript])
 
-    const recognition = new SpeechRecognition()
-    recognition.continuous = true  // Keep listening until user stops
+  const createRecognitionInstance = useCallback(() => {
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognitionAPI) return null
+
+    const recognition = new SpeechRecognitionAPI()
+    recognition.continuous = true
     recognition.interimResults = true
     recognition.lang = 'en-US'
     recognition.maxAlternatives = 1
 
     recognition.onstart = () => {
-      console.log('Speech recognition started')
       setIsListening(true)
       setShowPermissionModal(false)
-      lastResultTimeRef.current = Date.now() // Reset timer when recognition starts
-      
-      // Set up preemptive restart - if no results for 2 seconds, restart proactively
-      if (preemptiveRestartTimeoutRef.current) {
-        clearTimeout(preemptiveRestartTimeoutRef.current)
-      }
-      preemptiveRestartTimeoutRef.current = window.setTimeout(() => {
-        if (shouldListenRef.current && lastResultTimeRef.current) {
-          const timeSinceLastResult = Date.now() - lastResultTimeRef.current
-          if (timeSinceLastResult > 2000) {
-            console.log('Preemptive restart: No results for 2+ seconds, restarting before timeout...')
-            // Stop current recognition to trigger onend, which will restart
-            if (recognitionRef.current) {
-              try {
-                recognitionRef.current.stop()
-              } catch (e) {
-                // Ignore errors
-              }
-            }
-          }
-        }
-      }, 2000) as any
     }
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      // Update last result time - this helps detect timeouts
-      lastResultTimeRef.current = Date.now()
-      
-      // Clear any preemptive restart timeout since we got a result
-      if (preemptiveRestartTimeoutRef.current) {
-        clearTimeout(preemptiveRestartTimeoutRef.current)
-        preemptiveRestartTimeoutRef.current = null
-      }
-      
-      // Build transcript from all results
-      let accumulated = accumulatedTranscriptRef.current
-      let newTranscript = ''
-      
+      // Reset restart count on any result — mic is working
+      restartCountRef.current = 0
+
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
         if (result.isFinal) {
-          // Final result - add to accumulated transcript
-          accumulated += result[0].transcript + ' '
-          accumulatedTranscriptRef.current = accumulated
-          newTranscript = accumulated
+          // Send only the NEW final text — caller appends it
+          const finalText = result[0].transcript.trim()
+          if (finalText) {
+            onTranscriptRef.current(finalText)
+          }
+          setInterimText('')
         } else {
-          // Interim result - show accumulated + current interim
-          newTranscript = accumulated + result[0].transcript
+          // Show interim text visually
+          setInterimText(result[0].transcript)
         }
-      }
-      onTranscript(newTranscript.trim())
-      
-      // Pre-create next recognition instance while we're still getting results
-      // This makes restart instant when current one stops
-      if (shouldListenRef.current && !nextRecognitionRef.current) {
-        nextRecognitionRef.current = createRecognitionInstance()
       }
     }
 
     recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error, event.message)
-      
-      // Handle common errors
       if (event.error === 'no-speech') {
-        // No speech detected - this is normal, don't stop, let onend handle restart
-        console.log('No speech detected, will restart automatically')
-        // Don't set isListening to false - keep it active
+        // Normal — mic is on but user hasn't spoken yet. Let onend restart gracefully.
         return
       } else if (event.error === 'not-allowed' || event.error === 'permission-denied') {
         shouldListenRef.current = false
         setIsListening(false)
-        console.log('Permission denied by browser, showing help modal')
         setShowPermissionModal(true)
       } else if (event.error === 'service-not-allowed') {
         shouldListenRef.current = false
         setIsListening(false)
-        console.warn('Speech recognition service not allowed')
       } else if (event.error === 'aborted') {
-        // Only stop if user explicitly stopped
-        if (!shouldListenRef.current) {
-          setIsListening(false)
-        } else {
-          // If aborted but we should still be listening, restart immediately
-          console.log('Recognition aborted but should continue, restarting...')
-          setTimeout(() => {
-            if (shouldListenRef.current && recognitionRef.current) {
-              try {
-                recognitionRef.current.start()
-              } catch (e) {
-                console.error('Failed to restart after abort:', e)
-              }
-            }
-          }, 50)
-        }
-      } else if (event.error === 'network') {
-        console.warn('Network error in speech recognition, will retry')
-        // Don't stop on network errors - let onend handle restart
-      } else {
-        console.warn('Speech recognition error (non-permission):', event.error)
-        // Only stop on critical errors
-        if (event.error === 'audio-capture' || event.error === 'bad-grammar') {
-          shouldListenRef.current = false
-          setIsListening(false)
-        }
-        // For other errors, try to continue
+        // User or system aborted — onend will handle restart if needed
+      } else if (event.error === 'audio-capture') {
+        shouldListenRef.current = false
+        setIsListening(false)
       }
+      // For network and other errors, let onend handle restart
     }
 
     recognition.onend = () => {
-      const timeSinceLastResult = lastResultTimeRef.current 
-        ? Date.now() - lastResultTimeRef.current 
-        : null
-      console.log(`Speech recognition ended - restarting immediately if still listening (time since last result: ${timeSinceLastResult ? Math.floor(timeSinceLastResult / 1000) + 's' : 'N/A'})`)
-      
-      // If we're still supposed to be listening, IMMEDIATELY restart
-      if (shouldListenRef.current) {
-        // Show restarting indicator
-        setIsRestarting(true)
-        setRestartCount(prev => prev + 1)
-        
-        // Use pre-created instance if available, otherwise create new one
-        const newRecognition = nextRecognitionRef.current || createRecognitionInstance()
-        nextRecognitionRef.current = null // Clear it since we're using it
-        
+      if (!shouldListenRef.current) {
+        setIsListening(false)
+        setInterimText('')
+        return
+      }
+
+      // Cap auto-restarts to prevent infinite loops
+      restartCountRef.current++
+      if (restartCountRef.current > 50) {
+        console.warn('Voice input: too many restarts, stopping')
+        shouldListenRef.current = false
+        setIsListening(false)
+        setInterimText('')
+        return
+      }
+
+      // Restart after a reasonable delay — gives the browser time to release resources
+      setTimeout(() => {
+        if (!shouldListenRef.current) return
+
+        const newRecognition = createRecognitionInstance()
         if (newRecognition) {
           recognitionRef.current = newRecognition
-          
-          // Start immediately with 0ms delay (faster than requestAnimationFrame)
-          setTimeout(() => {
-            if (shouldListenRef.current && recognitionRef.current) {
-              try {
-                console.log('Immediately restarting recognition instance (0ms delay)...')
-                recognitionRef.current.start()
-                // Pre-create next instance for even faster restart
-                nextRecognitionRef.current = createRecognitionInstance()
-                // Clear restarting indicator after a brief moment
-                setTimeout(() => setIsRestarting(false), 300)
-              } catch (error: any) {
-                // Handle "already started" error - this means recognition is already running
-                if (error.message && (error.message.includes('already started') || error.message.includes('started'))) {
-                  console.log('Recognition already running, this is fine')
-                  setIsRestarting(false)
-                  // Still pre-create next instance
-                  nextRecognitionRef.current = createRecognitionInstance()
-                  return
-                }
-                console.error('Failed to start new recognition instance:', error)
-                // If immediate start fails, try with a minimal delay
-                setTimeout(() => {
-                  if (shouldListenRef.current && recognitionRef.current) {
-                    try {
-                      console.log('Retrying recognition start after delay...')
-                      recognitionRef.current.start()
-                      nextRecognitionRef.current = createRecognitionInstance()
-                      setIsRestarting(false)
-                    } catch (retryError: any) {
-                      console.error('Failed to start after retry:', retryError)
-                      // If it's "already started", that's fine
-                      if (retryError.message && (retryError.message.includes('already started') || retryError.message.includes('started'))) {
-                        console.log('Recognition already running after retry, continuing...')
-                        nextRecognitionRef.current = createRecognitionInstance()
-                        setIsRestarting(false)
-                        return
-                      }
-                      // Try one more time with a fresh instance
-                      setTimeout(() => {
-                        if (shouldListenRef.current) {
-                          const finalRetry = createRecognitionInstance()
-                          if (finalRetry) {
-                            recognitionRef.current = finalRetry
-                            nextRecognitionRef.current = createRecognitionInstance()
-                            try {
-                              finalRetry.start()
-                              setIsRestarting(false)
-                            } catch (finalError: any) {
-                              console.error('Failed to start after final retry:', finalError)
-                              // Only stop if it's not "already started"
-                              if (!finalError.message || (!finalError.message.includes('already started') && !finalError.message.includes('started'))) {
-                                shouldListenRef.current = false
-                                setIsListening(false)
-                                setIsRestarting(false)
-                              } else {
-                                setIsRestarting(false)
-                              }
-                            }
-                          }
-                        }
-                      }, 50) // Reduced delay
-                    }
-                  }
-                }, 5) // Reduced delay
-              }
+          try {
+            newRecognition.start()
+          } catch (error: any) {
+            if (error.message?.includes('already started')) {
+              // Already running, that's fine
+            } else {
+              console.error('Voice input: failed to restart:', error)
+              shouldListenRef.current = false
+              setIsListening(false)
+              setInterimText('')
             }
-          }, 0) // 0ms delay - immediate
-        } else {
-          shouldListenRef.current = false
-          setIsListening(false)
-          setIsRestarting(false)
+          }
         }
-      } else {
-        setIsListening(false)
-        setIsRestarting(false)
-      }
+      }, 300)
     }
 
     return recognition
-  }
+  }, [])
 
   useEffect(() => {
-    // Check if browser supports Web Speech API
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    
-    if (SpeechRecognition) {
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (SpeechRecognitionAPI) {
       setIsSupported(true)
-      // Don't create instance here - create it when user starts listening
-    } else {
-      console.warn('Speech Recognition API not supported in this browser')
     }
-
-    // Handle page visibility changes - resume AudioContext if suspended
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isListening && streamRef.current) {
-        console.log('Page became visible, checking audio stream...')
-        // Stream should still be active, but check anyway
-        streamRef.current.getTracks().forEach(track => {
-          if (track.readyState === 'ended') {
-            console.warn('Track ended when page became visible')
-          }
-        })
-      }
-    }
-    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       shouldListenRef.current = false
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      
       if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop()
-        } catch (e) {
-          // Ignore errors when stopping
-        }
+        try { recognitionRef.current.stop() } catch {}
       }
       if (testRecognitionRef.current) {
-        try {
-          testRecognitionRef.current.stop()
-        } catch (e) {
-          // Ignore errors when stopping
-        }
+        try { testRecognitionRef.current.stop() } catch {}
       }
-      
-      // Clean up microphone stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop())
         streamRef.current = null
       }
     }
-  }, [onTranscript, isListening])
+  }, [])
 
   const startListening = async () => {
-    if (!isSupported) {
-      console.error('Speech recognition not supported in this browser')
-      return
-    }
+    if (!isSupported || isListening) return
 
-    if (isListening) {
-      console.log('Already listening')
-      return
-    }
-
-    // Set flag that we should be listening
     shouldListenRef.current = true
-
-    // Reset accumulated transcript and restart count when starting fresh
-    accumulatedTranscriptRef.current = ''
-    setRestartCount(0)
-    setIsRestarting(false)
-    lastResultTimeRef.current = null
-    
-    // Clear any existing timeouts
-    if (preemptiveRestartTimeoutRef.current) {
-      clearTimeout(preemptiveRestartTimeoutRef.current)
-      preemptiveRestartTimeoutRef.current = null
-    }
+    restartCountRef.current = 0
+    setInterimText('')
 
     try {
-      console.log('Step 1: Requesting microphone permission...')
-      
-      // Request microphone access
+      // Request microphone access first
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      streamRef.current = stream // Store reference to keep it alive
-      
-      // Ensure stream tracks are active
+      streamRef.current = stream
+
       stream.getTracks().forEach(track => {
-        if (track.readyState === 'ended') {
-          console.error('Stream track ended before starting recognition!')
-        }
-        // Add event listener to detect if track ends
         track.onended = () => {
-          console.error('Microphone track ended unexpectedly!')
           stopListening()
         }
       })
-      
-      // Start Web Speech API recognition
-      startWebSpeechRecognition(stream)
-      
+
+      // Create and start recognition
+      const recognition = createRecognitionInstance()
+      if (!recognition) {
+        throw new Error('Failed to create recognition instance')
+      }
+
+      recognitionRef.current = recognition
+      recognition.start()
     } catch (error: any) {
-      console.error('Failed to get microphone permission:', error)
       shouldListenRef.current = false
       setIsListening(false)
-      
-      // Handle permission denial
-      if (error.name === 'NotAllowedError' || 
+
+      if (error.name === 'NotAllowedError' ||
           error.name === 'PermissionDeniedError' ||
-          error.name === 'NotReadableError' ||
-          (error.message && (error.message.includes('permission') || error.message.includes('not allowed') || error.message.includes('denied')))) {
-        console.log('Permission error detected, showing help modal')
+          error.name === 'NotReadableError') {
         setShowPermissionModal(true)
       }
     }
   }
 
-  const startWebSpeechRecognition = (stream: MediaStream) => {
-    if (!isSupported) {
-      console.error('Web Speech API not supported')
-      return
-    }
-
-    console.log('Step 2: Using Web Speech API for voice input...')
-    
-    // Pre-create the first recognition instance
-    nextRecognitionRef.current = createRecognitionInstance()
-    
-    // Use pre-created instance or create new one
-    const recognition = nextRecognitionRef.current || createRecognitionInstance()
-    if (!recognition) {
-      throw new Error('Failed to create recognition instance')
-    }
-    
-    recognitionRef.current = recognition
-    nextRecognitionRef.current = null // Clear it since we're using it
-    
-    // Pre-create next instance for faster restart
-    nextRecognitionRef.current = createRecognitionInstance()
-    
-    // Start recognition
-    console.log('Step 3: Starting Web Speech recognition...')
-    recognition.start()
-  }
-
   const stopListening = () => {
-    // Set flag to stop listening
     shouldListenRef.current = false
-    
-    // Clear preemptive restart timeout
-    if (preemptiveRestartTimeoutRef.current) {
-      clearTimeout(preemptiveRestartTimeoutRef.current)
-      preemptiveRestartTimeoutRef.current = null
+
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop() } catch {}
     }
-    
-    // Stop speech recognition
-    if (recognitionRef.current && isListening) {
-      try {
-        recognitionRef.current.stop()
-      } catch (e) {
-        // Ignore errors
-      }
-    }
-    
-    // Clean up pre-created instances
-    if (nextRecognitionRef.current) {
-      try {
-        nextRecognitionRef.current.stop()
-      } catch (e) {
-        // Ignore errors
-      }
-      nextRecognitionRef.current = null
-    }
-    
-    // Close microphone stream
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = null
     }
-    
+
     setIsListening(false)
-    setIsRestarting(false)
-    setRestartCount(0)
-    lastResultTimeRef.current = null
+    setInterimText('')
+    restartCountRef.current = 0
   }
 
-  // Manual restart function
-  const restartListening = () => {
-    if (!isListening || !shouldListenRef.current) {
-      return
-    }
-    
-    // Stop current recognition
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop()
-      } catch (e) {
-        // Ignore errors
-      }
-    }
-    
-    // Create new instance and start
-    const newRecognition = createRecognitionInstance()
-    if (newRecognition) {
-      recognitionRef.current = newRecognition
-      try {
-        newRecognition.start()
-        setRestartCount(0) // Reset count on manual restart
-        setIsRestarting(false)
-      } catch (error) {
-        console.error('Failed to manually restart:', error)
-      }
-    }
-  }
-
-  // Test microphone function - uses getUserMedia to explicitly request permission
   const testMicrophone = async () => {
     if (!isSupported) {
       setTestStatus('error')
@@ -476,70 +214,45 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
     setTestMessage('Requesting microphone access...')
 
     try {
-      // Step 1: Explicitly request microphone permission using getUserMedia
-      console.log('Test: Requesting microphone permission via getUserMedia...')
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      
-      // Permission granted! Test that we can actually access the audio
+
       const audioContext = new AudioContext()
       const source = audioContext.createMediaStreamSource(stream)
       const analyser = audioContext.createAnalyser()
       source.connect(analyser)
-      
-      // Check if we're getting audio data
-      const dataArray = new Uint8Array(analyser.frequencyBinCount)
-      analyser.getByteFrequencyData(dataArray)
-      
-      // Stop the stream
+
       stream.getTracks().forEach(track => track.stop())
       audioContext.close()
-      
-      console.log('Test: Microphone permission granted and audio stream accessible')
+
       setTestStatus('success')
       setTestMessage('Microphone is working! Permission granted. You can now use Voice Input.')
-      
-      // Now try speech recognition to confirm it works
+
       try {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-        const testRecognition = new SpeechRecognition()
+        const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+        const testRecognition = new SpeechRecognitionAPI()
         testRecognition.continuous = false
         testRecognition.interimResults = false
         testRecognition.lang = 'en-US'
-        
+
         testRecognition.onstart = () => {
-          console.log('Test: Speech recognition also started successfully')
           setTestMessage('Microphone is working! Speech recognition is ready. You can now use Voice Input.')
           setTimeout(() => {
             if (testRecognitionRef.current) {
-              try {
-                testRecognitionRef.current.stop()
-              } catch (e) {
-                // Ignore errors
-              }
+              try { testRecognitionRef.current.stop() } catch {}
             }
           }, 2000)
         }
-        
+
         testRecognition.onerror = (event: any) => {
           if (event.error === 'no-speech') {
-            // This is fine - mic works, just no speech detected
             setTestMessage('Microphone is working! (No speech detected, but mic is connected)')
           }
         }
-        
-        testRecognition.onend = () => {
-          // Keep success status
-        }
-        
+
         testRecognitionRef.current = testRecognition
         testRecognition.start()
-      } catch (recognitionError) {
-        // Speech recognition failed but mic permission works - that's still success
-        console.log('Test: Speech recognition test failed but mic permission works:', recognitionError)
-      }
-      
+      } catch {}
     } catch (error: any) {
-      console.error('Test: Failed to get microphone permission:', error)
       setTestStatus('error')
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
         setTestMessage('Microphone permission denied. Please click "Allow" when your browser asks for permission.')
@@ -554,7 +267,7 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
   }
 
   if (!isSupported) {
-    return null // Don't show button if not supported
+    return null
   }
 
   return (
@@ -572,7 +285,7 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
               <svg className="w-4 h-4 mr-2 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
               </svg>
-              {isRestarting ? 'Restarting...' : 'Stop Listening'}
+              Stop Listening
             </>
           ) : (
             <>
@@ -583,33 +296,11 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
             </>
           )}
         </Button>
-        
-        {isListening && (
-          <>
-            {isRestarting && (
-              <span className="text-xs text-neon-orange animate-pulse">
-                Restarting...
-              </span>
-            )}
-            {restartCount > 0 && !isRestarting && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={restartListening}
-                className="text-xs text-text-secondary hover:text-text-primary"
-                title="Voice input may pause during silence. Click to restart manually."
-              >
-                ↻ Restart
-              </Button>
-            )}
-          </>
-        )}
       </div>
-      
-      {isListening && restartCount > 2 && (
-        <div className="mt-2 p-2 bg-neon-orange/10 border border-neon-orange/30 rounded text-xs text-neon-orange">
-          💡 Voice input may pause during silence. Click "Restart" if it stops, or use the "Stop Listening" button to end.
+
+      {isListening && interimText && (
+        <div className="mt-2 p-2 bg-electric-blue/10 border border-electric-blue/30 rounded text-xs text-electric-blue italic">
+          {interimText}...
         </div>
       )}
 
@@ -632,7 +323,7 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
 
           <div>
             <h3 className="text-lg font-semibold text-text-primary mb-3">How to Enable Microphone Access:</h3>
-            
+
             <div className="space-y-4">
               {/* Chrome/Edge Instructions */}
               <div className="border border-bg-tertiary rounded-lg p-4">
@@ -649,7 +340,7 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
                   <li>Refresh the page and try again</li>
                 </ol>
                 <p className="text-xs text-text-muted mt-2 ml-2">
-                  Or go to: Settings → Privacy and security → Site Settings → Microphone
+                  Or go to: Settings &rarr; Privacy and security &rarr; Site Settings &rarr; Microphone
                 </p>
               </div>
 
@@ -663,7 +354,7 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
                 </div>
                 <ol className="list-decimal list-inside space-y-1 text-sm text-text-secondary ml-2">
                   <li>Click the shield icon in the address bar</li>
-                  <li>Click "Permissions" → "Microphone"</li>
+                  <li>Click "Permissions" &rarr; "Microphone"</li>
                   <li>Select "Allow" and check "Remember this decision"</li>
                   <li>Refresh the page and try again</li>
                 </ol>
@@ -678,7 +369,7 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
                   <h4 className="font-semibold text-text-primary">Safari</h4>
                 </div>
                 <ol className="list-decimal list-inside space-y-1 text-sm text-text-secondary ml-2">
-                  <li>Go to Safari → Settings (or Preferences)</li>
+                  <li>Go to Safari &rarr; Settings (or Preferences)</li>
                   <li>Click "Websites" tab</li>
                   <li>Select "Microphone" from the left sidebar</li>
                   <li>Find this website and set to "Allow"</li>
@@ -749,8 +440,8 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
             </div>
             {testMessage && (
               <div className={`p-3 rounded-lg ${
-                testStatus === 'success' 
-                  ? 'bg-green-500/10 border border-green-500/30 text-green-400' 
+                testStatus === 'success'
+                  ? 'bg-green-500/10 border border-green-500/30 text-green-400'
                   : testStatus === 'error'
                   ? 'bg-red-500/10 border border-red-500/30 text-red-400'
                   : 'bg-electric-blue/10 border border-electric-blue/30 text-electric-blue'
@@ -767,13 +458,8 @@ export function VoiceToTextButton({ onTranscript, disabled, className }: VoiceTo
                 setShowPermissionModal(false)
                 setTestStatus('idle')
                 setTestMessage('')
-                // Clean up test recognition
                 if (testRecognitionRef.current) {
-                  try {
-                    testRecognitionRef.current.stop()
-                  } catch (e) {
-                    // Ignore errors
-                  }
+                  try { testRecognitionRef.current.stop() } catch {}
                   testRecognitionRef.current = null
                 }
               }}
@@ -792,6 +478,7 @@ interface SpeechRecognition extends EventTarget {
   continuous: boolean
   interimResults: boolean
   lang: string
+  maxAlternatives: number
   start(): void
   stop(): void
   abort(): void
@@ -839,4 +526,3 @@ declare global {
     }
   }
 }
-

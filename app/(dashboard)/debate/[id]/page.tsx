@@ -521,9 +521,9 @@ export default function DebatePage() {
             </Button>
           </div>
           
-          <div className={`grid grid-cols-1 ${debate.isOnboardingDebate ? '' : 'lg:grid-cols-3'} gap-6`}>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Content */}
-            <div className={`${debate.isOnboardingDebate ? '' : 'lg:col-span-2'} space-y-6`}>
+            <div className="lg:col-span-2 space-y-6">
 
           {/* Debate Info */}
           <Card>
@@ -1093,8 +1093,7 @@ export default function DebatePage() {
           )}
             </div>
 
-            {/* Right Sidebar - Live Chat and Comments (skip for onboarding debates to reduce API calls) */}
-            {!debate.isOnboardingDebate && (
+            {/* Right Sidebar - Live Chat and Comments */}
             <div className="lg:col-span-1 space-y-6">
               {/* Debate Widget Ad */}
               <AdDisplay
@@ -1131,7 +1130,6 @@ export default function DebatePage() {
                 </CardBody>
               </Card>
             </div>
-            )}
           </div>
         </div>
       </div>
