@@ -34,6 +34,7 @@ export function CommentsSection({ debateId }: CommentsSectionProps) {
   const [replyContent, setReplyContent] = useState('')
   const [commentsEnabled, setCommentsEnabled] = useState(true)
   const commentsEndRef = useRef<HTMLDivElement>(null)
+  const shouldScrollRef = useRef(false)
 
   // Check if comments are enabled
   useEffect(() => {
@@ -62,8 +63,11 @@ export function CommentsSection({ debateId }: CommentsSectionProps) {
   }, [debateId, commentsEnabled])
 
   useEffect(() => {
-    // Scroll to bottom when new comments are added
-    commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Only scroll to bottom when the user just posted a comment, not on poll updates
+    if (shouldScrollRef.current) {
+      commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      shouldScrollRef.current = false
+    }
   }, [comments])
 
   const fetchComments = async () => {
@@ -107,6 +111,7 @@ export function CommentsSection({ debateId }: CommentsSectionProps) {
       }
 
       const comment = await response.json()
+      shouldScrollRef.current = true
       setComments((prev) => [comment, ...prev])
       setNewComment('')
       
@@ -146,8 +151,9 @@ export function CommentsSection({ debateId }: CommentsSectionProps) {
       }
 
       const reply = await response.json()
-      
+
       // Update comments to add reply to parent
+      shouldScrollRef.current = true
       setComments((prev) =>
         prev.map((comment) =>
           comment.id === parentId

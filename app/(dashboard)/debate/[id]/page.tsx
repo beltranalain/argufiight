@@ -180,8 +180,7 @@ export default function DebatePage() {
   const [showBeltTransfer, setShowBeltTransfer] = useState(false)
   const [showOnboardingCongrats, setShowOnboardingCongrats] = useState(false)
   const onboardingCongratsShownRef = useRef(false)
-  // Scroll position ref — only used for initial load restore, not poll updates
-  const scrollPositionRef = useRef<number>(0)
+  // No scroll manipulation — browser handles scroll position naturally
 
   useEffect(() => {
     if (params.id) {
@@ -250,9 +249,7 @@ export default function DebatePage() {
       // Note: Expired rounds are processed by cron jobs, not from frontend
       // Frontend calls would fail with 401 if CRON_SECRET is set
 
-      // Save scroll position before loading (only if showing loading)
       if (showLoading) {
-        scrollPositionRef.current = window.scrollY || window.pageYOffset || document.documentElement.scrollTop
         setIsLoading(true)
       }
       
@@ -348,15 +345,6 @@ export default function DebatePage() {
     } finally {
       if (showLoading) {
         setIsLoading(false)
-        
-        // Restore scroll position after loading completes
-        requestAnimationFrame(() => {
-          if (scrollPositionRef.current > 0) {
-            window.scrollTo({ top: scrollPositionRef.current, behavior: 'auto' })
-            document.documentElement.scrollTop = scrollPositionRef.current
-            document.body.scrollTop = scrollPositionRef.current
-          }
-        })
       }
     }
   }
