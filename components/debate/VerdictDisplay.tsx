@@ -5,7 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
-import { Fireworks } from './Fireworks'
+import dynamic from 'next/dynamic'
+
+const Fireworks = dynamic(() => import('./Fireworks').then(m => ({ default: m.Fireworks })), { ssr: false })
 
 interface Verdict {
   id: string

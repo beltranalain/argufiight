@@ -12,6 +12,8 @@ import { NAV_POLL_INTERVAL_MS } from '@/lib/constants'
 import { AccountSwitcher } from '@/components/auth/AccountSwitcher'
 import { useVisibleInterval } from '@/lib/hooks/useVisibleInterval'
 import { DailyChallengeNav } from '@/components/dashboard/DailyChallengeNav'
+import { useFeatureFlags } from '@/lib/contexts/FeatureFlagContext'
+import { FEATURE_KEYS } from '@/lib/features'
 
 interface TopNavProps {
   currentPanel: string
@@ -21,6 +23,7 @@ interface TopNavProps {
 export function TopNav({ currentPanel, initialNavData }: TopNavProps) {
   const router = useRouter()
   const { user, logout } = useAuth()
+  const { isEnabled } = useFeatureFlags()
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [isAccountSwitcherOpen, setIsAccountSwitcherOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -162,24 +165,24 @@ export function TopNav({ currentPanel, initialNavData }: TopNavProps) {
       label: 'Trending Topics',
       onClick: () => window.location.href = '/trending',
     },
-    {
+    ...(isEnabled(FEATURE_KEYS.BELTS) ? [{
       label: 'Belts',
       onClick: () => window.location.href = '/belts/room',
-    },
-    {
+    }] : []),
+    ...(isEnabled(FEATURE_KEYS.MESSAGING) ? [{
       label: 'Direct Messages',
       onClick: () => window.location.href = '/messages',
-    },
+    }] : []),
     {
       label: 'Support',
       onClick: () => window.location.href = '/support',
     },
-    {
+    ...(isEnabled(FEATURE_KEYS.CREATOR_MARKETPLACE) ? [{
       label: 'Creator Dashboard',
       onClick: () => window.location.href = '/creator/dashboard',
       variant: 'default' as const,
-    },
-    {
+    }] : []),
+    ...(isEnabled(FEATURE_KEYS.COINS) ? [{
       label: 'My Coins',
       onClick: () => router.push('/coins'),
       icon: (
@@ -187,8 +190,8 @@ export function TopNav({ currentPanel, initialNavData }: TopNavProps) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
-    },
-    {
+    }] : []),
+    ...(isEnabled(FEATURE_KEYS.COIN_PURCHASES) ? [{
       label: 'Buy Coins',
       onClick: () => router.push('/coins/purchase'),
       variant: 'default' as const,
@@ -197,8 +200,8 @@ export function TopNav({ currentPanel, initialNavData }: TopNavProps) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
         </svg>
       ),
-    },
-    ...(userTier === 'FREE' ? [{
+    }] : []),
+    ...(isEnabled(FEATURE_KEYS.SUBSCRIPTIONS) && userTier === 'FREE' ? [{
       label: 'Upgrade to Pro',
       onClick: () => window.location.href = '/upgrade',
       variant: 'default' as const,
@@ -214,8 +217,8 @@ export function TopNav({ currentPanel, initialNavData }: TopNavProps) {
     },
   ]
 
-  // Coin balance header for dropdown
-  const coinHeader = coinBalance !== null ? (
+  // Coin balance header for dropdown (hidden when coins feature is off)
+  const coinHeader = isEnabled(FEATURE_KEYS.COINS) && coinBalance !== null ? (
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         <svg className="w-5 h-5 text-electric-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,7 +244,7 @@ export function TopNav({ currentPanel, initialNavData }: TopNavProps) {
               ARGU FIGHT
             </span>
           </button>
-          {currentPanel === 'THE ARENA' && <DailyChallengeNav />}
+          {currentPanel === 'THE ARENA' && isEnabled(FEATURE_KEYS.DAILY_CHALLENGES) && <DailyChallengeNav />}
         </div>
 
         {/* Panel Title */}

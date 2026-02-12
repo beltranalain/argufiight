@@ -15,6 +15,8 @@ import { useAuth } from '@/lib/hooks/useAuth'
 import { POLL_INTERVAL_MS, BLINK_DURATION_MS, BELT_BLINK_DURATION_MS } from '@/lib/constants'
 import { useVisibleInterval } from '@/lib/hooks/useVisibleInterval'
 import { DebateStreakBadge } from '@/components/dashboard/DebateStreakBadge'
+import { useFeatureFlags } from '@/lib/contexts/FeatureFlagContext'
+import { FEATURE_KEYS } from '@/lib/features'
 
 export function DashboardHomePage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -22,6 +24,10 @@ export function DashboardHomePage() {
   const [showBlink, setShowBlink] = useState(false)
   const [dashData, setDashData] = useState<any>(null)
   const { user } = useAuth()
+  const { isEnabled } = useFeatureFlags()
+  const beltsOn = isEnabled(FEATURE_KEYS.BELTS)
+  const tournamentsOn = isEnabled(FEATURE_KEYS.TOURNAMENTS)
+  const streaksOn = isEnabled(FEATURE_KEYS.STREAKS)
 
   // Single consolidated fetch for ALL dashboard data
   const fetchDashboardData = useCallback(async () => {
@@ -33,6 +39,11 @@ export function DashboardHomePage() {
       }
       const data = await response.json()
       setDashData(data)
+
+      // Hydrate feature flags context from dashboard response
+      if (data.featureFlags) {
+        window.dispatchEvent(new CustomEvent('feature-flags-loaded', { detail: data.featureFlags }))
+      }
 
       // Process your-turn and belt challenges from consolidated data
       if (data.yourTurn?.hasTurn) {
@@ -105,7 +116,7 @@ export function DashboardHomePage() {
               </div>
             </div>
           ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className={`grid grid-cols-1 ${beltsOn || tournamentsOn ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-6`}>
 
             {/* Column 1 - Left */}
             <div className="space-y-6">
@@ -126,7 +137,7 @@ export function DashboardHomePage() {
               <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary mt-8">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-2xl font-bold text-text-primary">Your Profile</h2>
-                  {dashData?.streak && (
+                  {streaksOn && dashData?.streak && (
                     <DebateStreakBadge
                       streak={dashData.streak.debateStreak || 0}
                       longestStreak={dashData.streak.longestDebateStreak || 0}
@@ -142,9 +153,11 @@ export function DashboardHomePage() {
               </div>
             </div>
 
-            {/* Column 3 - Right */}
+            {/* Column 3 - Right (only renders if belts or tournaments are enabled) */}
+            {(beltsOn || tournamentsOn) && (
             <div className="space-y-6">
               {/* Belts */}
+              {beltsOn && (
               <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary mt-8">
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="text-2xl font-bold text-text-primary">Belts</h2>
@@ -155,12 +168,16 @@ export function DashboardHomePage() {
                 <p className="text-text-secondary text-sm mb-4">Your championship belts and challenges</p>
                 <BeltsPanel initialData={dashData?.belts} />
               </div>
+              )}
 
               {/* Tournaments */}
+              {tournamentsOn && (
               <div className="bg-bg-secondary rounded-xl p-6 border border-bg-tertiary">
                 <TournamentsPanel initialData={dashData?.tournaments} />
               </div>
+              )}
             </div>
+            )}
           </div>
           )}
         </div>

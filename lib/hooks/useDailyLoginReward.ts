@@ -24,14 +24,14 @@ function getTodayUTC(): string {
  * Hook to automatically claim daily login reward when user is authenticated.
  * Uses localStorage to avoid spamming the API on every page navigation.
  */
-export function useDailyLoginReward() {
+export function useDailyLoginReward(enabled: boolean = true) {
   const { user, isAuthenticated } = useAuth()
   const [status, setStatus] = useState<DailyRewardStatus | null>(null)
   const [isClaiming, setIsClaiming] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!isAuthenticated || !user) {
+    if (!enabled || !isAuthenticated || !user) {
       return
     }
 
@@ -93,7 +93,7 @@ export function useDailyLoginReward() {
     }, 1000)
 
     return () => clearTimeout(timer)
-  }, [isAuthenticated, user?.id])
+  }, [enabled, isAuthenticated, user?.id])
 
   return {
     status,

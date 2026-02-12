@@ -1,6 +1,6 @@
-// Dashboard polling & timing
-export const POLL_INTERVAL_MS = 20_000
-export const NAV_POLL_INTERVAL_MS = 30_000
+// Dashboard polling & timing (reduced from 20s/30s to 60s for performance)
+export const POLL_INTERVAL_MS = 60_000
+export const NAV_POLL_INTERVAL_MS = 60_000
 export const BLINK_DURATION_MS = 5_000
 export const BELT_BLINK_DURATION_MS = 10_000
 

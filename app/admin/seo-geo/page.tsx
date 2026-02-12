@@ -3,12 +3,21 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { LoadingSpinner } from '@/components/ui/Loading'
-import OverviewTab from './components/OverviewTab'
-import AuditTab from './components/AuditTab'
-import GEOTab from './components/GEOTab'
-import RecommendationsTab from './components/RecommendationsTab'
-import SettingsTab from './components/SettingsTab'
-import SearchConsoleTab from './components/SearchConsoleTab'
+import dynamic from 'next/dynamic'
+
+const TabLoading = () => (
+  <div className="flex items-center justify-center h-64">
+    <LoadingSpinner size="lg" />
+  </div>
+)
+
+// Dynamic import tabs — each contains heavy libraries (recharts, etc.)
+const OverviewTab = dynamic(() => import('./components/OverviewTab'), { ssr: false, loading: TabLoading })
+const AuditTab = dynamic(() => import('./components/AuditTab'), { ssr: false, loading: TabLoading })
+const SearchConsoleTab = dynamic(() => import('./components/SearchConsoleTab'), { ssr: false, loading: TabLoading })
+const GEOTab = dynamic(() => import('./components/GEOTab'), { ssr: false, loading: TabLoading })
+const RecommendationsTab = dynamic(() => import('./components/RecommendationsTab'), { ssr: false, loading: TabLoading })
+const SettingsTab = dynamic(() => import('./components/SettingsTab'), { ssr: false, loading: TabLoading })
 
 const TABS = [
   { key: 'overview', label: 'Overview' },

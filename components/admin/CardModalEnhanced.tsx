@@ -3,8 +3,13 @@
 import { useState, useEffect } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { RichTextEditor } from '@/components/admin/RichTextEditor'
+import dynamic from 'next/dynamic'
 import { useToast } from '@/components/ui/Toast'
+
+const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor').then(m => ({ default: m.RichTextEditor })), {
+  ssr: false,
+  loading: () => <div className="h-[200px] bg-bg-tertiary rounded-lg animate-pulse" />,
+})
 import { Avatar } from '@/components/ui/Avatar'
 
 interface CardLabel {

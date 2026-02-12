@@ -1,6 +1,8 @@
 'use client'
 
 import { Badge } from '@/components/ui/Badge'
+import { useFeatureFlags } from '@/lib/contexts/FeatureFlagContext'
+import { FEATURE_KEYS } from '@/lib/features'
 
 interface TierBadgeProps {
   tier: 'FREE' | 'PRO'
@@ -9,6 +11,12 @@ interface TierBadgeProps {
 }
 
 export function TierBadge({ tier, size = 'md', showVerified = false }: TierBadgeProps) {
+  const { isEnabled } = useFeatureFlags()
+
+  // When subscriptions are disabled, hide tier badges entirely
+  if (!isEnabled(FEATURE_KEYS.SUBSCRIPTIONS)) {
+    return null
+  }
   if (tier === 'PRO') {
     return (
       <div className="flex items-center gap-2">

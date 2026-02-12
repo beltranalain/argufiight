@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
 import { TopNav } from '@/components/layout/TopNav'
+import { useRequireFeature } from '@/lib/hooks/useRequireFeature'
+import { FEATURE_KEYS } from '@/lib/features'
 import { cn } from '@/lib/utils'
 
 interface CoinPackage {
@@ -22,6 +24,7 @@ interface CoinPackage {
 }
 
 export default function CoinPurchasePage() {
+  useRequireFeature(FEATURE_KEYS.COIN_PURCHASES)
   const router = useRouter()
   const { showToast } = useToast()
   const [packages, setPackages] = useState<CoinPackage[]>([])

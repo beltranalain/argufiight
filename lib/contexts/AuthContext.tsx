@@ -49,8 +49,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchUser = useCallback(async () => {
+  const fetchUser = useCallback(async (skipCache = false) => {
     try {
+      // Check sessionStorage cache to avoid redundant fetches on soft navigation
+      if (!skipCache) {
+        try {
+          const cached = sessionStorage.getItem('auth-user-cache')
+          if (cached) {
+            const { user: cachedUser, ts } = JSON.parse(cached)
+            if (Date.now() - ts < 5 * 60 * 1000) { // 5 min TTL
+              setUser(cachedUser ? normalizeUser(cachedUser) : null)
+              setIsLoading(false)
+              return
+            }
+          }
+        } catch { /* ignore cache errors */ }
+      }
+
       const response = await fetch('/api/auth/me', {
         credentials: 'include',
       })
@@ -58,12 +73,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json()
         if (data.user) {
-          setUser(normalizeUser(data.user))
+          const normalized = normalizeUser(data.user)
+          setUser(normalized)
+          try { sessionStorage.setItem('auth-user-cache', JSON.stringify({ user: data.user, ts: Date.now() })) } catch {}
         } else {
           setUser(null)
+          try { sessionStorage.removeItem('auth-user-cache') } catch {}
         }
       } else {
         setUser(null)
+        try { sessionStorage.removeItem('auth-user-cache') } catch {}
       }
     } catch {
       setUser(null)
@@ -75,9 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchUser()
 
-    const handleLogin = () => fetchUser()
+    const handleLogin = () => fetchUser(true) // bypass cache on explicit login
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'auth-refresh') fetchUser()
+      if (e.key === 'auth-refresh') fetchUser(true) // bypass cache on explicit refresh
     }
 
     window.addEventListener('user-logged-in', handleLogin)

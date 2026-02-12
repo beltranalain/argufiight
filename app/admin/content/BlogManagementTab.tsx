@@ -10,7 +10,12 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/Badge'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
-import { BlogPostEditor } from '@/components/admin/BlogPostEditor'
+import dynamic from 'next/dynamic'
+
+const BlogPostEditor = dynamic(() => import('@/components/admin/BlogPostEditor').then(m => ({ default: m.BlogPostEditor })), {
+  ssr: false,
+  loading: () => <div className="h-[400px] bg-bg-tertiary rounded-lg animate-pulse" />,
+})
 
 interface BlogPost {
   id: string

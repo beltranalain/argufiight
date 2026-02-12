@@ -8,8 +8,13 @@ import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { LoadingSpinner } from '@/components/ui/Loading'
 import { useToast } from '@/components/ui/Toast'
-import { RichTextEditor } from '@/components/admin/RichTextEditor'
+import dynamic from 'next/dynamic'
 import { CardModalEnhanced } from '@/components/admin/CardModalEnhanced'
+
+const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor').then(m => ({ default: m.RichTextEditor })), {
+  ssr: false,
+  loading: () => <div className="h-[200px] bg-bg-tertiary rounded-lg animate-pulse" />,
+})
 
 interface Board {
   id: string

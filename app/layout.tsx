@@ -13,6 +13,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ThemeProvider } from '@/lib/contexts/ThemeContext'
 import { AuthProvider } from '@/lib/contexts/AuthContext'
 import { ChallengeProvider } from '@/lib/contexts/ChallengeContext'
+import { FeatureFlagProvider } from '@/lib/contexts/FeatureFlagContext'
 import { QueryProvider } from '@/lib/providers/QueryProvider'
 import { ChallengeModal } from '@/components/challenge/ChallengeModal'
 import { LazyNotifications } from '@/components/notifications/LazyNotifications'
@@ -108,6 +109,7 @@ export default function RootLayout({
         <QueryProvider>
           <ThemeProvider>
             <AuthProvider>
+              <FeatureFlagProvider>
               <ChallengeProvider>
                 <ErrorBoundary>
                   <ToastProvider>
@@ -118,6 +120,7 @@ export default function RootLayout({
                   </ToastProvider>
                 </ErrorBoundary>
               </ChallengeProvider>
+              </FeatureFlagProvider>
             </AuthProvider>
           </ThemeProvider>
         </QueryProvider>

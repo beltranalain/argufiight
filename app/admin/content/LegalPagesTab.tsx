@@ -3,8 +3,13 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
 import { useToast } from '@/components/ui/Toast'
-import { RichTextEditor } from '@/components/admin/RichTextEditor'
+import dynamic from 'next/dynamic'
 import { Modal } from '@/components/ui/Modal'
+
+const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor').then(m => ({ default: m.RichTextEditor })), {
+  ssr: false,
+  loading: () => <div className="h-[200px] bg-bg-tertiary rounded-lg animate-pulse" />,
+})
 import { Card, CardBody } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { LoadingSpinner } from '@/components/ui/Loading'

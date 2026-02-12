@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { requireFeature } from '@/lib/features'
 
 export const revalidate = 3600
 
@@ -17,7 +18,8 @@ export const metadata: Metadata = {
   },
 }
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  await requireFeature('SUBSCRIPTIONS')
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com'
 
   const structuredData = {

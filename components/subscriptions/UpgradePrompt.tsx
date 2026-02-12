@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Card, CardBody } from '@/components/ui/Card'
+import { useFeatureFlags } from '@/lib/contexts/FeatureFlagContext'
+import { FEATURE_KEYS } from '@/lib/features'
 
 interface UpgradePromptProps {
   isOpen: boolean
@@ -21,6 +23,12 @@ export function UpgradePrompt({
   description,
 }: UpgradePromptProps) {
   const router = useRouter()
+  const { isEnabled } = useFeatureFlags()
+
+  // When subscriptions are disabled, never show upgrade prompts
+  if (!isEnabled(FEATURE_KEYS.SUBSCRIPTIONS)) {
+    return null
+  }
 
   const defaultTitle = 'Upgrade to Pro Required'
   const defaultDescription = feature

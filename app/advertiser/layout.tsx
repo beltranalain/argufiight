@@ -3,12 +3,16 @@ import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
 import { headers } from 'next/headers'
+import { requireFeature } from '@/lib/features'
 
 export default async function AdvertiserLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // Gate: redirect home if advertising module is disabled
+  await requireFeature('ADVERTISING')
+
   // Get the current pathname to check if this is the payment success route
   // Try multiple header sources since middleware might not always set it
   const headersList = await headers()
@@ -52,11 +56,18 @@ export default async function AdvertiserLayout({
     redirect('/login?userType=advertiser')
   }
 
-  // Get user's email to check if they're an advertiser
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { email: true },
-  })
+  // Fetch user data + latest session in parallel (was 4 sequential queries)
+  const [user, latestSession] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, totpEnabled: true },
+    }),
+    prisma.session.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: { twoFactorVerified: true },
+    }),
+  ])
 
   if (!user) {
     redirect('/login?userType=advertiser')
@@ -68,30 +79,11 @@ export default async function AdvertiserLayout({
     select: { status: true },
   })
 
-  // If not an advertiser or not approved, redirect to login
-  // The API route will handle showing appropriate error messages
-  if (!advertiser || advertiser.status !== 'APPROVED') {
-    // Don't redirect here - let the page handle it so it can show appropriate messages
-    // But we'll still allow the page to load so it can show the error
-  } else {
-      // Check if 2FA is enabled and verified for this session
-      // Note: 2FA is optional for advertisers (can be enabled/disabled)
-      const userWith2FA = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { totpEnabled: true },
-      })
-
-      // Only require 2FA verification if 2FA is actually enabled
-      if (userWith2FA?.totpEnabled) {
-        const currentSession = await prisma.session.findFirst({
-          where: { userId },
-          orderBy: { createdAt: 'desc' },
-        })
-
-        if (!currentSession?.twoFactorVerified) {
-          redirect('/verify-2fa?userId=' + userId)
-        }
-      }
+  // If advertiser is approved, check 2FA
+  if (advertiser?.status === 'APPROVED') {
+    if (user.totpEnabled && !latestSession?.twoFactorVerified) {
+      redirect('/verify-2fa?userId=' + userId)
+    }
   }
 
   return <>{children}</>

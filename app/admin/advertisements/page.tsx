@@ -13,7 +13,12 @@ import { useToast } from '@/components/ui/Toast'
 import { Badge } from '@/components/ui/Badge'
 import { Tabs } from '@/components/ui/Tabs'
 import { Modal } from '@/components/ui/Modal'
-import { EmailTemplateEditor } from '@/components/admin/EmailTemplateEditor'
+import dynamic from 'next/dynamic'
+
+const EmailTemplateEditor = dynamic(() => import('@/components/admin/EmailTemplateEditor').then(m => ({ default: m.EmailTemplateEditor })), {
+  ssr: false,
+  loading: () => <div className="h-[300px] bg-bg-tertiary rounded-lg animate-pulse" />,
+})
 import { CreatorsTab } from './CreatorsTab'
 import { calculateStripeFees } from '@/lib/stripe/fee-calculator'
 

@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { prisma } from '@/lib/db/prisma'
+import { getFeatureFlags, FEATURE_KEYS } from '@/lib/features'
 
 export const dynamic = 'force-dynamic'
 
@@ -129,7 +130,15 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Run ALL dashboard queries in parallel — including rank count and advertiser check
+    // Feature flags — skip queries for disabled modules
+    const flags = await getFeatureFlags()
+    const beltsEnabled = flags[FEATURE_KEYS.BELTS]
+    const tournamentsEnabled = flags[FEATURE_KEYS.TOURNAMENTS]
+    const advertisingEnabled = flags[FEATURE_KEYS.ADVERTISING]
+    const subscriptionsEnabled = flags[FEATURE_KEYS.SUBSCRIPTIONS]
+    const streaksEnabled = flags[FEATURE_KEYS.STREAKS]
+
+    // Run ALL dashboard queries in parallel — skip disabled module queries
     const [
       categories,
       activeDebates,
@@ -228,65 +237,75 @@ export async function GET() {
         },
       }),
 
-      // 9. User's belts
-      prisma.belt.findMany({
-        where: {
-          currentHolderId: userId,
-          status: { in: ['ACTIVE', 'MANDATORY', 'STAKED', 'GRACE_PERIOD'] },
-        },
-        include: {
-          currentHolder: { select: { id: true, username: true, avatarUrl: true } },
-        },
-      }),
+      // 9. User's belts (skip when BELTS off)
+      beltsEnabled
+        ? prisma.belt.findMany({
+            where: {
+              currentHolderId: userId,
+              status: { in: ['ACTIVE', 'MANDATORY', 'STAKED', 'GRACE_PERIOD'] },
+            },
+            include: {
+              currentHolder: { select: { id: true, username: true, avatarUrl: true } },
+            },
+          })
+        : Promise.resolve([]),
 
-      // 10. Belt challenges (to user's belts + challenges made)
-      Promise.all([
-        prisma.beltChallenge.findMany({
-          where: {
-            belt: { currentHolderId: userId },
-            status: { notIn: ['COMPLETED', 'DECLINED', 'EXPIRED'] },
-          },
-          include: {
-            belt: true,
-            challenger: { select: { id: true, username: true, avatarUrl: true } },
-            beltHolder: { select: { id: true, username: true, avatarUrl: true } },
-          },
-          orderBy: { createdAt: 'desc' },
-        }),
-        prisma.beltChallenge.findMany({
-          where: {
-            challengerId: userId,
-            status: { notIn: ['COMPLETED', 'DECLINED', 'EXPIRED'] },
-          },
-          include: {
-            belt: true,
-            challenger: { select: { id: true, username: true, avatarUrl: true } },
-            beltHolder: { select: { id: true, username: true, avatarUrl: true } },
-          },
-          orderBy: { createdAt: 'desc' },
-        }),
-      ]),
+      // 10. Belt challenges (skip when BELTS off)
+      beltsEnabled
+        ? Promise.all([
+            prisma.beltChallenge.findMany({
+              where: {
+                belt: { currentHolderId: userId },
+                status: { notIn: ['COMPLETED', 'DECLINED', 'EXPIRED'] },
+              },
+              include: {
+                belt: true,
+                challenger: { select: { id: true, username: true, avatarUrl: true } },
+                beltHolder: { select: { id: true, username: true, avatarUrl: true } },
+              },
+              orderBy: { createdAt: 'desc' },
+            }),
+            prisma.beltChallenge.findMany({
+              where: {
+                challengerId: userId,
+                status: { notIn: ['COMPLETED', 'DECLINED', 'EXPIRED'] },
+              },
+              include: {
+                belt: true,
+                challenger: { select: { id: true, username: true, avatarUrl: true } },
+                beltHolder: { select: { id: true, username: true, avatarUrl: true } },
+              },
+              orderBy: { createdAt: 'desc' },
+            }),
+          ])
+        : Promise.resolve([[], []]),
 
-      // 11. Active tournaments
-      prisma.tournament.findMany({
-        where: { status: { in: ['UPCOMING', 'REGISTRATION_OPEN', 'IN_PROGRESS'] } },
-        orderBy: { startDate: 'asc' },
-        take: 3,
-      }).catch(() => []),
+      // 11. Active tournaments (skip when TOURNAMENTS off)
+      tournamentsEnabled
+        ? prisma.tournament.findMany({
+            where: { status: { in: ['UPCOMING', 'REGISTRATION_OPEN', 'IN_PROGRESS'] } },
+            orderBy: { startDate: 'asc' },
+            take: 3,
+          }).catch(() => [])
+        : Promise.resolve([]),
 
       // 12. Nav: unread notifications
       prisma.notification.count({ where: { userId, read: false } }),
 
-      // 13. Nav: subscription tier
-      prisma.userSubscription.findUnique({ where: { userId }, select: { tier: true } }),
+      // 13. Nav: subscription tier (skip when SUBSCRIPTIONS off)
+      subscriptionsEnabled
+        ? prisma.userSubscription.findUnique({ where: { userId }, select: { tier: true } })
+        : Promise.resolve(null),
 
       // 14. Nav: user data (REMOVED — reuse query #8 userRankData which now includes email+coins)
       Promise.resolve(null),
 
-      // 15. Nav: belt count
-      prisma.belt.count({
-        where: { currentHolderId: userId, status: { in: ['ACTIVE', 'MANDATORY', 'STAKED', 'GRACE_PERIOD'] } },
-      }),
+      // 15. Nav: belt count (skip when BELTS off)
+      beltsEnabled
+        ? prisma.belt.count({
+            where: { currentHolderId: userId, status: { in: ['ACTIVE', 'MANDATORY', 'STAKED', 'GRACE_PERIOD'] } },
+          })
+        : Promise.resolve(0),
 
       // 16. Your-turn check — reuse query #3 (userActiveDebates) instead of separate query
       Promise.resolve(null),
@@ -355,9 +374,9 @@ export async function GET() {
       }
     }
 
-    // Advertiser check — reuse userRankData.email (no extra query needed)
+    // Advertiser check (skip when ADVERTISING off)
     let isAdvertiser = false
-    if (userRankData?.email) {
+    if (advertisingEnabled && userRankData?.email) {
       const adv = await prisma.advertiser.findUnique({
         where: { contactEmail: userRankData.email },
         select: { id: true },
@@ -399,21 +418,22 @@ export async function GET() {
       userWaitingDebates: { debates: addFlags(userWaitingDebates as any[]) },
       recentDebates: { debates: addFlags(recentDebates as any[]) },
       leaderboard: { leaderboard, userRank },
-      belts: { currentBelts: userBelts, challengesToMyBelts, challengesMade },
-      tournaments: { tournaments },
+      belts: beltsEnabled ? { currentBelts: userBelts, challengesToMyBelts, challengesMade } : null,
+      tournaments: tournamentsEnabled ? { tournaments } : null,
       nav: {
         unreadCount: navUnread,
-        tier: navSubscription?.tier || 'FREE',
+        tier: subscriptionsEnabled ? (navSubscription?.tier || 'FREE') : null,
         isAdvertiser,
-        beltCount: navBeltCount,
+        beltCount: beltsEnabled ? navBeltCount : 0,
         coinBalance: userRankData?.coins || 0,
       },
       yourTurn: yourTurn ? { hasTurn: true, ...yourTurn } : { hasTurn: false },
       pendingRematches: rematchData,
-      streak: {
+      streak: streaksEnabled ? {
         debateStreak: userRankData?.debateStreak || 0,
         longestDebateStreak: userRankData?.longestDebateStreak || 0,
-      },
+      } : null,
+      featureFlags: flags,
     })
   } catch (error) {
     console.error('[dashboard-data] Error:', error)

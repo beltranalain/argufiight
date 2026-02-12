@@ -11,6 +11,8 @@ import { LoadingSpinner } from '@/components/ui/Loading'
 import { TopNav } from '@/components/layout/TopNav'
 import { useSubscription } from '@/lib/hooks/queries/useSubscription'
 import { fetchClient } from '@/lib/api/fetchClient'
+import { useRequireFeature } from '@/lib/hooks/useRequireFeature'
+import { FEATURE_KEYS } from '@/lib/features'
 
 interface Pricing {
   monthly: number
@@ -33,6 +35,7 @@ const PRO_FEATURES = [
 export default function UpgradePage() {
   const router = useRouter()
   const { showToast } = useToast()
+  useRequireFeature(FEATURE_KEYS.SUBSCRIPTIONS)
   const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY')
   const [promoCode, setPromoCode] = useState('')
   const [promoValid, setPromoValid] = useState<{ valid: boolean; discount?: number } | null>(null)
