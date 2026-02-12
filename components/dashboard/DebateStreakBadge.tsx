@@ -10,7 +10,7 @@ export function DebateStreakBadge({ streak, longestStreak }: DebateStreakBadgePr
 
   return (
     <div className="bg-bg-tertiary rounded-lg px-3 py-2 flex items-center gap-2">
-      <span className="text-lg" title="Debate streak">🔥</span>
+      <span className="text-lg" title="Debate streak"></span>
       <div className="flex flex-col">
         <span className="text-white font-semibold text-sm leading-tight">
           {streak} day{streak !== 1 ? 's' : ''}

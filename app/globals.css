@@ -268,7 +268,7 @@ span.inline-flex.items-center.bg-gray-600 {
 }
 
 .ticker-scroll {
-  animation: ticker-scroll 120s linear infinite !important;
+  animation: ticker-scroll 180s linear infinite !important;
   will-change: auto;
 }
 

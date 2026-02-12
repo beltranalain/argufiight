@@ -120,11 +120,7 @@ export default function MyCoinsPage() {
               View your coin balance and transaction history
             </p>
           </div>
-          <Link href="/coins/purchase">
-            <Button className="bg-electric-blue hover:bg-[#00B8E6] text-black">
-              Buy Coins
-            </Button>
-          </Link>
+          {/* Buy Coins button hidden - coming soon */}
         </div>
 
         {/* Balance Card */}
@@ -145,7 +141,7 @@ export default function MyCoinsPage() {
                     {coinBalance !== null ? coinBalance.toLocaleString() : '0'}
                   </div>
                   <div className="text-sm text-text-secondary">
-                    {coinBalance !== null ? `$${(coinBalance / 100).toFixed(2)} USD value` : 'Loading...'}
+                    coins
                   </div>
                 </div>
               </div>
@@ -164,10 +160,7 @@ export default function MyCoinsPage() {
           <CardBody>
             {transactions.length === 0 ? (
               <div className="text-center py-12">
-                <div className="text-text-secondary mb-4">No transactions yet</div>
-                <Link href="/coins/purchase">
-                  <Button variant="secondary">Buy Your First Coins</Button>
-                </Link>
+                <div className="text-text-secondary">No transactions yet</div>
               </div>
             ) : (
               <div className="space-y-4">
