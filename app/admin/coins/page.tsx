@@ -486,7 +486,7 @@ export default function CoinsAdminPage() {
                         <th className="text-left py-3 px-4 text-text-secondary font-medium">Amount</th>
                         <th className="text-left py-3 px-4 text-text-secondary font-medium">Balance After</th>
                         <th className="text-left py-3 px-4 text-text-secondary font-medium">Status</th>
-                        <th className="text-left py-3 px-4 text-text-secondary font-medium">Actions</th>
+                        <th className="text-left py-3 px-4 text-text-secondary font-medium">Description</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -520,13 +520,8 @@ export default function CoinsAdminPage() {
                               {tx.status}
                             </Badge>
                           </td>
-                          <td className="py-3 px-4">
-                            <Link
-                              href={`/admin/coins/transactions/${tx.id}`}
-                              className="text-electric-blue hover:text-[#00B8E6] text-sm"
-                            >
-                              View Details
-                            </Link>
+                          <td className="py-3 px-4 text-text-secondary text-sm max-w-[200px] truncate" title={tx.description || ''}>
+                            {tx.description || new Date(tx.createdAt).toLocaleDateString()}
                           </td>
                         </tr>
                       ))}

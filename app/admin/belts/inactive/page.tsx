@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardHeader, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/Loading'
@@ -29,6 +29,7 @@ export default function InactiveBeltsPage() {
   const [belts, setBelts] = useState<InactiveBelt[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isChecking, setIsChecking] = useState(false)
+  const [now] = useState(() => Date.now())
 
   useEffect(() => {
     fetchInactiveBelts()
@@ -168,7 +169,7 @@ export default function InactiveBeltsPage() {
                 const inactiveDate = belt.inactiveAt ? new Date(belt.inactiveAt) : null
                 const lastDefendedDate = belt.lastDefendedAt ? new Date(belt.lastDefendedAt) : null
                 const daysInactive = inactiveDate && lastDefendedDate
-                  ? Math.floor((Date.now() - lastDefendedDate.getTime()) / (24 * 60 * 60 * 1000))
+                  ? Math.floor((now - lastDefendedDate.getTime()) / (24 * 60 * 60 * 1000))
                   : null
 
                 return (

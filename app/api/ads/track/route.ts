@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { headers } from 'next/headers'
 
+// GET /api/ads/track - Method not allowed
+export async function GET() {
+  return NextResponse.json({ error: 'Method not allowed' }, { status: 405 })
+}
+
 // POST /api/ads/track - Track ad impressions and clicks
 export async function POST(request: NextRequest) {
   try {

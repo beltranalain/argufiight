@@ -85,8 +85,9 @@ export default function AdminSettingsPage() {
     refetch: refetchSettings,
   } = useQuery({
     queryKey: ['admin', 'settings'],
-    queryFn: () => fetchClient<Record<string, string>>(`/api/admin/settings?t=${Date.now()}`),
+    queryFn: () => fetchClient<Record<string, string>>('/api/admin/settings'),
     staleTime: 0,
+    gcTime: 0,
   })
 
   // Sync form fields when settings data loads
