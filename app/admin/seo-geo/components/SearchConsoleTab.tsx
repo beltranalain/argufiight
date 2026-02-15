@@ -82,6 +82,7 @@ export default function SearchConsoleTab({
   const [data, setData] = useState<GSCData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [needsReconnect, setNeedsReconnect] = useState(false)
   const [timeRange, setTimeRange] = useState('28d')
   const [sortConfig, setSortConfig] = useState<{
     table: string
@@ -111,9 +112,11 @@ export default function SearchConsoleTab({
       if (response.ok) {
         setData(result)
         setError(null)
+        setNeedsReconnect(false)
       } else {
         const debugInfo = result.debugSiteUrl ? ` (using site: ${result.debugSiteUrl})` : ''
-        setError((result.error || 'Failed to fetch data') + debugInfo)
+        setError((result.message || result.error || 'Failed to fetch data') + debugInfo)
+        setNeedsReconnect(result.needsReconnect || false)
         // Still set connected status if available
         if (result.connected === false) {
           setData({ connected: false })
@@ -124,6 +127,23 @@ export default function SearchConsoleTab({
       setError('Network error fetching Search Console data')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleReconnect = async () => {
+    try {
+      // Disconnect first (clear the invalid token)
+      await fetch('/api/admin/seo-geo/search-console/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'disconnect' }),
+      })
+      // Navigate to settings tab so they can reconnect
+      onTabChange('settings')
+    } catch (err) {
+      console.error('Failed to disconnect:', err)
+      // Still navigate to settings even if disconnect fails
+      onTabChange('settings')
     }
   }
 
@@ -180,16 +200,25 @@ export default function SearchConsoleTab({
               </h3>
               <p className="text-red-400 text-sm mb-2">{error}</p>
               <p className="text-text-secondary text-sm mb-6">
-                Search Console is connected but there was an error fetching data.
-                This may be a site URL mismatch or permission issue.
+                {needsReconnect
+                  ? 'Your Google authorization has expired or been revoked. Please reconnect to continue.'
+                  : 'Search Console is connected but there was an error fetching data. This may be a site URL mismatch or permission issue.'}
               </p>
               <div className="flex gap-3 justify-center">
-                <Button variant="secondary" onClick={fetchData}>
-                  Retry
-                </Button>
-                <Button variant="secondary" onClick={() => onTabChange('settings')}>
-                  Check Settings
-                </Button>
+                {needsReconnect ? (
+                  <Button className="bg-electric-blue hover:bg-[#00B8E6] text-black" onClick={handleReconnect}>
+                    Reconnect Google
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="secondary" onClick={fetchData}>
+                      Retry
+                    </Button>
+                    <Button variant="secondary" onClick={() => onTabChange('settings')}>
+                      Check Settings
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </CardBody>

@@ -101,46 +101,56 @@ export async function getSearchAnalytics(options: {
 
   const client = createGSCClient(credentials)
 
-  const response = await client.searchanalytics.query({
-    siteUrl: credentials.siteUrl,
-    requestBody: {
-      startDate: options.startDate,
-      endDate: options.endDate,
-      dimensions: options.dimensions,
-      rowLimit: options.rowLimit || 25,
-      dataState: 'all',
-    },
-  })
+  try {
+    const response = await client.searchanalytics.query({
+      siteUrl: credentials.siteUrl,
+      requestBody: {
+        startDate: options.startDate,
+        endDate: options.endDate,
+        dimensions: options.dimensions,
+        rowLimit: options.rowLimit || 25,
+        dataState: 'all',
+      },
+    })
 
-  const rows: GSCSearchAnalyticsRow[] = (response.data.rows || []).map((row) => ({
-    keys: row.keys || [],
-    clicks: row.clicks || 0,
-    impressions: row.impressions || 0,
-    ctr: row.ctr || 0,
-    position: row.position || 0,
-  }))
+    const rows: GSCSearchAnalyticsRow[] = (response.data.rows || []).map((row) => ({
+      keys: row.keys || [],
+      clicks: row.clicks || 0,
+      impressions: row.impressions || 0,
+      ctr: row.ctr || 0,
+      position: row.position || 0,
+    }))
 
-  // Calculate totals
-  const totals = rows.reduce(
-    (acc, row) => ({
-      clicks: acc.clicks + row.clicks,
-      impressions: acc.impressions + row.impressions,
-      ctr: 0, // Calculated below
-      position: 0, // Calculated below
-    }),
-    { clicks: 0, impressions: 0, ctr: 0, position: 0 }
-  )
+    // Calculate totals
+    const totals = rows.reduce(
+      (acc, row) => ({
+        clicks: acc.clicks + row.clicks,
+        impressions: acc.impressions + row.impressions,
+        ctr: 0, // Calculated below
+        position: 0, // Calculated below
+      }),
+      { clicks: 0, impressions: 0, ctr: 0, position: 0 }
+    )
 
-  if (totals.impressions > 0) {
-    totals.ctr = totals.clicks / totals.impressions
+    if (totals.impressions > 0) {
+      totals.ctr = totals.clicks / totals.impressions
+    }
+    if (rows.length > 0) {
+      totals.position =
+        rows.reduce((sum, r) => sum + r.position * r.impressions, 0) /
+        (totals.impressions || 1)
+    }
+
+    return { rows, totals }
+  } catch (error: any) {
+    // Check for invalid_grant error (expired/revoked refresh token)
+    if (error?.message?.includes('invalid_grant')) {
+      const customError: any = new Error('INVALID_REFRESH_TOKEN')
+      customError.isTokenError = true
+      throw customError
+    }
+    throw error
   }
-  if (rows.length > 0) {
-    totals.position =
-      rows.reduce((sum, r) => sum + r.position * r.impressions, 0) /
-      (totals.impressions || 1)
-  }
-
-  return { rows, totals }
 }
 
 export async function getSitemapStatus(): Promise<
@@ -153,17 +163,27 @@ export async function getSitemapStatus(): Promise<
 
   const client = createGSCClient(credentials)
 
-  const response = await client.sitemaps.list({
-    siteUrl: credentials.siteUrl,
-  })
+  try {
+    const response = await client.sitemaps.list({
+      siteUrl: credentials.siteUrl,
+    })
 
-  return (response.data.sitemap || []).map((sm) => ({
-    path: sm.path || '',
-    lastSubmitted: sm.lastSubmitted || null,
-    isPending: sm.isPending || false,
-    errors: Number(sm.errors) || 0,
-    warnings: Number(sm.warnings) || 0,
-  }))
+    return (response.data.sitemap || []).map((sm) => ({
+      path: sm.path || '',
+      lastSubmitted: sm.lastSubmitted || null,
+      isPending: sm.isPending || false,
+      errors: Number(sm.errors) || 0,
+      warnings: Number(sm.warnings) || 0,
+    }))
+  } catch (error: any) {
+    // Check for invalid_grant error (expired/revoked refresh token)
+    if (error?.message?.includes('invalid_grant')) {
+      const customError: any = new Error('INVALID_REFRESH_TOKEN')
+      customError.isTokenError = true
+      throw customError
+    }
+    throw error
+  }
 }
 
 // Diagnostic: test connection and list available sites

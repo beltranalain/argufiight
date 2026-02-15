@@ -38,12 +38,26 @@ export async function GET(request: NextRequest) {
     }
 
     return await fetchGSCData(type, startDate, endDate, rowLimit)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching GSC data:', error)
     const message =
       error instanceof Error ? error.message : 'Failed to fetch Search Console data'
     // Include the site URL being used for debugging
     const siteUrl = await getGSCSiteUrl().catch(() => null)
+
+    // Check if it's a token error
+    if (error?.isTokenError || message.includes('INVALID_REFRESH_TOKEN') || message.includes('invalid_grant')) {
+      return NextResponse.json(
+        {
+          error: 'invalid_grant',
+          message: 'Your Search Console connection has expired. Please reconnect.',
+          debugSiteUrl: siteUrl,
+          needsReconnect: true
+        },
+        { status: 401 }
+      )
+    }
+
     return NextResponse.json(
       { error: message, debugSiteUrl: siteUrl },
       { status: 500 }
