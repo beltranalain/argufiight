@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { LiveDebatesFeed } from './live-debates-feed';
 import { CreateDebateButton } from '@/components/features/debate/create-debate-button';
+import { DAILY_CHALLENGE_POOL } from '@/lib/daily-challenge/challenges';
 
 // ──────────────────────────────────────────────
 //  Helpers
@@ -60,10 +61,26 @@ const getPublicDashboardData = unstable_cache(
         take: 15,
       }),
 
-      prisma.dailyChallenge.findFirst({
-        where: { isActive: true },
-        orderBy: { activeDate: 'desc' },
-      }),
+      (async () => {
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        let challenge = await prisma.dailyChallenge.findUnique({ where: { activeDate: today } });
+        if (!challenge) {
+          const usedCount = await prisma.dailyChallenge.count();
+          const topicData = DAILY_CHALLENGE_POOL[usedCount % DAILY_CHALLENGE_POOL.length];
+          challenge = await prisma.dailyChallenge.create({
+            data: {
+              topic: topicData.topic,
+              description: topicData.description,
+              category: topicData.category as any,
+              forLabel: topicData.forLabel,
+              againstLabel: topicData.againstLabel,
+              activeDate: today,
+            },
+          });
+        }
+        return challenge;
+      })(),
     ]);
 
     return { openChallenges, liveDebates, dailyChallenge };
