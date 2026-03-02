@@ -29,12 +29,13 @@ export async function POST(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    if (debate.status !== 'VERDICT_READY') {
-      return NextResponse.json({ success: true }) // already dismissed
-    }
-
-    await prisma.debate.update({
-      where: { id },
+    // Mark ALL of this user's VERDICT_READY debates as COMPLETED at once
+    // so the banner doesn't keep cycling through old verdicts
+    await prisma.debate.updateMany({
+      where: {
+        status: 'VERDICT_READY',
+        OR: [{ challengerId: session.userId }, { opponentId: session.userId }],
+      },
       data: { status: 'COMPLETED' },
     })
 
