@@ -219,10 +219,24 @@ export function BlogEditor({ postId, initialPost }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Generate failed');
-      if (editorRef.current && data.content) {
-        editorRef.current.innerHTML = data.content;
-        setContentHtml(data.content);
+      const gen = data.generated ?? data;
+      if (editorRef.current && gen.content) {
+        editorRef.current.innerHTML = gen.content;
+        setContentHtml(gen.content);
         mark();
+      }
+      if (gen.excerpt)         { setExcerpt(gen.excerpt); }
+      if (gen.metaDescription) { setMetaDesc(gen.metaDescription); }
+      if (gen.keywords)        { setKeywords(gen.keywords); }
+      if (gen.metaTitle)       { setMetaTitle(gen.metaTitle); }
+      if (Array.isArray(gen.suggestedTags)) {
+        const newTags = gen.suggestedTags
+          .filter((t: string) => !selectedTags.find(s => s.name.toLowerCase() === t.toLowerCase()))
+          .map((t: string) => {
+            const existing = allTags.find(at => at.name.toLowerCase() === t.toLowerCase());
+            return existing ? { id: existing.id, name: existing.name } : { name: t };
+          });
+        if (newTags.length > 0) setSelectedTags(prev => [...prev, ...newTags]);
       }
       toast({ type: 'success', title: 'Content generated' });
     } catch (err) {
@@ -486,6 +500,34 @@ export function BlogEditor({ postId, initialPost }: Props) {
                   placeholder="Short description for listings (optional)"
                   className="text-[18px]"
                 />
+              </div>
+
+              {/* Cover Image */}
+              <div>
+                <label className={labelCls}>Cover Image</label>
+                <Input
+                  value={ogImage}
+                  onChange={e => { setOgImage(e.target.value); mark(); }}
+                  placeholder="Paste image URL (https://…)"
+                  className="text-[18px] h-10"
+                />
+                {ogImage.trim() && (
+                  <div className="relative mt-2 rounded-[var(--radius)] overflow-hidden border border-border">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={ogImage}
+                      alt="Cover preview"
+                      className="w-full max-h-48 object-cover"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                    <button
+                      onClick={() => { setOgImage(''); mark(); }}
+                      className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full bg-bg/80 text-text-2 hover:text-text transition-colors"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Content editor */}
@@ -814,7 +856,7 @@ export function BlogEditor({ postId, initialPost }: Props) {
               <button
                 onClick={() => addTag(tagInput)}
                 disabled={!tagInput.trim()}
-                className="px-3 h-8 text-[15px] bg-surface-2 border border-border text-text-2 rounded hover:border-border-2 disabled:opacity-40 transition-colors"
+                className="px-3 h-8 text-[15px] bg-accent text-bg rounded hover:bg-accent-2 disabled:opacity-50 transition-colors"
               >
                 Add
               </button>
