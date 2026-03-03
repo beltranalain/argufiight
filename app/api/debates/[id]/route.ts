@@ -33,6 +33,11 @@ export async function GET(
             },
           })
         }
+        // Also trigger auto-accept for any OPEN challenges waiting for AI
+        if (debate?.status === 'WAITING' && debate.challengeType === 'OPEN') {
+          const { triggerAIAutoAccept } = await import('@/lib/ai/trigger-ai-accept')
+          await triggerAIAutoAccept()
+        }
         const { triggerAIResponseForDebate } = await import('@/lib/ai/trigger-ai-response')
         await triggerAIResponseForDebate(id)
       } catch {
