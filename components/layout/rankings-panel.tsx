@@ -64,7 +64,7 @@ export async function RankingsPanel({ userId }: Props) {
 
   return (
     <aside
-      className="border-l border-border px-5 py-6 overflow-y-auto animate-fade-in"
+      className="border-l border-border px-5 py-6 overflow-y-auto"
       style={{ position: 'sticky', top: 58, height: 'calc(100vh - 58px)' }}
     >
       {/* Rankings */}

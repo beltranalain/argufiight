@@ -13,28 +13,29 @@ export function DashboardSkeleton() {
 
       {/* ── Daily Challenge ── */}
       <div className="mb-8 pb-8 border-b border-border">
-        <p className="text-[13px] font-[600] uppercase tracking-[2px] text-text-3 mb-2">
-          Daily Challenge
-        </p>
+        {/* Label */}
+        <Bone w="110px" h={10} className="mb-3" />
+        {/* Headline line 1 */}
         <Bone w="88%" h={34} className="mb-2" />
+        {/* Headline line 2 */}
         <Bone w="64%" h={34} className="mb-4" />
+        {/* Meta row */}
         <div className="flex items-center gap-3 mb-4">
-          <span className="text-[15px] text-text-3">Community debate</span>
-          <span className="text-border-2">/</span>
-          <span className="text-[15px] text-text-3">Open for discussion</span>
-          <span className="text-border-2">/</span>
+          <Bone w="110px" h={12} />
+          <Bone w="4px" h={12} />
+          <Bone w="120px" h={12} />
+          <Bone w="4px" h={12} />
           <Bone w="68px" h={20} className="rounded-[20px]" />
         </div>
+        {/* Button */}
         <Bone w="130px" h={32} className="rounded-[20px]" />
       </div>
 
       {/* ── Open Challenges ── */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[13px] font-[600] uppercase tracking-[1.5px] text-text-3">
-            Open Challenges
-          </span>
-          <span className="text-[13px] font-[500] text-text-3">View All</span>
+          <Bone w="140px" h={10} />
+          <Bone w="46px" h={10} />
         </div>
         {[...Array(4)].map((_, i) => (
           <div key={i} className="flex items-center gap-3.5 py-3 border-b border-border first:border-t first:border-border">
@@ -49,16 +50,19 @@ export function DashboardSkeleton() {
       </div>
 
       {/* ── Live Debates ── */}
+      {/* Tabs */}
       <div className="flex gap-6 border-b border-border mb-3.5">
-        <span className="text-[13px] font-[500] text-text-3 mb-3 pb-1">Live</span>
-        <span className="text-[13px] font-[500] text-text-3 mb-3 pb-1">Trending</span>
-        <span className="text-[13px] font-[500] text-text-3 mb-3 pb-1">Following</span>
+        {[80, 66, 72].map((w, i) => (
+          <Bone key={i} w={`${w}px`} h={11} className="mb-3" />
+        ))}
       </div>
+      {/* Filter chips */}
       <div className="flex gap-1.5 flex-wrap mb-4">
         {[38, 60, 56, 76, 56, 98, 50, 46].map((w, i) => (
           <Bone key={i} w={`${w}px`} h={22} className="rounded-[20px]" />
         ))}
       </div>
+      {/* Debate rows */}
       {[...Array(5)].map((_, i) => (
         <div key={i} className="py-3 border-b border-border grid gap-2" style={{ gridTemplateColumns: '1fr auto' }}>
           <div>

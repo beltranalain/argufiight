@@ -1,4 +1,3 @@
-import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { jwtVerify } from 'jose';
 
@@ -8,11 +7,8 @@ const secretKey = process.env.AUTH_SECRET;
  * Get the current session with full user profile for use in Server Components.
  * Returns null if not authenticated.
  * Fetches coins + eloRating needed for the app shell.
- * Wrapped with React cache() to deduplicate within a single RSC render pass.
  */
-export const getSession = cache(getSessionInner);
-
-async function getSessionInner() {
+export async function getSession() {
   if (!secretKey) return null;
 
   const cookieStore = await cookies();
