@@ -240,7 +240,7 @@ export function MessagesUI({ conversations: initialConversations, currentUserId,
                         {other?.username ?? 'Unknown'}
                       </p>
                       {conv.lastMessageAt && (
-                        <p className="text-[12px] text-text-3 mt-0.5">
+                        <p className="text-[12px] text-text-3 mt-0.5" suppressHydrationWarning>
                           {new Date(conv.lastMessageAt).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric',
                           })}
@@ -296,7 +296,7 @@ export function MessagesUI({ conversations: initialConversations, currentUserId,
                           )}>
                             {msg.content}
                           </div>
-                          <p className="text-[12px] text-text-3 mt-1">
+                          <p className="text-[12px] text-text-3 mt-1" suppressHydrationWarning>
                             {new Date(msg.createdAt).toLocaleTimeString('en-US', {
                               hour: '2-digit', minute: '2-digit',
                             })}
@@ -317,7 +317,8 @@ export function MessagesUI({ conversations: initialConversations, currentUserId,
                   placeholder="Write a message..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  className="flex-1 min-h-[44px] max-h-[120px] resize-none"
+                  rows={2}
+                  className="flex-1 min-h-[72px] max-h-[140px] resize-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();

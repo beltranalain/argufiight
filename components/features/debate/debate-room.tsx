@@ -261,7 +261,7 @@ export function DebateRoom({ debate, currentUserId }: DebateRoomProps) {
                           >
                             {s.content}
                           </div>
-                          <p className="text-[13px] text-text-3">
+                          <p className="text-[13px] text-text-3" suppressHydrationWarning>
                             {new Date(s.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
