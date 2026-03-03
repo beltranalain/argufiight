@@ -88,7 +88,10 @@ export default function AdminJudgesPage() {
     queryKey: ['admin-judge-detail', selectedJudgeId],
     queryFn: async () => {
       const res = await fetch(`/api/admin/judges/${selectedJudgeId}`);
-      if (!res.ok) throw new Error('Failed to load judge');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to load judge (${res.status})`);
+      }
       const data = await res.json();
       return data.judge;
     },
