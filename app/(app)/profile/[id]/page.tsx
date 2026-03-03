@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FollowButton } from '@/components/features/profile/follow-button';
+import { MessageButton } from '@/components/features/profile/message-button';
 import Link from 'next/link';
 import { Swords, Award, CheckCircle, XCircle, Minus } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -107,6 +108,7 @@ export default async function ProfilePage({ params }: Props) {
                   isFollowing={!!isFollowing}
                   currentUserId={session?.userId ?? null}
                 />
+                <MessageButton targetId={id} />
                 <Button variant="secondary" size="sm">
                   <Swords size={13} />
                   Challenge

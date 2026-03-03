@@ -6,9 +6,15 @@ import { MessagesUI } from '@/components/features/messages/messages-ui';
 
 export const metadata: Metadata = { title: 'Messages' };
 
-export default async function MessagesPage() {
+interface Props {
+  searchParams: Promise<{ conv?: string }>;
+}
+
+export default async function MessagesPage({ searchParams }: Props) {
   const session = await getSession();
   if (!session) redirect('/login');
+
+  const { conv } = await searchParams;
 
   const conversations = await prisma.conversation.findMany({
     where: {
@@ -27,7 +33,11 @@ export default async function MessagesPage() {
       <div className="h-14 border-b border-border flex items-center px-5 flex-shrink-0">
         <h1 className="text-sm font-[500] text-text">Messages</h1>
       </div>
-      <MessagesUI conversations={conversations} currentUserId={session.userId} />
+      <MessagesUI
+        conversations={conversations}
+        currentUserId={session.userId}
+        initialConvId={conv ?? null}
+      />
     </div>
   );
 }
