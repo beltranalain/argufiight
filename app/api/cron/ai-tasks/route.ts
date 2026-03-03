@@ -87,11 +87,12 @@ export async function GET(request: NextRequest) {
         return (totalMap.get(a.id) || 0) - (totalMap.get(b.id) || 0)
       })
 
-      // Build per-user eligible challenge lists (respecting each user's delay)
+      // Build per-user eligible challenge lists
+      // Use a short accept delay (10s) — response delay is enforced separately
       const perUserEligible = new Map<string, Set<string>>()
       for (const aiUser of sortedAiUsers) {
-        const delayMs = Math.min(aiUser.aiResponseDelay || 45000, 300000)
-        const cutoffTime = new Date(Date.now() - delayMs)
+        const acceptDelay = 10000 // 10 seconds
+        const cutoffTime = new Date(Date.now() - acceptDelay)
         const ids = new Set(
           allOpenChallenges
             .filter(c => c.challengerId !== aiUser.id && c.createdAt <= cutoffTime)
