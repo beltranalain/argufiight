@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 
 export const dynamic = 'force-dynamic'
 
-// GET /api/admin/ai-users/trigger — manually trigger AI auto-accept + responses (admin only)
+// GET /api/admin/ai-trigger — manually trigger AI auto-accept + responses (admin only)
 export async function GET() {
   try {
     const userId = await verifyAdmin()
@@ -12,7 +12,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const results: any = { aiUsers: [], openChallenges: [], autoAccept: null, responses: null, errors: [] }
+    const results: any = { aiUsers: [], openChallenges: [], autoAccept: null, responses: [], errors: [] }
 
     // 1. Check AI users status
     const aiUsers = await prisma.user.findMany({
@@ -56,7 +56,25 @@ export async function GET() {
       results.errors.push(`Auto-accept error: ${err.message}`)
     }
 
-    // 5. Try responses for active AI debates
+    // 5. Auto-accept any WAITING direct challenges to AI
+    for (const dc of waitingDirectToAI) {
+      try {
+        await prisma.debate.update({
+          where: { id: dc.id },
+          data: {
+            status: 'ACTIVE',
+            startedAt: new Date(),
+            roundDeadline: new Date(Date.now() + 86400000),
+          },
+        })
+        results.directAccepted = results.directAccepted || []
+        results.directAccepted.push(dc.id)
+      } catch (err: any) {
+        results.errors.push(`Direct accept error for ${dc.id}: ${err.message}`)
+      }
+    }
+
+    // 6. Try responses for active AI debates
     const activeAIDebates = await prisma.debate.findMany({
       where: {
         status: 'ACTIVE',
@@ -74,14 +92,13 @@ export async function GET() {
       try {
         const { triggerAIResponseForDebate } = await import('@/lib/ai/trigger-ai-response')
         const responded = await triggerAIResponseForDebate(debate.id)
-        results.responses = results.responses || []
         results.responses.push({ debateId: debate.id, responded })
       } catch (err: any) {
         results.errors.push(`Response error for ${debate.id}: ${err.message}`)
       }
     }
 
-    // 6. Check DeepSeek API key
+    // 7. Check DeepSeek API key
     try {
       const { getDeepSeekKey } = await import('@/lib/ai/deepseek')
       const key = await getDeepSeekKey()
