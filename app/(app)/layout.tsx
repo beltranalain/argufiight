@@ -7,6 +7,7 @@ import { RankingsPanel } from '@/components/layout/rankings-panel';
 import { RankingsPanelSkeleton } from '@/components/layout/rankings-panel-skeleton';
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { CreateDebateButton } from '@/components/features/debate/create-debate-button';
+import { PushBanner } from '@/components/features/push/push-banner';
 import { Providers } from '@/lib/providers';
 import { getSession } from '@/lib/auth/get-session';
 
@@ -52,6 +53,7 @@ export default async function AppLayout({
             className="min-w-0 overflow-x-hidden overflow-y-auto pb-16 lg:pb-0"
             style={{ minHeight: 'calc(100vh - 58px)' }}
           >
+            <PushBanner />
             {children}
           </main>
 

@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/toast';
 import { Avatar } from '@/components/ui/avatar';
 import { Shield, Key, User, Bell, AlertTriangle } from 'lucide-react';
+import { PushNotificationToggle } from './push-notification-toggle';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -295,6 +296,8 @@ export function NotificationsCard() {
         <h2 className="text-sm font-[500] text-text">Notifications</h2>
       </div>
       <div className="space-y-5">
+        <PushNotificationToggle />
+        <Separator className="!my-0" />
         {NOTIF_PREFS.map((pref) => (
           <div key={pref.key} className="flex items-center justify-between gap-4">
             <div className="min-w-0">
