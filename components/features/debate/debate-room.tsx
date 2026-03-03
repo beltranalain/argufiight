@@ -255,7 +255,7 @@ export function DebateRoom({ debate, currentUserId }: DebateRoomProps) {
                             className={cn(
                               'rounded-[var(--radius)] px-3.5 py-3 text-[16px] text-text leading-relaxed',
                               isMe
-                                ? 'bg-accent text-accent-fg rounded-tr-[var(--radius-sm)]'
+                                ? 'bg-accent text-[var(--accent-fg)] rounded-tr-[var(--radius-sm)]'
                                 : 'bg-surface-2 rounded-tl-[var(--radius-sm)]'
                             )}
                           >

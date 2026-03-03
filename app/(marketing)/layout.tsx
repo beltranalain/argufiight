@@ -12,7 +12,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         <header className="h-14 border-b border-border flex items-center px-6 sticky top-0 z-40 bg-bg">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="h-6 w-6 rounded bg-accent flex items-center justify-center">
-              <Swords size={12} className="text-accent-fg" />
+              <Swords size={12} className="text-[var(--accent-fg)]" />
             </div>
             <span className="text-sm font-[300] tracking-[3px] uppercase">
               Argu<strong className="font-[600] text-accent">Fight</strong>

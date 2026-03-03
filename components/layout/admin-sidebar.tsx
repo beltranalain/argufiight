@@ -53,7 +53,7 @@ export function AdminSidebar() {
         collapsed ? 'justify-center px-0' : 'px-4 gap-2'
       )}>
         <div className="h-5 w-5 rounded bg-accent flex items-center justify-center flex-shrink-0">
-          <Shield size={10} className="text-accent-fg" />
+          <Shield size={10} className="text-[var(--accent-fg)]" />
         </div>
         {!collapsed && (
           <span className="text-[14px] font-[500] text-text-3 uppercase tracking-widest">

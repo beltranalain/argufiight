@@ -68,7 +68,7 @@ export function Sidebar() {
         )}
       >
         <div className="h-6 w-6 rounded bg-accent flex items-center justify-center flex-shrink-0">
-          <Swords size={12} className="text-accent-fg" />
+          <Swords size={12} className="text-[var(--accent-fg)]" />
         </div>
         {!collapsed && (
           <span className="text-sm font-[300] tracking-[3px] uppercase text-text">
@@ -99,7 +99,7 @@ export function Sidebar() {
                   <span className="text-xs font-[450] leading-none flex-1">{item.label}</span>
                 )}
                 {!collapsed && item.badge && (
-                  <span className="text-[12px] font-medium bg-accent text-accent-fg px-1.5 py-0.5 rounded-full leading-none">
+                  <span className="text-[12px] font-medium bg-accent text-[var(--accent-fg)] px-1.5 py-0.5 rounded-full leading-none">
                     {item.badge}
                   </span>
                 )}

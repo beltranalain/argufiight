@@ -291,7 +291,7 @@ export function MessagesUI({ conversations: initialConversations, currentUserId,
                           <div className={cn(
                             'px-3.5 py-2.5 rounded-[var(--radius)] text-xs leading-relaxed',
                             isMe
-                              ? 'bg-accent text-accent-fg rounded-tr-[var(--radius-sm)]'
+                              ? 'bg-accent text-[var(--accent-fg)] rounded-tr-[var(--radius-sm)]'
                               : 'bg-surface-2 text-text rounded-tl-[var(--radius-sm)]'
                           )}>
                             {msg.content}

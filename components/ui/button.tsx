@@ -50,7 +50,7 @@ const variantStyles: Record<ButtonVariant, string> = {
     'active:scale-[0.98]',
   ].join(' '),
   accent: [
-    'bg-accent text-accent-fg border border-transparent font-medium',
+    'bg-accent text-[var(--accent-fg)] border border-transparent font-medium',
     'hover:bg-accent-2',
     'active:scale-[0.98]',
   ].join(' '),

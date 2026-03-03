@@ -231,7 +231,7 @@ export default function SearchConsoleTab({ onTabChange }: { onTabChange: (tab: s
               className={[
                 'px-3 py-1.5 rounded-[var(--radius-sm)] text-[17px] font-[500] transition-colors',
                 timeRange === range.key
-                  ? 'bg-accent text-accent-fg'
+                  ? 'bg-accent text-[var(--accent-fg)]'
                   : 'text-text-3 hover:text-text-2',
               ].join(' ')}
             >

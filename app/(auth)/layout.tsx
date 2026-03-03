@@ -10,7 +10,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           {/* Logo */}
           <div className="flex items-center gap-3 mb-auto">
             <div className="h-8 w-8 rounded bg-accent flex items-center justify-center">
-              <Swords size={16} className="text-accent-fg" />
+              <Swords size={16} className="text-[var(--accent-fg)]" />
             </div>
             <span className="text-base font-[300] tracking-[3px] uppercase">
               Argu<strong className="font-[600] text-accent">Fight</strong>
