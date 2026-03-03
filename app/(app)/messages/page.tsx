@@ -29,7 +29,7 @@ export default async function MessagesPage({ searchParams }: Props) {
   });
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 58px)' }}>
       <div className="h-14 border-b border-border flex items-center px-5 flex-shrink-0">
         <h1 className="text-sm font-[500] text-text">Messages</h1>
       </div>
