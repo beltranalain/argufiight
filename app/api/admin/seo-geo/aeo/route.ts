@@ -20,7 +20,7 @@ export async function GET() {
           keywords: true,
           featuredImageId: true,
           content: true,
-          tags: { select: { id: true } },
+          tags: { select: { tagId: true } },
           categories: { select: { categoryId: true } },
         },
       }),
