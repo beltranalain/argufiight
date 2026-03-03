@@ -76,7 +76,7 @@ export default async function DebatePage({ params }: Props) {
       },
       verdicts: {
         include: {
-          judge: { select: { name: true, personality: true } },
+          judge: { select: { name: true, personality: true, avatarUrl: true } },
         },
         orderBy: { createdAt: 'asc' },
       },

@@ -340,9 +340,13 @@ export function DebateRoom({ debate, currentUserId }: DebateRoomProps) {
                 return (
                   <Card key={v.id ?? i} padding="lg">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="h-9 w-9 rounded-full bg-surface-2 border border-border flex items-center justify-center text-[14px] font-[600] text-text-2 flex-shrink-0">
-                        {judgeInitials}
-                      </div>
+                      {v.judge?.avatarUrl ? (
+                        <img src={v.judge.avatarUrl} alt={v.judge.name ?? 'Judge'} className="h-9 w-9 rounded-full object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="h-9 w-9 rounded-full bg-surface-2 border border-border flex items-center justify-center text-[14px] font-[600] text-text-2 flex-shrink-0">
+                          {judgeInitials}
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="text-[15px] font-[500] text-text">{v.judge?.name ?? 'AI Judge'}</p>
                         {v.judge?.personality && (
