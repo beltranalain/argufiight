@@ -20,22 +20,24 @@ function formatDate(d: Date | string) {
 
 const getProfileData = unstable_cache(
   async (userId: string) => {
-    const [user, recentDebates] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          username: true,
-          avatarUrl: true,
-          eloRating: true,
-          debatesWon: true,
-          debatesLost: true,
-          debatesTied: true,
-          consecutiveLoginDays: true,
-          subscription: { select: { tier: true } },
-        },
-      }),
+    // Step 1: Get user (needed for eloRating to compute rank)
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        avatarUrl: true,
+        eloRating: true,
+        debatesWon: true,
+        debatesLost: true,
+        debatesTied: true,
+        consecutiveLoginDays: true,
+        subscription: { select: { tier: true } },
+      },
+    });
 
+    // Step 2: Run debates + rank in parallel (both depend on user, not on each other)
+    const [recentDebates, userRank] = await Promise.all([
       prisma.debate.findMany({
         where: {
           OR: [{ challengerId: userId }, { opponentId: userId }],
@@ -52,13 +54,12 @@ const getProfileData = unstable_cache(
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
+      user
+        ? prisma.user.count({
+            where: { eloRating: { gt: user.eloRating }, isAI: false, isBanned: false },
+          }).then(c => c + 1)
+        : Promise.resolve(null),
     ]);
-
-    const userRank = user
-      ? (await prisma.user.count({
-          where: { eloRating: { gt: user.eloRating }, isAI: false, isBanned: false },
-        })) + 1
-      : null;
 
     return { user, recentDebates, userRank };
   },
@@ -78,7 +79,7 @@ export async function ProfilePanel({ userId }: Props) {
 
   return (
     <aside
-      className="border-r border-border px-5 py-6 overflow-y-auto"
+      className="border-r border-border px-5 py-6 overflow-y-auto animate-fade-in"
       style={{ position: 'sticky', top: 58, height: 'calc(100vh - 58px)' }}
     >
       {/* Profile card */}

@@ -237,7 +237,7 @@ export async function DashboardContent({ userId }: { userId: string }) {
   const headBold  = words.slice(splitAt).join(' ');
 
   return (
-    <div className="px-7 py-6 min-w-0">
+    <div className="px-7 py-6 min-w-0 animate-fade-in">
 
       {/* ── User Alerts — stream in independently ──────── */}
       <Suspense fallback={<AlertsSkeleton />}>
