@@ -343,12 +343,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify invited users exist and are not suspended
+    let invitedUsers: any[] = []
     if (invitedUserIds && invitedUserIds.length > 0) {
-      const invitedUsers = await prisma.user.findMany({
+      invitedUsers = await prisma.user.findMany({
         where: {
           id: { in: invitedUserIds },
         },
-        select: { id: true, username: true, bannedUntil: true },
+        select: { id: true, username: true, bannedUntil: true, isAI: true, aiPaused: true },
       })
 
       if (invitedUsers.length !== invitedUserIds.length) {
@@ -671,6 +672,30 @@ export async function POST(request: NextRequest) {
           // Background task failure is non-critical
         }
       })
+    }
+
+    // Auto-accept DIRECT challenges to AI users — AI can't manually accept
+    if (challengeType === 'DIRECT' && debate && invitedUserIds?.length === 1) {
+      const invitedUser = invitedUsers.find((u: any) => u.id === invitedUserIds[0])
+      if (invitedUser?.isAI && !invitedUser.aiPaused) {
+        after(async () => {
+          try {
+            await prisma.debate.update({
+              where: { id: debate.id },
+              data: {
+                status: 'ACTIVE',
+                startedAt: new Date(),
+                roundDeadline: new Date(Date.now() + (debate.roundDuration || 86400000)),
+              },
+            })
+            // Trigger AI's opening argument
+            const { triggerAIResponseForDebate } = await import('@/lib/ai/trigger-ai-response')
+            await triggerAIResponseForDebate(debate.id)
+          } catch (err) {
+            console.error('[AI Direct Challenge] Auto-accept failed:', err)
+          }
+        })
+      }
     }
 
     // Update belt if staked

@@ -12,9 +12,27 @@ export async function GET(
   try {
     const { id } = await params
 
-    // Trigger AI response in background when debate is viewed
+    // Trigger AI response or auto-accept in background when debate is viewed
     after(async () => {
       try {
+        // Auto-accept WAITING direct challenges to AI users
+        const debate = await prisma.debate.findUnique({
+          where: { id },
+          select: {
+            id: true, status: true, challengeType: true, roundDuration: true,
+            opponent: { select: { id: true, isAI: true, aiPaused: true } },
+          },
+        })
+        if (debate?.status === 'WAITING' && debate.opponent?.isAI && !debate.opponent.aiPaused) {
+          await prisma.debate.update({
+            where: { id },
+            data: {
+              status: 'ACTIVE',
+              startedAt: new Date(),
+              roundDeadline: new Date(Date.now() + (debate.roundDuration || 86400000)),
+            },
+          })
+        }
         const { triggerAIResponseForDebate } = await import('@/lib/ai/trigger-ai-response')
         await triggerAIResponseForDebate(id)
       } catch {
