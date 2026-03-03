@@ -82,7 +82,8 @@ export async function testConnection(platform: string): Promise<{ success: boole
       const { SOCIAL_LINKEDIN_ACCESS_TOKEN } = creds
       if (!SOCIAL_LINKEDIN_ACCESS_TOKEN) return { success: false, error: 'Missing LinkedIn access token' }
       try {
-        const res = await fetch('https://api.linkedin.com/v2/me', {
+        // Use userinfo endpoint (works with OpenID Connect scopes)
+        const res = await fetch('https://api.linkedin.com/v2/userinfo', {
           headers: { Authorization: `Bearer ${SOCIAL_LINKEDIN_ACCESS_TOKEN}` },
         })
         if (!res.ok) return { success: false, error: `LinkedIn returned ${res.status}` }
@@ -162,22 +163,24 @@ async function publishLinkedIn(text: string): Promise<PublishResult> {
     return { success: false, error: 'LinkedIn credentials not configured' }
   }
   try {
+    // Use the current Posts API (w_member_social scope)
     const body = {
       author: SOCIAL_LINKEDIN_PERSON_URN,
       lifecycleState: 'PUBLISHED',
-      specificContent: {
-        'com.linkedin.ugc.ShareContent': {
-          shareCommentary: { text },
-          shareMediaCategory: 'NONE',
-        },
+      visibility: 'PUBLIC',
+      distribution: {
+        feedDistribution: 'MAIN_FEED',
+        targetEntities: [],
+        thirdPartyDistributionChannels: [],
       },
-      visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+      commentary: text,
     }
-    const res = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+    const res = await fetch('https://api.linkedin.com/rest/posts', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${SOCIAL_LINKEDIN_ACCESS_TOKEN}`,
+        'LinkedIn-Version': '202401',
         'X-Restli-Protocol-Version': '2.0.0',
       },
       body: JSON.stringify(body),
@@ -186,8 +189,8 @@ async function publishLinkedIn(text: string): Promise<PublishResult> {
       const err = await res.text()
       return { success: false, error: `LinkedIn error ${res.status}: ${err}` }
     }
-    const data = await res.json()
-    const postId = data.id ?? ''
+    // Posts API returns the post URN in the x-restli-id header
+    const postId = res.headers.get('x-restli-id') ?? ''
     return { success: true, postId, url: `https://www.linkedin.com/feed/update/${postId}` }
   } catch (e: any) {
     return { success: false, error: e.message ?? 'LinkedIn publish failed' }
