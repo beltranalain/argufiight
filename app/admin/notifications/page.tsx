@@ -1,21 +1,15 @@
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/db/prisma';
-import { AdminStatCard } from '@/components/features/admin/admin-stat-card';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 export const metadata: Metadata = { title: 'Admin — Notifications' };
 export const revalidate = 60;
 
-type BadgeColor = 'blue' | 'green' | 'amber' | 'red' | 'muted' | 'accent';
-
-function typeColor(type: string): BadgeColor {
-  const t = type.toUpperCase();
-  if (t.includes('WARN') || t.includes('ALERT')) return 'amber';
-  if (t.includes('SUCCESS') || t.includes('WIN')) return 'green';
-  if (t.includes('ERROR') || t.includes('FAIL') || t.includes('BAN')) return 'red';
-  if (t.includes('SYSTEM') || t.includes('ADMIN')) return 'accent';
-  return 'blue';
+function formatType(type: string) {
+  return type
+    .split('_')
+    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+    .join(' ');
 }
 
 export default async function AdminNotificationsPage() {
@@ -36,26 +30,23 @@ export default async function AdminNotificationsPage() {
 
       <div className="mb-6">
         <h1 className="text-xl font-[600] text-text tracking-[-0.3px]">Notifications</h1>
-        <p className="text-[15px] text-text-3 mt-0.5">{total.toLocaleString()} total notifications</p>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-2 gap-3 mb-6">
-        <AdminStatCard label="Total" value={total.toLocaleString()} />
-        <AdminStatCard label="Unread" value={unread.toLocaleString()} accent={unread > 0} sub={unread > 0 ? 'Undelivered or unseen' : 'All read'} />
+        <p className="text-[15px] text-text-3 mt-0.5">
+          {total.toLocaleString()} total &middot; {unread.toLocaleString()} unread
+        </p>
       </div>
 
       <Card padding="none" className="overflow-hidden">
-        <div className="grid grid-cols-[2fr_1fr_3fr_1fr_1fr] gap-4 px-4 py-2.5 border-b border-border bg-surface-2">
-          <p className="text-[14px] font-[500] text-text-3 uppercase tracking-wide">User</p>
-          <p className="text-[14px] font-[500] text-text-3 uppercase tracking-wide">Type</p>
-          <p className="text-[14px] font-[500] text-text-3 uppercase tracking-wide">Title</p>
-          <p className="text-[14px] font-[500] text-text-3 uppercase tracking-wide">Read</p>
-          <p className="text-[14px] font-[500] text-text-3 uppercase tracking-wide">Date</p>
+        <div className="grid grid-cols-[2fr_1.5fr_3fr_1fr_1fr] gap-4 px-4 py-2.5 border-b border-border bg-surface-2">
+          <p className="text-[13px] font-[500] text-text-3 uppercase tracking-wide">User</p>
+          <p className="text-[13px] font-[500] text-text-3 uppercase tracking-wide">Type</p>
+          <p className="text-[13px] font-[500] text-text-3 uppercase tracking-wide">Title</p>
+          <p className="text-[13px] font-[500] text-text-3 uppercase tracking-wide">Status</p>
+          <p className="text-[13px] font-[500] text-text-3 uppercase tracking-wide">Date</p>
         </div>
 
         {notifications.length === 0 ? (
           <div className="px-4 py-10 text-center">
-            <p className="text-xs text-text-3">No notifications found.</p>
+            <p className="text-[15px] text-text-3">No notifications found.</p>
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -63,32 +54,27 @@ export default async function AdminNotificationsPage() {
               const type = (n as { type?: string | null }).type ?? 'INFO';
               const title = (n as { title?: string | null }).title ?? (n as { message?: string | null }).message ?? '—';
               const isRead = n.read ?? false;
-              const color: BadgeColor = typeColor(type);
 
               return (
                 <div
                   key={n.id}
-                  className="grid grid-cols-[2fr_1fr_3fr_1fr_1fr] gap-4 px-4 py-3 items-center hover:bg-surface-2 transition-colors duration-100"
+                  className="grid grid-cols-[2fr_1.5fr_3fr_1fr_1fr] gap-4 px-4 py-3 items-center hover:bg-surface-2 transition-colors duration-100"
                 >
-                  <p className="text-xs text-text font-[450] truncate">
+                  <p className="text-[15px] text-text font-[450] truncate">
                     {n.user?.username ?? '—'}
                   </p>
 
-                  <div>
-                    <Badge color={color} size="sm">{type}</Badge>
-                  </div>
+                  <p className="text-[15px] text-text-2 truncate">
+                    {formatType(type)}
+                  </p>
 
-                  <p className="text-xs text-text-2 line-clamp-1">
+                  <p className="text-[15px] text-text-2 line-clamp-1">
                     {title.length > 70 ? title.slice(0, 70) + '…' : title}
                   </p>
 
-                  <div>
-                    {isRead ? (
-                      <Badge color="muted" size="sm">Read</Badge>
-                    ) : (
-                      <Badge color="amber" size="sm" dot>Unread</Badge>
-                    )}
-                  </div>
+                  <p className={`text-[15px] ${isRead ? 'text-text-3' : 'text-accent font-[500]'}`}>
+                    {isRead ? 'Read' : 'Unread'}
+                  </p>
 
                   <p className="text-[15px] text-text-3">
                     {new Date(n.createdAt).toLocaleDateString('en-US', {
