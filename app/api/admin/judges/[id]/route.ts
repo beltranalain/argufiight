@@ -45,9 +45,9 @@ export async function GET(
     }
 
     return NextResponse.json({ judge })
-  } catch (error) {
-    console.error('Failed to fetch judge:', error)
-    return NextResponse.json({ error: 'Failed to fetch judge' }, { status: 500 })
+  } catch (error: any) {
+    console.error('Failed to fetch judge:', error?.message, error?.code)
+    return NextResponse.json({ error: error?.message || 'Failed to fetch judge' }, { status: 500 })
   }
 }
 
@@ -66,10 +66,15 @@ export async function PATCH(
     const body = await request.json()
 
     const allowedFields = ['name', 'personality', 'emoji', 'description', 'systemPrompt', 'avatarUrl']
-    const data: Record<string, string> = {}
+    const data: Record<string, string | null> = {}
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
-        data[field] = body[field]
+        // Convert empty avatarUrl to null for nullable DB column
+        if (field === 'avatarUrl' && !body[field]) {
+          data[field] = null
+        } else {
+          data[field] = body[field]
+        }
       }
     }
 
@@ -84,14 +89,14 @@ export async function PATCH(
 
     return NextResponse.json({ judge })
   } catch (error: any) {
-    console.error('Failed to update judge:', error)
+    console.error('Failed to update judge:', error?.message, error?.code)
     if (error.code === 'P2002') {
       return NextResponse.json({ error: 'A judge with this name already exists' }, { status: 400 })
     }
     if (error.code === 'P2025') {
       return NextResponse.json({ error: 'Judge not found' }, { status: 404 })
     }
-    return NextResponse.json({ error: 'Failed to update judge' }, { status: 500 })
+    return NextResponse.json({ error: error?.message || 'Failed to update judge' }, { status: 500 })
   }
 }
 

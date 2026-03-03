@@ -111,7 +111,10 @@ export default function AdminJudgesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed to create judge');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to create judge');
+      }
     },
     onSuccess: () => {
       toast({ type: 'success', title: 'Judge created' });
@@ -129,7 +132,10 @@ export default function AdminJudgesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed to update judge');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to update judge (${res.status})`);
+      }
     },
     onSuccess: () => {
       toast({ type: 'success', title: 'Judge updated' });
@@ -226,7 +232,10 @@ export default function AdminJudgesPage() {
       const fd = new FormData();
       fd.append('image', file);
       const res = await fetch('/api/admin/judges/images', { method: 'POST', body: fd });
-      if (!res.ok) throw new Error((await res.json()).error || 'Upload failed');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Upload failed (${res.status})`);
+      }
       const { url } = await res.json();
       setEditForm(p => ({ ...p, avatarUrl: url }));
     } catch (err: any) {

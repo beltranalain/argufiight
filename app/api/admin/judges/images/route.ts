@@ -68,9 +68,9 @@ export async function POST(request: NextRequest) {
       mimeType: file.type,
     })
   } catch (error: any) {
-    console.error('Failed to upload judge image:', error)
+    console.error('Failed to upload judge image:', error?.message, error?.code)
     return NextResponse.json(
-      { error: 'Failed to upload image', details: error.message },
+      { error: error?.message || 'Failed to upload image' },
       { status: 500 }
     )
   }
