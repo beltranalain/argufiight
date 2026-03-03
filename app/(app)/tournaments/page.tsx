@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
+
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db/prisma';
 import { getSession } from '@/lib/auth/get-session';
@@ -175,11 +175,7 @@ async function TournamentsData({ userId }: { userId: string }) {
 export default async function TournamentsPage() {
   const session = await getSession();
   if (!session) redirect('/login');
-  return (
-    <Suspense fallback={<TournamentsSkeleton />}>
-      <TournamentsData userId={session.userId} />
-    </Suspense>
-  );
+  return <TournamentsData userId={session.userId} />;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */

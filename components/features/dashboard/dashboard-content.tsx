@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/db/prisma';
 import { unstable_cache } from 'next/cache';
-import { Suspense } from 'react';
+
 import Link from 'next/link';
 import { LiveDebatesFeed } from './live-debates-feed';
 import { CreateDebateButton } from '@/components/features/debate/create-debate-button';
@@ -239,10 +239,8 @@ export async function DashboardContent({ userId }: { userId: string }) {
   return (
     <div className="px-4 py-5 lg:px-7 lg:py-6 min-w-0">
 
-      {/* ── User Alerts — stream in independently ──────── */}
-      <Suspense fallback={<AlertsSkeleton />}>
-        <UserAlerts userId={userId} />
-      </Suspense>
+      {/* ── User Alerts ──────────────────────────────────── */}
+      <UserAlerts userId={userId} />
 
       {/* ── Daily Challenge ────────────────────────────── */}
       <div className="mb-8 pb-8 border-b border-border">

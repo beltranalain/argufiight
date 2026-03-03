@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
+
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db/prisma';
 import { getSession } from '@/lib/auth/get-session';
@@ -177,9 +177,5 @@ function LeaderboardSkeleton() {
 export default async function LeaderboardPage() {
   const session = await getSession();
   if (!session) redirect('/login');
-  return (
-    <Suspense fallback={<LeaderboardSkeleton />}>
-      <LeaderboardData userId={session.userId} />
-    </Suspense>
-  );
+  return <LeaderboardData userId={session.userId} />;
 }

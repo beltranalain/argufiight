@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
-import { Suspense } from 'react';
+
 import { after } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getSession } from '@/lib/auth/get-session';
@@ -107,9 +107,5 @@ export default async function DebatePage({ params }: Props) {
     redirect('/dashboard');
   }
 
-  return (
-    <Suspense fallback={<DebateSkeleton />}>
-      <DebateRoom debate={debate} currentUserId={session?.userId ?? null} />
-    </Suspense>
-  );
+  return <DebateRoom debate={debate} currentUserId={session?.userId ?? null} />;
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
+
 import { prisma } from '@/lib/db/prisma';
 import { unstable_cache } from 'next/cache';
 import { AdminStatCard } from '@/components/features/admin/admin-stat-card';
@@ -325,17 +325,9 @@ export default function AdminOverviewPage() {
         </p>
       </div>
 
-      <Suspense fallback={<StatsSkeleton />}>
-        <StatsSection />
-      </Suspense>
-
-      <Suspense fallback={<ChartsSkeleton />}>
-        <ChartsSection />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <RecentSection />
-      </Suspense>
+      <StatsSection />
+      <ChartsSection />
+      <RecentSection />
     </div>
   );
 }

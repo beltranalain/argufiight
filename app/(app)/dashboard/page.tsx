@@ -1,10 +1,8 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { getSession } from '@/lib/auth/get-session';
 import { DashboardContent } from '@/components/features/dashboard/dashboard-content';
-import { DashboardSkeleton } from '@/components/features/dashboard/dashboard-skeleton';
 
 export const metadata: Metadata = {
   title: 'Dashboard',
@@ -26,9 +24,5 @@ export default async function DashboardPage() {
     }
   });
 
-  return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardContent userId={session.userId} />
-    </Suspense>
-  );
+  return <DashboardContent userId={session.userId} />;
 }
