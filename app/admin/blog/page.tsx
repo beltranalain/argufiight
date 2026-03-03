@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 export const metadata: Metadata = { title: 'Admin — Blog' };
-export const revalidate = 0;
+export const revalidate = 30;
 
 type BadgeColor = 'green' | 'muted' | 'amber';
 

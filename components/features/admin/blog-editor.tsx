@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import {
-  ArrowLeft, ExternalLink, Trash2, X, Plus, Sparkles, Loader2,
+  ArrowLeft, ExternalLink, Trash2, X, Plus, Sparkles, Loader2, Upload,
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -145,6 +145,8 @@ export function BlogEditor({ postId, initialPost }: Props) {
   const [imageModal,     setImageModal]     = useState(false);
   const [imageUrl,       setImageUrl]       = useState('');
   const [savedRange,     setSavedRange]     = useState<Range | null>(null);
+  const [isUploading,    setIsUploading]    = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch categories + tags
   useEffect(() => {
@@ -201,6 +203,39 @@ export function BlogEditor({ postId, initialPost }: Props) {
     execCmd('insertHTML', `<img src="${imageUrl.trim()}" alt="" style="max-width:100%;border-radius:8px;margin:12px 0;" />`);
     setImageModal(false);
     setImageUrl('');
+  };
+
+  // ── Cover image upload ───────────────────────────────────────────────────
+
+  const handleCoverUpload = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({ type: 'error', title: 'File must be an image' });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ type: 'error', title: 'Image must be under 10MB' });
+      return;
+    }
+    try {
+      setIsUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('alt', title || 'Blog cover image');
+      const res = await fetch('/api/admin/content/media', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      setOgImage(data.media?.url || data.url || '');
+      mark();
+      toast({ type: 'success', title: 'Image uploaded' });
+    } catch (err) {
+      toast({ type: 'error', title: err instanceof Error ? err.message : 'Upload failed' });
+    } finally {
+      setIsUploading(false);
+      if (coverInputRef.current) coverInputRef.current.value = '';
+    }
   };
 
   // ── AI Generate ───────────────────────────────────────────────────────────
@@ -505,14 +540,18 @@ export function BlogEditor({ postId, initialPost }: Props) {
               {/* Cover Image */}
               <div>
                 <label className={labelCls}>Cover Image</label>
-                <Input
-                  value={ogImage}
-                  onChange={e => { setOgImage(e.target.value); mark(); }}
-                  placeholder="Paste image URL (https://…)"
-                  className="text-[18px] h-10"
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleCoverUpload(file);
+                  }}
                 />
-                {ogImage.trim() && (
-                  <div className="relative mt-2 rounded-[var(--radius)] overflow-hidden border border-border">
+                {ogImage.trim() ? (
+                  <div className="relative rounded-[var(--radius)] overflow-hidden border border-border">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={ogImage}
@@ -527,6 +566,31 @@ export function BlogEditor({ postId, initialPost }: Props) {
                       <X size={13} />
                     </button>
                   </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => coverInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="w-full h-32 flex flex-col items-center justify-center gap-2 rounded-[var(--radius)] border-2 border-dashed border-border hover:border-border-2 bg-surface-2 transition-colors cursor-pointer"
+                  >
+                    {isUploading ? (
+                      <Loader2 size={20} className="text-text-3 animate-spin" />
+                    ) : (
+                      <Upload size={20} className="text-text-3" />
+                    )}
+                    <span className="text-[15px] text-text-3">
+                      {isUploading ? 'Uploading…' : 'Click to upload cover image'}
+                    </span>
+                    <span className="text-[13px] text-text-3">or paste URL below</span>
+                  </button>
+                )}
+                {!ogImage.trim() && (
+                  <Input
+                    value={ogImage}
+                    onChange={e => { setOgImage(e.target.value); mark(); }}
+                    placeholder="https://…"
+                    className="text-[16px] h-9 mt-2"
+                  />
                 )}
               </div>
 
