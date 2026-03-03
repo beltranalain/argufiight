@@ -9,7 +9,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
-import { AdminStatCard } from '@/components/features/admin/admin-stat-card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Search, UserPlus, Trash2 } from 'lucide-react';
 
 interface UserData {
@@ -21,6 +21,7 @@ interface UserData {
   totalDebates: number;
   debatesWon: number;
   debatesLost: number;
+  debatesTied?: number;
   isAdmin: boolean;
   isBanned: boolean;
   bannedUntil: string | null;
@@ -30,6 +31,8 @@ interface UserData {
   createdAt: string;
   subscription?: { tier: string; status: string } | null;
   isCreator?: boolean;
+  bio?: string;
+  winRate?: number;
 }
 
 const labelCls = 'block text-[16px] font-[500] text-text-2 mb-1.5';
@@ -47,6 +50,7 @@ export function AdminUsersClient({ initialUsers }: { initialUsers: UserData[] })
   const [deleteUser, setDeleteUser] = useState<UserData | null>(null);
   const [suspendDays, setSuspendDays] = useState('7');
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [detailUserId, setDetailUserId] = useState<string | null>(null);
 
   const { data: allUsers = initialUsers } = useQuery<UserData[]>({
     queryKey: ['admin-users'],
@@ -58,6 +62,17 @@ export function AdminUsersClient({ initialUsers }: { initialUsers: UserData[] })
     },
     initialData: initialUsers,
     staleTime: 60_000,
+  });
+
+  const { data: userDetail, isLoading: detailLoading } = useQuery<UserData>({
+    queryKey: ['admin-user-detail', detailUserId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/users/${detailUserId}`);
+      if (!res.ok) throw new Error('Failed to load user');
+      const data = await res.json();
+      return data.user;
+    },
+    enabled: !!detailUserId,
   });
 
   const aiUsers       = useMemo(() => allUsers.filter(u => u.isAI), [allUsers]);
@@ -97,6 +112,7 @@ export function AdminUsersClient({ initialUsers }: { initialUsers: UserData[] })
       toast({ type: 'success', title: msg });
       setSuspendUser(null);
       setDeleteUser(null);
+      setDetailUserId(null);
       invalidate();
     },
     onError: () => toast({ type: 'error', title: 'Action failed', description: 'Please try again' }),
@@ -188,14 +204,6 @@ export function AdminUsersClient({ initialUsers }: { initialUsers: UserData[] })
         </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <AdminStatCard label="Total users"    value={allUsers.filter(u => !u.isAI).length.toLocaleString()} />
-        <AdminStatCard label="AI users"       value={aiUsers.length} />
-        <AdminStatCard label="Suspended"      value={allUsers.filter(u => u.bannedUntil && new Date(u.bannedUntil) > new Date()).length} accent={allUsers.some(u => u.bannedUntil && new Date(u.bannedUntil) > new Date())} />
-        <AdminStatCard label="Employees"      value={employees.length} />
-      </div>
-
       {/* Search + Tabs + Bulk */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         {/* Tabs */}
@@ -272,10 +280,11 @@ export function AdminUsersClient({ initialUsers }: { initialUsers: UserData[] })
               return (
                 <div
                   key={user.id}
-                  className="grid grid-cols-[auto_2fr_2fr_1fr_1fr_1fr_1fr_auto] gap-3 px-4 py-3 items-center hover:bg-surface-2/50 transition-colors"
+                  onClick={() => setDetailUserId(user.id)}
+                  className="grid grid-cols-[auto_2fr_2fr_1fr_1fr_1fr_1fr_auto] gap-3 px-4 py-3 items-center hover:bg-surface-2/50 transition-colors cursor-pointer"
                 >
                   {/* Checkbox (only for regular users) */}
-                  <div className="w-4">
+                  <div className="w-4" onClick={e => e.stopPropagation()}>
                     {!user.isAdmin && !user.isAI && !user.employeeRole ? (
                       <input
                         type="checkbox"
@@ -330,7 +339,7 @@ export function AdminUsersClient({ initialUsers }: { initialUsers: UserData[] })
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
                     {!user.isAI && (
                       <Button
                         variant="ghost"
@@ -371,6 +380,113 @@ export function AdminUsersClient({ initialUsers }: { initialUsers: UserData[] })
       {displayList.length >= 50 && (
         <p className="text-[15px] text-text-3 text-center">Showing first 50 results. Use search to narrow results.</p>
       )}
+
+      {/* User Detail Modal */}
+      <Modal open={!!detailUserId} onClose={() => setDetailUserId(null)} title="User Details" size="lg">
+        {detailLoading || !userDetail ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-12 w-12 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-48" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 rounded-[var(--radius)]" />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {/* Header */}
+            <div className="flex items-center gap-3">
+              <Avatar src={userDetail.avatarUrl} alt={userDetail.username ?? ''} fallback={userDetail.username ?? ''} size="lg" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-[18px] font-[600] text-text">{userDetail.username}</h3>
+                  {userDetail.isAdmin && <Badge color="accent" size="sm">Admin</Badge>}
+                  {userDetail.isAI && <Badge color="blue" size="sm">AI</Badge>}
+                  {userDetail.isCreator && <Badge color="green" size="sm">Creator</Badge>}
+                  {userDetail.subscription?.tier === 'PRO' && userDetail.subscription?.status === 'ACTIVE' && (
+                    <Badge color="blue" size="sm">PRO</Badge>
+                  )}
+                  {userDetail.bannedUntil && new Date(userDetail.bannedUntil) > new Date() && (
+                    <Badge color="red" size="sm">Suspended</Badge>
+                  )}
+                </div>
+                <p className="text-[15px] text-text-3 truncate">{userDetail.email}</p>
+                <p className="text-[14px] text-text-3">
+                  Joined {new Date(userDetail.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
+            </div>
+
+            {/* KPI Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { label: 'ELO Rating', value: userDetail.eloRating ?? 1000 },
+                { label: 'Win Rate', value: userDetail.winRate != null ? `${Math.round(userDetail.winRate)}%` : '—' },
+                { label: 'Debates Won', value: userDetail.debatesWon ?? 0 },
+                { label: 'Debates Lost', value: userDetail.debatesLost ?? 0 },
+                { label: 'Total Debates', value: userDetail.totalDebates ?? 0 },
+                { label: 'Coins', value: (userDetail.coins ?? 0).toLocaleString() },
+              ].map(kpi => (
+                <div key={kpi.label} className="bg-surface-2 border border-border rounded-[var(--radius)] p-3">
+                  <p className="text-[13px] text-text-3 uppercase tracking-wide">{kpi.label}</p>
+                  <p className="text-[20px] font-[600] text-text mt-0.5">{kpi.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {userDetail.bio && (
+              <div>
+                <p className="text-[13px] text-text-3 uppercase tracking-wide mb-1">Bio</p>
+                <p className="text-[15px] text-text-2">{userDetail.bio}</p>
+              </div>
+            )}
+
+            {/* Footer Actions */}
+            <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
+              {!userDetail.isAI && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setDetailUserId(null);
+                    if (userDetail.bannedUntil && new Date(userDetail.bannedUntil) > new Date()) {
+                      actionMutation.mutate({ userId: userDetail.id, type: 'unsuspend' });
+                    } else {
+                      setSuspendUser(userDetail);
+                      setSuspendDays('7');
+                    }
+                  }}
+                >
+                  {userDetail.bannedUntil && new Date(userDetail.bannedUntil) > new Date() ? 'Unsuspend' : 'Suspend'}
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => toggleCreatorMutation.mutate({ userId: userDetail.id, enabled: !userDetail.isCreator })}
+              >
+                {userDetail.isCreator ? 'Remove Creator' : 'Make Creator'}
+              </Button>
+              <div className="flex-1" />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => { setDetailUserId(null); setDeleteUser(userDetail); }}
+                className="text-[var(--red)] border-[var(--red)]/30 hover:border-[var(--red)]/60"
+              >
+                Delete User
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setDetailUserId(null)}>Close</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Suspend Modal */}
       <Modal open={!!suspendUser} onClose={() => setSuspendUser(null)} title="Suspend User">

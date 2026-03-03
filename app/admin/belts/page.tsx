@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
-import { AdminStatCard } from '@/components/features/admin/admin-stat-card';
-import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Plus, RefreshCw, Trash2, Pencil } from 'lucide-react';
 import Image from 'next/image';
 
 type BeltStatus = 'ACTIVE' | 'INACTIVE' | 'VACANT' | 'STAKED' | 'GRACE_PERIOD' | 'MANDATORY';
@@ -90,6 +90,12 @@ export default function AdminBeltsPage() {
     name: '', type: 'CATEGORY' as BeltType, category: 'SPORTS',
     coinValue: '0', designImageUrl: '',
   });
+  const [selectedBeltId, setSelectedBeltId] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '', type: 'CATEGORY' as BeltType, category: '',
+    coinValue: '0', designImageUrl: '', sponsorName: '', sponsorLogoUrl: '',
+  });
 
   const { data: belts = [], isLoading, refetch } = useQuery<Belt[]>({
     queryKey: ['admin-belts'],
@@ -100,6 +106,38 @@ export default function AdminBeltsPage() {
       return data.belts ?? [];
     },
     staleTime: 30_000,
+  });
+
+  const { data: beltDetail, isLoading: detailLoading } = useQuery<any>({
+    queryKey: ['admin-belt-detail', selectedBeltId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/belts/${selectedBeltId}`);
+      if (!res.ok) throw new Error('Failed to load belt');
+      const d = await res.json();
+      return d.belt;
+    },
+    enabled: !!selectedBeltId,
+  });
+
+  const editMutation = useMutation({
+    mutationFn: async (body: Record<string, any>) => {
+      const res = await fetch(`/api/admin/belts/${selectedBeltId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || 'Failed to update belt');
+      }
+    },
+    onSuccess: () => {
+      toast({ type: 'success', title: 'Belt updated' });
+      setEditMode(false);
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['admin-belt-detail', selectedBeltId] });
+    },
+    onError: (e: any) => toast({ type: 'error', title: e.message || 'Failed to update belt' }),
   });
 
   const visible = filterCat ? belts.filter(b => b.category === filterCat) : belts;
@@ -141,14 +179,18 @@ export default function AdminBeltsPage() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/admin/belts/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete belt');
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || 'Failed to delete belt');
+      }
     },
     onSuccess: () => {
       toast({ type: 'success', title: 'Belt deleted' });
       setDeleteTarget(null);
+      setSelectedBeltId(null);
       invalidate();
     },
-    onError: () => toast({ type: 'error', title: 'Failed to delete belt' }),
+    onError: (e: any) => toast({ type: 'error', title: 'Delete failed', description: e.message }),
   });
 
   const handleCreate = () => {
@@ -178,14 +220,6 @@ export default function AdminBeltsPage() {
             Create Belt
           </Button>
         </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <AdminStatCard label="Total belts"   value={totalCount} />
-        <AdminStatCard label="Active"        value={activeCount} sub="Currently held"      accent={activeCount > 0} />
-        <AdminStatCard label="Vacant"        value={vacantCount} sub={vacantCount > 0 ? 'Unclaimed' : 'All held'} />
-        <AdminStatCard label="Staked"        value={stakedCount} sub={stakedCount > 0 ? 'In active debate' : 'None'} accent={stakedCount > 0} />
       </div>
 
       {/* Filter chips */}
@@ -295,7 +329,7 @@ export default function AdminBeltsPage() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <Button variant="secondary" size="sm" href={`/admin/belts/${belt.id}`}>
+                  <Button variant="secondary" size="sm" onClick={() => { setSelectedBeltId(belt.id); setEditMode(false); }}>
                     View Details
                   </Button>
                   <Button
@@ -312,6 +346,228 @@ export default function AdminBeltsPage() {
           </div>
         )}
       </Card>
+
+      {/* Belt Detail/Edit Modal */}
+      <Modal
+        open={!!selectedBeltId}
+        onClose={() => { setSelectedBeltId(null); setEditMode(false); }}
+        title={editMode ? 'Edit Belt' : 'Belt Details'}
+        size="xl"
+      >
+        {detailLoading || !beltDetail ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-20 w-20 rounded-[var(--radius)]" />
+              <div className="space-y-2 flex-1">
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 rounded-[var(--radius)]" />
+              ))}
+            </div>
+          </div>
+        ) : editMode ? (
+          /* Edit Mode */
+          <div className="space-y-4">
+            <div>
+              <label className={labelCls}>Belt Name *</label>
+              <Input
+                value={editForm.name}
+                onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="Belt name"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Type</label>
+                <select value={editForm.type} onChange={e => setEditForm(p => ({ ...p, type: e.target.value as BeltType }))} className={selectCls}>
+                  {BELT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Category</label>
+                <select value={editForm.category} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))} className={selectCls}>
+                  <option value="">No category</option>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0) + c.slice(1).toLowerCase()}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Coin Value</label>
+              <Input type="number" value={editForm.coinValue} onChange={e => setEditForm(p => ({ ...p, coinValue: e.target.value }))} min="0" />
+            </div>
+            <div>
+              <label className={labelCls}>Belt Image URL</label>
+              <Input
+                value={editForm.designImageUrl}
+                onChange={e => setEditForm(p => ({ ...p, designImageUrl: e.target.value }))}
+                placeholder="https://..."
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Sponsor Name</label>
+                <Input
+                  value={editForm.sponsorName}
+                  onChange={e => setEditForm(p => ({ ...p, sponsorName: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Sponsor Logo URL</label>
+                <Input
+                  value={editForm.sponsorLogoUrl}
+                  onChange={e => setEditForm(p => ({ ...p, sponsorLogoUrl: e.target.value }))}
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-4 border-t border-border">
+              <Button variant="secondary" size="sm" onClick={() => setEditMode(false)} disabled={editMutation.isPending}>Cancel</Button>
+              <Button
+                variant="accent"
+                size="sm"
+                loading={editMutation.isPending}
+                onClick={() => editMutation.mutate({
+                  name: editForm.name,
+                  type: editForm.type,
+                  category: editForm.category || null,
+                  coinValue: parseInt(editForm.coinValue) || 0,
+                  designImageUrl: editForm.designImageUrl || null,
+                  sponsorName: editForm.sponsorName || null,
+                  sponsorLogoUrl: editForm.sponsorLogoUrl || null,
+                })}
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        ) : (
+          /* View Mode */
+          <div className="space-y-5">
+            {/* Header */}
+            <div className="flex items-start gap-4">
+              <div className="w-24 h-24 flex-shrink-0 rounded-[var(--radius)] bg-surface-2 border border-border overflow-hidden flex items-center justify-center">
+                {beltDetail.designImageUrl ? (
+                  <Image src={beltDetail.designImageUrl} alt={beltDetail.name} width={96} height={96} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[36px]">🏆</span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-[18px] font-[600] text-text">{beltDetail.name}</h3>
+                  <Badge color={typeColor(beltDetail.type)} size="sm">{beltDetail.type}</Badge>
+                  <Badge color={statusColor(beltDetail.status)} size="sm" dot>{statusLabel(beltDetail.status)}</Badge>
+                  {beltDetail.category && <Badge color="muted" size="sm">{beltDetail.category}</Badge>}
+                </div>
+                <p className="text-[14px] text-text-3 mt-1">
+                  Created {new Date(beltDetail.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
+            </div>
+
+            {/* Details Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                {
+                  label: 'Current Holder',
+                  value: beltDetail.currentHolder ? beltDetail.currentHolder.username : 'Vacant',
+                },
+                { label: 'Coin Value', value: (beltDetail.coinValue ?? 0).toLocaleString() },
+                { label: 'Times Defended', value: beltDetail.timesDefended ?? 0 },
+                { label: 'Successful Defenses', value: beltDetail.successfulDefenses ?? 0 },
+                { label: 'Total Days Held', value: beltDetail.totalDaysHeld ?? 0 },
+                {
+                  label: 'Last Defended',
+                  value: beltDetail.lastDefendedAt
+                    ? new Date(beltDetail.lastDefendedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'Never',
+                },
+                {
+                  label: 'Next Defense Due',
+                  value: beltDetail.nextDefenseDue
+                    ? new Date(beltDetail.nextDefenseDue).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '—',
+                },
+                { label: 'Staked', value: beltDetail.isStaked ? 'Yes' : 'No' },
+                { label: 'Sponsor', value: beltDetail.sponsorName || '—' },
+              ].map(kpi => (
+                <div key={kpi.label} className="bg-surface-2 border border-border rounded-[var(--radius)] p-3">
+                  <p className="text-[13px] text-text-3 uppercase tracking-wide">{kpi.label}</p>
+                  <p className="text-[17px] font-[600] text-text mt-0.5">{kpi.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Transfer History */}
+            {beltDetail.history && beltDetail.history.length > 0 && (
+              <div>
+                <p className="text-[13px] text-text-3 uppercase tracking-wide mb-2">Recent Transfer History</p>
+                <div className="border border-border rounded-[var(--radius)] overflow-hidden">
+                  <div className="grid grid-cols-4 gap-2 px-3 py-2 bg-surface-2 border-b border-border">
+                    {['Date', 'From', 'To', 'Reason'].map(h => (
+                      <p key={h} className="text-[13px] font-[500] text-text-3 uppercase tracking-wide">{h}</p>
+                    ))}
+                  </div>
+                  <div className="divide-y divide-border">
+                    {beltDetail.history.map((h: any) => (
+                      <div key={h.id} className="grid grid-cols-4 gap-2 px-3 py-2">
+                        <p className="text-[14px] text-text-2">
+                          {new Date(h.transferredAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
+                        </p>
+                        <p className="text-[14px] text-text truncate">{h.fromUser?.username || '—'}</p>
+                        <p className="text-[14px] text-text truncate">{h.toUser?.username || '—'}</p>
+                        <Badge color="muted" size="sm">{(h.reason as string).replace(/_/g, ' ')}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Footer Actions */}
+            <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setEditMode(true);
+                  setEditForm({
+                    name: beltDetail.name || '',
+                    type: beltDetail.type || 'CATEGORY',
+                    category: beltDetail.category || '',
+                    coinValue: String(beltDetail.coinValue ?? 0),
+                    designImageUrl: beltDetail.designImageUrl || '',
+                    sponsorName: beltDetail.sponsorName || '',
+                    sponsorLogoUrl: beltDetail.sponsorLogoUrl || '',
+                  });
+                }}
+              >
+                <Pencil size={13} className="mr-1.5" />
+                Edit
+              </Button>
+              <div className="flex-1" />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setSelectedBeltId(null);
+                  setDeleteTarget(beltDetail);
+                }}
+                className="text-[var(--red)] border-[var(--red)]/30 hover:border-[var(--red)]/60"
+              >
+                <Trash2 size={13} className="mr-1.5" />
+                Delete
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => { setSelectedBeltId(null); setEditMode(false); }}>Close</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Create Modal */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Create Championship Belt">

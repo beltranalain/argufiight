@@ -4,6 +4,57 @@ import { prisma } from '@/lib/db/prisma'
 
 export const dynamic = 'force-dynamic'
 
+// GET /api/admin/belts/[id] - Get belt detail (admin only)
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await verifySessionWithDb()
+    if (!session || !session.userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { isAdmin: true },
+    })
+
+    if (!user?.isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const { id } = await params
+
+    const belt = await prisma.belt.findUnique({
+      where: { id },
+      include: {
+        currentHolder: { select: { id: true, username: true, avatarUrl: true, eloRating: true } },
+        history: {
+          take: 10,
+          orderBy: { transferredAt: 'desc' },
+          include: {
+            fromUser: { select: { id: true, username: true } },
+            toUser: { select: { id: true, username: true } },
+          },
+        },
+      },
+    })
+
+    if (!belt) {
+      return NextResponse.json({ error: 'Belt not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ belt })
+  } catch (error: any) {
+    console.error('Failed to fetch belt:', error)
+    return NextResponse.json(
+      { error: error?.message || 'Failed to fetch belt' },
+      { status: 500 }
+    )
+  }
+}
+
 // DELETE /api/admin/belts/[id] - Delete a belt (admin only)
 export async function DELETE(
   request: NextRequest,
