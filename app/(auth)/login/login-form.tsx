@@ -35,11 +35,19 @@ export function LoginForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.requiresTwoFactor) {
-          router.push('/verify-2fa');
-          return;
-        }
         setErrors({ general: data.error ?? 'Invalid email or password' });
+        return;
+      }
+
+      // Employee needs to set up 2FA first
+      if (data.requires2FASetup) {
+        router.push('/setup-2fa');
+        return;
+      }
+
+      // 2FA is enabled — verify code before proceeding
+      if (data.requires2FA) {
+        router.push('/verify-2fa');
         return;
       }
 

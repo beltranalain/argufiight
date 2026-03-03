@@ -18,10 +18,10 @@ export function VerifyTwoFAForm() {
     if (!code.trim() || code.length < 6) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/2fa/check', {
+      const res = await fetch('/api/auth/2fa/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ token: code }),
       });
       if (!res.ok) {
         const d = await res.json();
