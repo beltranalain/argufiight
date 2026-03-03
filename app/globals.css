@@ -220,6 +220,12 @@ body {
   50%      { opacity: 1; }
 }
 
+@keyframes loading-bar {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
 .animate-fade-in     { animation: fade-in 0.2s ease both; }
 .animate-slide-right { animation: slide-in-right 0.2s ease both; }
 .animate-pulse-accent { animation: pulse-accent 2s ease infinite; }
