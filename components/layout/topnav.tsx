@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
+import { NotificationBell } from '@/components/layout/notification-bell';
 import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSeparator } from '@/components/ui/dropdown';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { cn } from '@/lib/cn';
@@ -17,7 +17,6 @@ interface TopnavProps {
     eloRating: number;
     isAdmin?: boolean;
   } | null;
-  notificationCount?: number;
 }
 
 const pillNav = [
@@ -28,7 +27,7 @@ const pillNav = [
   { href: '/debates/history',  label: 'History' },
 ];
 
-export function Topnav({ user, notificationCount = 0 }: TopnavProps) {
+export function Topnav({ user }: TopnavProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -95,15 +94,7 @@ export function Topnav({ user, notificationCount = 0 }: TopnavProps) {
         <ThemeToggle />
 
         {/* Notifications */}
-        <button
-          className="relative w-8 h-8 rounded-full border border-border flex items-center justify-center text-text-2 hover:border-border-2 transition-colors cursor-pointer"
-          aria-label={`Notifications${notificationCount > 0 ? `, ${notificationCount} unread` : ''}`}
-        >
-          <Bell size={14} strokeWidth={1.5} />
-          {notificationCount > 0 && (
-            <span className="absolute top-[6px] right-[6px] w-1.5 h-1.5 bg-[var(--red)] rounded-full border-[1.5px] border-bg" />
-          )}
-        </button>
+        <NotificationBell />
 
         {/* Profile dropdown */}
         {user && (

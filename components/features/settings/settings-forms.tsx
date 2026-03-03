@@ -268,15 +268,13 @@ export function NotificationsCard() {
               onClick={() => setPrefs((p) => ({ ...p, [pref.key]: !p[pref.key] }))}
               disabled={!loaded}
               className={[
-                'relative flex-shrink-0 h-[22px] w-10 rounded-full border transition-colors duration-200 cursor-pointer disabled:opacity-40',
-                prefs[pref.key]
-                  ? 'bg-accent border-accent'
-                  : 'bg-surface-2 border-border hover:border-border-2',
+                'relative flex-shrink-0 h-5 w-9 rounded-full transition-colors duration-200 cursor-pointer disabled:opacity-40 overflow-hidden',
+                prefs[pref.key] ? 'bg-accent' : 'bg-surface-3',
               ].join(' ')}
             >
               <span className={[
-                'absolute top-[2px] h-[16px] w-[16px] rounded-full shadow-sm transition-transform duration-200',
-                prefs[pref.key] ? 'translate-x-[20px] bg-bg' : 'translate-x-[2px] bg-text-3',
+                'absolute top-[2px] h-4 w-4 rounded-full bg-bg shadow-sm transition-transform duration-200',
+                prefs[pref.key] ? 'translate-x-[18px]' : 'translate-x-[2px]',
               ].join(' ')} />
             </button>
           </div>
