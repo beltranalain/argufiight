@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
 import Link from 'next/link';
 import { Trophy, TrendingUp, Swords } from 'lucide-react';
+import { ChallengeButton } from './challenge-button';
 
 export const metadata: Metadata = { title: 'Leaderboard' };
 export const revalidate = 60; // revalidate every minute
@@ -90,43 +91,47 @@ async function LeaderboardData({ userId }: { userId: string }) {
             const totalDebates = player.debatesWon + player.debatesLost + player.debatesTied;
             const winRate = totalDebates > 0 ? Math.round((player.debatesWon / totalDebates) * 100) : 0;
             return (
-              <Link
+              <div
                 key={player.id}
-                href={`/profile/${player.id}`}
                 className={cn(
                   'flex items-center gap-4 px-5 py-3 hover:bg-surface-2 transition-colors',
                   isCurrentUser && 'bg-[rgba(212,240,80,0.04)]'
                 )}
               >
-                <span
-                  className={cn(
-                    'text-xs font-[500] w-6 text-right flex-shrink-0',
-                    i === 0 ? 'text-[var(--amber)]'
-                    : i === 1 ? 'text-text-2'
-                    : i === 2 ? 'text-[#cd7f32]'
-                    : 'text-text-3'
-                  )}
-                >
-                  {i + 1}
-                </span>
-                <Avatar src={player.avatarUrl} fallback={player.username} size="sm" />
-                <div className="flex-1 min-w-0">
-                  <p className={cn(
-                    'text-xs font-[450] leading-tight',
-                    isCurrentUser ? 'text-accent' : 'text-text'
-                  )}>
-                    {player.username}
-                    {isCurrentUser && <span className="text-text-3 font-[400] ml-1">(you)</span>}
-                  </p>
-                  <p className="text-[13px] text-text-3 mt-0.5">
-                    {player.debatesWon}W · {player.debatesLost}L · {player.debatesTied}T
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-xs font-[500] text-text">{player.eloRating}</p>
-                  <p className="text-[13px] text-text-3">{winRate}% win</p>
-                </div>
-              </Link>
+                <Link href={`/profile/${player.id}`} className="flex items-center gap-4 flex-1 min-w-0">
+                  <span
+                    className={cn(
+                      'text-xs font-[500] w-6 text-right flex-shrink-0',
+                      i === 0 ? 'text-[var(--amber)]'
+                      : i === 1 ? 'text-text-2'
+                      : i === 2 ? 'text-[#cd7f32]'
+                      : 'text-text-3'
+                    )}
+                  >
+                    {i + 1}
+                  </span>
+                  <Avatar src={player.avatarUrl} fallback={player.username} size="sm" />
+                  <div className="flex-1 min-w-0">
+                    <p className={cn(
+                      'text-xs font-[450] leading-tight',
+                      isCurrentUser ? 'text-accent' : 'text-text'
+                    )}>
+                      {player.username}
+                      {isCurrentUser && <span className="text-text-3 font-[400] ml-1">(you)</span>}
+                    </p>
+                    <p className="text-[13px] text-text-3 mt-0.5">
+                      {player.debatesWon}W · {player.debatesLost}L · {player.debatesTied}T
+                    </p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-[500] text-text">{player.eloRating}</p>
+                    <p className="text-[13px] text-text-3">{winRate}% win</p>
+                  </div>
+                </Link>
+                {!isCurrentUser && (
+                  <ChallengeButton opponentId={player.id} opponentName={player.username} />
+                )}
+              </div>
             );
           })}
         </div>

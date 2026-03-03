@@ -97,7 +97,7 @@ const getPublicDashboardData = unstable_cache(
 
 const getUserAlertData = unstable_cache(
   async (userId: string) => {
-    const [yourTurnDebate_raw, verdictDebate] = await Promise.all([
+    const [yourTurnDebate_raw, verdictDebate, totalDebateCount] = await Promise.all([
       prisma.debate.findMany({
         where: {
           OR: [{ challengerId: userId }, { opponentId: userId }],
@@ -128,6 +128,10 @@ const getUserAlertData = unstable_cache(
         select: { id: true, topic: true, winnerId: true, challengerId: true },
         orderBy: { updatedAt: 'desc' },
       }),
+
+      prisma.debate.count({
+        where: { OR: [{ challengerId: userId }, { opponentId: userId }] },
+      }),
     ]);
 
     const yourTurnDebate = yourTurnDebate_raw.find(d => {
@@ -139,7 +143,7 @@ const getUserAlertData = unstable_cache(
       return false;
     }) ?? null;
 
-    return { yourTurnDebate, verdictDebate };
+    return { yourTurnDebate, verdictDebate, isNewUser: totalDebateCount === 0 };
   },
   ['dashboard-user'],
   { revalidate: 20 }
@@ -150,12 +154,25 @@ const getUserAlertData = unstable_cache(
 // ──────────────────────────────────────────────
 
 async function UserAlerts({ userId }: { userId: string }) {
-  const { yourTurnDebate, verdictDebate } = await getUserAlertData(userId);
+  const { yourTurnDebate, verdictDebate, isNewUser } = await getUserAlertData(userId);
 
-  if (!yourTurnDebate && !verdictDebate) return null;
+  if (!yourTurnDebate && !verdictDebate && !isNewUser) return null;
 
   return (
     <>
+      {isNewUser && !yourTurnDebate && !verdictDebate && (
+        <div
+          className="flex items-center gap-4 rounded-[var(--radius)] mb-4"
+          style={{ padding: '12px 16px', background: 'rgba(212,240,80,0.04)', border: '1px solid rgba(212,240,80,0.2)' }}
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-[14px] font-[600] text-accent">Welcome to ArguFight!</p>
+            <p className="text-[13px] text-text-3 mt-0.5">Start your first debate to join the leaderboard and begin building your record.</p>
+          </div>
+          <CreateDebateButton label="Start first debate" variant="accent" className="flex-shrink-0 !text-[13px] !px-4 !py-1.5" />
+        </div>
+      )}
+
       {yourTurnDebate && (
         <div
           className="flex items-center gap-4 rounded-[var(--radius)] mb-4"
