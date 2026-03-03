@@ -134,9 +134,6 @@ export function Topnav({ user, notificationCount = 0 }: TopnavProps) {
               <DropdownItem icon={null}>
                 <Link href="/settings" className="flex-1">Settings</Link>
               </DropdownItem>
-              <DropdownItem icon={null}>
-                <Link href="/settings/subscription" className="flex-1">Subscription</Link>
-              </DropdownItem>
               {user.isAdmin && (
                 <>
                   <DropdownSeparator />
