@@ -2,11 +2,11 @@ import { SignJWT } from 'jose'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/db/prisma'
 
-if (!process.env.AUTH_SECRET) {
-  throw new Error('AUTH_SECRET environment variable is required')
+function getEncodedKey() {
+  const secret = process.env.AUTH_SECRET
+  if (!secret) throw new Error('AUTH_SECRET environment variable is required')
+  return new TextEncoder().encode(secret)
 }
-const secretKey = process.env.AUTH_SECRET
-const encodedKey = new TextEncoder().encode(secretKey)
 
 /**
  * Create a new session and store it in the database
@@ -28,7 +28,7 @@ export async function createSession(userId: string) {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(expiresAt)
-    .sign(encodedKey)
+    .sign(getEncodedKey())
 
   // Store session in database
   await prisma.session.create({
@@ -71,7 +71,7 @@ export async function createSessionWithoutCookie(userId: string) {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(expiresAt)
-    .sign(encodedKey)
+    .sign(getEncodedKey())
 
   // Store session in database
   await prisma.session.create({

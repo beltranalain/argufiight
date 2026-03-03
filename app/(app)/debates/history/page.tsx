@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db/prisma';
 import { getSession } from '@/lib/auth/get-session';
 import { Avatar } from '@/components/ui/avatar';
@@ -9,11 +10,13 @@ import Link from 'next/link';
 import { Swords, Clock, CheckCircle, XCircle, Minus } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
+export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Debate History' };
 
 export default async function DebateHistoryPage() {
   const session = await getSession();
-  const userId = session!.userId;
+  if (!session) redirect('/login');
+  const userId = session.userId;
 
   const debates = await prisma.debate.findMany({
     where: {

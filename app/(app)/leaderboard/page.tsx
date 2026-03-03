@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db/prisma';
 import { getSession } from '@/lib/auth/get-session';
 import { Avatar } from '@/components/ui/avatar';
@@ -12,7 +13,7 @@ import { Trophy, TrendingUp, Swords } from 'lucide-react';
 import { ChallengeButton } from './challenge-button';
 
 export const metadata: Metadata = { title: 'Leaderboard' };
-export const revalidate = 60; // revalidate every minute
+export const dynamic = 'force-dynamic';
 
 async function LeaderboardData({ userId }: { userId: string }) {
   const [topPlayers, userRankData] = await Promise.all([
@@ -175,9 +176,10 @@ function LeaderboardSkeleton() {
 
 export default async function LeaderboardPage() {
   const session = await getSession();
+  if (!session) redirect('/login');
   return (
     <Suspense fallback={<LeaderboardSkeleton />}>
-      <LeaderboardData userId={session!.userId} />
+      <LeaderboardData userId={session.userId} />
     </Suspense>
   );
 }

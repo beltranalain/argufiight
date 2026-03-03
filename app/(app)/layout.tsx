@@ -8,6 +8,8 @@ import { RankingsPanelSkeleton } from '@/components/layout/rankings-panel-skelet
 import { Providers } from '@/lib/providers';
 import { getSession } from '@/lib/auth/get-session';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AppLayout({
   children,
 }: {

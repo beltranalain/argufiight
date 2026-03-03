@@ -1,11 +1,11 @@
 import { jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 
-if (!process.env.AUTH_SECRET) {
-  throw new Error('AUTH_SECRET environment variable is required')
+function getEncodedKey() {
+  const secret = process.env.AUTH_SECRET
+  if (!secret) throw new Error('AUTH_SECRET environment variable is required')
+  return new TextEncoder().encode(secret)
 }
-const secretKey = process.env.AUTH_SECRET
-const encodedKey = new TextEncoder().encode(secretKey)
 
 /**
  * Verify session by checking JWT only (lightweight for Edge runtime)
@@ -22,7 +22,7 @@ export async function verifySession() {
 
   try {
     // Verify JWT only (no database lookup for Edge runtime)
-    const { payload } = await jwtVerify(sessionJWT, encodedKey)
+    const { payload } = await jwtVerify(sessionJWT, getEncodedKey())
     const { sessionToken } = payload as { sessionToken: string }
 
     // Return basic session info without database lookup
@@ -54,7 +54,7 @@ export async function verifySessionWithDb() {
 
   try {
     // Verify JWT
-    const { payload } = await jwtVerify(sessionJWT, encodedKey)
+    const { payload } = await jwtVerify(sessionJWT, getEncodedKey())
     const { sessionToken } = payload as { sessionToken: string }
 
     if (process.env.NODE_ENV === 'development') {
@@ -141,7 +141,7 @@ export async function deleteSession() {
 
   if (sessionJWT) {
     try {
-      const { payload } = await jwtVerify(sessionJWT, encodedKey)
+      const { payload } = await jwtVerify(sessionJWT, getEncodedKey())
       const { sessionToken } = payload as { sessionToken: string }
       
       // Dynamic import Prisma to avoid Edge runtime issues

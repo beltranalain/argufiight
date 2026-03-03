@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db/prisma';
 import { getSession } from '@/lib/auth/get-session';
 import { Avatar } from '@/components/ui/avatar';
@@ -8,13 +9,15 @@ import { EmptyState } from '@/components/ui/empty-state';
 import Link from 'next/link';
 import { BookMarked } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Saved Debates' };
 
 export default async function SavedDebatesPage() {
   const session = await getSession();
+  if (!session) redirect('/login');
 
   const saved = await prisma.debateSave.findMany({
-    where: { userId: session!.userId },
+    where: { userId: session.userId },
     include: {
       debate: {
         include: {
