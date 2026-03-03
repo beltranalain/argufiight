@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -24,10 +24,34 @@ interface ProfileFormProps {
 }
 
 export function ProfileForm({ user }: ProfileFormProps) {
-  const [username, setUsername] = useState(user.username);
-  const [bio, setBio] = useState(user.bio ?? '');
-  const [saving, setSaving] = useState(false);
+  const [username, setUsername]     = useState(user.username);
+  const [bio, setBio]               = useState(user.bio ?? '');
+  const [avatarUrl, setAvatarUrl]   = useState(user.avatarUrl);
+  const [saving, setSaving]         = useState(false);
+  const [uploading, setUploading]   = useState(false);
+  const fileRef                     = useRef<HTMLInputElement>(null);
   const { success, error } = useToast();
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      const res = await fetch('/api/profile/avatar', { method: 'POST', body: formData });
+      const d = await res.json();
+      if (res.ok) {
+        setAvatarUrl(d.avatarUrl);
+        success('Avatar updated');
+      } else {
+        error('Upload failed', d.error ?? 'Please try again');
+      }
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -57,10 +81,25 @@ export function ProfileForm({ user }: ProfileFormProps) {
       </div>
 
       <div className="flex items-center gap-4 mb-5">
-        <Avatar src={user.avatarUrl} fallback={user.username} size="xl" />
+        <Avatar src={avatarUrl} fallback={username} size="xl" />
         <div>
-          <Button variant="secondary" size="sm">Change avatar</Button>
-          <p className="text-[13px] text-text-3 mt-1.5">JPG, PNG or GIF · max 2MB</p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={uploading}
+            onClick={() => fileRef.current?.click()}
+            type="button"
+          >
+            Change avatar
+          </Button>
+          <p className="text-[13px] text-text-3 mt-1.5">JPG, PNG or GIF · max 5MB</p>
         </div>
       </div>
 
