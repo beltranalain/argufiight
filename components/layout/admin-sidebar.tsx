@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   Users, Swords, Shield, Award, Trophy, Gavel, BarChart2, DollarSign,
   Coins, FileText, Megaphone, Globe, Share2, Settings, Bell, HelpCircle,
   Bot, Radio, Store, Receipt, CreditCard, LayoutGrid, MessageSquare,
-  AlertTriangle, Tag, ChevronLeft, ChevronRight, PenSquare,
+  AlertTriangle, Tag, ChevronLeft, ChevronRight, PenSquare, LogOut,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { cn } from '@/lib/cn';
@@ -40,7 +41,14 @@ const NAV_ITEMS = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+
+  async function handleSignOut() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+    router.refresh();
+  }
 
   return (
     <div className={cn(
@@ -89,6 +97,19 @@ export function AdminSidebar() {
         })}
       </nav>
 
+      {/* Sign out */}
+      <button
+        onClick={handleSignOut}
+        title={collapsed ? 'Sign out' : undefined}
+        className={cn(
+          'flex items-center gap-2.5 h-9 border-t border-border text-[var(--red)] hover:bg-[var(--red-muted)] transition-colors cursor-pointer',
+          collapsed ? 'justify-center px-0' : 'px-4'
+        )}
+      >
+        <LogOut size={15} className="flex-shrink-0" />
+        {!collapsed && <span className="text-[14px] font-[500]">Sign out</span>}
+      </button>
+
       {/* Theme toggle + collapse */}
       <div className="border-t border-border flex items-center">
         <ThemeToggle
@@ -97,7 +118,7 @@ export function AdminSidebar() {
         />
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="h-10 w-10 flex-shrink-0 flex items-center justify-center border-l border-border text-text-3 hover:text-text-2 transition-colors"
+          className="h-10 w-10 flex-shrink-0 flex items-center justify-center border-l border-border text-text-3 hover:text-text-2 transition-colors cursor-pointer"
         >
           {collapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
         </button>
