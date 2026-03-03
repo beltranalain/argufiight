@@ -107,6 +107,9 @@ export async function PUT(
   }
 }
 
+// PATCH /api/admin/social-posts/[id] - Partial update (alias for PUT)
+export { PUT as PATCH }
+
 // DELETE /api/admin/social-posts/[id] - Delete a post
 export async function DELETE(
   request: NextRequest,
