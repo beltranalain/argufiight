@@ -76,7 +76,7 @@ export default async function ProfilePage({ params }: Props) {
   const memberSince = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
-    <div className="px-7 py-6 max-w-3xl">
+    <div className="px-7 py-6 max-w-3xl mx-auto">
       {/* Profile header */}
       <Card padding="lg" className="mb-6">
         <div className="flex items-start gap-5">
@@ -156,7 +156,7 @@ export default async function ProfilePage({ params }: Props) {
               description="This user hasn't completed any debates yet."
             />
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {recentDebates.map((debate) => {
                 const isChallenger = debate.challengerId === id;
                 const opponent = isChallenger ? debate.opponent : debate.challenger;
@@ -203,7 +203,7 @@ export default async function ProfilePage({ params }: Props) {
               description="Win belt challenges to earn championship belts."
             />
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {heldBelts.map((belt) => (
                 <Card key={belt.id} padding="md">
                   <div className="flex items-center justify-between">
