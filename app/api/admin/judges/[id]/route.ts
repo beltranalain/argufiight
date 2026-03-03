@@ -17,36 +17,43 @@ export async function GET(
 
     const { id } = await params
 
+    // Fetch judge first (without heavy includes)
     const judge = await prisma.judge.findUnique({
       where: { id },
-      include: {
-        verdicts: {
-          take: 10,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            debate: {
-              select: {
-                id: true,
-                topic: true,
-                category: true,
-                status: true,
-                challenger: { select: { username: true } },
-                opponent: { select: { username: true } },
-              },
-            },
-          },
-        },
-        _count: { select: { verdicts: true } },
-      },
+      include: { _count: { select: { verdicts: true } } },
     })
 
     if (!judge) {
       return NextResponse.json({ error: 'Judge not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ judge })
+    // Fetch recent verdicts separately so it can't break the whole response
+    let verdicts: any[] = []
+    try {
+      verdicts = await prisma.verdict.findMany({
+        where: { judgeId: id },
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          debate: {
+            select: {
+              id: true,
+              topic: true,
+              category: true,
+              status: true,
+              challenger: { select: { username: true } },
+              opponent: { select: { username: true } },
+            },
+          },
+        },
+      })
+    } catch (verdictErr: any) {
+      console.error('Failed to fetch verdicts for judge:', verdictErr?.message)
+    }
+
+    return NextResponse.json({ judge: { ...judge, verdicts } })
   } catch (error: any) {
-    console.error('Failed to fetch judge:', error?.message, error?.code)
+    console.error('Failed to fetch judge:', error?.message, error?.code, error?.stack)
     return NextResponse.json({ error: error?.message || 'Failed to fetch judge' }, { status: 500 })
   }
 }
