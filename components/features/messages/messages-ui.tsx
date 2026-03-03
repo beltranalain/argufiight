@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input, Textarea } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
-import { Send, MessageSquare, Plus, X, Search } from 'lucide-react';
+import { Send, MessageSquare, Plus, X, Search, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -191,8 +191,12 @@ export function MessagesUI({ conversations: initialConversations, currentUserId,
       )}
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Conversation list */}
-        <div className="w-64 border-r border-border flex-shrink-0 flex flex-col">
+        {/* Conversation list — full width on mobile, fixed sidebar on lg+ */}
+        <div className={cn(
+          'border-r border-border flex-shrink-0 flex flex-col',
+          'w-full lg:w-64',
+          activeConvId ? 'hidden lg:flex' : 'flex'
+        )}>
           <div className="p-3 border-b border-border flex-shrink-0">
             <button
               onClick={() => setShowNewModal(true)}
@@ -234,7 +238,7 @@ export function MessagesUI({ conversations: initialConversations, currentUserId,
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={cn(
-                        'text-xs leading-tight truncate',
+                        'text-[14px] leading-tight truncate',
                         hasUnread ? 'font-[500] text-text' : 'text-text-2'
                       )}>
                         {other?.username ?? 'Unknown'}
@@ -254,8 +258,11 @@ export function MessagesUI({ conversations: initialConversations, currentUserId,
           </div>
         </div>
 
-        {/* Message thread */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Message thread — full width on mobile when conversation selected */}
+        <div className={cn(
+          'flex-1 flex flex-col overflow-hidden',
+          !activeConvId ? 'hidden lg:flex' : 'flex'
+        )}>
           {!activeConvId ? (
             <div className="flex-1 flex items-center justify-center">
               <EmptyState
@@ -268,6 +275,13 @@ export function MessagesUI({ conversations: initialConversations, currentUserId,
             <>
               {otherUser && (
                 <div className="h-12 border-b border-border flex items-center gap-3 px-4 flex-shrink-0">
+                  <button
+                    onClick={() => setActiveConvId(null)}
+                    className="lg:hidden w-7 h-7 rounded-full flex items-center justify-center text-text-3 hover:text-text hover:bg-surface-2 transition-colors cursor-pointer"
+                    aria-label="Back to conversations"
+                  >
+                    <ArrowLeft size={16} />
+                  </button>
                   <Avatar src={otherUser.avatarUrl} fallback={otherUser.username} size="sm" />
                   <p className="text-sm font-[450] text-text">{otherUser.username}</p>
                 </div>
@@ -289,14 +303,14 @@ export function MessagesUI({ conversations: initialConversations, currentUserId,
                       <div key={msg.id} className={cn('flex gap-2', isMe ? 'flex-row-reverse' : 'flex-row')}>
                         <div className={cn('max-w-[70%]', isMe && 'items-end flex flex-col')}>
                           <div className={cn(
-                            'px-3.5 py-2.5 rounded-[var(--radius)] text-xs leading-relaxed',
+                            'px-3.5 py-2.5 rounded-[var(--radius)] text-[14px] leading-relaxed',
                             isMe
                               ? 'bg-accent text-[var(--accent-fg)] rounded-tr-[var(--radius-sm)]'
                               : 'bg-surface-2 text-text rounded-tl-[var(--radius-sm)]'
                           )}>
                             {msg.content}
                           </div>
-                          <p className="text-[12px] text-text-3 mt-1" suppressHydrationWarning>
+                          <p className="text-[11px] text-text-3 mt-1" suppressHydrationWarning>
                             {new Date(msg.createdAt).toLocaleTimeString('en-US', {
                               hour: '2-digit', minute: '2-digit',
                             })}
@@ -311,14 +325,14 @@ export function MessagesUI({ conversations: initialConversations, currentUserId,
 
               <form
                 onSubmit={handleSend}
-                className="border-t border-border p-4 flex-shrink-0 flex flex-col gap-2"
+                className="border-t border-border p-3 flex-shrink-0 flex items-end gap-2"
               >
                 <Textarea
                   placeholder="Write a message..."
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  rows={3}
-                  className="w-full min-h-[80px] max-h-[160px] resize-none"
+                  rows={1}
+                  className="flex-1 min-h-[40px] max-h-[120px] resize-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -332,7 +346,6 @@ export function MessagesUI({ conversations: initialConversations, currentUserId,
                   type="submit"
                   loading={sending}
                   disabled={!message.trim()}
-                  className="self-end"
                 >
                   <Send size={13} />
                 </Button>

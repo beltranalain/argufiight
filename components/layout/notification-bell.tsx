@@ -45,7 +45,7 @@ export function NotificationBell() {
   // Fetch on mount + every 30s
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60_000);
+    const interval = setInterval(fetchNotifications, 30_000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
@@ -154,10 +154,16 @@ export function NotificationBell() {
                   </div>
                 );
 
-                return n.debateId ? (
+                const href = n.debateId
+                  ? `/debates/${n.debateId}`
+                  : n.type === 'NEW_MESSAGE'
+                    ? '/messages'
+                    : null;
+
+                return href ? (
                   <Link
                     key={n.id}
-                    href={`/debates/${n.debateId}`}
+                    href={href}
                     onClick={() => { if (!n.read) markRead(n.id); setOpen(false); }}
                     className="block"
                   >
