@@ -34,7 +34,7 @@ export function SignupForm() {
         error('Signup failed', d.error ?? 'Please try again');
         return;
       }
-      router.push('/dashboard');
+      router.push('/onboarding');
     } finally {
       setLoading(false);
     }
