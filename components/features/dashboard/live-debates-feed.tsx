@@ -20,8 +20,21 @@ interface DebateRow {
   opponent:   { username: string; avatarUrl?: string | null } | null;
 }
 
+interface UserDebateRow {
+  id: string;
+  topic: string;
+  category: string;
+  status: string;
+  currentRound: number;
+  totalRounds: number;
+  isOnboardingDebate: boolean;
+  challenger: { username: string; avatarUrl?: string | null };
+  opponent:   { username: string; avatarUrl?: string | null } | null;
+}
+
 interface Props {
   debates: DebateRow[];
+  userDebates?: UserDebateRow[];
 }
 
 const CATEGORIES: { id: DebateCategory | 'ALL'; label: string }[] = [
@@ -45,14 +58,21 @@ const categoryLabel: Record<string, string> = {
   OTHER:         'Other',
 };
 
-export function LiveDebatesFeed({ debates }: Props) {
+export function LiveDebatesFeed({ debates, userDebates = [] }: Props) {
   const [tab,      setTab]      = useState<TabId>('live');
   const [category, setCategory] = useState<DebateCategory | 'ALL'>('ALL');
 
+  // Merge user's own debates into the live feed (avoid duplicates)
+  const publicIds = new Set(debates.map(d => d.id));
+  const userExtras: DebateRow[] = userDebates
+    .filter(d => !publicIds.has(d.id))
+    .map(d => ({ ...d, spectatorCount: 0 }));
+  const allDebates = [...userExtras, ...debates];
+
   const sorted =
     tab === 'trending'
-      ? [...debates].sort((a, b) => b.spectatorCount - a.spectatorCount)
-      : debates;
+      ? [...allDebates].sort((a, b) => b.spectatorCount - a.spectatorCount)
+      : allDebates;
 
   const filtered =
     category === 'ALL'

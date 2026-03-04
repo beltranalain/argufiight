@@ -5,6 +5,7 @@ import { LiveDebatesFeed } from './live-debates-feed';
 import { CreateDebateButton } from '@/components/features/debate/create-debate-button';
 import { DAILY_CHALLENGE_POOL } from '@/lib/daily-challenge/challenges';
 import { VerdictBanner } from './verdict-banner';
+import { Avatar } from '@/components/ui/avatar';
 
 // ──────────────────────────────────────────────
 //  Helpers
@@ -148,6 +149,32 @@ async function getUserAlertData(userId: string) {
 }
 
 // ──────────────────────────────────────────────
+//  USER'S OWN active debates (regardless of privacy)
+// ──────────────────────────────────────────────
+
+async function getUserActiveDebates(userId: string) {
+  return prisma.debate.findMany({
+    where: {
+      OR: [{ challengerId: userId }, { opponentId: userId }],
+      status: { in: ['ACTIVE', 'WAITING'] },
+    },
+    select: {
+      id: true,
+      topic: true,
+      category: true,
+      status: true,
+      currentRound: true,
+      totalRounds: true,
+      isOnboardingDebate: true,
+      challenger: { select: { username: true, avatarUrl: true } },
+      opponent:   { select: { username: true, avatarUrl: true } },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: 10,
+  });
+}
+
+// ──────────────────────────────────────────────
 //  User alerts — streams in via Suspense
 // ──────────────────────────────────────────────
 
@@ -219,8 +246,11 @@ function AlertsSkeleton() {
 // ──────────────────────────────────────────────
 
 export async function DashboardContent({ userId }: { userId: string }) {
-  const { openChallenges, liveDebates, dailyChallenge } =
-    await getPublicDashboardData();
+  const [{ openChallenges, liveDebates, dailyChallenge }, myActiveDebates] =
+    await Promise.all([
+      getPublicDashboardData(),
+      getUserActiveDebates(userId),
+    ]);
 
   // Filter out user's own challenges from the open challenges list
   const filteredChallenges = openChallenges.filter(d => d.challengerId !== userId);
@@ -239,6 +269,57 @@ export async function DashboardContent({ userId }: { userId: string }) {
 
       {/* ── User Alerts ──────────────────────────────────── */}
       <UserAlerts userId={userId} />
+
+      {/* ── Your Active Debates ─────────────────────────── */}
+      {myActiveDebates.length > 0 && (
+        <div className="mb-8 pb-8 border-b border-border">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-[600] uppercase tracking-[1.5px] text-text-3">
+              Your Active Debates{' '}
+              <span className="font-[400]">{myActiveDebates.length}</span>
+            </span>
+            <Link href="/debates/history" className="text-[13px] font-[500] text-text-3 hover:text-text-2 transition-colors">
+              History
+            </Link>
+          </div>
+          {myActiveDebates.map((debate) => (
+            <Link
+              key={debate.id}
+              href={`/debate/${debate.id}`}
+              className="flex items-center gap-3.5 py-3 border-b border-border hover:pl-1.5 transition-all first:border-t first:border-border cursor-pointer"
+            >
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <Avatar
+                  src={debate.challenger.avatarUrl}
+                  fallback={debate.challenger.username}
+                  size="sm"
+                />
+                <span className="text-[12px] text-text-3">vs</span>
+                <Avatar
+                  src={debate.opponent?.avatarUrl}
+                  fallback={debate.opponent?.username ?? '?'}
+                  size="sm"
+                />
+              </div>
+              <span className="flex-1 text-[16px] text-text overflow-hidden text-ellipsis whitespace-nowrap">
+                &ldquo;{debate.topic}&rdquo;
+              </span>
+              {debate.status === 'ACTIVE' ? (
+                <span className="text-[13px] font-[500] text-text-3 border border-border rounded-[20px] px-2 py-0.5 whitespace-nowrap flex-shrink-0">
+                  Round {debate.currentRound} / {debate.totalRounds}
+                </span>
+              ) : (
+                <span className="text-[13px] font-[600] uppercase tracking-[0.5px] border border-[rgba(255,77,77,0.3)] text-[var(--red)] bg-[rgba(255,77,77,0.06)] rounded-[20px] px-2.5 py-0.5 whitespace-nowrap flex-shrink-0">
+                  Waiting
+                </span>
+              )}
+              <span className="border border-accent text-accent rounded-[20px] px-3 py-1 text-[14px] font-[500] hover:bg-accent hover:text-bg transition-colors whitespace-nowrap flex-shrink-0">
+                Continue
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* ── Daily Challenge ────────────────────────────── */}
       <div className="mb-8 pb-8 border-b border-border">
@@ -318,7 +399,7 @@ export async function DashboardContent({ userId }: { userId: string }) {
       </div>
 
       {/* ── Live Debates Feed ─────────────────────────── */}
-      <LiveDebatesFeed debates={liveDebates} />
+      <LiveDebatesFeed debates={liveDebates} userDebates={myActiveDebates} />
     </div>
   );
 }
