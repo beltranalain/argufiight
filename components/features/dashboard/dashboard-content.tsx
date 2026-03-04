@@ -35,7 +35,6 @@ async function getPublicDashboardData() {
       where: {
         status: 'WAITING',
         opponentId: null,
-        OR: [{ isPrivate: false }, { visibility: 'PUBLIC' }],
       },
       select: {
         id: true,
@@ -51,7 +50,6 @@ async function getPublicDashboardData() {
     prisma.debate.findMany({
       where: {
         status: { in: ['ACTIVE', 'WAITING'] },
-        OR: [{ isPrivate: false }, { visibility: 'PUBLIC' }],
       },
       select: {
         id: true,
