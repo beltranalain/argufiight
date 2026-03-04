@@ -50,7 +50,7 @@ export default async function AppLayout({
           <main
             id="main-content"
             tabIndex={-1}
-            className="min-w-0 overflow-x-hidden overflow-y-auto pb-16 lg:pb-0"
+            className="min-w-0 overflow-x-hidden overflow-y-auto pb-36 lg:pb-0"
             style={{ minHeight: 'calc(100vh - 58px)' }}
           >
             <PushBanner />
