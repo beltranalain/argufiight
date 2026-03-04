@@ -107,8 +107,7 @@ export function DebateRoom({ debate, currentUserId }: DebateRoomProps) {
       }
       success('Argument submitted');
       setStatement('');
-      // Refresh page to show new statement
-      window.location.reload();
+      router.refresh();
     } finally {
       setSubmitting(false);
     }
@@ -122,7 +121,7 @@ export function DebateRoom({ debate, currentUserId }: DebateRoomProps) {
     });
     if (res.ok) {
       success('Challenge accepted');
-      window.location.reload();
+      router.refresh();
     } else {
       toastError('Failed to accept challenge');
     }

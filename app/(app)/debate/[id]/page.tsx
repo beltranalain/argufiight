@@ -100,7 +100,7 @@ export default async function DebatePage({ params }: Props) {
 
   // For private debates, only participants can view
   if (
-    debate.visibility === 'PRIVATE' &&
+    debate.isPrivate &&
     session?.userId !== debate.challengerId &&
     session?.userId !== debate.opponentId
   ) {
