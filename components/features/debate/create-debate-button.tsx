@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { X } from 'lucide-react';
+import { X, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/cn';
 
 const CATEGORIES = [
@@ -34,6 +35,38 @@ export function CreateDebateButton({ label = 'Start a debate', prefillTopic = ''
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]         = useState('');
 
+  // Opponent search state
+  const [opponentQuery, setOpponentQuery] = useState('');
+  const [opponentResults, setOpponentResults] = useState<{ id: string; username: string; avatarUrl: string | null; eloRating: number }[]>([]);
+  const [selectedOpponent, setSelectedOpponent] = useState<{ id: string; username: string; avatarUrl: string | null } | null>(null);
+  const [searchingOpponent, setSearchingOpponent] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  // Debounced opponent search
+  useEffect(() => {
+    if (opponentQuery.length < 2) {
+      setOpponentResults([]);
+      setShowResults(false);
+      return;
+    }
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(async () => {
+      setSearchingOpponent(true);
+      try {
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(opponentQuery)}&limit=5`);
+        if (res.ok) {
+          const data = await res.json();
+          setOpponentResults(data.users ?? []);
+          setShowResults(true);
+        }
+      } catch { /* ignore */ }
+      setSearchingOpponent(false);
+    }, 300);
+    return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
+  }, [opponentQuery]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!topic.trim()) { setError('Topic is required'); return; }
@@ -48,8 +81,9 @@ export function CreateDebateButton({ label = 'Start a debate', prefillTopic = ''
           category,
           challengerPosition:  position,
           totalRounds:         rounds,
-          challengeType:       'OPEN',
-          isPrivate,
+          challengeType:       selectedOpponent ? 'DIRECT' : 'OPEN',
+          isPrivate:           selectedOpponent ? true : isPrivate,
+          ...(selectedOpponent && { invitedUserIds: [selectedOpponent.id] }),
         }),
       });
       if (!res.ok) {
@@ -70,6 +104,10 @@ export function CreateDebateButton({ label = 'Start a debate', prefillTopic = ''
   function handleOpen() {
     setTopic(prefillTopic);
     setError('');
+    setSelectedOpponent(null);
+    setOpponentQuery('');
+    setOpponentResults([]);
+    setShowResults(false);
     setOpen(true);
   }
 
@@ -144,6 +182,70 @@ export function CreateDebateButton({ label = 'Start a debate', prefillTopic = ''
                   className="w-full bg-surface-2 border border-border rounded-[var(--radius)] px-3 py-2.5 text-[16px] text-text placeholder:text-text-3 focus:outline-none focus:border-border-2 resize-none transition-colors"
                   required
                 />
+              </div>
+
+              {/* Challenge opponent (optional) */}
+              <div>
+                <label className="block text-[13px] font-[600] uppercase tracking-[1px] text-text-3 mb-1.5">
+                  Challenge User <span className="font-[400] normal-case tracking-normal">(optional)</span>
+                </label>
+                {selectedOpponent ? (
+                  <div className="flex items-center gap-2 bg-surface-2 border border-accent rounded-[var(--radius)] px-3 py-2">
+                    <Avatar src={selectedOpponent.avatarUrl} fallback={selectedOpponent.username} size="xs" />
+                    <span className="text-[15px] text-text flex-1">{selectedOpponent.username}</span>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedOpponent(null); setOpponentQuery(''); }}
+                      className="text-text-3 hover:text-text transition-colors cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-3" />
+                      <input
+                        type="text"
+                        value={opponentQuery}
+                        onChange={(e) => setOpponentQuery(e.target.value)}
+                        onFocus={() => opponentResults.length > 0 && setShowResults(true)}
+                        onBlur={() => setTimeout(() => setShowResults(false), 200)}
+                        placeholder="Search by username..."
+                        className="w-full bg-surface-2 border border-border rounded-[var(--radius)] pl-8 pr-3 py-2 text-[15px] text-text placeholder:text-text-3 focus:outline-none focus:border-border-2 transition-colors"
+                      />
+                      {searchingOpponent && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-text-3 border-t-transparent rounded-full animate-spin" />
+                      )}
+                    </div>
+                    {showResults && opponentResults.length > 0 && (
+                      <div ref={resultsRef} className="absolute z-10 w-full mt-1 bg-surface border border-border rounded-[var(--radius)] shadow-lg max-h-[180px] overflow-y-auto">
+                        {opponentResults.map((user) => (
+                          <button
+                            key={user.id}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              setSelectedOpponent({ id: user.id, username: user.username, avatarUrl: user.avatarUrl });
+                              setOpponentQuery('');
+                              setShowResults(false);
+                            }}
+                            className="flex items-center gap-2 w-full px-3 py-2 hover:bg-surface-2 transition-colors cursor-pointer text-left"
+                          >
+                            <Avatar src={user.avatarUrl} fallback={user.username} size="xs" />
+                            <span className="text-[14px] text-text flex-1">{user.username}</span>
+                            <span className="text-[12px] text-text-3">{user.eloRating} ELO</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {showResults && opponentResults.length === 0 && opponentQuery.length >= 2 && !searchingOpponent && (
+                      <div className="absolute z-10 w-full mt-1 bg-surface border border-border rounded-[var(--radius)] shadow-lg px-3 py-2">
+                        <p className="text-[13px] text-text-3">No users found</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Category + Position row */}
