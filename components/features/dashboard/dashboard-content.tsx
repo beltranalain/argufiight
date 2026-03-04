@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/db/prisma';
-import { unstable_cache } from 'next/cache';
 
 import Link from 'next/link';
 import { LiveDebatesFeed } from './live-debates-feed';
@@ -25,136 +24,128 @@ function formatCategory(cat: string) {
 }
 
 // ──────────────────────────────────────────────
-//  Cache 1 — PUBLIC data (shared across all users, 60s TTL)
+//  PUBLIC data — fresh on every request
 //  Daily challenge, live debates, open challenges
 // ──────────────────────────────────────────────
 
-const getPublicDashboardData = unstable_cache(
-  async () => {
-    const [openChallenges, liveDebates, dailyChallenge] = await Promise.all([
-      prisma.debate.findMany({
-        where: {
-          status: 'WAITING',
-          opponentId: null,
-          OR: [{ isPrivate: false }, { visibility: 'PUBLIC' }],
-        },
-        select: {
-          id: true,
-          topic: true,
-          category: true,
-          challengerId: true,
-          challenger: { select: { username: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-      }),
+async function getPublicDashboardData() {
+  const [openChallenges, liveDebates, dailyChallenge] = await Promise.all([
+    prisma.debate.findMany({
+      where: {
+        status: 'WAITING',
+        opponentId: null,
+        OR: [{ isPrivate: false }, { visibility: 'PUBLIC' }],
+      },
+      select: {
+        id: true,
+        topic: true,
+        category: true,
+        challengerId: true,
+        challenger: { select: { username: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    }),
 
-      prisma.debate.findMany({
-        where: {
-          status: { in: ['ACTIVE', 'WAITING'] },
-          OR: [{ isPrivate: false }, { visibility: 'PUBLIC' }],
-        },
-        select: {
-          id: true,
-          topic: true,
-          category: true,
-          status: true,
-          currentRound: true,
-          totalRounds: true,
-          spectatorCount: true,
-          challenger: { select: { username: true, avatarUrl: true } },
-          opponent:   { select: { username: true, avatarUrl: true } },
-        },
-        orderBy: [{ status: 'asc' }, { spectatorCount: 'desc' }],
-        take: 15,
-      }),
+    prisma.debate.findMany({
+      where: {
+        status: { in: ['ACTIVE', 'WAITING'] },
+        OR: [{ isPrivate: false }, { visibility: 'PUBLIC' }],
+      },
+      select: {
+        id: true,
+        topic: true,
+        category: true,
+        status: true,
+        currentRound: true,
+        totalRounds: true,
+        spectatorCount: true,
+        challenger: { select: { username: true, avatarUrl: true } },
+        opponent:   { select: { username: true, avatarUrl: true } },
+      },
+      orderBy: [{ status: 'asc' }, { spectatorCount: 'desc' }],
+      take: 15,
+    }),
 
-      (async () => {
-        const today = new Date();
-        today.setUTCHours(0, 0, 0, 0);
-        let challenge = await prisma.dailyChallenge.findUnique({ where: { activeDate: today } });
-        if (!challenge) {
-          const usedCount = await prisma.dailyChallenge.count();
-          const topicData = DAILY_CHALLENGE_POOL[usedCount % DAILY_CHALLENGE_POOL.length];
-          challenge = await prisma.dailyChallenge.create({
-            data: {
-              topic: topicData.topic,
-              description: topicData.description,
-              category: topicData.category as any,
-              forLabel: topicData.forLabel,
-              againstLabel: topicData.againstLabel,
-              activeDate: today,
-            },
-          });
-        }
-        return challenge;
-      })(),
-    ]);
-
-    return { openChallenges, liveDebates, dailyChallenge };
-  },
-  ['dashboard-public'],
-  { revalidate: 30 }
-);
-
-// ──────────────────────────────────────────────
-//  Cache 2 — USER-SPECIFIC data (per-user, 20s TTL)
-//  Your turn + verdict alerts only — 2 fast queries
-// ──────────────────────────────────────────────
-
-const getUserAlertData = unstable_cache(
-  async (userId: string) => {
-    const [yourTurnDebate_raw, verdictDebate, totalDebateCount] = await Promise.all([
-      prisma.debate.findMany({
-        where: {
-          OR: [{ challengerId: userId }, { opponentId: userId }],
-          status: { in: ['WAITING', 'ACTIVE'] },
-        },
-        select: {
-          id: true,
-          topic: true,
-          currentRound: true,
-          totalRounds: true,
-          status: true,
-          challengerId: true,
-          opponentId: true,
-          statements: {
-            where: { authorId: userId },
-            select: { round: true },
+    (async () => {
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      let challenge = await prisma.dailyChallenge.findUnique({ where: { activeDate: today } });
+      if (!challenge) {
+        const usedCount = await prisma.dailyChallenge.count();
+        const topicData = DAILY_CHALLENGE_POOL[usedCount % DAILY_CHALLENGE_POOL.length];
+        challenge = await prisma.dailyChallenge.create({
+          data: {
+            topic: topicData.topic,
+            description: topicData.description,
+            category: topicData.category as any,
+            forLabel: topicData.forLabel,
+            againstLabel: topicData.againstLabel,
+            activeDate: today,
           },
-        },
-        orderBy: { updatedAt: 'desc' },
-        take: 10,
-      }),
-
-      prisma.debate.findFirst({
-        where: {
-          OR: [{ challengerId: userId }, { opponentId: userId }],
-          status: 'VERDICT_READY',
-        },
-        select: { id: true, topic: true, winnerId: true, challengerId: true },
-        orderBy: { updatedAt: 'desc' },
-      }),
-
-      prisma.debate.count({
-        where: { OR: [{ challengerId: userId }, { opponentId: userId }] },
-      }),
-    ]);
-
-    const yourTurnDebate = yourTurnDebate_raw.find(d => {
-      if (d.status === 'WAITING') return d.opponentId === userId;
-      if (d.status === 'ACTIVE') {
-        const submittedRounds = new Set(d.statements.map((s: any) => s.round));
-        return !submittedRounds.has(d.currentRound ?? 1);
+        });
       }
-      return false;
-    }) ?? null;
+      return challenge;
+    })(),
+  ]);
 
-    return { yourTurnDebate, verdictDebate, isNewUser: totalDebateCount === 0 };
-  },
-  ['dashboard-user'],
-  { revalidate: 20 }
-);
+  return { openChallenges, liveDebates, dailyChallenge };
+}
+
+// ──────────────────────────────────────────────
+//  USER-SPECIFIC data — fresh on every request
+//  Your turn + verdict alerts only
+// ──────────────────────────────────────────────
+
+async function getUserAlertData(userId: string) {
+  const [yourTurnDebate_raw, verdictDebate, totalDebateCount] = await Promise.all([
+    prisma.debate.findMany({
+      where: {
+        OR: [{ challengerId: userId }, { opponentId: userId }],
+        status: { in: ['WAITING', 'ACTIVE'] },
+      },
+      select: {
+        id: true,
+        topic: true,
+        currentRound: true,
+        totalRounds: true,
+        status: true,
+        challengerId: true,
+        opponentId: true,
+        statements: {
+          where: { authorId: userId },
+          select: { round: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 10,
+    }),
+
+    prisma.debate.findFirst({
+      where: {
+        OR: [{ challengerId: userId }, { opponentId: userId }],
+        status: 'VERDICT_READY',
+      },
+      select: { id: true, topic: true, winnerId: true, challengerId: true },
+      orderBy: { updatedAt: 'desc' },
+    }),
+
+    prisma.debate.count({
+      where: { OR: [{ challengerId: userId }, { opponentId: userId }] },
+    }),
+  ]);
+
+  const yourTurnDebate = yourTurnDebate_raw.find(d => {
+    if (d.status === 'WAITING') return d.opponentId === userId;
+    if (d.status === 'ACTIVE') {
+      const submittedRounds = new Set(d.statements.map((s: any) => s.round));
+      return !submittedRounds.has(d.currentRound ?? 1);
+    }
+    return false;
+  }) ?? null;
+
+  return { yourTurnDebate, verdictDebate, isNewUser: totalDebateCount === 0 };
+}
 
 // ──────────────────────────────────────────────
 //  User alerts — streams in via Suspense

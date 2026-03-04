@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/db/prisma';
-import { unstable_cache } from 'next/cache';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/cn';
@@ -19,53 +18,49 @@ function formatDate(d: Date | string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-const getProfileData = unstable_cache(
-  async (userId: string) => {
-    const [user, recentDebates] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          username: true,
-          avatarUrl: true,
-          eloRating: true,
-          debatesWon: true,
-          debatesLost: true,
-          debatesTied: true,
-          consecutiveLoginDays: true,
-          subscription: { select: { tier: true } },
-        },
-      }),
+async function getProfileData(userId: string) {
+  const [user, recentDebates] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        avatarUrl: true,
+        eloRating: true,
+        debatesWon: true,
+        debatesLost: true,
+        debatesTied: true,
+        consecutiveLoginDays: true,
+        subscription: { select: { tier: true } },
+      },
+    }),
 
-      prisma.debate.findMany({
-        where: {
-          OR: [{ challengerId: userId }, { opponentId: userId }],
-          status: { in: ['WAITING', 'ACTIVE', 'VERDICT_READY', 'COMPLETED'] },
-        },
-        select: {
-          id: true,
-          topic: true,
-          status: true,
-          winnerId: true,
-          challengerId: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-      }),
-    ]);
+    prisma.debate.findMany({
+      where: {
+        OR: [{ challengerId: userId }, { opponentId: userId }],
+        status: { in: ['WAITING', 'ACTIVE', 'VERDICT_READY', 'COMPLETED'] },
+      },
+      select: {
+        id: true,
+        topic: true,
+        status: true,
+        winnerId: true,
+        challengerId: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    }),
+  ]);
 
-    const userRank = user
-      ? (await prisma.user.count({
-          where: { eloRating: { gt: user.eloRating }, isBanned: false },
-        })) + 1
-      : null;
+  const userRank = user
+    ? (await prisma.user.count({
+        where: { eloRating: { gt: user.eloRating }, isBanned: false },
+      })) + 1
+    : null;
 
-    return { user, recentDebates, userRank };
-  },
-  ['profile-panel'],
-  { revalidate: 30 }
-);
+  return { user, recentDebates, userRank };
+}
 
 export async function ProfilePanel({ userId }: Props) {
   const { user, recentDebates, userRank } = await getProfileData(userId);
