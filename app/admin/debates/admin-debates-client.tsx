@@ -9,8 +9,7 @@ import { Modal } from '@/components/ui/modal';
 import { Avatar } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
-import { ExternalLink, Search, Trash2 } from 'lucide-react';
-import Link from 'next/link';
+import { Search, Trash2 } from 'lucide-react';
 
 type DebateStatus = 'WAITING' | 'ACTIVE' | 'COMPLETED' | 'VERDICT_READY' | 'APPEALED' | 'CANCELLED';
 type BadgeColor = 'muted' | 'green' | 'blue' | 'amber' | 'red';
@@ -384,13 +383,7 @@ export function AdminDebatesClient() {
                 <Trash2 size={13} className="mr-1.5" />
                 Delete Debate
               </Button>
-              <Link href={`/debate/${debateDetail.id}`} target="_blank">
-                <Button variant="secondary" size="sm">
-                  <ExternalLink size={13} className="mr-1.5" />
-                  View Debate
-                </Button>
-              </Link>
-              <Button variant="secondary" size="sm" onClick={() => setSelectedDebateId(null)}>Close</Button>
+<Button variant="secondary" size="sm" onClick={() => setSelectedDebateId(null)}>Close</Button>
             </div>
           </div>
         )}
