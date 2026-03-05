@@ -171,6 +171,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // --- VERDICT_READY debates older than 24h → auto-complete ---
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const autoCompletedCount = Number(await prisma.$executeRaw`
+      UPDATE debates
+      SET status = 'COMPLETED'::"DebateStatus"
+      WHERE status = 'VERDICT_READY'
+        AND verdict_date IS NOT NULL
+        AND verdict_date <= ${oneDayAgo}
+    `)
+    if (autoCompletedCount > 0) {
+      console.log(`[Cron] Auto-completed ${autoCompletedCount} stale VERDICT_READY debates`)
+    }
+
     const summary = {
       success: true,
       timestamp: now.toISOString(),
@@ -178,6 +191,7 @@ export async function GET(request: NextRequest) {
       processed: processedCount,
       advanced: advancedCount,
       completed: completedCount,
+      autoCompleted: autoCompletedCount,
       errors: errors.length > 0 ? errors : undefined,
     }
 

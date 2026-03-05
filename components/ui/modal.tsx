@@ -113,7 +113,7 @@ export function Modal({
         )}
 
         {/* Content */}
-        <div className="p-5">{children}</div>
+        <div className="p-5 overflow-y-auto max-h-[calc(100vh-10rem)]">{children}</div>
       </div>
     </div>
   );
