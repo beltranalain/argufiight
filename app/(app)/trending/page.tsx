@@ -32,9 +32,9 @@ export default async function TrendingPage() {
         <h1 className="heading-1">Trending Debates</h1>
       </div>
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-3">
         {debates.map((debate, i) => (
-          <Link key={debate.id} href={`/debate/${debate.id}`}>
+          <Link key={debate.id} href={`/debate/${debate.id}`} className="block">
             <Card hover padding="md" className="group">
               <div className="flex items-start gap-4">
                 <span className="text-xl font-[200] text-text-3 w-8 flex-shrink-0 leading-tight">
