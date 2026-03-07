@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const formData = await request.formData()
+    const formData: any = await request.formData()
     const fileEntry = formData.get('image')
     const file = fileEntry instanceof File ? fileEntry : null
     const sectionId = (formData.get('sectionId') as string | null) || ''

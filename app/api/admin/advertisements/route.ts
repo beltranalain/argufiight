@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const formData = await request.formData()
+    const formData: any = await request.formData()
     const title = formData.get('title') as string
     const type = formData.get('type') as string
     const targetUrl = formData.get('targetUrl') as string

@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const formData = await request.formData()
+    const formData: any = await request.formData()
     const username = formData.get('username') as string
     const aiPersonality = formData.get('aiPersonality') as string
     const aiResponseDelay = parseInt(formData.get('aiResponseDelay') as string)

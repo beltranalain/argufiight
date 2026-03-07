@@ -224,7 +224,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const formData = await request.formData()
+    const formData: any = await request.formData()
     const name = formData.get('name') as string
     const type = formData.get('type') as string
     const category = formData.get('category') as string

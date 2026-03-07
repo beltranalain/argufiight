@@ -1,0 +1,2110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ArguFight Mobile App — Prototype</title>
+<style>
+/* ============================================================
+   ARGUFIGHT MOBILE PROTOTYPE — Design System
+   Font: Inter 200–600 | Accent: #d4f050
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0c0c0c;
+  --surface: #141414;
+  --surface-2: #1c1c1c;
+  --surface-3: #242424;
+  --border: #2a2a2a;
+  --border-2: #363636;
+  --text: #e8e8e8;
+  --text-2: #909090;
+  --text-3: #525252;
+  --accent: #d4f050;
+  --accent-2: #c2e040;
+  --accent-fg: #0c0c0c;
+  --red: #ff4d4d;
+  --red-muted: rgba(255, 77, 77, 0.12);
+  --green: #4dff91;
+  --green-muted: rgba(77, 255, 145, 0.12);
+  --blue: #4d9fff;
+  --amber: #ffcf4d;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 16px;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text);
+  background: #111;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 20px;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* Phone frame */
+.phone {
+  width: 390px;
+  height: 844px;
+  background: var(--bg);
+  border-radius: 44px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 0 0 3px #333, 0 0 0 6px #1a1a1a, 0 25px 60px rgba(0,0,0,0.5);
+  flex-shrink: 0;
+}
+
+.phone-label {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.phone-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Notch / Dynamic Island */
+.notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 126px;
+  height: 37px;
+  background: #000;
+  border-radius: 0 0 22px 22px;
+  z-index: 100;
+}
+
+/* Status bar */
+.status-bar {
+  height: 54px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 28px 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  position: relative;
+  z-index: 99;
+}
+
+.status-bar-right {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  font-size: 12px;
+}
+
+/* Screen content area */
+.screen {
+  height: calc(844px - 54px);
+  overflow-y: auto;
+  position: relative;
+}
+
+.screen::-webkit-scrollbar { width: 0; }
+
+/* Home indicator */
+.home-indicator {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 134px;
+  height: 5px;
+  background: var(--text-3);
+  border-radius: 5px;
+  z-index: 100;
+}
+
+/* ============================================================
+   SPLASH SCREEN
+   ============================================================ */
+
+.splash-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 40px;
+  text-align: center;
+}
+
+.splash-logo-box {
+  width: 80px;
+  height: 80px;
+  background: var(--accent);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  animation: splash-pulse 2s ease-in-out infinite;
+}
+
+@keyframes splash-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 240, 80, 0.3); }
+  50% { box-shadow: 0 0 0 20px rgba(212, 240, 80, 0); }
+}
+
+.splash-logo-box svg {
+  width: 40px;
+  height: 40px;
+  color: var(--accent-fg);
+}
+
+.splash-title {
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.splash-title strong {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.splash-tagline {
+  font-size: 14px;
+  color: var(--text-3);
+  margin-bottom: 48px;
+  letter-spacing: 0.5px;
+}
+
+.splash-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.splash-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-2);
+}
+
+.splash-dot.active {
+  background: var(--accent);
+  width: 24px;
+  border-radius: 4px;
+}
+
+/* Onboarding slides area */
+.onboarding-slides {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 40px;
+  text-align: center;
+}
+
+.onboarding-icon {
+  width: 120px;
+  height: 120px;
+  border-radius: 30px;
+  background: rgba(212, 240, 80, 0.06);
+  border: 1px solid rgba(212, 240, 80, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32px;
+}
+
+.onboarding-icon svg {
+  width: 56px;
+  height: 56px;
+  color: var(--accent);
+  stroke-width: 1.2;
+}
+
+.onboarding-heading {
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 12px;
+  letter-spacing: -0.5px;
+}
+
+.onboarding-desc {
+  font-size: 15px;
+  color: var(--text-2);
+  line-height: 1.6;
+  max-width: 280px;
+}
+
+.onboarding-bottom {
+  padding: 24px 24px 40px;
+  width: 100%;
+}
+
+.btn-accent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 48px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: none;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+  transition: background 0.15s;
+}
+
+.btn-accent:hover { background: var(--accent-2); }
+
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 48px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.btn-secondary:hover { border-color: var(--border-2); }
+
+.btn-ghost {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 16px;
+}
+
+.onboarding-dots {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+/* ============================================================
+   LOGIN / SIGNUP SCREEN
+   ============================================================ */
+
+.auth-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.auth-header {
+  padding: 16px 24px 0;
+}
+
+.auth-back {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text-2);
+}
+
+.auth-body {
+  flex: 1;
+  padding: 24px 24px 40px;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-logo {
+  font-size: 19px;
+  font-weight: 300;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 32px;
+}
+
+.auth-logo strong {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.auth-title {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.auth-subtitle {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-bottom: 28px;
+}
+
+/* Form elements */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  height: 44px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.form-input:focus {
+  border-color: var(--accent);
+}
+
+.form-input::placeholder {
+  color: var(--text-3);
+}
+
+.separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.separator-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.separator-text {
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.auth-footer {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+  padding: 20px 0;
+}
+
+.auth-footer a, .auth-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 450;
+  cursor: pointer;
+}
+
+.auth-terms {
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+  margin-top: 16px;
+  line-height: 1.6;
+}
+
+.auth-terms a {
+  color: var(--text-2);
+  text-decoration: underline;
+  text-decoration-color: var(--border-2);
+}
+
+/* Social login buttons */
+.social-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.btn-apple {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 48px;
+  background: #fff;
+  color: #000;
+  border: none;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* ============================================================
+   DASHBOARD SCREEN
+   ============================================================ */
+
+.dashboard-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* Topnav */
+.topnav {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.topnav-logo {
+  font-size: 17px;
+  font-weight: 300;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.topnav-logo strong {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.topnav-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topnav-coins {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--amber);
+  letter-spacing: 0.3px;
+}
+
+.topnav-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  position: relative;
+}
+
+.notif-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  background: var(--red);
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+}
+
+.topnav-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  overflow: hidden;
+}
+
+.topnav-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Dashboard content */
+.dashboard-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 16px 100px;
+}
+
+.dashboard-body::-webkit-scrollbar { width: 0; }
+
+/* Your Turn alert */
+.alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+}
+
+.alert-your-turn {
+  background: rgba(255, 77, 77, 0.04);
+  border: 1px solid rgba(255, 77, 77, 0.2);
+}
+
+.alert-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+  flex-shrink: 0;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.alert-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--red);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.alert-slash {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.alert-topic {
+  font-size: 15px;
+  color: var(--text-2);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alert-btn {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  border-radius: 20px;
+  background: var(--red);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Section headers */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-3);
+}
+
+.section-title span {
+  font-weight: 400;
+}
+
+.section-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-3);
+  text-decoration: none;
+}
+
+/* Active debate row */
+.debate-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.debate-row:first-child {
+  border-top: 1px solid var(--border);
+}
+
+.debate-avatars {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mini-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.mini-avatar.green { background: rgba(77, 255, 145, 0.12); color: var(--green); }
+.mini-avatar.blue { background: rgba(77, 159, 255, 0.12); color: var(--blue); }
+.mini-avatar.amber { background: rgba(255, 207, 77, 0.12); color: var(--amber); }
+.mini-avatar.red { background: rgba(255, 77, 77, 0.12); color: var(--red); }
+.mini-avatar.accent { background: rgba(212, 240, 80, 0.12); color: var(--accent); }
+
+.debate-vs {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.debate-topic {
+  flex: 1;
+  font-size: 16px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debate-round {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.debate-status-waiting {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--red);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.debate-continue {
+  flex-shrink: 0;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--accent);
+  background: none;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Daily challenge */
+.daily-section {
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.daily-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+
+.daily-headline {
+  font-size: 32px;
+  font-weight: 200;
+  letter-spacing: -1.5px;
+  line-height: 1.15;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.daily-headline strong {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.daily-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  color: var(--text-2);
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.daily-meta-sep {
+  color: var(--border-2);
+}
+
+.daily-badge {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+}
+
+.btn-accent-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 20px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: none;
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.3px;
+}
+
+/* Open challenges */
+.challenge-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.challenge-row:first-child {
+  border-top: 1px solid var(--border);
+}
+
+.challenge-num {
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--text-3);
+  width: 18px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.challenge-cat {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-3);
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.challenge-topic {
+  flex: 1;
+  font-size: 16px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.challenge-user {
+  font-size: 14px;
+  color: var(--text-3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.challenge-cost {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--amber);
+  white-space: nowrap;
+  flex-shrink: 0;
+  width: 40px;
+  text-align: right;
+}
+
+.challenge-accept {
+  flex-shrink: 0;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--accent);
+  background: none;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Live debates tabs */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+  gap: 0;
+}
+
+.tab-item {
+  padding: 8px 14px;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  color: var(--text-3);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  font-family: inherit;
+}
+
+.tab-item.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* Category filter chips */
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+
+.chip {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  background: none;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.chip.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(212, 240, 80, 0.06);
+}
+
+/* Live debate card */
+.live-card {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.live-cat {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+
+.live-players {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.live-topic {
+  font-size: 16px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-right {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.live-round {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-3);
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+
+.live-spectators {
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.live-open {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+
+/* Bottom nav */
+.bottom-nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: rgba(12, 12, 12, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-bottom: 6px;
+  z-index: 50;
+}
+
+.nav-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex: 1;
+  height: 100%;
+  color: var(--text-3);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nav-tab.active {
+  color: var(--accent);
+}
+
+.nav-tab svg {
+  width: 20px;
+  height: 20px;
+}
+
+.nav-tab-label {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+/* FAB */
+.fab {
+  position: absolute;
+  right: 16px;
+  bottom: 76px;
+  width: 52px;
+  height: 52px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(212, 240, 80, 0.3);
+  z-index: 51;
+  cursor: pointer;
+}
+
+.fab svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Active debates section wrapper */
+.active-section {
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ============================================================
+   SIGNUP SCREEN SPECIFICS
+   ============================================================ */
+
+.form-group-compact {
+  margin-bottom: 12px;
+}
+
+/* ============================================================
+   RESPONSIVE — shrink phones on small viewports
+   ============================================================ */
+
+@media (max-width: 1600px) {
+  .phone { transform: scale(0.85); transform-origin: top center; }
+}
+
+@media (max-width: 1200px) {
+  .phone { transform: scale(0.75); transform-origin: top center; }
+}
+
+@media (max-width: 900px) {
+  body { padding: 10px; gap: 10px; }
+  .phone { transform: scale(0.65); transform-origin: top center; }
+}
+
+/* ============================================================
+   PROFILE SCREEN
+   ============================================================ */
+
+.profile-header-bg {
+  height: 100px;
+  background: linear-gradient(135deg, rgba(212,240,80,0.08) 0%, rgba(212,240,80,0.02) 100%);
+  position: relative;
+}
+
+.profile-avatar-wrap {
+  position: absolute;
+  bottom: -36px;
+  left: 24px;
+}
+
+.profile-avatar-lg {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: 3px solid var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.profile-info {
+  padding: 44px 24px 0;
+}
+
+.profile-name {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.profile-handle {
+  font-size: 14px;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+
+.profile-bio {
+  font-size: 14px;
+  color: var(--text-2);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.profile-stat {
+  text-align: center;
+  padding: 12px 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.profile-stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.profile-stat-label {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.profile-stat-value.green { color: var(--green); }
+.profile-stat-value.red { color: var(--red); }
+.profile-stat-value.accent { color: var(--accent); }
+
+.profile-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.profile-actions .btn-accent {
+  flex: 1;
+  height: 40px;
+  font-size: 14px;
+}
+
+.profile-actions .btn-secondary {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  padding: 0;
+  gap: 0;
+}
+
+.profile-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-3);
+  margin-bottom: 12px;
+  padding: 0 24px;
+}
+
+.profile-debate-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-debate-result {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.result-win { background: var(--green-muted); color: var(--green); }
+.result-loss { background: var(--red-muted); color: var(--red); }
+
+.profile-debate-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-debate-topic {
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-debate-vs {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.profile-elo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: rgba(212, 240, 80, 0.06);
+  border: 1px solid rgba(212, 240, 80, 0.15);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-left: 8px;
+}
+
+/* ============================================================
+   SETTINGS SCREEN
+   ============================================================ */
+
+.settings-body {
+  padding: 16px 0 100px;
+}
+
+.settings-section-label {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  padding: 0 24px;
+  margin-bottom: 8px;
+  margin-top: 24px;
+}
+
+.settings-section-label:first-child {
+  margin-top: 0;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.settings-row:hover {
+  background: var(--surface);
+}
+
+.settings-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-2);
+}
+
+.settings-row-text {
+  flex: 1;
+}
+
+.settings-row-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.settings-row-desc {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+
+.settings-chevron {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.settings-row.danger .settings-row-title {
+  color: var(--red);
+}
+
+.settings-row.danger .settings-icon {
+  background: var(--red-muted);
+  color: var(--red);
+}
+
+/* Simple back nav for sub-screens */
+.sub-topnav {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.sub-topnav-title {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.sub-topnav-back {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     SCREEN 1: SPLASH / ONBOARDING
+     ============================================================ -->
+<div class="phone-wrapper">
+  <div class="phone-label">Splash / Onboarding</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="status-bar-right">
+        <svg width="16" height="12" fill="currentColor" viewBox="0 0 16 12"><rect x="0" y="5" width="3" height="7" rx="0.5" opacity="0.3"/><rect x="4.5" y="3" width="3" height="9" rx="0.5" opacity="0.5"/><rect x="9" y="1" width="3" height="11" rx="0.5" opacity="0.7"/><rect x="13.5" y="0" width="2.5" height="12" rx="0.5"/></svg>
+        <svg width="16" height="12" fill="currentColor" viewBox="0 0 16 12"><path d="M8 3.5C9.74 3.5 11.33 4.17 12.54 5.28L14 3.82C12.39 2.31 10.3 1.5 8 1.5C5.7 1.5 3.61 2.31 2 3.82L3.46 5.28C4.67 4.17 6.26 3.5 8 3.5Z" opacity="0.5"/><path d="M8 6.5C9.14 6.5 10.19 6.92 11 7.63L12.54 6.09C11.33 4.97 9.74 4.3 8 4.3C6.26 4.3 4.67 4.97 3.46 6.09L5 7.63C5.81 6.92 6.86 6.5 8 6.5Z" opacity="0.7"/><path d="M8 9.5C8.78 9.5 9.49 9.78 10.04 10.24L8 12.5L5.96 10.24C6.51 9.78 7.22 9.5 8 9.5Z"/></svg>
+        <svg width="25" height="12" fill="currentColor" viewBox="0 0 25 12"><rect x="0" y="1" width="21" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1"/><rect x="22" y="3.5" width="2" height="5" rx="1" opacity="0.4"/><rect x="1.5" y="2.5" width="14" height="7" rx="1" fill="var(--accent)"/></svg>
+      </div>
+    </div>
+    <div class="screen">
+      <div class="splash-content" style="padding-bottom: 0;">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+          <div class="onboarding-icon">
+            <!-- Swords icon -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/><path d="M14.5 6.5L18 3h3v3l-11.5 11.5"/><path d="M5 14l4 4"/><path d="M7 17l-3 3"/><path d="M3 19l2 2"/></svg>
+          </div>
+          <div class="onboarding-heading">Argue. Win. Prove it.</div>
+          <div class="onboarding-desc">The premier AI-judged debate platform. Challenge opponents, earn championship belts, and climb the global leaderboard.</div>
+        </div>
+        <div class="onboarding-bottom">
+          <div class="onboarding-dots">
+            <div class="splash-dot active"></div>
+            <div class="splash-dot"></div>
+            <div class="splash-dot"></div>
+          </div>
+          <button class="btn-accent" style="margin-bottom: 12px;">Get Started</button>
+          <div style="text-align:center;">
+            <span class="btn-ghost">Already have an account? <span style="color:var(--accent);font-weight:450;">Sign in</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="home-indicator"></div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     SCREEN 2: LOGIN
+     ============================================================ -->
+<div class="phone-wrapper">
+  <div class="phone-label">Login</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="status-bar-right">
+        <svg width="16" height="12" fill="currentColor" viewBox="0 0 16 12"><rect x="0" y="5" width="3" height="7" rx="0.5" opacity="0.3"/><rect x="4.5" y="3" width="3" height="9" rx="0.5" opacity="0.5"/><rect x="9" y="1" width="3" height="11" rx="0.5" opacity="0.7"/><rect x="13.5" y="0" width="2.5" height="12" rx="0.5"/></svg>
+        <svg width="16" height="12" fill="currentColor" viewBox="0 0 16 12"><path d="M8 3.5C9.74 3.5 11.33 4.17 12.54 5.28L14 3.82C12.39 2.31 10.3 1.5 8 1.5C5.7 1.5 3.61 2.31 2 3.82L3.46 5.28C4.67 4.17 6.26 3.5 8 3.5Z" opacity="0.5"/><path d="M8 6.5C9.14 6.5 10.19 6.92 11 7.63L12.54 6.09C11.33 4.97 9.74 4.3 8 4.3C6.26 4.3 4.67 4.97 3.46 6.09L5 7.63C5.81 6.92 6.86 6.5 8 6.5Z" opacity="0.7"/><path d="M8 9.5C8.78 9.5 9.49 9.78 10.04 10.24L8 12.5L5.96 10.24C6.51 9.78 7.22 9.5 8 9.5Z"/></svg>
+        <svg width="25" height="12" fill="currentColor" viewBox="0 0 25 12"><rect x="0" y="1" width="21" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1"/><rect x="22" y="3.5" width="2" height="5" rx="1" opacity="0.4"/><rect x="1.5" y="2.5" width="14" height="7" rx="1" fill="var(--accent)"/></svg>
+      </div>
+    </div>
+    <div class="screen">
+      <div class="auth-screen">
+        <div class="auth-header">
+          <div class="auth-back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          </div>
+        </div>
+        <div class="auth-body">
+          <div class="auth-logo">Argu<strong>fight</strong></div>
+          <div class="auth-title">Sign in</div>
+          <div class="auth-subtitle">Welcome back. Enter your credentials to continue.</div>
+
+          <div class="social-buttons">
+            <button class="btn-apple">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+              Sign in with Apple
+            </button>
+            <button class="btn-secondary">
+              <svg width="14" height="14" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+              Continue with Google
+            </button>
+          </div>
+
+          <div class="separator">
+            <div class="separator-line"></div>
+            <span class="separator-text">or</span>
+            <div class="separator-line"></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" type="email" placeholder="you@example.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="form-input" type="password" placeholder="Enter your password" />
+          </div>
+
+          <button class="btn-accent" style="margin-top:4px;">Sign in</button>
+
+          <div style="text-align:center; margin-top:16px;">
+            <a class="auth-link" style="font-size:13px; color:var(--text-3);">Forgot your password?</a>
+          </div>
+
+          <div class="auth-footer" style="margin-top:auto;">
+            No account? <a class="auth-link">Create one</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="home-indicator"></div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     SCREEN 3: SIGN UP
+     ============================================================ -->
+<div class="phone-wrapper">
+  <div class="phone-label">Sign Up</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="status-bar-right">
+        <svg width="16" height="12" fill="currentColor" viewBox="0 0 16 12"><rect x="0" y="5" width="3" height="7" rx="0.5" opacity="0.3"/><rect x="4.5" y="3" width="3" height="9" rx="0.5" opacity="0.5"/><rect x="9" y="1" width="3" height="11" rx="0.5" opacity="0.7"/><rect x="13.5" y="0" width="2.5" height="12" rx="0.5"/></svg>
+        <svg width="16" height="12" fill="currentColor" viewBox="0 0 16 12"><path d="M8 3.5C9.74 3.5 11.33 4.17 12.54 5.28L14 3.82C12.39 2.31 10.3 1.5 8 1.5C5.7 1.5 3.61 2.31 2 3.82L3.46 5.28C4.67 4.17 6.26 3.5 8 3.5Z" opacity="0.5"/><path d="M8 6.5C9.14 6.5 10.19 6.92 11 7.63L12.54 6.09C11.33 4.97 9.74 4.3 8 4.3C6.26 4.3 4.67 4.97 3.46 6.09L5 7.63C5.81 6.92 6.86 6.5 8 6.5Z" opacity="0.7"/><path d="M8 9.5C8.78 9.5 9.49 9.78 10.04 10.24L8 12.5L5.96 10.24C6.51 9.78 7.22 9.5 8 9.5Z"/></svg>
+        <svg width="25" height="12" fill="currentColor" viewBox="0 0 25 12"><rect x="0" y="1" width="21" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1"/><rect x="22" y="3.5" width="2" height="5" rx="1" opacity="0.4"/><rect x="1.5" y="2.5" width="14" height="7" rx="1" fill="var(--accent)"/></svg>
+      </div>
+    </div>
+    <div class="screen">
+      <div class="auth-screen">
+        <div class="auth-header">
+          <div class="auth-back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          </div>
+        </div>
+        <div class="auth-body">
+          <div class="auth-logo">Argu<strong>fight</strong></div>
+          <div class="auth-title">Create account</div>
+          <div class="auth-subtitle">Join the arena. Start debating today.</div>
+
+          <div class="social-buttons">
+            <button class="btn-apple">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+              Sign up with Apple
+            </button>
+            <button class="btn-secondary">
+              <svg width="14" height="14" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+              Continue with Google
+            </button>
+          </div>
+
+          <div class="separator">
+            <div class="separator-line"></div>
+            <span class="separator-text">or</span>
+            <div class="separator-line"></div>
+          </div>
+
+          <div class="form-group-compact">
+            <label class="form-label">Username</label>
+            <input class="form-input" type="text" placeholder="Choose a username" />
+          </div>
+          <div class="form-group-compact">
+            <label class="form-label">Email</label>
+            <input class="form-input" type="email" placeholder="you@example.com" />
+          </div>
+          <div class="form-group-compact">
+            <label class="form-label">Password</label>
+            <input class="form-input" type="password" placeholder="Min. 8 characters" />
+          </div>
+
+          <button class="btn-accent" style="margin-top:8px;">Create account</button>
+
+          <div class="auth-terms">
+            By signing up you agree to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a>
+          </div>
+
+          <div class="auth-footer" style="margin-top:auto;">
+            Already have an account? <a class="auth-link">Sign in</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="home-indicator"></div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     SCREEN 4: DASHBOARD
+     ============================================================ -->
+<div class="phone-wrapper">
+  <div class="phone-label">Dashboard</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="status-bar-right">
+        <svg width="16" height="12" fill="currentColor" viewBox="0 0 16 12"><rect x="0" y="5" width="3" height="7" rx="0.5" opacity="0.3"/><rect x="4.5" y="3" width="3" height="9" rx="0.5" opacity="0.5"/><rect x="9" y="1" width="3" height="11" rx="0.5" opacity="0.7"/><rect x="13.5" y="0" width="2.5" height="12" rx="0.5"/></svg>
+        <svg width="16" height="12" fill="currentColor" viewBox="0 0 16 12"><path d="M8 3.5C9.74 3.5 11.33 4.17 12.54 5.28L14 3.82C12.39 2.31 10.3 1.5 8 1.5C5.7 1.5 3.61 2.31 2 3.82L3.46 5.28C4.67 4.17 6.26 3.5 8 3.5Z" opacity="0.5"/><path d="M8 6.5C9.14 6.5 10.19 6.92 11 7.63L12.54 6.09C11.33 4.97 9.74 4.3 8 4.3C6.26 4.3 4.67 4.97 3.46 6.09L5 7.63C5.81 6.92 6.86 6.5 8 6.5Z" opacity="0.7"/><path d="M8 9.5C8.78 9.5 9.49 9.78 10.04 10.24L8 12.5L5.96 10.24C6.51 9.78 7.22 9.5 8 9.5Z"/></svg>
+        <svg width="25" height="12" fill="currentColor" viewBox="0 0 25 12"><rect x="0" y="1" width="21" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1"/><rect x="22" y="3.5" width="2" height="5" rx="1" opacity="0.4"/><rect x="1.5" y="2.5" width="14" height="7" rx="1" fill="var(--accent)"/></svg>
+      </div>
+    </div>
+    <div class="screen">
+      <div class="dashboard-screen">
+        <!-- Topnav -->
+        <div class="topnav">
+          <div class="topnav-logo">Argu<strong>fight</strong></div>
+          <div class="topnav-right">
+            <span class="topnav-coins">1,250 coins</span>
+            <!-- Bell -->
+            <div class="topnav-icon-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+              <div class="notif-dot"></div>
+            </div>
+            <!-- Avatar -->
+            <div class="topnav-avatar">JD</div>
+          </div>
+        </div>
+
+        <!-- Body -->
+        <div class="dashboard-body">
+
+          <!-- Your Turn alert -->
+          <div class="alert-banner alert-your-turn">
+            <div class="alert-dot"></div>
+            <span class="alert-label">Your Turn</span>
+            <span class="alert-slash">/</span>
+            <span class="alert-topic">"Is AI a threat to humanity?" — Round 2 of 3</span>
+            <button class="alert-btn">Respond</button>
+          </div>
+
+          <!-- Active debates -->
+          <div class="active-section">
+            <div class="section-header">
+              <span class="section-title">Your Active Debates <span>2</span></span>
+              <a class="section-link" href="#">History</a>
+            </div>
+            <div class="debate-row">
+              <div class="debate-avatars">
+                <div class="mini-avatar green">JD</div>
+                <span class="debate-vs">vs</span>
+                <div class="mini-avatar blue">MK</div>
+              </div>
+              <span class="debate-topic">"Should college education be free?"</span>
+              <span class="debate-round">Round 1 / 3</span>
+              <button class="debate-continue">Continue</button>
+            </div>
+            <div class="debate-row">
+              <div class="debate-avatars">
+                <div class="mini-avatar green">JD</div>
+                <span class="debate-vs">vs</span>
+                <div class="mini-avatar amber">AI</div>
+              </div>
+              <span class="debate-topic">"Universal basic income is inevitable"</span>
+              <span class="debate-status-waiting">Waiting</span>
+              <button class="debate-continue">Continue</button>
+            </div>
+          </div>
+
+          <!-- Daily Challenge -->
+          <div class="daily-section">
+            <div class="daily-label">Daily Challenge</div>
+            <div class="daily-headline">
+              Should governments mandate <strong>universal basic income?</strong>
+            </div>
+            <div class="daily-meta">
+              <span>Community debate</span>
+              <span class="daily-meta-sep">/</span>
+              <span>Open for discussion</span>
+              <span class="daily-meta-sep">/</span>
+              <span class="daily-badge">Today only</span>
+            </div>
+            <button class="btn-accent-sm">Join Discussion</button>
+          </div>
+
+          <!-- Open Challenges -->
+          <div style="margin-bottom:24px;">
+            <div class="section-header">
+              <span class="section-title">Open Challenges <span>3</span></span>
+              <a class="section-link" href="#">View All</a>
+            </div>
+            <div class="challenge-row">
+              <span class="challenge-num">01</span>
+              <span class="challenge-cat">Politics</span>
+              <span class="challenge-topic">"Democracy is overrated"</span>
+              <span class="challenge-cost">Free</span>
+              <button class="challenge-accept">Accept</button>
+            </div>
+            <div class="challenge-row">
+              <span class="challenge-num">02</span>
+              <span class="challenge-cat">Tech</span>
+              <span class="challenge-topic">"Crypto will replace fiat"</span>
+              <span class="challenge-cost">Free</span>
+              <button class="challenge-accept">Accept</button>
+            </div>
+            <div class="challenge-row">
+              <span class="challenge-num">03</span>
+              <span class="challenge-cat">Science</span>
+              <span class="challenge-topic">"Mars colonization is a waste"</span>
+              <span class="challenge-cost">Free</span>
+              <button class="challenge-accept">Accept</button>
+            </div>
+          </div>
+
+          <!-- Live Debates -->
+          <div>
+            <div class="tab-bar">
+              <button class="tab-item active">Live Debates</button>
+              <button class="tab-item">Trending</button>
+              <button class="tab-item">Following</button>
+            </div>
+            <div class="chips">
+              <button class="chip active">All</button>
+              <button class="chip">Politics</button>
+              <button class="chip">Science</button>
+              <button class="chip">Tech</button>
+              <button class="chip">Sports</button>
+            </div>
+            <div class="live-card">
+              <div>
+                <div class="live-cat">Politics</div>
+                <div class="live-players">
+                  <div class="mini-avatar red">AS</div>
+                  <span class="debate-vs">vs</span>
+                  <div class="mini-avatar accent">TB</div>
+                </div>
+                <div class="live-topic">"Gun control saves lives"</div>
+              </div>
+              <div class="live-right">
+                <div class="live-round">Round 2 / 3</div>
+                <div class="live-spectators">24 watching</div>
+              </div>
+            </div>
+            <div class="live-card">
+              <div>
+                <div class="live-cat">Science</div>
+                <div class="live-players">
+                  <div class="mini-avatar blue">RM</div>
+                  <span class="debate-vs">vs</span>
+                  <div class="mini-avatar amber">KL</div>
+                </div>
+                <div class="live-topic">"Climate models are unreliable"</div>
+              </div>
+              <div class="live-right">
+                <div class="live-open">Open</div>
+                <div class="live-spectators">Waiting for opponent</div>
+              </div>
+            </div>
+            <div class="live-card">
+              <div>
+                <div class="live-cat">Tech</div>
+                <div class="live-players">
+                  <div class="mini-avatar green">JP</div>
+                  <span class="debate-vs">vs</span>
+                  <div class="mini-avatar red">DW</div>
+                </div>
+                <div class="live-topic">"Social media does more harm than good"</div>
+              </div>
+              <div class="live-right">
+                <div class="live-round">Round 3 / 3</div>
+                <div class="live-spectators">47 watching</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FAB -->
+        <div class="fab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+        </div>
+
+        <!-- Bottom nav -->
+        <div class="bottom-nav">
+          <div class="nav-tab active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            <span class="nav-tab-label">Home</span>
+          </div>
+          <div class="nav-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/><path d="M14.5 6.5L18 3h3v3l-11.5 11.5"/><path d="M5 14l4 4"/><path d="M7 17l-3 3"/><path d="M3 19l2 2"/></svg>
+            <span class="nav-tab-label">Arena</span>
+          </div>
+          <div class="nav-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 9 8 12 8s5-4 7.5-4a2.5 2.5 0 0 1 0 5H18"/><path d="M12 8v13"/><path d="M6 9l6 4 6-4"/></svg>
+            <span class="nav-tab-label">Rankings</span>
+          </div>
+          <div class="nav-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/></svg>
+            <span class="nav-tab-label">Tourneys</span>
+          </div>
+          <div class="nav-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="nav-tab-label">History</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="home-indicator"></div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     SCREEN 5: PROFILE
+     ============================================================ -->
+<div class="phone-wrapper">
+  <div class="phone-label">Profile</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="status-bar-right">
+        <svg width="16" height="12" fill="currentColor" viewBox="0 0 16 12"><rect x="0" y="5" width="3" height="7" rx="0.5" opacity="0.3"/><rect x="4.5" y="3" width="3" height="9" rx="0.5" opacity="0.5"/><rect x="9" y="1" width="3" height="11" rx="0.5" opacity="0.7"/><rect x="13.5" y="0" width="2.5" height="12" rx="0.5"/></svg>
+        <svg width="16" height="12" fill="currentColor" viewBox="0 0 16 12"><path d="M8 3.5C9.74 3.5 11.33 4.17 12.54 5.28L14 3.82C12.39 2.31 10.3 1.5 8 1.5C5.7 1.5 3.61 2.31 2 3.82L3.46 5.28C4.67 4.17 6.26 3.5 8 3.5Z" opacity="0.5"/><path d="M8 6.5C9.14 6.5 10.19 6.92 11 7.63L12.54 6.09C11.33 4.97 9.74 4.3 8 4.3C6.26 4.3 4.67 4.97 3.46 6.09L5 7.63C5.81 6.92 6.86 6.5 8 6.5Z" opacity="0.7"/><path d="M8 9.5C8.78 9.5 9.49 9.78 10.04 10.24L8 12.5L5.96 10.24C6.51 9.78 7.22 9.5 8 9.5Z"/></svg>
+        <svg width="25" height="12" fill="currentColor" viewBox="0 0 25 12"><rect x="0" y="1" width="21" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1"/><rect x="22" y="3.5" width="2" height="5" rx="1" opacity="0.4"/><rect x="1.5" y="2.5" width="14" height="7" rx="1" fill="var(--accent)"/></svg>
+      </div>
+    </div>
+    <div class="screen">
+      <div class="dashboard-screen">
+        <!-- Sub-topnav -->
+        <div class="sub-topnav">
+          <div class="sub-topnav-back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          </div>
+          <span class="sub-topnav-title">Profile</span>
+          <div style="margin-left:auto;">
+            <div class="topnav-icon-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-body" style="padding: 0 0 100px;">
+          <!-- Profile header -->
+          <div class="profile-header-bg">
+            <div class="profile-avatar-wrap">
+              <div class="profile-avatar-lg">JD</div>
+            </div>
+          </div>
+          <div class="profile-info">
+            <div style="display:flex; align-items:center;">
+              <span class="profile-name">John Debater</span>
+              <span class="profile-elo-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                1,420 ELO
+              </span>
+            </div>
+            <div class="profile-handle">@johndebater</div>
+            <div class="profile-bio">Passionate about politics, philosophy, and proving people wrong. 3x belt holder.</div>
+
+            <div class="profile-stats-grid">
+              <div class="profile-stat">
+                <div class="profile-stat-value">47</div>
+                <div class="profile-stat-label">Total</div>
+              </div>
+              <div class="profile-stat">
+                <div class="profile-stat-value green">32</div>
+                <div class="profile-stat-label">Wins</div>
+              </div>
+              <div class="profile-stat">
+                <div class="profile-stat-value red">12</div>
+                <div class="profile-stat-label">Losses</div>
+              </div>
+              <div class="profile-stat">
+                <div class="profile-stat-value accent">68%</div>
+                <div class="profile-stat-label">Win Rate</div>
+              </div>
+            </div>
+
+            <div class="profile-actions">
+              <button class="btn-accent">Edit Profile</button>
+              <button class="btn-secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Recent Debates -->
+          <div class="profile-section-title">Recent Debates</div>
+          <div class="profile-debate-row">
+            <div class="profile-debate-result result-win">W</div>
+            <div class="profile-debate-info">
+              <div class="profile-debate-topic">"AI will replace most jobs by 2040"</div>
+              <div class="profile-debate-vs">vs MikeK — 2 days ago</div>
+            </div>
+          </div>
+          <div class="profile-debate-row">
+            <div class="profile-debate-result result-win">W</div>
+            <div class="profile-debate-info">
+              <div class="profile-debate-topic">"Social media is destroying democracy"</div>
+              <div class="profile-debate-vs">vs SarahT — 4 days ago</div>
+            </div>
+          </div>
+          <div class="profile-debate-row">
+            <div class="profile-debate-result result-loss">L</div>
+            <div class="profile-debate-info">
+              <div class="profile-debate-topic">"Nuclear energy is the safest option"</div>
+              <div class="profile-debate-vs">vs EcoWarrior — 1 week ago</div>
+            </div>
+          </div>
+          <div class="profile-debate-row">
+            <div class="profile-debate-result result-win">W</div>
+            <div class="profile-debate-info">
+              <div class="profile-debate-topic">"Space exploration is worth the cost"</div>
+              <div class="profile-debate-vs">vs SkepticalSam — 1 week ago</div>
+            </div>
+          </div>
+          <div class="profile-debate-row">
+            <div class="profile-debate-result result-win">W</div>
+            <div class="profile-debate-info">
+              <div class="profile-debate-topic">"Remote work is better for productivity"</div>
+              <div class="profile-debate-vs">vs OfficeFan99 — 2 weeks ago</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom nav -->
+        <div class="bottom-nav">
+          <div class="nav-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            <span class="nav-tab-label">Home</span>
+          </div>
+          <div class="nav-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/><path d="M14.5 6.5L18 3h3v3l-11.5 11.5"/><path d="M5 14l4 4"/><path d="M7 17l-3 3"/><path d="M3 19l2 2"/></svg>
+            <span class="nav-tab-label">Arena</span>
+          </div>
+          <div class="nav-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C7 4 9 8 12 8s5-4 7.5-4a2.5 2.5 0 0 1 0 5H18"/><path d="M12 8v13"/><path d="M6 9l6 4 6-4"/></svg>
+            <span class="nav-tab-label">Rankings</span>
+          </div>
+          <div class="nav-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.79 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/></svg>
+            <span class="nav-tab-label">Tourneys</span>
+          </div>
+          <div class="nav-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span class="nav-tab-label">History</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="home-indicator"></div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     SCREEN 6: SETTINGS
+     ============================================================ -->
+<div class="phone-wrapper">
+  <div class="phone-label">Settings</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="status-bar-right">
+        <svg width="16" height="12" fill="currentColor" viewBox="0 0 16 12"><rect x="0" y="5" width="3" height="7" rx="0.5" opacity="0.3"/><rect x="4.5" y="3" width="3" height="9" rx="0.5" opacity="0.5"/><rect x="9" y="1" width="3" height="11" rx="0.5" opacity="0.7"/><rect x="13.5" y="0" width="2.5" height="12" rx="0.5"/></svg>
+        <svg width="16" height="12" fill="currentColor" viewBox="0 0 16 12"><path d="M8 3.5C9.74 3.5 11.33 4.17 12.54 5.28L14 3.82C12.39 2.31 10.3 1.5 8 1.5C5.7 1.5 3.61 2.31 2 3.82L3.46 5.28C4.67 4.17 6.26 3.5 8 3.5Z" opacity="0.5"/><path d="M8 6.5C9.14 6.5 10.19 6.92 11 7.63L12.54 6.09C11.33 4.97 9.74 4.3 8 4.3C6.26 4.3 4.67 4.97 3.46 6.09L5 7.63C5.81 6.92 6.86 6.5 8 6.5Z" opacity="0.7"/><path d="M8 9.5C8.78 9.5 9.49 9.78 10.04 10.24L8 12.5L5.96 10.24C6.51 9.78 7.22 9.5 8 9.5Z"/></svg>
+        <svg width="25" height="12" fill="currentColor" viewBox="0 0 25 12"><rect x="0" y="1" width="21" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1"/><rect x="22" y="3.5" width="2" height="5" rx="1" opacity="0.4"/><rect x="1.5" y="2.5" width="14" height="7" rx="1" fill="var(--accent)"/></svg>
+      </div>
+    </div>
+    <div class="screen">
+      <div class="dashboard-screen">
+        <!-- Sub-topnav -->
+        <div class="sub-topnav">
+          <div class="sub-topnav-back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          </div>
+          <span class="sub-topnav-title">Settings</span>
+        </div>
+
+        <div class="settings-body">
+          <!-- Profile section at top -->
+          <div style="display:flex; align-items:center; gap:14px; padding:16px 24px 24px; border-bottom:1px solid var(--border);">
+            <div class="profile-avatar-lg" style="width:56px;height:56px;font-size:18px;border:none;">JD</div>
+            <div>
+              <div style="font-size:17px; font-weight:500; color:var(--text);">John Debater</div>
+              <div style="font-size:13px; color:var(--text-3);">johndebater@email.com</div>
+              <div style="font-size:12px; color:var(--accent); font-weight:500; margin-top:2px;">Pro Plan</div>
+            </div>
+            <div style="margin-left:auto;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </div>
+
+          <div class="settings-section-label">Account</div>
+          <div class="settings-row">
+            <div class="settings-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">Edit Profile</div>
+              <div class="settings-row-desc">Username, bio, avatar</div>
+            </div>
+            <svg class="settings-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">Change Password</div>
+              <div class="settings-row-desc">Update your password</div>
+            </div>
+            <svg class="settings-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+            </div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">Two-Factor Auth</div>
+              <div class="settings-row-desc">Secure your account with 2FA</div>
+            </div>
+            <svg class="settings-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+
+          <div class="settings-section-label">Preferences</div>
+          <div class="settings-row">
+            <div class="settings-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            </div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">Notifications</div>
+              <div class="settings-row-desc">Push & email preferences</div>
+            </div>
+            <svg class="settings-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+            </div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">Appearance</div>
+              <div class="settings-row-desc">Dark mode, theme</div>
+            </div>
+            <svg class="settings-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+
+          <div class="settings-section-label">Subscription</div>
+          <div class="settings-row">
+            <div class="settings-icon" style="background:rgba(212,240,80,0.08); color:var(--accent);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>
+            </div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">Manage Subscription</div>
+              <div class="settings-row-desc">Pro Plan — Active</div>
+            </div>
+            <svg class="settings-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+
+          <div class="settings-section-label">Support</div>
+          <div class="settings-row">
+            <div class="settings-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+            </div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">Help & Support</div>
+              <div class="settings-row-desc">FAQs, contact us</div>
+            </div>
+            <svg class="settings-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            </div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">Legal</div>
+              <div class="settings-row-desc">Privacy Policy, Terms of Service</div>
+            </div>
+            <svg class="settings-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+
+          <div style="height:24px;"></div>
+
+          <div class="settings-row danger">
+            <div class="settings-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </div>
+            <div class="settings-row-text">
+              <div class="settings-row-title">Sign Out</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="home-indicator"></div>
+  </div>
+</div>
+
+</body>
+</html>

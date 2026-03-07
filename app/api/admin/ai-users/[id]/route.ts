@@ -17,7 +17,7 @@ export async function PUT(
     }
 
     const { id } = await params
-    const formData = await request.formData()
+    const formData: any = await request.formData()
     const aiPersonality = formData.get('aiPersonality') as string
     const aiResponseDelay = parseInt(formData.get('aiResponseDelay') as string)
     const aiPaused = formData.get('aiPaused') === 'true'

@@ -53,7 +53,7 @@ export async function PUT(
     const { id } = await params
     console.log(`[Update Ad API] Updating advertisement ${id}`)
     
-    const formData = await request.formData()
+    const formData: any = await request.formData()
     const title = formData.get('title') as string
     const type = formData.get('type') as string
     const targetUrl = formData.get('targetUrl') as string

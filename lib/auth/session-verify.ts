@@ -1,5 +1,5 @@
 import { jwtVerify } from 'jose'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 function getEncodedKey() {
   const secret = process.env.AUTH_SECRET
@@ -14,7 +14,20 @@ function getEncodedKey() {
  */
 export async function verifySession() {
   const cookieStore = await cookies()
-  const sessionJWT = cookieStore.get('session')?.value
+  let sessionJWT = cookieStore.get('session')?.value
+
+  // Fallback: check Authorization: Bearer header (mobile apps)
+  if (!sessionJWT) {
+    try {
+      const headerStore = await headers()
+      const authHeader = headerStore.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        sessionJWT = authHeader.slice(7)
+      }
+    } catch {
+      // headers() may not be available in all contexts
+    }
+  }
 
   if (!sessionJWT) {
     return null
@@ -42,12 +55,24 @@ export async function verifySession() {
  */
 export async function verifySessionWithDb() {
   const cookieStore = await cookies()
-  const sessionJWT = cookieStore.get('session')?.value
+  let sessionJWT = cookieStore.get('session')?.value
+
+  // Fallback: check Authorization: Bearer header (mobile apps)
+  if (!sessionJWT) {
+    try {
+      const headerStore = await headers()
+      const authHeader = headerStore.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        sessionJWT = authHeader.slice(7)
+      }
+    } catch {
+      // headers() may not be available in all contexts
+    }
+  }
 
   if (!sessionJWT) {
-    // Only log in development to reduce console noise
     if (process.env.NODE_ENV === 'development') {
-      console.log('[verifySessionWithDb] No session JWT cookie found')
+      console.log('[verifySessionWithDb] No session JWT found (cookie or bearer)')
     }
     return null
   }
