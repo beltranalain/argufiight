@@ -8,6 +8,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { debatesApi } from '../../api/debates';
 import { timeAgo } from '../../utils/notifications';
+import { LoadingScreen } from '../../components/ui/LoadingScreen';
 
 const TIMEFRAMES = [
   { id: '24h' as const, label: '24h' },
@@ -31,6 +32,8 @@ export function TrendingScreen({ navigation }: any) {
     queryFn: () => debatesApi.search(searchQuery),
     enabled: searchQuery.length >= 2,
   });
+
+  if (isLoading && !data) return <LoadingScreen />;
 
   const debates = showSearch && searchQuery.length >= 2
     ? (Array.isArray(searchResults) ? searchResults : [])

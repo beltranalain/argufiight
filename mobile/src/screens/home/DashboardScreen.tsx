@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../theme';
 import { Avatar } from '../../components/ui/Avatar';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { useAuthStore } from '../../store/authStore';
 import { debatesApi } from '../../api/debates';
 import { CreateDebateSheet } from '../../components/debate/CreateDebateSheet';
@@ -62,6 +63,8 @@ export function DashboardScreen({ navigation }: any) {
     openChallenges.length > 0 ||
     liveDebates.length > 0;
 
+  if (isLoading && !data) return <LoadingScreen />;
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top']}>
       {/* Topnav */}
@@ -93,14 +96,7 @@ export function DashboardScreen({ navigation }: any) {
           <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.accent} />
         }
       >
-        {isLoading ? (
-          <View style={{ gap: 16 }}>
-            <Skeleton height={44} />
-            <Skeleton height={120} />
-            <Skeleton height={200} />
-          </View>
-        ) : (
-          <>
+        <>
             {/* Empty state — only when nothing at all */}
             {!hasAnyContent && (
               <View style={styles.emptyState}>
@@ -314,8 +310,7 @@ export function DashboardScreen({ navigation }: any) {
                 ))
               )}
             </View>
-          </>
-        )}
+        </>
       </ScrollView>
 
       {/* FAB */}
