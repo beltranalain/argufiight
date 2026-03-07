@@ -184,14 +184,13 @@ export async function GET(request: NextRequest) {
         ? `${mobileRedirect}${separator}token=${encodeURIComponent(sessionJWT)}&success=true&userId=${encodeURIComponent(user.id)}`
         : `argufight://auth?token=${encodeURIComponent(sessionJWT)}&success=true&userId=${encodeURIComponent(user.id)}`
 
-      // Return HTML that redirects via JavaScript to the custom scheme
-      // NextResponse.redirect() doesn't work with non-HTTP schemes
-      return new NextResponse(
-        `<!DOCTYPE html><html><head><meta charset="utf-8">
-<script>window.location.href=${JSON.stringify(appRedirectUrl)};</script>
-</head><body><p>Redirecting to app...</p></body></html>`,
-        { status: 200, headers: { 'Content-Type': 'text/html' } }
-      )
+      // Use raw Response with 302 + Location header to redirect to custom scheme
+      // NextResponse.redirect() rejects non-HTTP URLs, but raw Response works
+      // Chrome Custom Tabs intercept 302 redirects to custom schemes at the network level
+      return new Response(null, {
+        status: 302,
+        headers: { 'Location': appRedirectUrl },
+      })
     } catch (error: any) {
       console.error('[Mobile Google OAuth Callback] Error:', error)
       return NextResponse.json(
