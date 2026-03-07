@@ -169,41 +169,14 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      // This is the mobile-callback endpoint
-      // Instead of redirecting to deep link, append token to the callback URL itself
-      // This way WebBrowser.openAuthSessionAsync can capture it directly
-      const callbackUrl = new URL(request.url)
-      callbackUrl.searchParams.set('token', sessionJWT)
-      callbackUrl.searchParams.set('success', 'true')
-      callbackUrl.searchParams.set('userId', user.id)
-      
-      // Return HTML that redirects to the callback URL with token (not deep link)
-      // WebBrowser will capture this URL and return it to the app
-      return new NextResponse(
-        `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Authentication Successful</title>
-  <script>
-    // Close the browser window - WebBrowser should have captured the URL
-    window.close();
-  </script>
-</head>
-<body>
-  <p style="text-align: center; padding: 20px; font-family: sans-serif;">
-    Authentication successful. You can close this window.
-  </p>
-</body>
-</html>`,
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'text/html',
-          },
-        }
-      )
+      // Redirect to a separate URL with the token so WebBrowser.openAuthSessionAsync
+      // can detect the URL change and capture the token
+      const completeUrl = new URL(`${baseUrl}/auth/mobile-complete`)
+      completeUrl.searchParams.set('token', sessionJWT)
+      completeUrl.searchParams.set('success', 'true')
+      completeUrl.searchParams.set('userId', user.id)
+
+      return NextResponse.redirect(completeUrl.toString())
     } catch (error: any) {
       console.error('[Mobile Google OAuth Callback] Error:', error)
       return NextResponse.json(
