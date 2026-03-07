@@ -178,21 +178,20 @@ export async function GET(request: NextRequest) {
         mobileRedirect = ''
       }
 
-      // Redirect to the app's custom scheme URL with the token
-      // openAuthSessionAsync on Android detects custom scheme redirects
-      if (mobileRedirect && !mobileRedirect.startsWith('http')) {
-        // Custom scheme (e.g., exp://..., argufight://...)
-        const separator = mobileRedirect.includes('?') ? '&' : '?'
-        const redirectUrl = `${mobileRedirect}${separator}token=${encodeURIComponent(sessionJWT)}&success=true&userId=${encodeURIComponent(user.id)}`
-        return NextResponse.redirect(redirectUrl)
-      }
+      // Build the app redirect URL with token
+      const separator = mobileRedirect.includes('?') ? '&' : '?'
+      const appRedirectUrl = mobileRedirect && !mobileRedirect.startsWith('http')
+        ? `${mobileRedirect}${separator}token=${encodeURIComponent(sessionJWT)}&success=true&userId=${encodeURIComponent(user.id)}`
+        : `argufight://auth?token=${encodeURIComponent(sessionJWT)}&success=true&userId=${encodeURIComponent(user.id)}`
 
-      // Fallback: redirect to HTTPS path
-      const completeUrl = new URL(`${baseUrl}/auth/mobile-complete`)
-      completeUrl.searchParams.set('token', sessionJWT)
-      completeUrl.searchParams.set('success', 'true')
-      completeUrl.searchParams.set('userId', user.id)
-      return NextResponse.redirect(completeUrl.toString())
+      // Return HTML that redirects via JavaScript to the custom scheme
+      // NextResponse.redirect() doesn't work with non-HTTP schemes
+      return new NextResponse(
+        `<!DOCTYPE html><html><head><meta charset="utf-8">
+<script>window.location.href=${JSON.stringify(appRedirectUrl)};</script>
+</head><body><p>Redirecting to app...</p></body></html>`,
+        { status: 200, headers: { 'Content-Type': 'text/html' } }
+      )
     } catch (error: any) {
       console.error('[Mobile Google OAuth Callback] Error:', error)
       return NextResponse.json(
