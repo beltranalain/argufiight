@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
+import { getSession } from '@/lib/auth/session-verify'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 import { generateUniqueSlug } from '@/lib/utils/slug'
@@ -243,8 +244,24 @@ export async function GET(request: NextRequest) {
 // POST /api/debates - Create debate
 export async function POST(request: NextRequest) {
   try {
-    const session = await verifySession()
-    if (!session) {
+    // Primary session verification (cookie or Bearer via headers() store)
+    let session = await verifySession()
+    let userId: string | null = session ? getUserIdFromSession(session) : null
+
+    // Fallback: read Bearer token directly from request for mobile clients.
+    // verifySession() uses headers() which can fail silently in some Next.js contexts.
+    if (!userId) {
+      const authHeader = request.headers.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const bearerToken = authHeader.slice(7)
+        const bearerSession = await getSession(bearerToken)
+        if (bearerSession) {
+          userId = bearerSession.userId
+        }
+      }
+    }
+
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -305,15 +322,6 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
-    }
-
-    // Get userId first
-    const userId = getUserIdFromSession(session)
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
     }
 
     // Check if challenger is suspended
