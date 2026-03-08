@@ -124,13 +124,20 @@ export function DebateRoomScreen({ navigation, route }: any) {
     enabled: debate?.status === 'COMPLETED' || debate?.status === 'VERDICT_READY',
   });
 
+  const [optimisticStatements, setOptimisticStatements] = useState<any[]>([]);
+
   const submitMutation = useMutation({
     mutationFn: (content: string) => debatesApi.submitStatement(id, content),
     onSuccess: () => {
-      setStatement('');
+      // Server confirmed — clear optimistic entry and refresh
+      setOptimisticStatements([]);
       queryClient.invalidateQueries({ queryKey: ['debate', id] });
     },
-    onError: (err: any) => Alert.alert('Error', err.message),
+    onError: (err: any) => {
+      // Rollback optimistic entry
+      setOptimisticStatements([]);
+      Alert.alert('Failed to submit', err.message ?? 'Please try again.');
+    },
   });
 
   const chatMutation = useMutation({
@@ -145,9 +152,19 @@ export function DebateRoomScreen({ navigation, route }: any) {
   const canSubmit = isParticipant && debate?.status === 'ACTIVE';
 
   const handleSubmitStatement = useCallback(() => {
-    if (!statement.trim()) return;
-    submitMutation.mutate(statement.trim());
-  }, [statement, submitMutation]);
+    const text = statement.trim();
+    if (!text) return;
+    // Optimistic update — show immediately
+    setOptimisticStatements([{
+      id: `optimistic-${Date.now()}`,
+      content: text,
+      authorId: user?.id,
+      round: debate?.currentRound,
+      optimistic: true,
+    }]);
+    setStatement('');
+    submitMutation.mutate(text);
+  }, [statement, submitMutation, user, debate]);
 
   const handleSendChat = useCallback(() => {
     if (!chatMsg.trim()) return;
@@ -232,8 +249,8 @@ export function DebateRoomScreen({ navigation, route }: any) {
               {/* Statements */}
               <View style={{ marginTop: 20 }}>
                 <Text style={[styles.sectionLabel, { color: colors.text3 }]}>Statements</Text>
-                {(debate?.statements?.length ?? 0) > 0 ? (
-                  debate!.statements!.map((stmt: any, i: number) => {
+                {[...(debate?.statements ?? []), ...optimisticStatements].length > 0 ? (
+                  [...(debate?.statements ?? []), ...optimisticStatements].map((stmt: any, i: number) => {
                     const isMe = stmt.authorId === user?.id;
                     return (
                       <View
@@ -242,14 +259,15 @@ export function DebateRoomScreen({ navigation, route }: any) {
                           styles.statement,
                           {
                             backgroundColor: isMe ? colors.accent + '14' : colors.surface,
-                            borderColor: isMe ? colors.accent + '33' : colors.border,
+                            borderColor: stmt.optimistic ? colors.accent + '66' : isMe ? colors.accent + '33' : colors.border,
                             alignSelf: isMe ? 'flex-end' : 'flex-start',
+                            opacity: stmt.optimistic ? 0.7 : 1,
                           },
                         ]}
                       >
                         <View style={styles.stmtHeader}>
                           <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '600' }}>
-                            Round {stmt.round}
+                            Round {stmt.round}{stmt.optimistic ? ' · Sending…' : ''}
                           </Text>
                           <Text style={{ color: colors.text3, fontSize: 12 }}>
                             {stmt.authorUsername ?? (isMe ? 'You' : 'Opponent')}
