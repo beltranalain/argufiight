@@ -42,8 +42,15 @@ export async function apiFetch<T = any>(
   });
 
   // Handle 401 — token expired or invalid
+  // Grace period: if the token was set within the last 60 seconds (e.g. just after OAuth login),
+  // don't clear auth — the session write may not have propagated yet (PgBouncer timing).
+  // Let react-query's retry handle it instead.
   if (res.status === 401) {
-    await clearAuth();
+    const { tokenSetAt } = useAuthStore.getState();
+    const tokenAge = tokenSetAt ? Date.now() - tokenSetAt : Infinity;
+    if (tokenAge > 60000) {
+      await clearAuth();
+    }
     throw new ApiError('Unauthorized', 401);
   }
 
@@ -65,7 +72,7 @@ export async function apiUpload<T = any>(
   path: string,
   formData: FormData
 ): Promise<T> {
-  const { token, clearAuth } = useAuthStore.getState();
+  const { token, clearAuth, tokenSetAt } = useAuthStore.getState();
 
   const headers: Record<string, string> = {};
   if (token) {
@@ -80,7 +87,10 @@ export async function apiUpload<T = any>(
   });
 
   if (res.status === 401) {
-    await clearAuth();
+    const tokenAge = tokenSetAt ? Date.now() - tokenSetAt : Infinity;
+    if (tokenAge > 60000) {
+      await clearAuth();
+    }
     throw new ApiError('Unauthorized', 401);
   }
 

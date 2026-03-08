@@ -402,47 +402,73 @@ export function DebateRoomScreen({ navigation, route }: any) {
               </View>
             ) : (
               <>
-                {/* Overall result */}
-                <View style={[styles.resultCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <Text style={[styles.resultTitle, { color: colors.text }]}>
-                    {(() => {
-                      const cWins = verdictList.filter((v: any) => v.decision === 'CHALLENGER_WINS').length;
-                      const oWins = verdictList.filter((v: any) => v.decision === 'OPPONENT_WINS').length;
-                      if (cWins > oWins) return `${debate?.challenger?.username} Wins`;
-                      if (oWins > cWins) return `${debate?.opponent?.username} Wins`;
-                      return 'Draw';
-                    })()}
-                  </Text>
-                  <Text style={{ color: colors.text3, fontSize: 13 }}>
-                    {verdictList.length} judge{verdictList.length > 1 ? 's' : ''} voted
-                  </Text>
-                </View>
+                {/* Overall result with total scores + avatars */}
+                {(() => {
+                  const cWins = verdictList.filter((v: any) => v.decision === 'CHALLENGER_WINS').length;
+                  const oWins = verdictList.filter((v: any) => v.decision === 'OPPONENT_WINS').length;
+                  const totalC = verdictList.reduce((sum: number, v: any) => sum + (v.challengerScore ?? 0), 0);
+                  const totalO = verdictList.reduce((sum: number, v: any) => sum + (v.opponentScore ?? 0), 0);
+                  const winnerName = cWins > oWins ? debate?.challenger?.username
+                    : oWins > cWins ? debate?.opponent?.username : null;
+                  return (
+                    <View style={[styles.resultCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                      <Text style={[styles.resultTitle, { color: colors.text }]}>
+                        {winnerName ? `${winnerName} Wins`.toUpperCase() : 'DRAW'}
+                      </Text>
+                      <Text style={{ color: colors.text3, fontSize: 13, marginBottom: 20 }}>
+                        ({cWins}–{oWins} judges)
+                      </Text>
+                      <View style={styles.totalScoreRow}>
+                        <View style={styles.totalScoreCol}>
+                          <Avatar src={debate?.challenger?.avatarUrl} fallback={debate?.challenger?.username ?? '?'} size="lg" />
+                          <Text style={{ color: colors.text2, fontSize: 12, marginTop: 6 }} numberOfLines={1}>{debate?.challenger?.username}</Text>
+                          <Text style={{ color: totalC >= totalO ? colors.accent : colors.text2, fontSize: 32, fontWeight: '700' }}>{totalC}</Text>
+                          <Text style={{ color: colors.text3, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>FOR</Text>
+                        </View>
+                        <View style={styles.totalScoreCol}>
+                          <Avatar src={debate?.opponent?.avatarUrl} fallback={debate?.opponent?.username ?? '?'} size="lg" />
+                          <Text style={{ color: colors.text2, fontSize: 12, marginTop: 6 }} numberOfLines={1}>{debate?.opponent?.username}</Text>
+                          <Text style={{ color: totalO > totalC ? colors.accent : colors.text2, fontSize: 32, fontWeight: '700' }}>{totalO}</Text>
+                          <Text style={{ color: colors.text3, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>AGAINST</Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })()}
 
                 {/* Per-judge verdicts */}
+                <Text style={[styles.sectionLabel, { color: colors.text3, marginTop: 8, marginBottom: 12 }]}>
+                  JUDGE VERDICTS ({verdictList.length})
+                </Text>
                 {verdictList.map((v: any) => (
                   <View key={v.id} style={[styles.verdictCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     <View style={styles.judgeRow}>
-                      <Text style={{ fontSize: 18 }}>{v.judge?.emoji ?? ''}</Text>
+                      <Avatar src={v.judge?.avatarUrl} fallback={v.judge?.name?.[0] ?? 'J'} size="md" />
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: colors.text, fontSize: 14, fontWeight: '500' }}>{v.judge?.name ?? 'Judge'}</Text>
-                        <Text style={{ color: colors.text3, fontSize: 12 }}>{v.judge?.personality}</Text>
+                        <Text style={{ color: colors.text3, fontSize: 12 }}>{v.judge?.personality ?? v.judge?.focus}</Text>
                       </View>
+                      <Text style={{ color: colors.accent, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' }}>
+                        {v.decision === 'CHALLENGER_WINS' ? 'WINS' : v.decision === 'OPPONENT_WINS' ? 'WINS' : 'TIE'}
+                      </Text>
                     </View>
                     <View style={[styles.scoreRow, { borderTopColor: colors.border }]}>
-                      <View style={styles.scoreCol}>
-                        <Text style={{ color: colors.text2, fontSize: 12 }}>{debate?.challenger?.username}</Text>
-                        <Text style={{ color: colors.accent, fontSize: 20, fontWeight: '600' }}>{v.challengerScore ?? '-'}</Text>
+                      <View style={styles.judgeScoreBox}>
+                        <Avatar src={debate?.challenger?.avatarUrl} fallback={debate?.challenger?.username ?? '?'} size="sm" />
+                        <Text style={{ color: colors.text3, fontSize: 11, marginTop: 4 }} numberOfLines={1}>{debate?.challenger?.username}</Text>
+                        <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700' }}>{v.challengerScore ?? '-'}</Text>
                       </View>
-                      <Text style={{ color: colors.text3, fontSize: 12, fontWeight: '600' }}>
-                        {v.decision === 'CHALLENGER_WINS' ? 'Challenger Wins' : v.decision === 'OPPONENT_WINS' ? 'Opponent Wins' : 'Tie'}
-                      </Text>
-                      <View style={styles.scoreCol}>
-                        <Text style={{ color: colors.text2, fontSize: 12 }}>{debate?.opponent?.username}</Text>
-                        <Text style={{ color: colors.red, fontSize: 20, fontWeight: '600' }}>{v.opponentScore ?? '-'}</Text>
+                      <View style={styles.judgeScoreBox}>
+                        <Avatar src={debate?.opponent?.avatarUrl} fallback={debate?.opponent?.username ?? '?'} size="sm" />
+                        <Text style={{ color: colors.text3, fontSize: 11, marginTop: 4 }} numberOfLines={1}>{debate?.opponent?.username}</Text>
+                        <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700' }}>{v.opponentScore ?? '-'}</Text>
                       </View>
                     </View>
                     {v.reasoning && (
-                      <Text style={{ color: colors.text2, fontSize: 13, lineHeight: 18, marginTop: 10 }}>{v.reasoning}</Text>
+                      <View style={{ marginTop: 10 }}>
+                        <Text style={{ color: colors.text3, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>REASONING</Text>
+                        <Text style={{ color: colors.text2, fontSize: 13, lineHeight: 20 }}>{v.reasoning}</Text>
+                      </View>
                     )}
                   </View>
                 ))}
@@ -487,9 +513,12 @@ const styles = StyleSheet.create({
   chatInput: { flex: 1, height: 40, borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, fontSize: 14 },
   // Verdicts
   resultCard: { padding: 20, borderRadius: 10, borderWidth: 1, alignItems: 'center', marginBottom: 16 },
-  resultTitle: { fontSize: 22, fontWeight: '600', marginBottom: 4 },
+  resultTitle: { fontSize: 20, fontWeight: '700', marginBottom: 4, letterSpacing: 0.5 },
+  totalScoreRow: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', gap: 16 },
+  totalScoreCol: { alignItems: 'center', flex: 1 },
   verdictCard: { padding: 14, borderRadius: 10, borderWidth: 1, marginBottom: 12 },
   judgeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 10 },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, paddingTop: 12, gap: 8 },
   scoreCol: { alignItems: 'center' },
+  judgeScoreBox: { alignItems: 'center', flex: 1 },
 });

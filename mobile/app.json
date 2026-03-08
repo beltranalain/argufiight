@@ -19,7 +19,9 @@
       "infoPlist": {
         "NSCameraUsageDescription": "ArguFight needs access to your camera to take profile photos.",
         "NSPhotoLibraryUsageDescription": "ArguFight needs access to your photos to upload a profile picture.",
-        "NSFaceIDUsageDescription": "ArguFight uses Face ID to securely unlock your account."
+        "NSFaceIDUsageDescription": "ArguFight uses Face ID to securely unlock your account.",
+        "NSSpeechRecognitionUsageDescription": "ArguFight uses speech recognition so you can dictate your debate arguments.",
+        "NSMicrophoneUsageDescription": "ArguFight needs microphone access for voice-to-text input."
       },
       "associatedDomains": [
         "applinks:www.argufight.com"
@@ -61,13 +63,14 @@
       "expo-secure-store",
       "expo-font",
       "expo-notifications",
-      "expo-image-picker"
+      "expo-image-picker",
+      "expo-speech-recognition"
     ],
+    "owner": "beltranalain",
     "extra": {
       "eas": {
-        "projectId": "4cd7fd74-7cdf-4b7c-b8fd-2a5e1a9e4725"
+        "projectId": "372d7588-d4a0-420f-9fb9-2b80375621cd"
       }
-    },
-    "owner": "donkeyideass"
+    }
   }
 }

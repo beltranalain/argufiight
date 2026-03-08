@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   faqQuestion: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   faqQ: { fontSize: 14, fontWeight: '500', flex: 1, paddingRight: 8 },
   faqA: { fontSize: 13, lineHeight: 20, marginTop: 8 },
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, marginBottom: 12, color: undefined },
+  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, marginBottom: 12 },
   textarea: { minHeight: 90, textAlignVertical: 'top' },
   sectionTitle: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1.5, marginTop: 8 },
   ticketRow: { flexDirection: 'row', alignItems: 'center' },

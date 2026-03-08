@@ -27,7 +27,7 @@ export function LeaderboardScreen({ navigation }: any) {
 
   if (isLoading && !data) return <LoadingScreen />;
 
-  const users: any[] = Array.isArray(data) ? data : data?.users ?? [];
+  const users: any[] = Array.isArray(data) ? data : data?.leaderboard ?? data?.users ?? [];
 
   const top3 = users.slice(0, 3);
   const rest = users.slice(3);

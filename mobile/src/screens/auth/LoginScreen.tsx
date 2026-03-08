@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { useTheme } from '../../theme';
@@ -9,6 +10,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Separator } from '../../components/ui/Separator';
 import { authApi } from '../../api/auth';
+import { rewardsApi } from '../../api/rewards';
 import { useAuthStore } from '../../store/authStore';
 import { BASE_URL } from '../../api/client';
 
@@ -29,6 +31,17 @@ async function pollForToken(pollId: string, maxAttempts = 15): Promise<{ token: 
     } catch {}
   }
   return null;
+}
+
+function GoogleIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 48 48">
+      <Path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+      <Path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
+      <Path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
+      <Path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
+    </Svg>
+  );
 }
 
 export function LoginScreen({ navigation }: any) {
@@ -57,6 +70,7 @@ export function LoginScreen({ navigation }: any) {
       if (data.token && data.user) {
         await setToken(data.token);
         setUser(data.user);
+        rewardsApi.dailyLogin().catch(() => {});
       }
     } catch (err: any) {
       setError(err.message || 'Invalid email or password');
@@ -69,43 +83,49 @@ export function LoginScreen({ navigation }: any) {
     setGoogleLoading(true);
     setError('');
     try {
-      // Generate a unique poll ID so we can retrieve the token from the server
       const pollId = randomId();
       const redirectUri = AuthSession.makeRedirectUri({ scheme: 'argufight', path: 'auth' });
       const authUrl = `${BASE_URL}/api/auth/google?returnTo=${encodeURIComponent(redirectUri)}&pollId=${encodeURIComponent(pollId)}`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
 
-      // Try to extract token from the redirect URL (works if redirect succeeded)
-      let gotToken = false;
+      // Try to extract token from the redirect URL
+      let urlToken: string | null = null;
       if (result.type === 'success' && result.url) {
         try {
           const qsIndex = result.url.indexOf('?');
           if (qsIndex !== -1) {
             const params = new URLSearchParams(result.url.substring(qsIndex));
-            const token = params.get('token');
-            if (token) {
-              await setToken(token);
-              const userData = await authApi.me();
-              if (userData.user) {
-                setUser(userData.user);
-              }
-              gotToken = true;
-            }
+            urlToken = params.get('token');
           }
         } catch {}
       }
 
-      // Fallback: poll the server for the token (works even if redirect didn't)
-      if (!gotToken) {
+      if (urlToken) {
+        // Set auth immediately so the dashboard renders
+        await setToken(urlToken);
+        // Fetch user data from poll record using raw fetch — NOT apiFetch — so a
+        // failed request can never trigger clearAuth() and kick the user out.
+        try {
+          const res = await fetch(
+            `${BASE_URL}/api/auth/google/mobile-poll?id=${encodeURIComponent(pollId)}`,
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (data.user) setUser(data.user);
+          }
+        } catch {}
+        // Re-assert token to guard against any concurrent clearAuth from RootNavigator
+        await setToken(urlToken);
+        rewardsApi.dailyLogin().catch(() => {});
+      } else {
+        // Fallback: poll for token (used when JS redirect didn't work on device)
         const pollResult = await pollForToken(pollId);
         if (pollResult?.token) {
           await setToken(pollResult.token);
           if (pollResult.user) {
             setUser(pollResult.user);
-          } else {
-            const userData = await authApi.me();
-            if (userData.user) setUser(userData.user);
           }
+          rewardsApi.dailyLogin().catch(() => {});
         }
       }
     } catch (err: any) {
@@ -162,6 +182,7 @@ export function LoginScreen({ navigation }: any) {
             fullWidth
             loading={googleLoading}
             onPress={handleGoogleLogin}
+            icon={<GoogleIcon />}
           >
             Continue with Google
           </Button>

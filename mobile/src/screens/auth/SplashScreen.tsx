@@ -1,45 +1,114 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Dimensions,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Swords } from 'lucide-react-native';
+import { Swords, Trophy, Users } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { Button } from '../../components/ui/Button';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const SLIDES = [
+  {
+    key: '1',
+    icon: Swords,
+    heading: 'Argue. Win.\nProve it.',
+    desc: 'The premier AI-judged debate platform. Challenge opponents, earn championship belts, and climb the global leaderboard.',
+  },
+  {
+    key: '2',
+    icon: Trophy,
+    heading: 'Earn Belts.\nClaim Glory.',
+    desc: 'Win debates to collect championship belts. Rise through the ranks and become the undisputed debate champion.',
+  },
+  {
+    key: '3',
+    icon: Users,
+    heading: 'Challenge\nAnyone.',
+    desc: 'Pick any topic, challenge real opponents, and let our AI judge declare a winner based on logic and evidence.',
+  },
+];
+
 export function SplashScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const [activeIndex, setActiveIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
+
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    setActiveIndex(index);
+  };
+
+  const isLast = activeIndex === SLIDES.length - 1;
+
+  const handleNext = () => {
+    if (isLast) {
+      navigation.navigate('Signup');
+    } else {
+      flatListRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
-      <View style={styles.content}>
-        <View style={[styles.iconBox, { backgroundColor: colors.accent }]}>
-          <Swords size={40} color={colors.accentFg} strokeWidth={1.4} />
-        </View>
-        <Text style={[styles.title, { color: colors.text }]}>
-          Argu<Text style={{ fontWeight: '600', color: colors.accent }}>fight</Text>
-        </Text>
-        <Text style={[styles.heading, { color: colors.text }]}>
-          Argue. Win.{'\n'}Prove it.
-        </Text>
-        <Text style={[styles.desc, { color: colors.text2 }]}>
-          The premier AI-judged debate platform. Challenge opponents, earn championship belts, and climb the global leaderboard.
-        </Text>
-      </View>
+      <FlatList
+        ref={flatListRef}
+        data={SLIDES}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+        keyExtractor={(item) => item.key}
+        renderItem={({ item }) => {
+          const Icon = item.icon;
+          return (
+            <View style={[styles.slide]}>
+              <View style={[styles.iconBox, { backgroundColor: colors.accent }]}>
+                <Icon size={40} color={colors.accentFg} strokeWidth={1.4} />
+              </View>
+              <Text style={[styles.title, { color: colors.text }]}>
+                Argu<Text style={{ fontWeight: '600', color: colors.accent }}>fight</Text>
+              </Text>
+              <Text style={[styles.heading, { color: colors.text }]}>
+                {item.heading}
+              </Text>
+              <Text style={[styles.desc, { color: colors.text2 }]}>
+                {item.desc}
+              </Text>
+            </View>
+          );
+        }}
+      />
 
       <View style={styles.bottom}>
-        {/* Dots */}
         <View style={styles.dots}>
-          <View style={[styles.dotActive, { backgroundColor: colors.accent }]} />
-          <View style={[styles.dot, { backgroundColor: colors.border2 }]} />
-          <View style={[styles.dot, { backgroundColor: colors.border2 }]} />
+          {SLIDES.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                i === activeIndex
+                  ? [styles.dotActive, { backgroundColor: colors.accent }]
+                  : [styles.dot, { backgroundColor: colors.border2 }],
+              ]}
+            />
+          ))}
         </View>
 
         <Button
-          onPress={() => navigation.navigate('Signup')}
+          onPress={handleNext}
           variant="accent"
           size="lg"
           fullWidth
         >
-          Get Started
+          {isLast ? 'Get Started' : 'Next'}
         </Button>
 
         <View style={styles.signinRow}>
@@ -60,7 +129,8 @@ export function SplashScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: {
+  slide: {
+    width: SCREEN_WIDTH,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',

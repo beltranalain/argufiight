@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, View, Linking } from 'react-native';
 import { AuthNavigator } from './AuthNavigator';
 import { AppNavigator } from './AppNavigator';
 import { useAuthStore } from '../store/authStore';
-import { authApi } from '../api/auth';
 import { useTheme } from '../theme';
+import { BASE_URL } from '../api/client';
 import { registerForPushNotifications } from '../utils/notifications';
 
 /** Extract token from an auth callback URL (exp://...?token=...&success=true) */
@@ -23,25 +23,45 @@ function extractAuthToken(url: string): string | null {
 
 export function RootNavigator() {
   const { colors } = useTheme();
-  const { token, isAuthenticated, isLoading, loadStoredToken, setUser, setToken, clearAuth } = useAuthStore();
+  const { isAuthenticated, isLoading, loadStoredToken, setUser, setToken } = useAuthStore();
   const [initializing, setInitializing] = useState(true);
+  // Prevent double-processing the same auth URL (race with LoginScreen.handleGoogleLogin)
+  const processingAuthRef = useRef(false);
 
   // Handle incoming deep link auth callbacks (Google OAuth redirect)
   useEffect(() => {
     async function handleAuthUrl(url: string) {
       const authToken = extractAuthToken(url);
       if (!authToken) return;
+
+      // Skip if LoginScreen's handleGoogleLogin is already handling this
+      // (both fire simultaneously on Android when the OAuth redirect lands)
+      if (processingAuthRef.current) return;
+      processingAuthRef.current = true;
+
       try {
         await setToken(authToken);
-        const data = await authApi.me();
-        if (data.user) {
-          setUser(data.user);
-          registerForPushNotifications().catch(() => {});
-        } else {
-          await clearAuth();
+        // Use raw fetch instead of apiFetch to avoid triggering clearAuth() on transient 401.
+        // LoginScreen's handleGoogleLogin manages the full auth flow with polling fallback.
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch(`${BASE_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setUser(data.user);
+            registerForPushNotifications().catch(() => {});
+          }
         }
+        // If me() fails, token is already set — LoginScreen polling will recover.
       } catch {
-        await clearAuth();
+        // Network error or timeout — token set, LoginScreen polling will recover.
+      } finally {
+        processingAuthRef.current = false;
       }
     }
 
@@ -59,19 +79,33 @@ export function RootNavigator() {
     async function init() {
       const storedToken = await loadStoredToken();
       if (storedToken) {
+        // Always set the token first so the user stays logged in.
+        // If the token is invalid, subsequent API calls (dashboard, etc.) will
+        // return 401 and the apiFetch grace-period logic will handle clearAuth.
+        // This prevents Vercel cold starts / transient server errors from
+        // logging the user out on every app reload.
+        await setToken(storedToken);
         try {
-          // Validate the stored token with the server
-          const data = await authApi.me();
-          if (data.user) {
-            await setToken(storedToken);
-            setUser(data.user);
-            // Register for push notifications after successful auth
-            registerForPushNotifications().catch(() => {});
-          } else {
-            await clearAuth();
+          // 8-second timeout prevents init() from hanging indefinitely
+          // (e.g. Vercel cold start, tunnel latency, flaky network).
+          // setToken() already logged the user in above — this fetch only enriches user data.
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 8000);
+          const res = await fetch(`${BASE_URL}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${storedToken}` },
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.user) {
+              setUser(data.user);
+              registerForPushNotifications().catch(() => {});
+            }
           }
+          // Any non-OK response (401, 5xx) — user is still logged in via setToken above.
         } catch {
-          await clearAuth();
+          // Network error or timeout — already logged in via setToken above.
         }
       }
       setInitializing(false);

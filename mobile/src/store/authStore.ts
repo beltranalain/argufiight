@@ -21,6 +21,8 @@ interface AuthState {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  /** Timestamp (ms) when the token was last set — used for grace period logic in apiFetch */
+  tokenSetAt: number | null;
 
   setToken: (token: string) => Promise<void>;
   setUser: (user: User) => void;
@@ -33,10 +35,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: true,
   isAuthenticated: false,
+  tokenSetAt: null,
 
   setToken: async (token: string) => {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
-    set({ token, isAuthenticated: true, isLoading: false });
+    set({ token, isAuthenticated: true, isLoading: false, tokenSetAt: Date.now() });
   },
 
   setUser: (user: User) => {
