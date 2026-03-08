@@ -30,13 +30,10 @@ export function UserProfileScreen({ navigation, route }: any) {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        <View style={[styles.headerBg, { backgroundColor: colors.accent + '0A' }]}>
+        <View style={styles.info}>
           <View style={styles.avatarWrap}>
             <Avatar src={p?.avatarUrl} fallback={p?.username ?? '?'} size="xl" />
           </View>
-        </View>
-
-        <View style={styles.info}>
           <View style={styles.nameRow}>
             <Text style={[styles.name, { color: colors.text }]}>{p?.username ?? 'User'}</Text>
             <View style={[styles.eloBadge, { borderColor: colors.accent + '26', backgroundColor: colors.accent + '0F' }]}>
@@ -78,9 +75,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
   headerTitle: { fontSize: 17, fontWeight: '500' },
-  headerBg: { height: 100, position: 'relative' },
-  avatarWrap: { position: 'absolute', bottom: -36, left: 24 },
-  info: { paddingTop: 44, paddingHorizontal: 24 },
+  avatarWrap: { marginBottom: 12, marginTop: 20 },
+  info: { paddingHorizontal: 24, paddingTop: 8 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   name: { fontSize: 20, fontWeight: '500' },
   eloBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, borderWidth: 1, marginLeft: 8 },

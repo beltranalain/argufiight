@@ -31,7 +31,7 @@ export function NotificationsScreen({ navigation }: any) {
       );
     }
     if (item.debateId) {
-      navigation.navigate('HomeTab', { screen: 'DebateRoom', params: { id: item.debateId } });
+      navigation.navigate('Tabs', { screen: 'HomeTab', params: { screen: 'DebateRoom', params: { id: item.debateId } } });
     } else if (item.type === 'MESSAGE' && item.conversationId) {
       navigation.navigate('Chat', { id: item.conversationId });
     }

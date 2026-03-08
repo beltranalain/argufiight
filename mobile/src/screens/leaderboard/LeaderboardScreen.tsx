@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Bell, MessageCircle } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../theme';
 import { Avatar } from '../../components/ui/Avatar';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { leaderboardApi } from '../../api/leaderboard';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
+import { useAuthStore } from '../../store/authStore';
 
 const TIMEFRAMES = ['Weekly', 'Monthly', 'All Time'] as const;
 type Timeframe = typeof TIMEFRAMES[number];
@@ -15,6 +17,7 @@ const MEDAL = ['#FFD700', '#C0C0C0', '#CD7F32'];
 
 export function LeaderboardScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const user = useAuthStore((s) => s.user);
   const [timeframe, setTimeframe] = useState<Timeframe>('Weekly');
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
@@ -34,6 +37,17 @@ export function LeaderboardScreen({ navigation }: any) {
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.text }]}>Rankings</Text>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity onPress={() => navigation.navigate('Conversations')} style={styles.iconBtn}>
+            <MessageCircle size={18} color={colors.text2} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.iconBtn}>
+            <Bell size={18} color={colors.text2} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('MyProfile')}>
+            <Avatar src={user?.avatarUrl} fallback={user?.username ?? 'U'} size="sm" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Timeframe tabs */}
@@ -147,7 +161,9 @@ export function LeaderboardScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
+  header: { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerIcons: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 20, fontWeight: '500' },
   // Tabs
   tabBar: { flexDirection: 'row', borderBottomWidth: 1 },

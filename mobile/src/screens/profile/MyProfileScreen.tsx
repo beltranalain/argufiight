@@ -47,14 +47,10 @@ export function MyProfileScreen({ navigation }: any) {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Header bg */}
-        <View style={[styles.headerBg, { backgroundColor: colors.accent + '0A' }]}>
+        <View style={styles.info}>
           <View style={styles.avatarWrap}>
             <Avatar src={p?.avatarUrl} fallback={p?.username ?? 'U'} size="xl" />
           </View>
-        </View>
-
-        <View style={styles.info}>
           <View style={styles.nameRow}>
             <Text style={[styles.name, { color: colors.text }]}>{p?.username ?? 'User'}</Text>
             <View style={[styles.eloBadge, { borderColor: colors.accent + '26', backgroundColor: colors.accent + '0F' }]}>
@@ -101,7 +97,7 @@ export function MyProfileScreen({ navigation }: any) {
                   <TouchableOpacity
                     key={debate.id}
                     style={[styles.debateRow, { borderColor: colors.border }]}
-                    onPress={() => navigation.navigate('DebateRoom', { debateId: debate.id })}
+                    onPress={() => navigation.navigate('Tabs', { screen: 'HomeTab', params: { screen: 'DebateRoom', params: { id: debate.id } } })}
                     activeOpacity={0.7}
                   >
                     <View style={[styles.badge, { backgroundColor: badgeColor + '20', borderColor: badgeColor + '40' }]}>
@@ -130,9 +126,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
   headerTitle: { fontSize: 17, fontWeight: '500' },
-  headerBg: { height: 100, position: 'relative' },
-  avatarWrap: { position: 'absolute', bottom: -36, left: 24 },
-  info: { paddingTop: 44, paddingHorizontal: 24 },
+  avatarWrap: { marginBottom: 12, marginTop: 20 },
+  info: { paddingHorizontal: 24, paddingTop: 8 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   name: { fontSize: 20, fontWeight: '500' },
   eloBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, borderWidth: 1, marginLeft: 8 },

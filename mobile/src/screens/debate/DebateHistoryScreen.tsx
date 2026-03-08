@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Bell, MessageCircle } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../theme';
 import { Avatar } from '../../components/ui/Avatar';
@@ -10,7 +11,8 @@ import { useAuthStore } from '../../store/authStore';
 
 export function DebateHistoryScreen({ navigation }: any) {
   const { colors } = useTheme();
-  const userId = useAuthStore((s) => s.user?.id);
+  const user = useAuthStore((s) => s.user);
+  const userId = user?.id;
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['debateHistory'],
@@ -23,6 +25,17 @@ export function DebateHistoryScreen({ navigation }: any) {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.text }]}>History</Text>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity onPress={() => navigation.navigate('Conversations')} style={styles.iconBtn}>
+            <MessageCircle size={18} color={colors.text2} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.iconBtn}>
+            <Bell size={18} color={colors.text2} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('MyProfile')}>
+            <Avatar src={user?.avatarUrl} fallback={user?.username ?? 'U'} size="sm" />
+          </TouchableOpacity>
+        </View>
       </View>
       <FlatList
         data={debates}
@@ -70,7 +83,9 @@ export function DebateHistoryScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1 },
+  header: { paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerIcons: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 20, fontWeight: '500' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1 },
   result: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },

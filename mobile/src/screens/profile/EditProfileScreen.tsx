@@ -110,8 +110,8 @@ export function EditProfileScreen({ navigation }: any) {
           onChangeText={setBio}
           placeholder="Tell us about yourself"
           multiline
-          numberOfLines={3}
-          style={{ height: 80, textAlignVertical: 'top' }}
+          numberOfLines={4}
+          style={{ minHeight: 90, textAlignVertical: 'top' }}
         />
         <Button variant="accent" size="lg" fullWidth loading={loading} onPress={handleSave}>
           Save Changes

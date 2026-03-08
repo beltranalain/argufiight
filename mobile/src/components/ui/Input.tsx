@@ -9,7 +9,7 @@ interface InputProps extends TextInputProps {
   rightIcon?: React.ReactNode;
 }
 
-export function Input({ label, error, rightIcon, style, ...props }: InputProps) {
+export function Input({ label, error, rightIcon, style, multiline, numberOfLines, ...props }: InputProps) {
   const { colors } = useTheme();
   const [focused, setFocused] = useState(false);
 
@@ -25,6 +25,9 @@ export function Input({ label, error, rightIcon, style, ...props }: InputProps) 
             backgroundColor: colors.surface,
             borderColor: error ? colors.red : focused ? colors.accent : colors.border,
             borderRadius: radius.md,
+            height: multiline ? undefined : 44,
+            alignItems: multiline ? 'flex-start' : 'center',
+            paddingVertical: multiline ? 10 : 0,
           },
         ]}
       >
@@ -33,6 +36,8 @@ export function Input({ label, error, rightIcon, style, ...props }: InputProps) 
           placeholderTextColor={colors.text3}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          multiline={multiline}
+          numberOfLines={numberOfLines}
           {...props}
         />
         {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}

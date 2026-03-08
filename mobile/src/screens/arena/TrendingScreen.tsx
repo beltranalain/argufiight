@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, X } from 'lucide-react-native';
+import { Search, X, Bell, MessageCircle } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../theme';
 import { Avatar } from '../../components/ui/Avatar';
@@ -9,6 +9,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { debatesApi } from '../../api/debates';
 import { timeAgo } from '../../utils/notifications';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
+import { useAuthStore } from '../../store/authStore';
 
 const TIMEFRAMES = [
   { id: '24h' as const, label: '24h' },
@@ -18,6 +19,7 @@ const TIMEFRAMES = [
 
 export function TrendingScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const user = useAuthStore((s) => s.user);
   const [timeframe, setTimeframe] = useState<'24h' | '7d' | '30d'>('24h');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
@@ -44,9 +46,20 @@ export function TrendingScreen({ navigation }: any) {
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <View style={styles.headerTop}>
           <Text style={[styles.title, { color: colors.text }]}>Arena</Text>
-          <TouchableOpacity onPress={() => { setShowSearch(!showSearch); setSearchQuery(''); }}>
-            {showSearch ? <X size={20} color={colors.text2} /> : <Search size={20} color={colors.text2} />}
-          </TouchableOpacity>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity onPress={() => { setShowSearch(!showSearch); setSearchQuery(''); }}>
+              {showSearch ? <X size={20} color={colors.text2} /> : <Search size={20} color={colors.text2} />}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Conversations')} style={styles.iconBtn}>
+              <MessageCircle size={18} color={colors.text2} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.iconBtn}>
+              <Bell size={18} color={colors.text2} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('MyProfile')}>
+              <Avatar src={user?.avatarUrl} fallback={user?.username ?? 'U'} size="sm" />
+            </TouchableOpacity>
+          </View>
         </View>
         {showSearch ? (
           <TextInput
@@ -142,6 +155,8 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  headerIcons: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 20, fontWeight: '500' },
   searchInput: { height: 40, borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, fontSize: 14 },
   chips: { flexDirection: 'row', gap: 6 },

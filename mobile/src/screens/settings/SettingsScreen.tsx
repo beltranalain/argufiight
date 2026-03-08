@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  ArrowLeft, User, Lock, Shield, Bell, Sun, Gem, HelpCircle, FileText, LogOut, ChevronRight,
+  ArrowLeft, User, Lock, Shield, Bell, Sun, HelpCircle, FileText, LogOut, ChevronRight,
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { Avatar } from '../../components/ui/Avatar';
@@ -83,9 +83,6 @@ export function SettingsScreen({ navigation }: any) {
         <Text style={[styles.sectionLabel, { color: colors.text3 }]}>Preferences</Text>
         <SettingsRow icon={<Bell size={18} color={colors.text2} />} title="Notifications" desc="Push & email preferences" onPress={() => navigation.navigate('NotificationPrefs')} />
         <SettingsRow icon={<Sun size={18} color={colors.text2} />} title="Appearance" desc="Dark mode, theme" onPress={() => toggleTheme()} />
-
-        <Text style={[styles.sectionLabel, { color: colors.text3 }]}>Subscription</Text>
-        <SettingsRow icon={<Gem size={18} color={colors.accent} />} title="Manage Subscription" desc="View or upgrade your plan" onPress={() => navigation.navigate('Upgrade')} />
 
         <Text style={[styles.sectionLabel, { color: colors.text3 }]}>Support</Text>
         <SettingsRow icon={<HelpCircle size={18} color={colors.text2} />} title="Help & Support" desc="FAQs, contact us" onPress={() => navigation.navigate('Support')} />
