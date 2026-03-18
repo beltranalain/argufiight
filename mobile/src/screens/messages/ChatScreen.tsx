@@ -21,7 +21,7 @@ export function ChatScreen({ navigation, route }: any) {
   const { data } = useQuery({
     queryKey: ['chat', id],
     queryFn: () => messagesApi.getMessages(id),
-    refetchInterval: 5000,
+    refetchInterval: 15000, // poll every 15s instead of 5s
   });
 
   const messages = Array.isArray(data) ? data : data?.messages ?? [];

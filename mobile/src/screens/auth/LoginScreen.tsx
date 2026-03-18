@@ -5,6 +5,7 @@ import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useTheme } from '../../theme';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -52,6 +53,7 @@ export function LoginScreen({ navigation }: any) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const [error, setError] = useState('');
 
   async function handleLogin() {
@@ -135,6 +137,49 @@ export function LoginScreen({ navigation }: any) {
     }
   }
 
+  async function handleAppleLogin() {
+    setAppleLoading(true);
+    setError('');
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        setError('Apple sign in failed: no identity token');
+        return;
+      }
+
+      const res = await fetch(`${BASE_URL}/api/auth/apple/mobile-verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identityToken: credential.identityToken,
+          fullName: credential.fullName,
+          email: credential.email,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Apple sign in failed');
+
+      if (data.token) {
+        await setToken(data.token);
+        if (data.user) setUser(data.user);
+        rewardsApi.dailyLogin().catch(() => {});
+      }
+    } catch (err: any) {
+      if (err.code !== 'ERR_REQUEST_CANCELED') {
+        setError(err.message || 'Apple sign in failed');
+      }
+    } finally {
+      setAppleLoading(false);
+    }
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       {/* Back button */}
@@ -149,7 +194,8 @@ export function LoginScreen({ navigation }: any) {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
       >
         <ScrollView
           style={styles.body}
@@ -175,7 +221,17 @@ export function LoginScreen({ navigation }: any) {
             </View>
           ) : null}
 
-          {/* Google only */}
+          {/* Social login */}
+          {Platform.OS === 'ios' && (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+              cornerRadius={10}
+              style={{ width: '100%', height: 48, marginBottom: 10 }}
+              onPress={handleAppleLogin}
+            />
+          )}
+
           <Button
             variant="secondary"
             size="lg"

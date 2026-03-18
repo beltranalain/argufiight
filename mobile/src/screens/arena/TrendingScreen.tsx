@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, X, Bell, MessageCircle } from 'lucide-react-native';
@@ -22,7 +22,14 @@ export function TrendingScreen({ navigation }: any) {
   const user = useAuthStore((s) => s.user);
   const [timeframe, setTimeframe] = useState<'24h' | '7d' | '30d'>('24h');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+
+  // Debounce search to avoid firing on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['trending', timeframe],
@@ -30,9 +37,9 @@ export function TrendingScreen({ navigation }: any) {
   });
 
   const { data: searchResults } = useQuery({
-    queryKey: ['debateSearch', searchQuery],
-    queryFn: () => debatesApi.search(searchQuery),
-    enabled: searchQuery.length >= 2,
+    queryKey: ['debateSearch', debouncedSearch],
+    queryFn: () => debatesApi.search(debouncedSearch),
+    enabled: debouncedSearch.length >= 2,
   });
 
   if (isLoading && !data) return <LoadingScreen />;

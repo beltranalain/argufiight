@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { useTheme } from '../../theme';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -30,8 +32,10 @@ export function SignupScreen({ navigation }: any) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const [error, setError] = useState('');
 
   async function handleSignup() {
@@ -118,6 +122,48 @@ export function SignupScreen({ navigation }: any) {
     }
   }
 
+  async function handleAppleSignup() {
+    setAppleLoading(true);
+    setError('');
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        setError('Apple sign up failed: no identity token');
+        return;
+      }
+
+      const res = await fetch(`${BASE_URL}/api/auth/apple/mobile-verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identityToken: credential.identityToken,
+          fullName: credential.fullName,
+          email: credential.email,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Apple sign up failed');
+
+      if (data.token) {
+        await setToken(data.token);
+        if (data.user) setUser(data.user);
+      }
+    } catch (err: any) {
+      if (err.code !== 'ERR_REQUEST_CANCELED') {
+        setError(err.message || 'Apple sign up failed');
+      }
+    } finally {
+      setAppleLoading(false);
+    }
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
@@ -131,7 +177,8 @@ export function SignupScreen({ navigation }: any) {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
       >
         <ScrollView
           style={styles.body}
@@ -154,6 +201,16 @@ export function SignupScreen({ navigation }: any) {
               <Text style={[styles.errorText, { color: colors.red }]}>{error}</Text>
             </View>
           ) : null}
+
+          {Platform.OS === 'ios' && (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+              cornerRadius={10}
+              style={{ width: '100%', height: 48, marginBottom: 10 }}
+              onPress={handleAppleSignup}
+            />
+          )}
 
           <Button
             variant="secondary"
@@ -190,8 +247,16 @@ export function SignupScreen({ navigation }: any) {
             placeholder="Min. 8 characters"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            secureTextEntry={!showPassword}
             autoComplete="new-password"
+            rightIcon={
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                {showPassword
+                  ? <EyeOff size={16} color={colors.text3} />
+                  : <Eye size={16} color={colors.text3} />
+                }
+              </TouchableOpacity>
+            }
           />
 
           <Button

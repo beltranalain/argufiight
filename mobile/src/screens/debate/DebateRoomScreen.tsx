@@ -109,13 +109,17 @@ export function DebateRoomScreen({ navigation, route }: any) {
   const { data: debate, isLoading } = useQuery({
     queryKey: ['debate', id],
     queryFn: () => debatesApi.getDebate(id),
-    refetchInterval: 10000,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      if (status === 'COMPLETED' || status === 'CANCELLED') return false;
+      return 10000;
+    },
   });
 
   const { data: chat = [] } = useQuery({
     queryKey: ['debateChat', id],
     queryFn: () => debatesApi.getChat(id),
-    refetchInterval: tab === 'chat' ? 5000 : false,
+    refetchInterval: tab === 'chat' && debate?.status !== 'COMPLETED' ? 5000 : false,
   });
 
   const { data: verdicts = [] } = useQuery({

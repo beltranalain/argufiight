@@ -28,7 +28,6 @@ export function DashboardScreen({ navigation }: any) {
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['dashboard'],
     queryFn: debatesApi.getDashboardData,
-    refetchInterval: 60000,
   });
 
   const { data: dailyChallengeData } = useQuery({

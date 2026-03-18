@@ -2,12 +2,13 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  ArrowLeft, User, Lock, Shield, Bell, Sun, HelpCircle, FileText, LogOut, ChevronRight,
+  ArrowLeft, User, Lock, Shield, Bell, Sun, HelpCircle, FileText, LogOut, Trash2, ChevronRight,
 } from 'lucide-react-native';
 import { useTheme } from '../../theme';
 import { Avatar } from '../../components/ui/Avatar';
 import { useAuthStore } from '../../store/authStore';
 import { authApi } from '../../api/auth';
+import { apiFetch } from '../../api/client';
 
 interface SettingsRowProps {
   icon: React.ReactNode;
@@ -52,6 +53,37 @@ export function SettingsScreen({ navigation }: any) {
     ]);
   }
 
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and all your data. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Are you absolutely sure?', 'All your debates, stats, and profile will be permanently removed.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Yes, delete my account',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await apiFetch('/api/user/account', { method: 'DELETE' });
+                    await clearAuth();
+                  } catch (err: any) {
+                    Alert.alert('Error', err.message || 'Failed to delete account');
+                  }
+                },
+              },
+            ]);
+          },
+        },
+      ]
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
@@ -89,6 +121,7 @@ export function SettingsScreen({ navigation }: any) {
         <SettingsRow icon={<FileText size={18} color={colors.text2} />} title="Legal" desc="Privacy Policy, Terms" onPress={() => navigation.navigate('Privacy')} />
 
         <View style={{ height: 24 }} />
+        <SettingsRow icon={<Trash2 size={18} color={colors.red} />} title="Delete Account" desc="Permanently delete your account" onPress={handleDeleteAccount} danger />
         <SettingsRow icon={<LogOut size={18} color={colors.red} />} title="Sign Out" onPress={handleSignOut} danger />
       </ScrollView>
     </SafeAreaView>

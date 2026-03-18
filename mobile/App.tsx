@@ -26,7 +26,10 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
-      staleTime: 30000,
+      staleTime: 2 * 60 * 1000,   // 2 minutes — reduce refetches on tab switches
+      gcTime: 10 * 60 * 1000,     // 10 minutes — keep cache longer on mobile
+      refetchOnWindowFocus: false, // mobile: don't refetch when app regains focus
+      refetchOnReconnect: true,
     },
   },
 });
