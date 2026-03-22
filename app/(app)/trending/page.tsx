@@ -5,8 +5,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import Link from 'next/link';
 import { Eye, MessageSquare, TrendingUp } from 'lucide-react';
+import { JsonLd, createWebPageJsonLd } from '@/components/seo/json-ld';
 
-export const metadata: Metadata = { title: 'Trending' };
+export const metadata: Metadata = {
+  title: 'Trending Debates',
+  description: 'Discover the most popular AI-judged debates happening right now on ArguFight. Watch live debates, see real-time arguments, and follow the hottest topics being debated.',
+  alternates: { canonical: '/trending' },
+};
 export const dynamic = 'force-dynamic';
 export const revalidate = 120;
 
@@ -27,9 +32,19 @@ export default async function TrendingPage() {
 
   return (
     <div className="p-5 max-w-3xl mx-auto">
-      <div className="flex items-center gap-2 mb-6">
-        <TrendingUp size={16} className="text-accent" />
-        <h1 className="heading-1">Trending Debates</h1>
+      <JsonLd data={createWebPageJsonLd({
+        name: 'Trending Debates on ArguFight',
+        description: 'Discover the most popular AI-judged debates happening on ArguFight. See what topics are generating the most views and engagement.',
+        path: '/trending',
+      })} />
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <TrendingUp size={16} className="text-accent" />
+          <h1 className="heading-1">Trending Debates</h1>
+        </div>
+        <p className="text-[13px] text-text-3 max-w-xl leading-relaxed">
+          The most-viewed debates on ArguFight right now. Browse live and completed debates across categories like politics, science, sports, and technology — all judged by AI for fairness and accuracy. Spectate, comment, and see which arguments won.
+        </p>
       </div>
 
       <div className="flex flex-col gap-3">

@@ -12,26 +12,29 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'ArguFight — Debate Platform',
+    default: 'ArguFight — AI-Judged Debate Platform',
     template: '%s | ArguFight',
   },
-  description: 'The premier AI-judged debate platform. Challenge opponents, earn championship belts, and prove your argumentation skills.',
-  keywords: ['debate', 'argumentation', 'competitive debate', 'online debate'],
+  description: 'The premier AI-judged debate platform. Challenge opponents to real-time debates, earn championship belts, climb ELO rankings, and prove your argumentation skills. Fair, unbiased AI judges evaluate logic, facts, and rhetoric.',
+  keywords: ['debate', 'argumentation', 'competitive debate', 'online debate', 'AI judge', 'debate platform', 'ELO ranking', 'debate tournament'],
   authors: [{ name: 'ArguFight' }],
   creator: 'ArguFight',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://argufight.com'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.argufight.com'),
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://argufight.com',
+    url: 'https://www.argufight.com',
     siteName: 'ArguFight',
-    title: 'ArguFight — Debate Platform',
-    description: 'The premier AI-judged debate platform.',
+    title: 'ArguFight — AI-Judged Debate Platform',
+    description: 'The premier AI-judged debate platform. Challenge opponents, earn championship belts, and prove your argumentation skills.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'ArguFight — Debate Platform',
-    description: 'The premier AI-judged debate platform.',
+    title: 'ArguFight — AI-Judged Debate Platform',
+    description: 'The premier AI-judged debate platform. Challenge opponents, earn championship belts, and prove your argumentation skills.',
   },
   robots: {
     index: true,

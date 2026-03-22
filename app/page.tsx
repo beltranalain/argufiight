@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth/get-session';
 import { MarketingHomePage } from '@/components/features/marketing/homepage';
+import { JsonLd, organizationJsonLd, websiteJsonLd } from '@/components/seo/json-ld';
 
 /**
  * Root page:
@@ -14,5 +15,11 @@ export default async function RootPage() {
     redirect('/dashboard');
   }
 
-  return <MarketingHomePage />;
+  return (
+    <>
+      <JsonLd data={organizationJsonLd} />
+      <JsonLd data={websiteJsonLd} />
+      <MarketingHomePage />
+    </>
+  );
 }

@@ -11,8 +11,13 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { Trophy, Users, Plus, Calendar } from 'lucide-react';
+import { JsonLd, createWebPageJsonLd } from '@/components/seo/json-ld';
 
-export const metadata: Metadata = { title: 'Tournaments' };
+export const metadata: Metadata = {
+  title: 'Debate Tournaments',
+  description: 'Join competitive debate tournaments on ArguFight. Bracket-style competitions with ELO-based seeding, prize pools, and championship glory. Create or enter tournaments across all debate categories.',
+  alternates: { canonical: '/tournaments' },
+};
 export const dynamic = 'force-dynamic';
 
 const statusColors: Record<string, string> = {
@@ -96,11 +101,19 @@ async function TournamentsData({ userId }: { userId: string }) {
 
   return (
     <div className="p-5 max-w-4xl mx-auto">
+      <JsonLd data={createWebPageJsonLd({
+        name: 'ArguFight Debate Tournaments',
+        description: 'Competitive debate tournaments with bracket-style matchups, ELO-based seeding, and prize pools.',
+        path: '/tournaments',
+      })} />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-sm font-[500] text-text">Tournaments</h1>
           <p className="text-[13px] text-text-3 mt-0.5">Bracket competitions with ELO-based seeding</p>
+          <p className="text-[13px] text-text-3 mt-1 max-w-lg leading-relaxed">
+            Compete in structured bracket tournaments where debaters are seeded by ELO rating. Enter tournaments across categories like politics, science, sports, and tech. Win prizes, earn coins, and prove you&apos;re the best.
+          </p>
         </div>
         <Button variant="accent" size="sm" href="/tournaments/create">
           <Plus size={12} />

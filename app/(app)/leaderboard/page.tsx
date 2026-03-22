@@ -11,8 +11,13 @@ import { cn } from '@/lib/cn';
 import Link from 'next/link';
 import { Trophy, TrendingUp, Swords } from 'lucide-react';
 import { ChallengeButton } from './challenge-button';
+import { JsonLd, createWebPageJsonLd } from '@/components/seo/json-ld';
 
-export const metadata: Metadata = { title: 'Leaderboard' };
+export const metadata: Metadata = {
+  title: 'Leaderboard — Top Debaters',
+  description: 'See the top-ranked debaters on ArguFight. Live ELO rankings updated every minute — track win rates, debate records, and championship belt holders across all categories.',
+  alternates: { canonical: '/leaderboard' },
+};
 export const dynamic = 'force-dynamic';
 
 async function LeaderboardData({ userId }: { userId: string }) {
@@ -37,10 +42,18 @@ async function LeaderboardData({ userId }: { userId: string }) {
 
   return (
     <div className="p-5 max-w-3xl mx-auto">
+      <JsonLd data={createWebPageJsonLd({
+        name: 'ArguFight Leaderboard — Top Debaters',
+        description: 'Live ELO rankings of the top debaters on ArguFight. See win rates, debate records, and who holds the championship belts.',
+        path: '/leaderboard',
+      })} />
       <div className="mb-6">
         <h1 className="heading-1 mb-1">Leaderboard</h1>
         <p className="text-xs text-text-3">
           Top debaters ranked by ELO rating · updates every minute
+        </p>
+        <p className="text-[13px] text-text-3 mt-2 max-w-xl leading-relaxed">
+          The ArguFight leaderboard ranks debaters by ELO rating — a skill-based system that adjusts after every debate based on outcome and opponent strength. Challenge top-ranked debaters to climb the rankings and earn your spot among the best arguers on the platform.
         </p>
       </div>
 
