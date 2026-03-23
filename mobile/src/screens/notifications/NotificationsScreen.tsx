@@ -15,6 +15,7 @@ export function NotificationsScreen({ navigation }: any) {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => notificationsApi.getAll(),
+    staleTime: 30000, // 30s — avoid refetch on every navigation
   });
 
   const notifications = Array.isArray(data) ? data : data?.notifications ?? [];

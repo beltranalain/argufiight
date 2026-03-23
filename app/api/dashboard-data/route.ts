@@ -149,6 +149,20 @@ export async function GET(request: NextRequest) {
     const subscriptionsEnabled = flags[FEATURE_KEYS.SUBSCRIPTIONS]
     const streaksEnabled = flags[FEATURE_KEYS.STREAKS]
 
+    // Get IDs of users blocked by current user — filter their content from feeds
+    const blockedUserIds = (await prisma.userBlock.findMany({
+      where: { blockerId: userId },
+      select: { blockedId: true },
+    })).map((b) => b.blockedId)
+
+    // Prisma filter to exclude debates involving blocked users
+    const blockedUserFilter = blockedUserIds.length > 0
+      ? {
+          challengerId: { notIn: blockedUserIds },
+          OR: [{ opponentId: null }, { opponentId: { notIn: blockedUserIds } }],
+        }
+      : {}
+
     // Run ALL dashboard queries in parallel — skip disabled module queries
     const [
       categories,
@@ -177,9 +191,9 @@ export async function GET(request: NextRequest) {
         select: { id: true, name: true, label: true, description: true, color: true, icon: true, sortOrder: true },
       }),
 
-      // 2. Active debates (Live Battles - public only)
+      // 2. Active debates (Live Battles - public only, exclude blocked users)
       prisma.debate.findMany({
-        where: { status: 'ACTIVE', isPrivate: false },
+        where: { status: 'ACTIVE', isPrivate: false, ...blockedUserFilter },
         select: fullDebateSelect,
         orderBy: { createdAt: 'desc' },
         take: 20,
@@ -195,9 +209,9 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
       }),
 
-      // 4. Waiting debates (Open Challenges) — lightweight select
+      // 4. Waiting debates (Open Challenges, exclude blocked users) — lightweight select
       prisma.debate.findMany({
-        where: { status: 'WAITING', isPrivate: false },
+        where: { status: 'WAITING', isPrivate: false, ...blockedUserFilter },
         select: challengeDebateSelect,
         orderBy: { createdAt: 'desc' },
         take: 20,
@@ -357,22 +371,6 @@ export async function GET(request: NextRequest) {
       overallScorePercent: u.totalMaxScore > 0 ? Math.round((u.totalScore / u.totalMaxScore) * 1000) / 10 : 0,
     }))
 
-    // Process user rank — use userRankData (query #8) which now includes email+coins
-    let userRank = null
-    if (userRankData && !leaderboard.some(u => u.id === userId)) {
-      // Compute rank from the parallel count query instead of sequential
-      const higherRanked = await prisma.user.count({
-        where: { isAdmin: false, isBanned: false, eloRating: { gt: userRankData.eloRating } },
-      })
-      userRank = {
-        ...userRankData,
-        rank: higherRanked + 1,
-        winRate: userRankData.totalDebates > 0 ? Math.round((userRankData.debatesWon / userRankData.totalDebates) * 1000) / 10 : 0,
-        overallScore: userRankData.totalScore,
-        overallScorePercent: userRankData.totalMaxScore > 0 ? Math.round((userRankData.totalScore / userRankData.totalMaxScore) * 1000) / 10 : 0,
-      }
-    }
-
     // Process your-turn — reuse userActiveDebates (query #3) instead of separate query
     let yourTurn = null
     for (const debate of userActiveDebates) {
@@ -385,15 +383,34 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Advertiser check (skip when ADVERTISING off)
-    let isAdvertiser = false
-    if (advertisingEnabled && userRankData?.email) {
-      const adv = await prisma.advertiser.findUnique({
-        where: { contactEmail: userRankData.email },
-        select: { id: true },
-      })
-      isAdvertiser = !!adv
+    // Run remaining dependent queries in parallel (rank count + advertiser check)
+    const needsRank = userRankData && !leaderboard.some(u => u.id === userId)
+    const [higherRanked, advertiserResult] = await Promise.all([
+      needsRank
+        ? prisma.user.count({
+            where: { isAdmin: false, isBanned: false, eloRating: { gt: userRankData!.eloRating } },
+          })
+        : Promise.resolve(0),
+      advertisingEnabled && userRankData?.email
+        ? prisma.advertiser.findUnique({
+            where: { contactEmail: userRankData.email },
+            select: { id: true },
+          })
+        : Promise.resolve(null),
+    ])
+
+    let userRank = null
+    if (needsRank && userRankData) {
+      userRank = {
+        ...userRankData,
+        rank: higherRanked + 1,
+        winRate: userRankData.totalDebates > 0 ? Math.round((userRankData.debatesWon / userRankData.totalDebates) * 1000) / 10 : 0,
+        overallScore: userRankData.totalScore,
+        overallScorePercent: userRankData.totalMaxScore > 0 ? Math.round((userRankData.totalScore / userRankData.totalMaxScore) * 1000) / 10 : 0,
+      }
     }
+
+    const isAdvertiser = !!advertiserResult
 
     // Add hasNoStatements flag to debate arrays
     const addFlags = (debates: any[]) => debates.map(d => ({

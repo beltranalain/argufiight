@@ -14,6 +14,7 @@ export function ConversationsScreen({ navigation }: any) {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['conversations'],
     queryFn: messagesApi.getConversations,
+    staleTime: 30000, // 30s — avoid refetch on every navigation
   });
 
   const conversations = Array.isArray(data) ? data : data?.conversations ?? [];

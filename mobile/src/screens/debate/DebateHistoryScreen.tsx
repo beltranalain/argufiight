@@ -17,6 +17,7 @@ export function DebateHistoryScreen({ navigation }: any) {
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['debateHistory'],
     queryFn: debatesApi.getHistory,
+    staleTime: 30000, // 30s
   });
 
   const debates = Array.isArray(data) ? data : data?.debates ?? [];

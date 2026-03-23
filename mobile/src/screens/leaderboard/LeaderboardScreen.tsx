@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Bell, MessageCircle } from 'lucide-react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useTheme } from '../../theme';
 import { Avatar } from '../../components/ui/Avatar';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -20,14 +20,26 @@ export function LeaderboardScreen({ navigation }: any) {
   const user = useAuthStore((s) => s.user);
   const [timeframe, setTimeframe] = useState<Timeframe>('Weekly');
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const PAGE_SIZE = 25;
+
+  const { data, isLoading, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ['leaderboard', timeframe],
-    queryFn: () => leaderboardApi.get(1, 50),
+    queryFn: ({ pageParam = 1 }) => leaderboardApi.get(pageParam, PAGE_SIZE),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage: any, allPages) => {
+      const totalPages = lastPage?.totalPages ?? 1;
+      const nextPage = allPages.length + 1;
+      return nextPage <= totalPages ? nextPage : undefined;
+    },
+    staleTime: 60000, // 1 min
   });
 
   if (isLoading && !data) return <LoadingScreen />;
 
-  const users: any[] = Array.isArray(data) ? data : data?.leaderboard ?? data?.users ?? [];
+  const users: any[] = data?.pages?.flatMap((page: any) => {
+    const list = Array.isArray(page) ? page : page?.leaderboard ?? page?.users ?? [];
+    return list;
+  }) ?? [];
 
   const top3 = users.slice(0, 3);
   const rest = users.slice(3);
@@ -129,6 +141,9 @@ export function LeaderboardScreen({ navigation }: any) {
             </View>
           )
         }
+        onEndReached={() => { if (hasNextPage && !isFetchingNextPage) fetchNextPage(); }}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={isFetchingNextPage ? <View style={{ padding: 16 }}><Skeleton height={52} /></View> : null}
         renderItem={({ item, index }: any) => {
           const rank = item.rank ?? index + 4;
           return (

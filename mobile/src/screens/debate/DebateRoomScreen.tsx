@@ -4,13 +4,14 @@ import {
   TextInput, Keyboard, Platform, FlatList, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Eye, Send, MessageCircle, Mic, MicOff } from 'lucide-react-native';
+import { ArrowLeft, Eye, Send, MessageCircle, Mic, MicOff, MoreHorizontal } from 'lucide-react-native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '../../theme';
 import { Avatar } from '../../components/ui/Avatar';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { debatesApi } from '../../api/debates';
 import { useAuthStore } from '../../store/authStore';
+import { ReportBlockMenu } from '../../components/ui/ReportBlockMenu';
 
 // expo-speech-recognition requires a dev build — not available in Expo Go.
 // Load it dynamically so the rest of the app still works in Expo Go.
@@ -44,6 +45,7 @@ export function DebateRoomScreen({ navigation, route }: any) {
   const [isListening, setIsListening] = useState(false);
   const [voiceTarget, setVoiceTarget] = useState<VoiceTarget>(null);
   const [kbHeight, setKbHeight] = useState(0);
+  const [reportMenuVisible, setReportMenuVisible] = useState(false);
 
   // Track keyboard height manually — more reliable than KeyboardAvoidingView on Android
   useEffect(() => {
@@ -109,17 +111,19 @@ export function DebateRoomScreen({ navigation, route }: any) {
   const { data: debate, isLoading } = useQuery({
     queryKey: ['debate', id],
     queryFn: () => debatesApi.getDebate(id),
+    staleTime: 15000,
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       if (status === 'COMPLETED' || status === 'CANCELLED') return false;
-      return 10000;
+      return 30000; // 30s polling (reduced from 10s)
     },
   });
 
   const { data: chat = [] } = useQuery({
     queryKey: ['debateChat', id],
     queryFn: () => debatesApi.getChat(id),
-    refetchInterval: tab === 'chat' && debate?.status !== 'COMPLETED' ? 5000 : false,
+    staleTime: 10000,
+    refetchInterval: tab === 'chat' && debate?.status !== 'COMPLETED' ? 15000 : false, // 15s (reduced from 5s)
   });
 
   const { data: verdicts = [] } = useQuery({
@@ -209,6 +213,9 @@ export function DebateRoomScreen({ navigation, route }: any) {
           <Eye size={14} color={colors.text3} />
           <Text style={{ color: colors.text3, fontSize: 12 }}>{debate?.spectatorCount ?? 0}</Text>
         </View>
+        <TouchableOpacity onPress={() => setReportMenuVisible(true)} hitSlop={12}>
+          <MoreHorizontal size={20} color={colors.text3} />
+        </TouchableOpacity>
       </View>
 
       {/* Tab bar */}
@@ -481,6 +488,12 @@ export function DebateRoomScreen({ navigation, route }: any) {
           </ScrollView>
         )}
       </View>
+
+      <ReportBlockMenu
+        visible={reportMenuVisible}
+        onClose={() => setReportMenuVisible(false)}
+        debateId={id}
+      />
     </SafeAreaView>
   );
 }

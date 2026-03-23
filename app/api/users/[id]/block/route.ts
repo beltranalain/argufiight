@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getSession } from '@/lib/auth/session';
-import crypto from 'crypto';
 
 // POST /api/users/[id]/block - Block a user
 export async function POST(
@@ -14,48 +13,54 @@ export async function POST(
     const token = authHeader?.replace('Bearer ', '');
 
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const session = await getSession(token);
     if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
     const blockerId = session.user.id;
 
-    // Can't block yourself
     if (blockerId === blockedUserId) {
-      return NextResponse.json(
-        { error: 'Cannot block yourself' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Cannot block yourself' }, { status: 400 });
     }
 
-    // Check if user exists
     const blockedUser = await prisma.user.findUnique({
       where: { id: blockedUserId },
     });
 
     if (!blockedUser) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Block feature not implemented - block model doesn't exist
-    // For now, return success but don't actually block
-    return NextResponse.json({
-      success: true,
-      message: 'Block feature not yet implemented',
+    const body = await request.json().catch(() => ({}));
+
+    // Upsert block record
+    await prisma.userBlock.upsert({
+      where: {
+        blockerId_blockedId: { blockerId, blockedId: blockedUserId },
+      },
+      create: {
+        blockerId,
+        blockedId: blockedUserId,
+        reason: body.reason || null,
+      },
+      update: {},
     });
+
+    // Also unfollow in both directions
+    await prisma.follow.deleteMany({
+      where: {
+        OR: [
+          { followerId: blockerId, followingId: blockedUserId },
+          { followerId: blockedUserId, followingId: blockerId },
+        ],
+      },
+    });
+
+    return NextResponse.json({ success: true, blocked: true });
   } catch (error: any) {
     console.error('Failed to block user:', error);
     return NextResponse.json(
@@ -76,27 +81,21 @@ export async function DELETE(
     const token = authHeader?.replace('Bearer ', '');
 
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const session = await getSession(token);
     if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
     const blockerId = session.user.id;
 
-    // Block feature not implemented
-    return NextResponse.json({
-      success: true,
-      message: 'Block feature not yet implemented',
+    await prisma.userBlock.deleteMany({
+      where: { blockerId, blockedId: blockedUserId },
     });
+
+    return NextResponse.json({ success: true, blocked: false });
   } catch (error: any) {
     console.error('Failed to unblock user:', error);
     return NextResponse.json(
@@ -117,26 +116,28 @@ export async function GET(
     const token = authHeader?.replace('Bearer ', '');
 
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const session = await getSession(token);
     if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
     const currentUserId = session.user.id;
 
-    // Block feature not implemented
+    const [isBlocked, isBlockedBy] = await Promise.all([
+      prisma.userBlock.findUnique({
+        where: { blockerId_blockedId: { blockerId: currentUserId, blockedId: userId } },
+      }),
+      prisma.userBlock.findUnique({
+        where: { blockerId_blockedId: { blockerId: userId, blockedId: currentUserId } },
+      }),
+    ]);
+
     return NextResponse.json({
-      isBlocked: false,
-      isBlockedBy: false,
+      isBlocked: !!isBlocked,
+      isBlockedBy: !!isBlockedBy,
     });
   } catch (error: any) {
     console.error('Failed to check block status:', error);
@@ -146,4 +147,3 @@ export async function GET(
     );
   }
 }
-

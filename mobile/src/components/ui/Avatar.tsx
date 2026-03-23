@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Image, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { useTheme } from '../../theme';
 
 type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -48,7 +49,11 @@ export function Avatar({ src, fallback, size = 'md', color }: AvatarProps) {
     return (
       <Image
         source={{ uri: src }}
-        style={[styles.image, { width: dim, height: dim, borderRadius: dim / 2 }]}
+        style={{ width: dim, height: dim, borderRadius: dim / 2 }}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        recyclingKey={src}
+        transition={150}
       />
     );
   }
@@ -73,9 +78,6 @@ export function Avatar({ src, fallback, size = 'md', color }: AvatarProps) {
 }
 
 const styles = StyleSheet.create({
-  image: {
-    resizeMode: 'cover',
-  },
   fallback: {
     alignItems: 'center',
     justifyContent: 'center',

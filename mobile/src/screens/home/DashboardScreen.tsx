@@ -28,6 +28,7 @@ export function DashboardScreen({ navigation }: any) {
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['dashboard'],
     queryFn: debatesApi.getDashboardData,
+    staleTime: 30000, // 30s — avoid refetch on every tab switch
   });
 
   const { data: dailyChallengeData } = useQuery({

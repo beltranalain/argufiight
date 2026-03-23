@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma';
+import { unstable_cache } from 'next/cache';
 import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/cn';
@@ -18,7 +19,8 @@ function formatDate(d: Date | string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-async function getProfileData(userId: string) {
+const getProfileData = unstable_cache(
+  async function getProfileData(userId: string) {
   const [user, recentDebates] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
@@ -53,6 +55,7 @@ async function getProfileData(userId: string) {
     }),
   ]);
 
+  // Rank count runs in parallel-safe way: we already have user.eloRating
   const userRank = user
     ? (await prisma.user.count({
         where: { eloRating: { gt: user.eloRating }, isBanned: false },
@@ -60,7 +63,10 @@ async function getProfileData(userId: string) {
     : null;
 
   return { user, recentDebates, userRank };
-}
+  },
+  ['profile-panel'],
+  { revalidate: 60, tags: ['profile-panel'] }
+);
 
 export async function ProfilePanel({ userId }: Props) {
   const { user, recentDebates, userRank } = await getProfileData(userId);

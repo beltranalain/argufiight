@@ -108,4 +108,10 @@ export const debatesApi = {
       method: 'POST',
       body: { content },
     }),
+
+  report: (id: string, reason: string, description?: string) =>
+    apiFetch(`/api/debates/${id}/report`, {
+      method: 'POST',
+      body: { reason, description },
+    }),
 };

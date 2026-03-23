@@ -15,8 +15,17 @@ export const usersApi = {
   follow: (id: string) =>
     apiFetch(`/api/users/${id}/follow`, { method: 'POST' }),
 
-  block: (id: string) =>
-    apiFetch(`/api/users/${id}/block`, { method: 'POST' }),
+  block: (id: string, reason?: string) =>
+    apiFetch(`/api/users/${id}/block`, { method: 'POST', body: { reason } }),
+
+  unblock: (id: string) =>
+    apiFetch(`/api/users/${id}/block`, { method: 'DELETE' }),
+
+  getBlockStatus: (id: string) =>
+    apiFetch<{ isBlocked: boolean; isBlockedBy: boolean }>(`/api/users/${id}/block`),
+
+  reportUser: (userId: string, reason: string, description?: string) =>
+    apiFetch('/api/reports', { method: 'POST', body: { reason, description } }),
 
   getFollowers: () => apiFetch('/api/users/followers'),
 

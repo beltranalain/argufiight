@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { FollowButton } from '@/components/features/profile/follow-button';
 import { MessageButton } from '@/components/features/profile/message-button';
 import { ChallengeButton } from '@/app/(app)/leaderboard/challenge-button';
+import { ReportBlockButton } from '@/components/features/profile/report-block-button';
 import Link from 'next/link';
 import { Swords, Award, CheckCircle, XCircle, Minus } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -110,6 +111,11 @@ export default async function ProfilePage({ params }: Props) {
                 />
                 <MessageButton targetId={id} />
                 <ChallengeButton opponentId={id} opponentName={user.username} />
+                <ReportBlockButton
+                  targetId={id}
+                  targetName={user.username}
+                  currentUserId={session?.userId ?? null}
+                />
               </>
             )}
           </div>

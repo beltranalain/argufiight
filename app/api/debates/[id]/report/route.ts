@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getSession } from '@/lib/auth/session';
-import crypto from 'crypto';
 
 // POST /api/debates/[id]/report - Report a debate
 export async function POST(
@@ -14,27 +13,18 @@ export async function POST(
     const token = authHeader?.replace('Bearer ', '');
 
     if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const session = await getSession(token);
     if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
     const { reason, description } = await request.json();
 
     if (!reason) {
-      return NextResponse.json(
-        { error: 'Reason is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Reason is required' }, { status: 400 });
     }
 
     // Check if debate exists
@@ -43,26 +33,41 @@ export async function POST(
     });
 
     if (!debate) {
-      return NextResponse.json(
-        { error: 'Debate not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Debate not found' }, { status: 404 });
     }
 
     // Check if user already reported this debate
-    // Note: In a real app, you'd have a Report model. For now, we'll just log it.
-    console.log('Debate Report:', {
-      debateId: id,
-      reportedBy: session.user.id,
-      reason,
-      description,
-      timestamp: new Date().toISOString(),
+    const existingReport = await prisma.report.findFirst({
+      where: { debateId: id, reporterId: session.user.id },
     });
 
-    // In a production app, you would:
-    // 1. Store the report in a database
-    // 2. Notify moderators
-    // 3. Potentially flag the debate for review
+    if (existingReport) {
+      return NextResponse.json({
+        success: true,
+        message: 'You have already reported this debate.',
+      });
+    }
+
+    // Create report in database
+    const report = await prisma.report.create({
+      data: {
+        debateId: id,
+        reporterId: session.user.id,
+        reason,
+        description: description || null,
+        status: 'PENDING',
+      },
+    });
+
+    // Trigger AI auto-review (async, don't wait)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.argufight.com';
+    fetch(`${baseUrl}/api/moderation/auto-review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reportId: report.id }),
+    }).catch((error) => {
+      console.error('Failed to trigger AI auto-review:', error);
+    });
 
     return NextResponse.json({
       success: true,
@@ -76,14 +81,3 @@ export async function POST(
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-

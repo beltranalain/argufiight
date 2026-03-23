@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         opponentId: selectedAI.id,
         challengerPosition: position as any,
         opponentPosition: opponentPosition as any,
-        totalRounds: 3,
+        totalRounds: 1,
         currentRound: 1,
         roundDuration,
         speedMode: true,

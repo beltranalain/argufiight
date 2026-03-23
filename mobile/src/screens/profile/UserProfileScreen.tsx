@@ -1,19 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Zap, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, Zap, ChevronRight, MoreHorizontal } from 'lucide-react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '../../theme';
 import { Avatar } from '../../components/ui/Avatar';
 import { StatCard } from '../../components/ui/StatCard';
 import { Button } from '../../components/ui/Button';
+import { ReportBlockMenu } from '../../components/ui/ReportBlockMenu';
 import { usersApi } from '../../api/users';
 import { debatesApi } from '../../api/debates';
+import { useAuthStore } from '../../store/authStore';
 import { timeAgo } from '../../utils/notifications';
 
 export function UserProfileScreen({ navigation, route }: any) {
   const { colors } = useTheme();
   const { id } = route.params;
+  const currentUser = useAuthStore((s) => s.user);
+  const isSelf = currentUser?.id === id;
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ['userProfile', id],
@@ -48,7 +53,12 @@ export function UserProfileScreen({ navigation, route }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <ArrowLeft size={20} color={colors.text2} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+        <Text style={[styles.headerTitle, { color: colors.text, flex: 1 }]}>Profile</Text>
+        {!isSelf && (
+          <TouchableOpacity onPress={() => setMenuVisible(true)} hitSlop={12}>
+            <MoreHorizontal size={20} color={colors.text2} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
@@ -127,6 +137,15 @@ export function UserProfileScreen({ navigation, route }: any) {
           </View>
         )}
       </ScrollView>
+
+      {!isSelf && (
+        <ReportBlockMenu
+          visible={menuVisible}
+          onClose={() => setMenuVisible(false)}
+          userId={id}
+          userName={p?.username}
+        />
+      )}
     </SafeAreaView>
   );
 }

@@ -36,6 +36,7 @@ export function TournamentsListScreen({ navigation }: any) {
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['tournaments'],
     queryFn: tournamentsApi.getAll,
+    staleTime: 60000, // 1 min
   });
 
   const tournaments: any[] = Array.isArray(data) ? data : data?.tournaments ?? [];

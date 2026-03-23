@@ -24,6 +24,14 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  // Exclude heavy server-only packages from the bundle
+  serverExternalPackages: [
+    'firebase-admin',
+    'googleapis',
+    'openai',
+    'stripe',
+  ],
+
   // Enable experimental features
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion', 'recharts'],

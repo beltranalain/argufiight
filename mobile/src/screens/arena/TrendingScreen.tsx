@@ -34,12 +34,14 @@ export function TrendingScreen({ navigation }: any) {
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['trending', timeframe],
     queryFn: () => debatesApi.getTrending(timeframe),
+    staleTime: 60000, // 1 min
   });
 
   const { data: searchResults } = useQuery({
     queryKey: ['debateSearch', debouncedSearch],
     queryFn: () => debatesApi.search(debouncedSearch),
     enabled: debouncedSearch.length >= 2,
+    staleTime: 300000, // 5 min — search results don't change fast
   });
 
   if (isLoading && !data) return <LoadingScreen />;

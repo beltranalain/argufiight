@@ -79,34 +79,28 @@ export function RootNavigator() {
     async function init() {
       const storedToken = await loadStoredToken();
       if (storedToken) {
-        // Always set the token first so the user stays logged in.
-        // If the token is invalid, subsequent API calls (dashboard, etc.) will
-        // return 401 and the apiFetch grace-period logic will handle clearAuth.
-        // This prevents Vercel cold starts / transient server errors from
-        // logging the user out on every app reload.
         await setToken(storedToken);
-        try {
-          // 8-second timeout prevents init() from hanging indefinitely
-          // (e.g. Vercel cold start, tunnel latency, flaky network).
-          // setToken() already logged the user in above — this fetch only enriches user data.
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 8000);
-          const res = await fetch(`${BASE_URL}/api/auth/me`, {
-            headers: { Authorization: `Bearer ${storedToken}` },
-            signal: controller.signal,
-          });
-          clearTimeout(timer);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.user) {
-              setUser(data.user);
-              registerForPushNotifications().catch(() => {});
+        // Show UI immediately — enrich user data in background (non-blocking)
+        (async () => {
+          try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 8000);
+            const res = await fetch(`${BASE_URL}/api/auth/me`, {
+              headers: { Authorization: `Bearer ${storedToken}` },
+              signal: controller.signal,
+            });
+            clearTimeout(timer);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.user) {
+                setUser(data.user);
+                registerForPushNotifications().catch(() => {});
+              }
             }
+          } catch {
+            // Network error or timeout — user stays logged in via token.
           }
-          // Any non-OK response (401, 5xx) — user is still logged in via setToken above.
-        } catch {
-          // Network error or timeout — already logged in via setToken above.
-        }
+        })();
       }
       setInitializing(false);
     }

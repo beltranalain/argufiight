@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/db/prisma';
+import { getSession } from '@/lib/auth/get-session';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -16,10 +17,27 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 120;
 
 export default async function TrendingPage() {
+  const session = await getSession();
+
+  // Get IDs of users blocked by the current user
+  const blockedUserIds = session
+    ? (await prisma.userBlock.findMany({
+        where: { blockerId: session.userId },
+        select: { blockedId: true },
+      })).map((b) => b.blockedId)
+    : [];
+
   const debates = await prisma.debate.findMany({
     where: {
       status: { in: ['ACTIVE', 'VERDICT_READY', 'COMPLETED'] },
       OR: [{ isPrivate: false }, { visibility: 'PUBLIC' }],
+      // Filter out debates involving blocked users or banned users
+      challenger: { isBanned: false, ...(blockedUserIds.length > 0 && { id: { notIn: blockedUserIds } }) },
+      ...(blockedUserIds.length > 0 && {
+        AND: [
+          { OR: [{ opponentId: null }, { opponent: { id: { notIn: blockedUserIds } } }] },
+        ],
+      }),
     },
     include: {
       challenger: { select: { username: true, avatarUrl: true, eloRating: true } },
