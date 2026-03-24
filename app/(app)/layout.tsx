@@ -8,6 +8,7 @@ import { RankingsPanelSkeleton } from '@/components/layout/rankings-panel-skelet
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav';
 import { CreateDebateButton } from '@/components/features/debate/create-debate-button';
 import { PushBanner } from '@/components/features/push/push-banner';
+import { AppDownloadBanner } from '@/components/features/app-download/app-download-banner';
 import { Providers } from '@/lib/providers';
 import { getSession } from '@/lib/auth/get-session';
 
@@ -54,6 +55,7 @@ export default async function AppLayout({
             style={{ minHeight: 'calc(100vh - 58px)' }}
           >
             <PushBanner />
+            <AppDownloadBanner />
             {children}
           </main>
 

@@ -22,6 +22,18 @@ async function getSections() {
   }
 }
 
+async function getAppStoreUrls() {
+  try {
+    const settings = await prisma.adminSetting.findMany({
+      where: { key: { in: ['APP_STORE_URL', 'PLAY_STORE_URL'] } },
+      select: { key: true, value: true },
+    });
+    return Object.fromEntries(settings.map(s => [s.key, s.value])) as Record<string, string>;
+  } catch {
+    return {} as Record<string, string>;
+  }
+}
+
 // ─── Static content ────────────────────────────────────────────────────────────
 
 const HOW_IT_WORKS = [
@@ -90,9 +102,11 @@ const FOOTER_COLS = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export async function MarketingHomePage() {
-  const db = await getSections();
+  const [db, appUrls] = await Promise.all([getSections(), getAppStoreUrls()]);
   const hero = db['hero'];
   const cta  = db['cta'];
+  const appStoreUrl  = appUrls['APP_STORE_URL'] || '';
+  const playStoreUrl = appUrls['PLAY_STORE_URL'] || '';
 
   return (
     <div className="min-h-screen flex flex-col bg-bg text-text">
@@ -323,31 +337,57 @@ export async function MarketingHomePage() {
         </div>
       </section>
 
-      {/* ══ App coming soon ═════════════════════════════════════════════════════ */}
+      {/* ══ Download the App ══════════════════════════════════════════════════ */}
       <section className="border-t border-border">
         <div className="max-w-5xl mx-auto px-6 py-16 text-center">
           <p className="text-[13px] font-[500] text-accent uppercase tracking-widest mb-4">Mobile app</p>
-          <h2 className="text-[30px] font-[600] text-text mb-3">App Coming Soon</h2>
+          <h2 className="text-[30px] font-[600] text-text mb-3">
+            {appStoreUrl || playStoreUrl ? 'Download the App' : 'App Coming Soon'}
+          </h2>
           <p className="text-[17px] text-text-3 mb-8">Get the ArguFight app on your mobile device and debate on the go!</p>
-          <div className="flex items-center justify-center gap-4">
-            <div className="flex items-center gap-3 px-5 py-3 bg-surface border border-border rounded-xl">
-              <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
-                <Smartphone size={18} className="text-accent" />
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            {appStoreUrl ? (
+              <a href={appStoreUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-5 py-3 bg-surface border border-border rounded-xl hover:border-accent/40 transition-colors">
+                <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-accent"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+                </div>
+                <div className="text-left">
+                  <p className="text-[11px] text-text-3">Download on the</p>
+                  <p className="text-[15px] font-[600] text-text">App Store</p>
+                </div>
+              </a>
+            ) : (
+              <div className="flex items-center gap-3 px-5 py-3 bg-surface border border-border rounded-xl opacity-60">
+                <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
+                  <Smartphone size={18} className="text-accent" />
+                </div>
+                <div className="text-left">
+                  <p className="text-[11px] text-text-3">Coming soon on</p>
+                  <p className="text-[15px] font-[600] text-text">App Store</p>
+                </div>
               </div>
-              <div className="text-left">
-                <p className="text-[11px] text-text-3">Coming soon on</p>
-                <p className="text-[15px] font-[600] text-text">App Store</p>
+            )}
+            {playStoreUrl ? (
+              <a href={playStoreUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 px-5 py-3 bg-surface border border-border rounded-xl hover:border-accent/40 transition-colors">
+                <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-accent"><path d="M3.18 23.29c-.44-.27-.68-.73-.68-1.29V2c0-.56.24-1.02.68-1.29l11.2 11.29L3.18 23.29zM16.3 13.91l-1.97-1.97 1.97-1.97 3.47 2c.41.24.41.7 0 .94l-3.47 2zM14.38 11.94L4.4 1.93l10.9 6.28-2.88 2.88.94.85zm0 0L4.4 22.07l10.9-6.28-2.88-2.88.94-.85-.98.88z"/></svg>
+                </div>
+                <div className="text-left">
+                  <p className="text-[11px] text-text-3">Get it on</p>
+                  <p className="text-[15px] font-[600] text-text">Google Play</p>
+                </div>
+              </a>
+            ) : (
+              <div className="flex items-center gap-3 px-5 py-3 bg-surface border border-border rounded-xl opacity-60">
+                <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
+                  <Play size={18} className="text-accent" />
+                </div>
+                <div className="text-left">
+                  <p className="text-[11px] text-text-3">Coming soon on</p>
+                  <p className="text-[15px] font-[600] text-text">Google Play</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3 px-5 py-3 bg-surface border border-border rounded-xl">
-              <div className="w-9 h-9 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
-                <Play size={18} className="text-accent" />
-              </div>
-              <div className="text-left">
-                <p className="text-[11px] text-text-3">Coming soon on</p>
-                <p className="text-[15px] font-[600] text-text">Google Play</p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </section>

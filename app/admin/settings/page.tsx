@@ -104,6 +104,14 @@ const SECTIONS: Array<{ title: string; description: string; fields: SettingField
       { key: 'CREATOR_FEE_PLATINUM', label: 'Platinum Tier Fee (%)', type: 'number', hint: 'Default: 10' },
     ],
   },
+  {
+    title: 'App Store Links',
+    description: 'Links to your mobile app on Apple App Store and Google Play',
+    fields: [
+      { key: 'APP_STORE_URL',  label: 'Apple App Store URL',  hint: 'e.g. https://apps.apple.com/app/argufight/id...' },
+      { key: 'PLAY_STORE_URL', label: 'Google Play Store URL', hint: 'e.g. https://play.google.com/store/apps/details?id=...' },
+    ],
+  },
 ];
 
 function SecretInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
