@@ -22,58 +22,36 @@ export async function GET(request: NextRequest) {
       where.read = false
     }
 
-    // Use Prisma's regular query (fallback already works, so use it directly)
-    try {
-      console.log('Fetching notifications for user:', userId, 'unreadOnly:', unreadOnly)
-      
-      const notifications = await prisma.notification.findMany({
-        where,
-        include: {
-          debate: {
-            select: {
-              id: true,
-              topic: true,
-            },
+    const notifications = await prisma.notification.findMany({
+      where,
+      include: {
+        debate: {
+          select: {
+            id: true,
+            topic: true,
           },
         },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        take: limit,
-      })
-      
-      // Map to expected format
-      const mappedNotifications = notifications.map(n => ({
-        id: n.id,
-        userId: n.userId,
-        type: n.type,
-        title: n.title,
-        message: n.message,
-        debateId: n.debateId,
-        debate: n.debate,
-        read: n.read,
-        readAt: n.readAt,
-        createdAt: n.createdAt,
-      }))
-      
-      console.log(`[API /notifications] Returning ${mappedNotifications.length} notifications`)
-      if (mappedNotifications.length > 0) {
-        console.log(`[API /notifications] Sample notification:`, {
-          id: mappedNotifications[0].id,
-          title: mappedNotifications[0].title,
-          type: mappedNotifications[0].type,
-          read: mappedNotifications[0].read,
-        })
-      }
-      
-      return NextResponse.json(mappedNotifications)
-    } catch (error: any) {
-      console.error('[API /notifications] Error fetching notifications:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch notifications' },
-        { status: 500 }
-      )
-    }
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+    })
+
+    const mappedNotifications = notifications.map(n => ({
+      id: n.id,
+      userId: n.userId,
+      type: n.type,
+      title: n.title,
+      message: n.message,
+      debateId: n.debateId,
+      debate: n.debate,
+      read: n.read,
+      readAt: n.readAt,
+      createdAt: n.createdAt,
+    }))
+
+    return NextResponse.json(mappedNotifications)
   } catch (error) {
     console.error('Failed to fetch notifications:', error)
     return NextResponse.json(
@@ -82,4 +60,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-

@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
     const sessionToken = crypto.randomBytes(32).toString('hex')
 
-    const secretKey = process.env.AUTH_SECRET || 'your-secret-key-change-in-production'
+    const secretKey = process.env.AUTH_SECRET!
     const encodedKey = new TextEncoder().encode(secretKey)
 
     const sessionJWT = await new SignJWT({ sessionToken })

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { verifySession } from '@/lib/auth/session'
 import { getSession } from '@/lib/auth/session-verify'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
@@ -113,16 +113,6 @@ const recentDebateSelect = {
 
 // GET /api/dashboard-data — single endpoint for all dashboard panel data
 export async function GET(request: NextRequest) {
-  // Trigger AI auto-accept and expired debate processing after response is sent
-  after(async () => {
-    try {
-      const { triggerAIAutoAccept } = await import('@/lib/ai/trigger-ai-accept')
-      await triggerAIAutoAccept()
-    } catch {
-      // Background task failure is non-critical
-    }
-  })
-
   try {
     let userId: string | null = null
     const session = await verifySession()

@@ -1,33 +1,29 @@
 import { prisma } from '@/lib/db/prisma'
 import { NextResponse } from 'next/server'
+import { verifyAdmin } from '@/lib/auth/session-utils'
 
-// Public endpoint - no authentication required
+// Admin-only endpoint — never expose database info publicly
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET() {
   try {
-    // Test connection
+    const userId = await verifyAdmin()
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     await prisma.$connect()
-    
-    // Simple query
     const userCount = await prisma.user.count()
-    
-    return NextResponse.json({ 
-      success: true, 
+
+    return NextResponse.json({
+      success: true,
       userCount,
-      hasDatabaseUrl: !!process.env.DATABASE_URL,
-      hasDirectUrl: !!process.env.DIRECT_URL,
-      databaseUrlPrefix: process.env.DATABASE_URL?.substring(0, 30) || 'NOT SET',
     })
   } catch (error: any) {
-    return NextResponse.json({ 
-      success: false, 
+    return NextResponse.json({
+      success: false,
       error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-      hasDatabaseUrl: !!process.env.DATABASE_URL,
-      hasDirectUrl: !!process.env.DIRECT_URL,
-      databaseUrlPrefix: process.env.DATABASE_URL?.substring(0, 30) || 'NOT SET',
     }, { status: 500 })
   }
 }

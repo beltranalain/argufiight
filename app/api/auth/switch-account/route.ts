@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new JWT with the target session token
-    const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'your-secret-key-change-in-production')
+    const secret = new TextEncoder().encode(process.env.AUTH_SECRET!)
     const sessionJWT = await new SignJWT({ sessionToken: targetSession.token })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()

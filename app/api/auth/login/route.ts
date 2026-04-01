@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
             const cookieStore = await cookies()
             const sessionCookie = cookieStore.get('session')
             if (sessionCookie) {
-              const secretKey = process.env.AUTH_SECRET || 'your-secret-key-change-in-production'
+              const secretKey = process.env.AUTH_SECRET!
               const encodedKey = new TextEncoder().encode(secretKey)
               const { payload } = await jwtVerify(sessionCookie.value, encodedKey)
               const sessionToken = (payload as any).sessionToken

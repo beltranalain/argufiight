@@ -740,6 +740,8 @@ model Debate {
   @@index([challengerId, status]) // User's debates by status
   @@index([opponentId, status]) // Opponent's debates by status
   @@index([viewCount]) // Trending page sorts by viewCount
+  @@index([status, createdAt]) // Cron jobs + sorted debate listings
+  @@index([status, challengeType, opponentId]) // AI auto-accept query
   @@map("debates")
 }
 
@@ -759,6 +761,7 @@ model DebateParticipant {
   @@index([debateId])
   @@index([userId])
   @@index([status])
+  @@index([userId, status]) // User's participations filtered by status
   @@map("debate_participants")
 }
 
@@ -785,6 +788,7 @@ model Statement {
   @@unique([debateId, authorId, round])
   @@index([debateId])
   @@index([authorId])
+  @@index([debateId, round]) // Turn detection in cron jobs
   @@map("statements")
 }
 

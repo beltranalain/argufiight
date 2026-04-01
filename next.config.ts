@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
         source: '/(.*)',
         headers: [
           { key: 'X-DNS-Prefetch-Control', value: 'on' },
-          { key: 'Content-Security-Policy', value: "frame-ancestors 'self' https://www.donkeyideas.com https://donkeyideas.com" },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' },

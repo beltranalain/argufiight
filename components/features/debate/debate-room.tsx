@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/toast';
+import { DebateComments } from './debate-comments';
 import { cn } from '@/lib/cn';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -38,21 +39,25 @@ const statusLabels: Record<string, string> = {
   CANCELLED:     'Cancelled',
 };
 
-export function DebateRoom({ debate, currentUserId }: DebateRoomProps) {
+export function DebateRoom({ debate: initialDebate, currentUserId }: DebateRoomProps) {
   const { success, error: toastError } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [debate, setDebate] = useState(initialDebate);
   const [statement, setStatement] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [tab, setTab] = useState(searchParams.get('tab') === 'verdict' ? 'verdict' : 'arguments');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Sync with server-rendered data when it changes (e.g. after router.refresh on submit)
+  useEffect(() => { setDebate(initialDebate); }, [initialDebate]);
 
   const isParticipant =
     currentUserId === debate.challengerId || currentUserId === debate.opponentId;
   const isChallenger  = currentUserId === debate.challengerId;
   const canSubmit     = isParticipant && debate.status === 'ACTIVE';
 
-  // Poll every 30s while waiting for the AI to respond
+  // Determine if we're waiting for opponent
   const currentRoundStmts = debate.statements.filter(
     (s: any) => s.round === (debate.currentRound ?? 1)
   );
@@ -66,18 +71,26 @@ export function DebateRoom({ debate, currentUserId }: DebateRoomProps) {
   const waitingForAI =
     isParticipant && debate.status === 'ACTIVE' && humanSubmittedThisRound && !aiSubmittedThisRound;
 
+  // Poll every 10s with targeted fetch (no full page refresh), pause when tab hidden
   useEffect(() => {
     if (!waitingForAI) {
       if (pollRef.current) clearInterval(pollRef.current);
       return;
     }
-    pollRef.current = setInterval(() => {
-      router.refresh();
-    }, 30_000); // refresh every 30s so after() re-fires on the server
+    pollRef.current = setInterval(async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const res = await fetch(`/api/debates/${debate.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setDebate(data);
+        }
+      } catch {}
+    }, 10_000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [waitingForAI, router]);
+  }, [waitingForAI, debate.id]);
 
   // Spectator heartbeat — ping every 20s so the count stays live
   useEffect(() => {
@@ -198,6 +211,7 @@ export function DebateRoom({ debate, currentUserId }: DebateRoomProps) {
                 {verdicts.length > 0 && (
                   <TabsTrigger value="verdict">Verdict ({verdicts.length})</TabsTrigger>
                 )}
+                <TabsTrigger value="comments">Comments</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -428,6 +442,13 @@ export function DebateRoom({ debate, currentUserId }: DebateRoomProps) {
                   </Button>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Comments tab */}
+          {tab === 'comments' && (
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <DebateComments debateId={debate.id} currentUserId={currentUserId} />
             </div>
           )}
 

@@ -139,14 +139,32 @@ export function MessagesUI({ conversations: initialConversations, currentUserId,
     ? activeConv.user1Id === currentUserId ? activeConv.user2 : activeConv.user1
     : null;
 
+  // Fetch messages on conversation open + poll every 10s for new messages
   useEffect(() => {
     if (!activeConvId) return;
-    setLoadingMessages(true);
-    fetch(`/api/messages/conversations/${activeConvId}/messages`)
-      .then((r) => r.json())
-      .then((data) => setMessages(data.messages ?? []))
-      .catch(() => error('Failed to load messages'))
-      .finally(() => setLoadingMessages(false));
+    let cancelled = false;
+
+    async function fetchMessages(showLoading = false) {
+      if (showLoading) setLoadingMessages(true);
+      try {
+        const res = await fetch(`/api/messages/conversations/${activeConvId}/messages`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setMessages(data.messages ?? []);
+        }
+      } catch {
+        if (showLoading) error('Failed to load messages');
+      } finally {
+        if (showLoading) setLoadingMessages(false);
+      }
+    }
+
+    fetchMessages(true);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchMessages();
+    }, 10_000);
+
+    return () => { cancelled = true; clearInterval(interval); };
   }, [activeConvId]);
 
   useEffect(() => {

@@ -10,21 +10,15 @@ import crypto from 'crypto'
 // GET /api/debates - List debates
 export async function GET(request: NextRequest) {
   try {
-    // Run background tasks after response is sent using after()
-    // This is more reliable than fire-and-forget fetches in Vercel serverless
+    // Process expired debates in background after response is sent
     after(async () => {
       try {
-        // Process expired debates
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
           (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
         fetch(`${baseUrl}/api/debates/process-expired`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         }).catch(() => {})
-
-        // AI auto-accept open challenges
-        const { triggerAIAutoAccept } = await import('@/lib/ai/trigger-ai-accept')
-        await triggerAIAutoAccept()
       } catch {
         // Background task failure is non-critical
       }
@@ -39,13 +33,13 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100) // Max 100 per page
     const skip = (page - 1) * limit
     
-    // Get current user session for access control
+    // Get current user session + admin status in a single query
     const session = await verifySession()
     const currentUserId = session ? getUserIdFromSession(session) : null
-    
-    // Check if current user is admin
+
     let isAdmin = false
     if (currentUserId) {
+      // Combined with session check — avoids separate admin query
       const user = await prisma.user.findUnique({
         where: { id: currentUserId },
         select: { isAdmin: true },
@@ -223,7 +217,7 @@ export async function GET(request: NextRequest) {
       hasNoStatements: !debate.statements || debate.statements.length === 0,
     }))
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       debates: debatesWithFlags,
       pagination: {
         page,
@@ -232,6 +226,11 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit),
       },
     })
+    // Cache public debate listings for 30s at CDN, serve stale for 5 min while revalidating
+    if (!userId && !shareToken) {
+      response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300')
+    }
+    return response
   } catch (error) {
     console.error('Failed to fetch debates:', error)
     return NextResponse.json(
@@ -676,17 +675,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Trigger AI auto-accept after the response is sent (for OPEN challenges)
-    if (challengeType === 'OPEN') {
-      after(async () => {
-        try {
-          const { triggerAIAutoAccept } = await import('@/lib/ai/trigger-ai-accept')
-          await triggerAIAutoAccept()
-        } catch {
-          // Background task failure is non-critical
-        }
-      })
-    }
+    // AI auto-accept for OPEN challenges is handled by the cron job (every 5 min)
+    // with a configurable grace period to allow human-vs-human matching first
 
     // Auto-accept DIRECT challenges to AI users — AI can't manually accept
     if (challengeType === 'DIRECT' && debate && invitedUserIds?.length === 1) {

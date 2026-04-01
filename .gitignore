@@ -42,3 +42,9 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# mobile build artifacts & secrets
+mobile/credentials.json
+mobile/*.aab
+mobile/*.apk
+mobile/credentials/

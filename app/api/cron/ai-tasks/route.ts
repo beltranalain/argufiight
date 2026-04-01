@@ -35,6 +35,12 @@ export async function GET(request: NextRequest) {
 
     // ===== AUTO-ACCEPT CHALLENGES (round-robin, load-balanced) =====
     try {
+      // Read admin-configurable grace period (default 30 min)
+      const graceSetting = await prisma.adminSetting.findFirst({
+        where: { key: 'ai_accept_grace_period' },
+      })
+      const gracePeriodMs = graceSetting ? parseInt(graceSetting.value) : 1800000
+
       const aiUserIds = aiUsers.map(u => u.id)
       const [allOpenChallenges, activeDebateCounts, totalDebateCounts] = await Promise.all([
         prisma.debate.findMany({
@@ -88,11 +94,10 @@ export async function GET(request: NextRequest) {
       })
 
       // Build per-user eligible challenge lists
-      // Use a short accept delay (10s) — response delay is enforced separately
+      // Use admin-configurable grace period so humans get time to accept first
       const perUserEligible = new Map<string, Set<string>>()
       for (const aiUser of sortedAiUsers) {
-        const acceptDelay = 10000 // 10 seconds
-        const cutoffTime = new Date(Date.now() - acceptDelay)
+        const cutoffTime = new Date(Date.now() - gracePeriodMs)
         const ids = new Set(
           allOpenChallenges
             .filter(c => c.challengerId !== aiUser.id && c.createdAt <= cutoffTime)
@@ -246,6 +251,20 @@ export async function GET(request: NextRequest) {
               if (statementAge < delayMs) continue
             }
 
+            // Re-check inside transaction to prevent race condition where
+            // human submits between our check and the AI statement creation.
+            // The @@unique([debateId, authorId, round]) constraint is our safety net.
+            const existingAIStatement = await prisma.statement.findUnique({
+              where: {
+                debateId_authorId_round: {
+                  debateId: debate.id,
+                  authorId: aiUser.id,
+                  round: debate.currentRound,
+                },
+              },
+            })
+            if (existingAIStatement) continue // Already submitted for this round
+
             // Generate AI response
             const aiResponse = await generateAIResponse(
               debate.id,
@@ -253,15 +272,21 @@ export async function GET(request: NextRequest) {
               debate.currentRound
             )
 
-            // Submit the statement
-            await prisma.statement.create({
-              data: {
-                debateId: debate.id,
-                authorId: aiUser.id,
-                content: aiResponse.trim(),
-                round: debate.currentRound,
-              },
-            })
+            // Submit the statement — unique constraint prevents duplicate if race occurs
+            try {
+              await prisma.statement.create({
+                data: {
+                  debateId: debate.id,
+                  authorId: aiUser.id,
+                  content: aiResponse.trim(),
+                  round: debate.currentRound,
+                },
+              })
+            } catch (createError: any) {
+              // P2002 = unique constraint violation — another process already submitted
+              if (createError.code === 'P2002') continue
+              throw createError
+            }
 
             // Update analytics
             const wordCount = calculateWordCount(aiResponse)

@@ -8,6 +8,13 @@ import { prisma } from '@/lib/db/prisma'
  */
 export async function triggerAIAutoAccept(): Promise<number> {
   try {
+    // Read admin-configurable grace period (default 30 min)
+    // This gives humans time to accept open challenges before bots step in
+    const graceSetting = await prisma.adminSetting.findFirst({
+      where: { key: 'ai_accept_grace_period' },
+    })
+    const gracePeriodMs = graceSetting ? parseInt(graceSetting.value) : 1800000 // 30 min default
+
     const aiUsers = await prisma.user.findMany({
       where: { isAI: true, aiPaused: false },
       select: { id: true, username: true, aiResponseDelay: true },
@@ -70,11 +77,10 @@ export async function triggerAIAutoAccept(): Promise<number> {
     })
 
     // Build per-user eligible challenge lists
-    // Use a short accept delay (10s) — the response delay is enforced separately when generating arguments
+    // Use the admin-configurable grace period so humans get time to accept first
     const perUserEligible = new Map<string, Set<string>>()
     for (const aiUser of sortedAiUsers) {
-      const acceptDelay = 10000 // 10 seconds — just enough to not look instant
-      const cutoffTime = new Date(Date.now() - acceptDelay)
+      const cutoffTime = new Date(Date.now() - gracePeriodMs)
       const ids = new Set(
         allOpenChallenges
           .filter(c => c.challengerId !== aiUser.id && c.createdAt <= cutoffTime)

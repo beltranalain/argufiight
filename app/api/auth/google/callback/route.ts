@@ -332,7 +332,7 @@ export async function GET(request: NextRequest) {
       try {
         console.log('[Google OAuth Callback] Restoring original session for account addition')
         const { jwtVerify } = await import('jose')
-        const secretKey = process.env.AUTH_SECRET || 'your-secret-key-change-in-production'
+        const secretKey = process.env.AUTH_SECRET!
         const encodedKey = new TextEncoder().encode(secretKey)
         const { payload } = await jwtVerify(existingSession.value, encodedKey)
         const originalSessionToken = (payload as any).sessionToken

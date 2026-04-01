@@ -42,10 +42,12 @@ export function NotificationBell() {
     } catch {}
   }, []);
 
-  // Fetch on mount + every 30s
+  // Fetch on mount + every 10s (pauses when tab is hidden to save bandwidth)
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30_000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchNotifications();
+    }, 10_000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
@@ -155,7 +157,7 @@ export function NotificationBell() {
                 );
 
                 const href = n.debateId
-                  ? `/debates/${n.debateId}`
+                  ? `/debate/${n.debateId}`
                   : n.type === 'NEW_MESSAGE'
                     ? '/messages'
                     : null;
