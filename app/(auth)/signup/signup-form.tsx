@@ -13,6 +13,7 @@ export function SignupForm() {
   const { error } = useToast();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ username: '', email: '', password: '' });
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   function update(k: string, v: string) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -20,6 +21,7 @@ export function SignupForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!agreedToTerms) { error('Terms required', 'You must agree to the Terms of Service and Privacy Policy'); return; }
     if (!form.username.trim() || !form.email.trim() || !form.password) return;
     if (form.password.length < 8) { error('Password too short', 'Min. 8 characters'); return; }
     setLoading(true);
@@ -41,6 +43,7 @@ export function SignupForm() {
   }
 
   function handleGoogle() {
+    if (!agreedToTerms) { error('Terms required', 'You must agree to the Terms of Service and Privacy Policy'); return; }
     window.location.href = '/api/auth/google';
   }
 
@@ -87,15 +90,23 @@ export function SignupForm() {
             autoComplete="new-password"
           />
         </div>
-        <Button variant="accent" size="md" fullWidth type="submit" loading={loading}>
+        <label className="flex items-start gap-2.5 cursor-pointer select-none mt-1">
+          <input
+            type="checkbox"
+            checked={agreedToTerms}
+            onChange={(e) => setAgreedToTerms(e.target.checked)}
+            className="mt-0.5 w-4 h-4 accent-[var(--accent)] rounded border-[var(--border)] flex-shrink-0"
+          />
+          <span className="text-[13px] text-text-3 leading-[1.5]">
+            I agree to the{' '}
+            <a href="/terms" target="_blank" className="text-accent hover:underline">Terms of Service</a>
+            {' '}and{' '}
+            <a href="/privacy" target="_blank" className="text-accent hover:underline">Privacy Policy</a>
+          </span>
+        </label>
+        <Button variant="accent" size="md" fullWidth type="submit" loading={loading} disabled={!agreedToTerms}>
           Create account
         </Button>
-        <p className="text-[12px] text-text-3 text-center">
-          By signing up you agree to our{' '}
-          <a href="/terms" className="hover:underline">Terms</a>
-          {' '}and{' '}
-          <a href="/privacy" className="hover:underline">Privacy Policy</a>
-        </p>
       </form>
     </div>
   );

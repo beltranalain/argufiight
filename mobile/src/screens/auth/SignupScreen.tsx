@@ -37,8 +37,13 @@ export function SignupScreen({ navigation }: any) {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
   const [error, setError] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   async function handleSignup() {
+    if (!agreedToTerms) {
+      setError('You must agree to the Terms of Service and Privacy Policy');
+      return;
+    }
     if (!username.trim() || !email.trim() || !password) return;
     if (password.length < 8) {
       setError('Password must be at least 8 characters');
@@ -67,6 +72,10 @@ export function SignupScreen({ navigation }: any) {
   }
 
   async function handleGoogleSignup() {
+    if (!agreedToTerms) {
+      setError('You must agree to the Terms of Service and Privacy Policy');
+      return;
+    }
     setGoogleLoading(true);
     setError('');
     try {
@@ -123,6 +132,10 @@ export function SignupScreen({ navigation }: any) {
   }
 
   async function handleAppleSignup() {
+    if (!agreedToTerms) {
+      setError('You must agree to the Terms of Service and Privacy Policy');
+      return;
+    }
     setAppleLoading(true);
     setError('');
     try {
@@ -259,19 +272,48 @@ export function SignupScreen({ navigation }: any) {
             }
           />
 
+          <TouchableOpacity
+            style={styles.termsRow}
+            onPress={() => setAgreedToTerms(!agreedToTerms)}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.checkbox,
+                { borderColor: agreedToTerms ? colors.accent : colors.text3 },
+                agreedToTerms && { backgroundColor: colors.accent },
+              ]}
+            >
+              {agreedToTerms && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={[styles.termsText, { color: colors.text3 }]}>
+              I agree to the{' '}
+              <Text
+                style={{ color: colors.accent, textDecorationLine: 'underline' }}
+                onPress={() => WebBrowser.openBrowserAsync(`${BASE_URL}/terms`)}
+              >
+                Terms of Service
+              </Text>
+              {' '}and{' '}
+              <Text
+                style={{ color: colors.accent, textDecorationLine: 'underline' }}
+                onPress={() => WebBrowser.openBrowserAsync(`${BASE_URL}/privacy`)}
+              >
+                Privacy Policy
+              </Text>
+            </Text>
+          </TouchableOpacity>
+
           <Button
             variant="accent"
             size="lg"
             fullWidth
             loading={loading}
             onPress={handleSignup}
+            disabled={!agreedToTerms}
           >
             Create account
           </Button>
-
-          <Text style={[styles.terms, { color: colors.text3 }]}>
-            By signing up you agree to our Terms and Privacy Policy
-          </Text>
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: colors.text3 }]}>
@@ -304,7 +346,13 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, marginBottom: 28 },
   errorBox: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 16 },
   errorText: { fontSize: 13 },
-  terms: { fontSize: 12, textAlign: 'center', marginTop: 16, lineHeight: 18 },
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 16, gap: 10, paddingHorizontal: 4 },
+  checkbox: {
+    width: 20, height: 20, borderRadius: 4, borderWidth: 2,
+    alignItems: 'center', justifyContent: 'center', marginTop: 1,
+  },
+  checkmark: { color: '#000', fontSize: 13, fontWeight: '700', lineHeight: 16 },
+  termsText: { fontSize: 13, lineHeight: 20, flex: 1 },
   footer: { flexDirection: 'row', justifyContent: 'center', paddingTop: 32, paddingBottom: 20 },
   footerText: { fontSize: 13 },
   footerLink: { fontSize: 13, fontWeight: '500' },

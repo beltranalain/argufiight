@@ -60,6 +60,28 @@ export async function POST(
       },
     });
 
+    // Notify admin/developer about the block (Apple Guideline 1.2 requirement)
+    const blocker = await prisma.user.findUnique({
+      where: { id: blockerId },
+      select: { username: true },
+    });
+
+    const admins = await prisma.user.findMany({
+      where: { isAdmin: true },
+      select: { id: true },
+    });
+
+    if (admins.length > 0) {
+      await prisma.notification.createMany({
+        data: admins.map((admin) => ({
+          userId: admin.id,
+          type: 'OTHER' as const,
+          title: 'User Blocked',
+          message: `${blocker?.username ?? 'A user'} blocked ${blockedUser.username ?? blockedUserId}${body.reason ? ` — Reason: ${body.reason}` : ''}`,
+        })),
+      });
+    }
+
     return NextResponse.json({ success: true, blocked: true });
   } catch (error: any) {
     console.error('Failed to block user:', error);

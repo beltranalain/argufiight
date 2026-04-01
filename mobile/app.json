@@ -32,7 +32,7 @@
     },
     "android": {
       "package": "com.argufight.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -69,7 +69,8 @@
       "expo-notifications",
       "expo-image-picker",
       "expo-speech-recognition",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "expo-image"
     ],
     "owner": "beltranalain",
     "extra": {
