@@ -158,6 +158,18 @@ export function DebateRoomScreen({ navigation, route }: any) {
 
   const isParticipant = user && (debate?.challengerId === user.id || debate?.opponentId === user.id);
   const canSubmit = isParticipant && debate?.status === 'ACTIVE';
+  const canAccept = user && debate?.status === 'WAITING' && debate?.challengerId !== user.id;
+
+  const acceptMutation = useMutation({
+    mutationFn: () => debatesApi.accept(id),
+    onSuccess: () => {
+      Alert.alert('Challenge Accepted', 'The debate is now active!');
+      queryClient.invalidateQueries({ queryKey: ['debate', id] });
+    },
+    onError: (err: any) => {
+      Alert.alert('Failed to accept', err.message ?? 'Please try again.');
+    },
+  });
 
   const handleSubmitStatement = useCallback(() => {
     const text = statement.trim();
@@ -256,6 +268,27 @@ export function DebateRoomScreen({ navigation, route }: any) {
                   <Text style={[styles.playerRole, { color: colors.red }]}>Opponent</Text>
                 </View>
               </View>
+
+              {/* Accept banner for WAITING debates */}
+              {canAccept && (
+                <View style={[styles.acceptBanner, { backgroundColor: colors.accent + '14', borderColor: colors.accent + '33' }]}>
+                  <Text style={{ color: colors.text, fontSize: 14, fontWeight: '500', marginBottom: 2 }}>
+                    {debate?.opponentId === user?.id ? "You've been challenged!" : "Open challenge — join the debate"}
+                  </Text>
+                  <Text style={{ color: colors.text3, fontSize: 12, marginBottom: 10 }}>{debate?.topic}</Text>
+                  <TouchableOpacity
+                    style={[styles.acceptButton, { backgroundColor: colors.accent }]}
+                    onPress={() => acceptMutation.mutate()}
+                    disabled={acceptMutation.isPending}
+                  >
+                    {acceptMutation.isPending ? (
+                      <ActivityIndicator size="small" color={colors.accentFg} />
+                    ) : (
+                      <Text style={{ color: colors.accentFg, fontSize: 14, fontWeight: '600' }}>Accept Challenge</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {/* Statements */}
               <View style={{ marginTop: 20 }}>
@@ -538,4 +571,6 @@ const styles = StyleSheet.create({
   scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', borderTopWidth: 1, paddingTop: 12, gap: 8 },
   scoreCol: { alignItems: 'center' },
   judgeScoreBox: { alignItems: 'center', flex: 1 },
+  acceptBanner: { padding: 16, borderRadius: 10, borderWidth: 1, marginTop: 16, alignItems: 'center' },
+  acceptButton: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8, alignItems: 'center', justifyContent: 'center', minWidth: 160 },
 });

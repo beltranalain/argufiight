@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifySession } from '@/lib/auth/session'
+import { verifySession, getSession } from '@/lib/auth/session'
 import { prisma } from '@/lib/db/prisma'
 import { getUserIdFromSession } from '@/lib/auth/session-utils'
 
@@ -9,8 +9,26 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    let userId: string | null = null
+
+    // Primary auth: cookie-based session (web)
     const session = await verifySession()
-    if (!session) {
+    if (session) {
+      userId = getUserIdFromSession(session)
+    }
+
+    // Fallback: Bearer token (mobile)
+    if (!userId) {
+      const authHeader = request.headers.get('authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        const bearerSession = await getSession(authHeader.slice(7))
+        if (bearerSession) {
+          userId = bearerSession.userId
+        }
+      }
+    }
+
+    if (!userId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -18,14 +36,6 @@ export async function POST(
     }
 
     const { id } = await params
-    const userId = getUserIdFromSession(session)
-    
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
 
     // Check if user is suspended
     const user = await prisma.user.findUnique({

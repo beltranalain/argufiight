@@ -137,16 +137,15 @@ export function DebateRoom({ debate: initialDebate, currentUserId }: DebateRoomP
   }
 
   async function handleAccept() {
-    const res = await fetch(`/api/debates/${debate.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'accept' }),
+    const res = await fetch(`/api/debates/${debate.id}/accept`, {
+      method: 'POST',
     });
     if (res.ok) {
       success('Challenge accepted');
       router.refresh();
     } else {
-      toastError('Failed to accept challenge');
+      const data = await res.json().catch(() => ({}));
+      toastError(data.error || 'Failed to accept challenge');
     }
   }
 
@@ -219,11 +218,11 @@ export function DebateRoom({ debate: initialDebate, currentUserId }: DebateRoomP
           {/* Arguments feed */}
           {tab === 'arguments' && (
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-              {/* Accept challenge banner */}
-              {debate.status === 'WAITING' && currentUserId === debate.opponentId && (
+              {/* Accept challenge banner — show for WAITING debates where user is not the challenger */}
+              {debate.status === 'WAITING' && currentUserId !== debate.challengerId && (
                 <Card padding="md" className="border-[rgba(212,240,80,0.2)] bg-[rgba(212,240,80,0.04)]">
                   <p className="text-sm font-[450] text-text mb-1">
-                    You've been challenged to a debate
+                    {debate.opponentId === currentUserId ? "You've been challenged to a debate" : "Open challenge — join the debate"}
                   </p>
                   <p className="text-xs text-text-3 mb-3">{debate.topic}</p>
                   <Button variant="accent" size="sm" onClick={handleAccept}>
