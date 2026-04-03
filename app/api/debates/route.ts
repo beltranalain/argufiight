@@ -253,10 +253,15 @@ export async function POST(request: NextRequest) {
       const authHeader = request.headers.get('authorization')
       if (authHeader?.startsWith('Bearer ')) {
         const bearerToken = authHeader.slice(7)
+        console.log('[debates POST] Primary auth failed, trying Bearer fallback, token length:', bearerToken.length)
         const bearerSession = await getSession(bearerToken)
         if (bearerSession) {
           userId = bearerSession.userId
+        } else {
+          console.error('[debates POST] Bearer fallback also failed')
         }
+      } else {
+        console.error('[debates POST] No Bearer token in request headers')
       }
     }
 

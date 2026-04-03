@@ -106,16 +106,12 @@ export async function verifySessionWithDb() {
     })
 
     if (!session) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[verifySessionWithDb] Session not found in database for token:', sessionToken.substring(0, 20) + '...')
-      }
+      console.error('[verifySessionWithDb] Session not found in DB for token:', sessionToken.substring(0, 12) + '...')
       return null
     }
 
     if (session.expiresAt < new Date()) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[verifySessionWithDb] Session expired, deleting:', session.id)
-      }
+      console.error('[verifySessionWithDb] Session expired:', session.id, session.expiresAt.toISOString())
       // Clean up expired session
       await prisma.session.delete({ where: { id: session.id } })
       return null
@@ -190,6 +186,7 @@ export async function deleteSession() {
  */
 export async function getSession(token: string) {
   if (!token) {
+    console.error('[getSession] No token provided')
     return null
   }
 
@@ -197,8 +194,9 @@ export async function getSession(token: string) {
     // Dynamic import Prisma to avoid Edge runtime issues
     const { prisma } = await import('@/lib/db/prisma')
     const { jwtVerify } = await import('jose')
-    
+
     if (!process.env.AUTH_SECRET) {
+      console.error('[getSession] AUTH_SECRET not set')
       throw new Error('AUTH_SECRET environment variable is required')
     }
     const secretKey = process.env.AUTH_SECRET
@@ -207,6 +205,11 @@ export async function getSession(token: string) {
     // Verify JWT
     const { payload } = await jwtVerify(token, encodedKey)
     const { sessionToken } = payload as { sessionToken: string }
+
+    if (!sessionToken) {
+      console.error('[getSession] JWT valid but no sessionToken in payload:', Object.keys(payload))
+      return null
+    }
 
     // Look up session in database
     const session = await prisma.session.findUnique({
@@ -223,12 +226,14 @@ export async function getSession(token: string) {
       },
     })
 
-    if (!session || session.expiresAt < new Date()) {
-      // Session expired or not found
-      if (session) {
-        // Clean up expired session
-        await prisma.session.delete({ where: { id: session.id } })
-      }
+    if (!session) {
+      console.error('[getSession] Session not found in DB for token:', sessionToken.substring(0, 12) + '...')
+      return null
+    }
+
+    if (session.expiresAt < new Date()) {
+      console.error('[getSession] Session expired:', session.expiresAt.toISOString())
+      await prisma.session.delete({ where: { id: session.id } })
       return null
     }
 
@@ -237,7 +242,8 @@ export async function getSession(token: string) {
       sessionId: session.id,
       user: session.user,
     }
-  } catch (error) {
+  } catch (error: any) {
+    console.error('[getSession] Error:', error.code || error.message || error)
     return null
   }
 }

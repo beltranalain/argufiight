@@ -32,7 +32,7 @@
     },
     "android": {
       "package": "com.argufight.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
